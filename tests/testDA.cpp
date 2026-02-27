@@ -1,0 +1,191 @@
+#include "testUtils.hpp"
+
+// =============================================================================
+// Constructors
+// =============================================================================
+
+TEST(DAConstruct, DefaultIsZero) {
+    DAd<4> a;
+    for (std::size_t k = 0; k < DAd<4>::ncoef; ++k)
+        EXPECT_EQ(a[k], 0.0) << "k=" << k;
+}
+
+TEST(DAConstruct, ValueCtorSetsConstant) {
+    DAd<4> a{3.14};
+    EXPECT_NEAR(a[0], 3.14, kTol);
+    for (std::size_t k = 1; k < DAd<4>::ncoef; ++k)
+        EXPECT_EQ(a[k], 0.0) << "k=" << k;
+}
+
+TEST(DAConstruct, CoeffArrayCtor) {
+    DAd<3>::coeff_array c{1, 2, 3, 4};
+    DAd<3> a{c};
+    for (std::size_t k = 0; k < DAd<3>::ncoef; ++k)
+        EXPECT_NEAR(a[k], double(k + 1), kTol) << "k=" << k;
+}
+
+TEST(DAConstruct, FromExpression) {
+    auto x = DAd<4>::variable<0>({1.0});
+    DAd<4> r = x + x;   // construct from expression
+    EXPECT_NEAR(r[0], 2.0, kTol);
+    EXPECT_NEAR(r[1], 2.0, kTol);
+    for (std::size_t k = 2; k < DAd<4>::ncoef; ++k)
+        EXPECT_EQ(r[k], 0.0);
+}
+
+// =============================================================================
+// Variable factories
+// =============================================================================
+
+TEST(DAVariable, Univariate_Variable0) {
+    // variable<0>({x0}) = x0 + 1*delta
+    auto x = DAd<4>::variable<0>({3.0});
+    EXPECT_NEAR(x[0], 3.0, kTol);   // expansion point
+    EXPECT_NEAR(x[1], 1.0, kTol);   // linear coefficient = 1
+    for (std::size_t k = 2; k < DAd<4>::ncoef; ++k)
+        EXPECT_EQ(x[k], 0.0) << "k=" << k;
+}
+
+TEST(DAVariable, Bivariate_Variable0) {
+    auto x = DAMd<3,2>::variable<0>({2.0, 5.0});
+    EXPECT_NEAR(x.coeff({0,0}), 2.0, kTol);   // expansion point for x
+    EXPECT_NEAR(x.coeff({1,0}), 1.0, kTol);   // dx/dx = 1
+    EXPECT_NEAR(x.coeff({0,1}), 0.0, kTol);   // dx/dy = 0
+}
+
+TEST(DAVariable, Bivariate_Variable1) {
+    auto y = DAMd<3,2>::variable<1>({2.0, 5.0});
+    EXPECT_NEAR(y.coeff({0,0}), 5.0, kTol);   // expansion point for y
+    EXPECT_NEAR(y.coeff({1,0}), 0.0, kTol);   // dy/dx = 0
+    EXPECT_NEAR(y.coeff({0,1}), 1.0, kTol);   // dy/dy = 1
+}
+
+TEST(DAVariable, Variables_StructuredBinding) {
+    auto [x, y, z] = DAMd<2,3>::variables({1.0, 2.0, 3.0});
+    EXPECT_NEAR(x.value(), 1.0, kTol);
+    EXPECT_NEAR(y.value(), 2.0, kTol);
+    EXPECT_NEAR(z.value(), 3.0, kTol);
+    // Each variable has coefficient 1 for its own direction only
+    EXPECT_NEAR(x.coeff({1,0,0}), 1.0, kTol);
+    EXPECT_NEAR(x.coeff({0,1,0}), 0.0, kTol);
+    EXPECT_NEAR(y.coeff({1,0,0}), 0.0, kTol);
+    EXPECT_NEAR(y.coeff({0,1,0}), 1.0, kTol);
+    EXPECT_NEAR(z.coeff({0,0,1}), 1.0, kTol);
+}
+
+TEST(DAVariable, Constant) {
+    auto c = DAd<5>::constant(7.0);
+    EXPECT_NEAR(c.value(), 7.0, kTol);
+    for (std::size_t k = 1; k < DAd<5>::ncoef; ++k)
+        EXPECT_EQ(c[k], 0.0);
+}
+
+// =============================================================================
+// Element access
+// =============================================================================
+
+TEST(DAAccess, ReadWrite) {
+    DAd<3> a;
+    a[0] = 1.0; a[1] = 2.0; a[2] = -1.0; a[3] = 0.5;
+    EXPECT_NEAR(a[0],  1.0, kTol);
+    EXPECT_NEAR(a[1],  2.0, kTol);
+    EXPECT_NEAR(a[2], -1.0, kTol);
+    EXPECT_NEAR(a[3],  0.5, kTol);
+}
+
+TEST(DAAccess, Value) {
+    DAd<3> a{5.0};
+    EXPECT_NEAR(a.value(), 5.0, kTol);
+}
+
+TEST(DAAccess, Coeff_Alpha) {
+    auto x = DAd<4>::variable<0>({2.0});
+    EXPECT_NEAR(x.coeff({0}), 2.0, kTol);
+    EXPECT_NEAR(x.coeff({1}), 1.0, kTol);
+    EXPECT_NEAR(x.coeff({2}), 0.0, kTol);
+}
+
+TEST(DAAccess, Derivative_FactorialFactor) {
+    // (1+x)^2 = 1 + 2x + x^2: derivative at x=0:
+    //   d/dx = 2 → derivative({1}) = c[1]*1! = 2
+    //   d^2/dx^2 = 2 → derivative({2}) = c[2]*2! = 1*2 = 2
+    DAd<3> a{};
+    a[0]=1; a[1]=2; a[2]=1;    // coefficients of (1+x)^2
+    EXPECT_NEAR(a.derivative({0}), 1.0, kTol);
+    EXPECT_NEAR(a.derivative({1}), 2.0, kTol);
+    EXPECT_NEAR(a.derivative({2}), 2.0, kTol);
+}
+
+TEST(DAAccess, Derivative_Bivariate) {
+    // f(x,y) = x^2 + x*y + y^2 at (0,0): coefficients are exact
+    // d^2f/dx^2 = 2 → coeff({2,0}) = 1, derivative({2,0}) = 1*2! = 2
+    auto [x, y] = DAMd<2,2>::variables({0.0, 0.0});
+    DAMd<2,2> f = x*x + x*y + y*y;
+    EXPECT_NEAR(f.derivative({2,0}), 2.0, kTol);
+    EXPECT_NEAR(f.derivative({0,2}), 2.0, kTol);
+    EXPECT_NEAR(f.derivative({1,1}), 1.0, kTol);
+}
+
+TEST(DAAccess, Coeffs_ReturnsArray) {
+    DAd<2> a{};
+    a[0]=1; a[1]=2; a[2]=3;
+    const auto& c = a.coeffs();
+    EXPECT_NEAR(c[0], 1.0, kTol);
+    EXPECT_NEAR(c[1], 2.0, kTol);
+    EXPECT_NEAR(c[2], 3.0, kTol);
+}
+
+// =============================================================================
+// In-place operators
+// =============================================================================
+
+TEST(DAInPlace, PlusEqDA) {
+    DAd<3> a{2.0}, b{3.0};
+    a += b;
+    EXPECT_NEAR(a.value(), 5.0, kTol);
+}
+
+TEST(DAInPlace, MinusEqDA) {
+    DAd<3> a{5.0}, b{3.0};
+    a -= b;
+    EXPECT_NEAR(a.value(), 2.0, kTol);
+}
+
+TEST(DAInPlace, PlusEqExpression) {
+    auto x = DAd<4>::variable<0>({1.0});
+    DAd<4> r{2.0};
+    r += x;   // 2 + (1+δ)
+    EXPECT_NEAR(r[0], 3.0, kTol);
+    EXPECT_NEAR(r[1], 1.0, kTol);
+}
+
+TEST(DAInPlace, MinusEqExpression) {
+    auto x = DAd<4>::variable<0>({1.0});
+    DAd<4> r{2.0};
+    r -= x;   // 2 - (1+δ) = 1 - δ
+    EXPECT_NEAR(r[0], 1.0, kTol);
+    EXPECT_NEAR(r[1],-1.0, kTol);
+}
+
+TEST(DAInPlace, TimesEqScalar) {
+    auto x = DAd<3>::variable<0>({2.0});
+    DAd<3> r = x;
+    r *= 3.0;   // 3*(2+δ) = 6 + 3δ
+    EXPECT_NEAR(r[0], 6.0, kTol);
+    EXPECT_NEAR(r[1], 3.0, kTol);
+}
+
+TEST(DAInPlace, DivEqScalar) {
+    auto x = DAd<3>::variable<0>({4.0});
+    DAd<3> r = x;
+    r /= 2.0;   // (4+δ)/2 = 2 + 0.5δ
+    EXPECT_NEAR(r[0], 2.0, kTol);
+    EXPECT_NEAR(r[1], 0.5, kTol);
+}
+
+TEST(DAInPlace, ChainedPlusEq) {
+    DAd<2> a{1.0}, b{2.0}, c{3.0};
+    a += b;
+    a += c;
+    EXPECT_NEAR(a.value(), 6.0, kTol);
+}

@@ -21,10 +21,14 @@ endif()
 
 # Collect all tests
 set(TEST_SOURCES
-    testUtils.cpp
-    testIndex.cpp
-    testKernel.cpp
-    # testExpr.cpp
+    testCombinatorics.cpp
+    testKernels.cpp
+    testDA.cpp
+    testExprAdd.cpp
+    testExprMul.cpp
+    testExprUnary.cpp
+    testExprPower.cpp
+    testCompose.cpp
 )
 
 include(GoogleTest)
