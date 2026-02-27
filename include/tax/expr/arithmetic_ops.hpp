@@ -5,7 +5,7 @@
 namespace da::detail {
 
 // =============================================================================
-// §6  Operation tags for BinExpr / ScalarExpr / UnaryExpr
+// §6a  Arithmetic operation tags for BinExpr / ScalarExpr / UnaryExpr
 // =============================================================================
 
 // -- Left-in-place binary ops (additive) ──────────────────────────────────────
@@ -86,20 +86,6 @@ struct OpScalarMul  { template <typename T, std::size_t S>
 struct OpScalarDivR { template <typename T, std::size_t S>
     static constexpr void apply(std::array<T,S>& o, T s) noexcept
     { scaleInPlace<T,S>(o, T{1} / s); } };
-
-// -- s / DA: 1 temp (aliasing guard for the reciprocal recurrence) ------------
-
-template <int N, int M>
-struct OpScalarDivL {
-    template <typename T>
-    static constexpr void apply(
-        std::array<T, numMonomials(N, M)>& out, T s) noexcept
-    {
-        const auto a = out;                              // snapshot (aliasing guard)
-        seriesReciprocal<T, N, M>(out, a);
-        scaleInPlace<T, numMonomials(N, M)>(out, s);
-    }
-};
 
 // -- Unary negation (0 temps) -------------------------------------------------
 

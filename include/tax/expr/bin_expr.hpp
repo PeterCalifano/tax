@@ -1,7 +1,7 @@
 #pragma once
 
 #include <tax/expr/base.hpp>
-#include <tax/expr/ops.hpp>
+#include <tax/expr/arithmetic_ops.hpp>
 
 namespace da::detail {
 

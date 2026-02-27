@@ -4,10 +4,7 @@
 #include <tax/expr/bin_expr.hpp>
 #include <tax/expr/unary_expr.hpp>
 #include <tax/expr/scalar_expr.hpp>
-#include <tax/expr/scalar_div_l_expr.hpp>
-#include <tax/expr/square_expr.hpp>
-#include <tax/expr/cube_expr.hpp>
-#include <tax/expr/sqrt_expr.hpp>
+#include <tax/expr/func_expr.hpp>
 #include <tax/expr/sum_expr.hpp>
 #include <tax/expr/product_expr.hpp>
 
@@ -129,36 +126,35 @@ template <typename E>
 [[nodiscard]] constexpr auto operator*(typename E::scalar_type s, const DA_BASE(E)& e) noexcept
 { return detail::ScalarExpr<E, detail::OpScalarMul>{e.self(), s}; }
 template <typename E>
-[[nodiscard]] constexpr auto operator/(typename E::scalar_type s, const DA_BASE(E)& e) noexcept
-{ return detail::ScalarDivLExpr<E>{e.self(), s}; }
+[[nodiscard]] constexpr auto operator/(typename E::scalar_type s, const DA_BASE(E)& e) noexcept {
+    using Recip = detail::FuncExpr<E, detail::OpReciprocal<E::order, E::nvars>>;
+    return detail::ScalarExpr<Recip, detail::OpScalarMul>{Recip{e.self()}, s};
+}
 
-// ── Power and root free functions ─────────────────────────────────────────────
+// ── Math free functions ─────────────────────────────────────────────────────
 //
-// Each returns a lazy ET node.  Materialisation (evalTo into the caller's
-// buffer) happens only when the expression is assigned to DA<T,N,M> or when
-// .eval() / .value() is called.
+// Each returns a lazy FuncExpr<E, Op> node.  Materialisation (evalTo into the
+// caller's buffer) happens only when the expression is assigned to DA<T,N,M>
+// or when .eval() / .value() is called.
 //
-// Memory contract: each node holds its sub-expression by stored_t<E>
-// (by const-ref if E is a leaf, by value if E is an ET node).
-// The single temp array needed at evaluation time lives on the stack inside
-// evalTo and is gone by the time the outer expression continues.
+// Leaf optimisation: when E is a DA leaf, the input coefficients are passed
+// directly to the kernel — no temporary needed (0 temps vs 1 temp).
 
-/// f^2 via Cauchy self-convolution.  1 temp: the materialised input.
+/// f^2 via Cauchy self-convolution.
 template <typename E>
 [[nodiscard]] constexpr auto square(const DA_BASE(E)& e) noexcept
-{ return detail::SquareExpr<E>{e.self()}; }
+{ return detail::FuncExpr<E, detail::OpSquare<E::order, E::nvars>>{e.self()}; }
 
-/// f^3 via direct triple convolution.  1 temp: the materialised input.
-/// No intermediate f^2 array is ever allocated.
+/// f^3 via direct triple convolution (no intermediate f^2 array).
 template <typename E>
 [[nodiscard]] constexpr auto cube(const DA_BASE(E)& e) noexcept
-{ return detail::CubeExpr<E>{e.self()}; }
+{ return detail::FuncExpr<E, detail::OpCube<E::order, E::nvars>>{e.self()}; }
 
-/// Taylor series of sqrt(f) via the g·g = f recurrence.  1 temp: the input.
+/// Taylor series of sqrt(f) via the g*g = f recurrence.
 /// Precondition: e.value() > 0.
 template <typename E>
 [[nodiscard]] constexpr auto sqrt(const DA_BASE(E)& e) noexcept
-{ return detail::SqrtExpr<E>{e.self()}; }
+{ return detail::FuncExpr<E, detail::OpSqrt<E::order, E::nvars>>{e.self()}; }
 
 #undef DA_BASE
 
