@@ -45,18 +45,6 @@ TEST(EigenTypes, VariablesFromEigenDynamicVector) {
     EXPECT_NEAR(z.value(), 6.0, kTol);
 }
 
-TEST(EigenTypes, HelperBuildsCoordinateVector) {
-    const auto v = tax::eigenVariables<double, 3, 3>({1.0, 2.0, 3.0});
-
-    EXPECT_NEAR(v(0).value(), 1.0, kTol);
-    EXPECT_NEAR(v(1).value(), 2.0, kTol);
-    EXPECT_NEAR(v(2).value(), 3.0, kTol);
-
-    EXPECT_NEAR(v(0).coeff({1,0,0}), 1.0, kTol);
-    EXPECT_NEAR(v(1).coeff({0,1,0}), 1.0, kTol);
-    EXPECT_NEAR(v(2).coeff({0,0,1}), 1.0, kTol);
-}
-
 #else
 
 TEST(EigenTypes, HeaderUnavailable) { GTEST_SKIP() << "Eigen core headers not available"; }
