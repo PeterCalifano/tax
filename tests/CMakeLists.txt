@@ -33,7 +33,9 @@ set(TEST_SOURCES
     testExprPow.cpp
     testExprHyp.cpp
     testExprInvTrig.cpp
+    testExprErf.cpp
     testCompose.cpp
+    testEigenTypes.cpp
     testEigenTensors.cpp
 )
 

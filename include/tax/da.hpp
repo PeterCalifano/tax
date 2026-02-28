@@ -3,6 +3,14 @@
 #include <tax/expr/base.hpp>
 #include <tax/kernels.hpp>
 
+#if __has_include( <Eigen/Core>)
+#include <Eigen/Core>
+#include <cassert>
+#define TAX_HAS_EIGEN_CORE 1
+#else
+#define TAX_HAS_EIGEN_CORE 0
+#endif
+
 namespace tax
 {
 
@@ -88,8 +96,50 @@ class TDA : public DAExpr< TDA< T, N, M >, T, N, M >, public DALeaf
         }( std::make_index_sequence< std::size_t( M ) >{} );
     }
 
+#if TAX_HAS_EIGEN_CORE
+    /**
+     * @brief Create all coordinate variables from an Eigen vector expansion point.
+     * @param x0 Eigen vector with `M` entries holding the expansion point.
+     * @return Tuple `(x_0, ..., x_{M-1})` of DA variables.
+     */
+    template < typename Derived >
+    [[nodiscard]] static auto variables( const Eigen::DenseBase< Derived >& x0 ) noexcept
+        requires( M > 1 && std::convertible_to< typename Derived::Scalar, T > )
+    {
+        static_assert( Derived::RowsAtCompileTime == 1 || Derived::ColsAtCompileTime == 1 ||
+                           Derived::RowsAtCompileTime == Eigen::Dynamic ||
+                           Derived::ColsAtCompileTime == Eigen::Dynamic,
+                       "Eigen input must be a vector expression" );
+        static_assert(
+            Derived::SizeAtCompileTime == Eigen::Dynamic || Derived::SizeAtCompileTime == M,
+            "Eigen vector size must match number of variables" );
+        assert( x0.rows() == 1 || x0.cols() == 1 );
+        assert( x0.size() == Eigen::Index( M ) );
+
+        point_type p{};
+        if ( x0.cols() == 1 )
+        {
+            for ( int i = 0; i < M; ++i )
+                p[std::size_t( i )] =
+                    static_cast< T >( x0( Eigen::Index( i ), Eigen::Index( 0 ) ) );
+        } else
+        {
+            for ( int i = 0; i < M; ++i )
+                p[std::size_t( i )] =
+                    static_cast< T >( x0( Eigen::Index( 0 ), Eigen::Index( i ) ) );
+        }
+        return variables( p );
+    }
+#endif
+
     /// @brief Create a constant polynomial with value `v`.
     [[nodiscard]] static constexpr TDA constant( T v ) noexcept { return TDA{ v }; }
+
+    /// @brief Create a constant polynomial with value `0`.
+    [[nodiscard]] static constexpr TDA zero() noexcept { return TDA{ 0 }; }
+
+    /// @brief Create a constant polynomial with value `1`.
+    [[nodiscard]] static constexpr TDA one() noexcept { return TDA{ 1 }; }
 
     // -- evalTo / addTo / subTo -----------------------------------------------
 
@@ -277,3 +327,5 @@ template < int N, int M >
 using DAn = TDA< double, N, M >;
 
 }  // namespace tax
+
+#undef TAX_HAS_EIGEN_CORE

@@ -102,4 +102,10 @@ template < typename E >
     return detail::FuncExpr< E, detail::OpExp< E::order, E::nvars > >{ e.self() };
 }
 
+template < typename E >
+[[nodiscard]] constexpr auto erf( const ExprBase< E >& e ) noexcept
+{
+    return detail::FuncExpr< E, detail::OpErf< E::order, E::nvars > >{ e.self() };
+}
+
 }  // namespace tax
