@@ -242,6 +242,78 @@ class TDA : public DAExpr< TDA< T, N, M >, T, N, M >, public DALeaf
         return out;
     }
 
+    // -- Evaluation -----------------------------------------------------------
+
+    /**
+     * @brief Evaluate the polynomial at displacement `dx` from expansion point.
+     * @param dx Displacement value (univariate).
+     * @return f(x0 + dx) truncated to order N.
+     */
+    [[nodiscard]] constexpr T eval( T dx ) const noexcept
+        requires( M == 1 )
+    {
+        // Horner's method: c[N]*dx + c[N-1] ... *dx + c[0]
+        T result = c_[N];
+        for ( int i = N - 1; i >= 0; --i )
+            result = result * dx + c_[i];
+        return result;
+    }
+
+    /**
+     * @brief Evaluate the polynomial at displacement `dx` from expansion point.
+     * @param dx Displacement vector (multivariate).
+     * @return f(x0 + dx) truncated to order N.
+     */
+    [[nodiscard]] constexpr T eval( const point_type& dx ) const noexcept
+    {
+        if constexpr ( M == 1 )
+        {
+            return eval( dx[0] );
+        } else
+        {
+            T result{};
+            MultiIndex< M > alpha{};
+
+            auto accumulate = [&]( auto& self, int var, int rem ) constexpr -> void {
+                if ( var == M - 1 )
+                {
+                    alpha[var] = rem;
+                    // Compute dx^alpha = product of dx[i]^alpha[i]
+                    T monomial{ 1 };
+                    for ( int i = 0; i < M; ++i )
+                        for ( int j = 0; j < alpha[i]; ++j ) monomial *= dx[i];
+                    result += c_[detail::flatIndex< M >( alpha )] * monomial;
+                    return;
+                }
+                for ( int k = rem; k >= 0; --k )
+                {
+                    alpha[var] = k;
+                    self( self, var + 1, rem - k );
+                }
+            };
+
+            for ( int d = 0; d <= N; ++d ) accumulate( accumulate, 0, d );
+            return result;
+        }
+    }
+
+#if TAX_HAS_EIGEN_CORE
+    /**
+     * @brief Evaluate the polynomial at displacement given as an Eigen vector.
+     * @param dx Eigen vector with `M` entries holding the displacement.
+     * @return f(x0 + dx) truncated to order N.
+     */
+    template < typename Derived >
+    [[nodiscard]] T eval( const Eigen::DenseBase< Derived >& dx ) const noexcept
+        requires( M > 1 && std::convertible_to< typename Derived::Scalar, T > )
+    {
+        point_type p{};
+        for ( int i = 0; i < M; ++i )
+            p[std::size_t( i )] = static_cast< T >( dx( Eigen::Index( i ) ) );
+        return eval( p );
+    }
+#endif
+
     // -- In-place operators ---------------------------------------------------
 
     /// @brief In-place polynomial addition.

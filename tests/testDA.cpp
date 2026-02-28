@@ -220,3 +220,88 @@ TEST(DAInPlace, ChainedPlusEq) {
     a += c;
     EXPECT_NEAR(a.value(), 6.0, kTol);
 }
+
+// =============================================================================
+// eval — polynomial evaluation
+// =============================================================================
+
+TEST(DAEval, UnivariateConstant) {
+    DA<3> a{5.0};
+    EXPECT_NEAR(a.eval(0.1), 5.0, kTol);
+    EXPECT_NEAR(a.eval(0.0), 5.0, kTol);
+}
+
+TEST(DAEval, UnivariateLinear) {
+    // f = 2 + 3*dx  (at x0=2, slope 3)
+    auto x = DA<3>::variable(2.0);
+    DA<3> f = 3.0 * x;  // 6 + 3*dx
+    EXPECT_NEAR(f.eval(0.0), 6.0, kTol);
+    EXPECT_NEAR(f.eval(1.0), 9.0, kTol);
+    EXPECT_NEAR(f.eval(-0.5), 4.5, kTol);
+}
+
+TEST(DAEval, UnivariateSinAtZero) {
+    // sin(x) expanded at x0=0, evaluate at dx to get sin(dx)
+    auto x = DA<9>::variable(0.0);
+    DA<9> f = sin(x);
+    EXPECT_NEAR(f.eval(0.3), std::sin(0.3), 1e-12);
+    EXPECT_NEAR(f.eval(0.5), std::sin(0.5), 1e-10);
+}
+
+TEST(DAEval, UnivariateExpAtOne) {
+    // exp(x) expanded at x0=1, evaluate at dx=0.5 to get exp(1.5)
+    auto x = DA<12>::variable(1.0);
+    DA<12> f = exp(x);
+    EXPECT_NEAR(f.eval(0.5), std::exp(1.5), 1e-12);
+}
+
+TEST(DAEval, UnivariateAtZeroDisplacement) {
+    auto x = DA<5>::variable(1.0);
+    DA<5> f = sin(x);
+    EXPECT_NEAR(f.eval(0.0), std::sin(1.0), kTol);
+}
+
+TEST(DAEval, UnivariateViaPointType) {
+    // eval(point_type) delegates to eval(T) for M=1
+    auto x = DA<9>::variable(0.0);
+    DA<9> f = cos(x);
+    DA<9>::point_type dx{0.3};
+    EXPECT_NEAR(f.eval(dx), std::cos(0.3), 1e-11);
+}
+
+TEST(DAEval, MultivariateConstant) {
+    DAn<3, 2> a{5.0};
+    EXPECT_NEAR(a.eval({0.1, 0.2}), 5.0, kTol);
+}
+
+TEST(DAEval, MultivariateLinear) {
+    auto [x, y] = DAn<3, 2>::variables({1.0, 2.0});
+    DAn<3, 2> f = x + 2.0 * y;  // (1+dx) + 2*(2+dy) = 5 + dx + 2*dy
+    EXPECT_NEAR(f.eval({0.0, 0.0}), 5.0, kTol);
+    EXPECT_NEAR(f.eval({1.0, 0.0}), 6.0, kTol);
+    EXPECT_NEAR(f.eval({0.0, 1.0}), 7.0, kTol);
+    EXPECT_NEAR(f.eval({0.5, 0.3}), 5.0 + 0.5 + 0.6, kTol);
+}
+
+TEST(DAEval, MultivariateQuadratic) {
+    auto [x, y] = DAn<3, 2>::variables({0.0, 0.0});
+    DAn<3, 2> f = x * y;  // dx*dy
+    EXPECT_NEAR(f.eval({2.0, 3.0}), 6.0, kTol);
+    EXPECT_NEAR(f.eval({0.0, 5.0}), 0.0, kTol);
+}
+
+TEST(DAEval, MultivariateSin) {
+    auto [x, y] = DAn<8, 2>::variables({0.0, 0.0});
+    DAn<8, 2> f = sin(x + y);
+    // sin(dx + dy) at small displacements
+    EXPECT_NEAR(f.eval({0.1, 0.2}), std::sin(0.3), 1e-10);
+}
+
+#if __has_include(<Eigen/Core>)
+TEST(DAEval, MultivariateEigenVector) {
+    auto [x, y] = DAn<3, 2>::variables({1.0, 2.0});
+    DAn<3, 2> f = x + 2.0 * y;  // 5 + dx + 2*dy
+    Eigen::Vector2d dx(0.5, 0.3);
+    EXPECT_NEAR(f.eval(dx), 5.0 + 0.5 + 0.6, kTol);
+}
+#endif

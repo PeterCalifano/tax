@@ -20,3 +20,9 @@
 #include <tax/kernels.hpp>
 #include <tax/operators.hpp>
 #include <tax/utils.hpp>
+
+#if TAX_ENABLE_EIGEN
+#include <tax/eigen/tensor_function.hpp>
+#include <tax/eigen/tensors.hpp>
+#include <tax/eigen/types.hpp>
+#endif
