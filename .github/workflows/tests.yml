@@ -124,6 +124,7 @@ jobs:
         run: >
           cmake -S . -B build-coverage
           -DCMAKE_BUILD_TYPE=Debug
+          -DTAX_BUILD_TEST=ON
           -DTAX_BUILD_BENCH=OFF
           -DTAX_ENABLE_EIGEN=ON
           -DCMAKE_CXX_FLAGS=--coverage
@@ -133,24 +134,16 @@ jobs:
         run: cmake --build build-coverage -j 2
 
       - name: Test (coverage)
-        run: ctest --test-dir build-coverage --output-on-failure
+        run: ctest --test-dir build-coverage --output-on-failure --tests-regex "^test"
 
       - name: Generate coverage report
         run: |
-          gcovr --root . build-coverage --print-summary
-          gcovr --root . build-coverage --xml-pretty --output build-coverage/coverage.xml
-          gcovr --root . build-coverage --html-details --output build-coverage/coverage.html
+          gcovr --root . build-coverage --filter "^include/tax/" --print-summary
+          gcovr --root . build-coverage --filter "^include/tax/" --xml-pretty --output build-coverage/coverage.xml
+          gcovr --root . build-coverage --filter "^include/tax/" --html-details --output build-coverage/coverage.html
 
-      - name: Upload coverage to Codecov
+      - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:
-          files: build-coverage/coverage.xml
-          fail_ci_if_error: false
-
-      - name: Upload coverage artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-ubuntu-gcc-eigen-5.0.0
-          path: |
-            build-coverage/coverage.xml
-            build-coverage/coverage.html
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: andreapasquale94/tax
