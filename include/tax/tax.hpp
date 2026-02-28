@@ -18,9 +18,9 @@
 //     func_expr.hpp      — FuncExpr<E,Op>
 //     sum_expr.hpp       — SumExpr<Es...>
 //     product_expr.hpp   — ProductExpr<Es...>
-//   da_type.hpp          — DA<T,N,M> leaf / materialised type
+//   da.hpp               — TDA<T,N,M> leaf / materialised type
 //   operators.hpp        — operator overloads, square/cube/sqrt free functions
-//   aliases.hpp          — DAd, DAf, DAMd, DAMf
+//   aliases.hpp          — DA<N>, DAn<N,M>
 
 #include <tax/fwd.hpp>
 #include <tax/combinatorics.hpp>

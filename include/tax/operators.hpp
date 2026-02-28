@@ -134,10 +134,18 @@ template <typename E>
 { return detail::FuncExpr<E, detail::OpTan<E::order, E::nvars>>{e.self()}; }
 
 template <typename E>
+[[nodiscard]] constexpr auto log(const DA_BASE(E)& e) noexcept
+{ return detail::FuncExpr<E, detail::OpLog<E::order, E::nvars>>{e.self()}; }
+
+template <typename E>
+[[nodiscard]] constexpr auto log10(const DA_BASE(E)& e) noexcept
+{ return detail::FuncExpr<E, detail::OpLog10<E::order, E::nvars>>{e.self()}; }
+
+template <typename E>
 [[nodiscard]] constexpr auto sincos(const DA_BASE(E)& e) noexcept {
     using T = typename E::scalar_type;
     constexpr int N = E::order, M = E::nvars;
-    using DAType = DA<T, N, M>;
+    using DAType = TDA<T, N, M>;
     using coeff_array = std::array<T, detail::numMonomials(N, M)>;
 
     coeff_array sa{}, ca{};

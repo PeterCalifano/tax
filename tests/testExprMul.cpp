@@ -5,41 +5,41 @@
 // =============================================================================
 
 TEST(LeafMul, BothLeaves_CorrectProduct) {
-    auto a = DAd<4>::variable<0>({2.0});
-    DAd<4> b{3.0};
-    DAd<4> r = a * b;   // (2+δ)*3 = 6 + 3δ
+    auto a = DA<4>::variable<0>({2.0});
+    DA<4> b{3.0};
+    DA<4> r = a * b;   // (2+δ)*3 = 6 + 3δ
     EXPECT_NEAR(r[0], 6.0, kTol);
     EXPECT_NEAR(r[1], 3.0, kTol);
 }
 
 TEST(LeafMul, LeftLeafRightNode) {
-    auto a = DAd<4>::variable<0>({1.0});
-    DAd<4> b{2.0}, c{3.0};
-    DAd<4> r = a * (b + c);   // (1+δ)*5 = 5 + 5δ
+    auto a = DA<4>::variable<0>({1.0});
+    DA<4> b{2.0}, c{3.0};
+    DA<4> r = a * (b + c);   // (1+δ)*5 = 5 + 5δ
     EXPECT_NEAR(r[0], 5.0, kTol);
     EXPECT_NEAR(r[1], 5.0, kTol);
 }
 
 TEST(LeafMul, RightLeafLeftNode) {
-    auto a = DAd<4>::variable<0>({1.0});
-    DAd<4> b{2.0}, c{4.0};
-    DAd<4> r = (a + b) * c;   // (3+δ)*4 = 12 + 4δ
+    auto a = DA<4>::variable<0>({1.0});
+    DA<4> b{2.0}, c{4.0};
+    DA<4> r = (a + b) * c;   // (3+δ)*4 = 12 + 4δ
     EXPECT_NEAR(r[0], 12.0, kTol);
     EXPECT_NEAR(r[1],  4.0, kTol);
 }
 
 TEST(LeafMul, BothNodes) {
-    auto x = DAd<4>::variable<0>({0.0});
-    DAd<4> two{}; two[0] = 2;
-    DAd<4> r = (x + two) * (x + two);   // (2+δ)^2 = 4 + 4δ + δ^2
+    auto x = DA<4>::variable<0>({0.0});
+    DA<4> two{}; two[0] = 2;
+    DA<4> r = (x + two) * (x + two);   // (2+δ)^2 = 4 + 4δ + δ^2
     EXPECT_NEAR(r[0], 4.0, kTol);
     EXPECT_NEAR(r[1], 4.0, kTol);
     EXPECT_NEAR(r[2], 1.0, kTol);
 }
 
 TEST(LeafMul, Bivariate) {
-    auto [x, y] = DAMd<3,2>::variables({1.0, 2.0});
-    DAMd<3,2> r = x * y;
+    auto [x, y] = DAn<3,2>::variables({1.0, 2.0});
+    DAn<3,2> r = x * y;
     // x*y at (1,2): value=2, ∂/∂x=y=2, ∂/∂y=x=1, ∂²/∂x∂y=1
     EXPECT_NEAR(r.coeff({0,0}), 2.0, kTol);
     EXPECT_NEAR(r.coeff({1,0}), 2.0, kTol);
@@ -48,16 +48,16 @@ TEST(LeafMul, Bivariate) {
 }
 
 TEST(LeafMul, MultiplyByOne) {
-    auto x = DAd<4>::variable<0>({2.0});
-    DAd<4> one{1.0};
-    DAd<4> r = x * one;
+    auto x = DA<4>::variable<0>({2.0});
+    DA<4> one{1.0};
+    DA<4> r = x * one;
     ExpectCoeffsNear(r, x);
 }
 
 TEST(LeafMul, SquareViaProduct) {
-    auto x = DAd<5>::variable<0>({3.0});
-    DAd<5> r1 = x * x;
-    DAd<5> r2 = x * x;
+    auto x = DA<5>::variable<0>({3.0});
+    DA<5> r1 = x * x;
+    DA<5> r2 = x * x;
     ExpectCoeffsNear(r1, r2);
 }
 
@@ -66,39 +66,39 @@ TEST(LeafMul, SquareViaProduct) {
 // =============================================================================
 
 TEST(Div, DivideByConstant) {
-    DAd<4> a{8.0};
-    DAd<4> b{4.0};
-    DAd<4> r = a / b;   // 8/4 = 2
+    DA<4> a{8.0};
+    DA<4> b{4.0};
+    DA<4> r = a / b;   // 8/4 = 2
     EXPECT_NEAR(r.value(), 2.0, kTol);
-    for (std::size_t k = 1; k < DAd<4>::ncoef; ++k)
+    for (std::size_t k = 1; k < DA<4>::ncoef; ++k)
         EXPECT_NEAR(r[k], 0.0, kTol) << "k=" << k;
 }
 
 TEST(Div, DivideByLinear) {
     // (1+x)/(1+x) = 1
-    auto x = DAd<4>::variable<0>({0.0});
-    DAd<4> one_plus_x{};
+    auto x = DA<4>::variable<0>({0.0});
+    DA<4> one_plus_x{};
     one_plus_x[0] = 1.0; one_plus_x[1] = 1.0;
-    DAd<4> r = one_plus_x / one_plus_x;
+    DA<4> r = one_plus_x / one_plus_x;
     EXPECT_NEAR(r[0], 1.0, kTol);
-    for (std::size_t k = 1; k < DAd<4>::ncoef; ++k)
+    for (std::size_t k = 1; k < DA<4>::ncoef; ++k)
         EXPECT_NEAR(r[k], 0.0, kTol) << "k=" << k;
 }
 
 TEST(Div, OneOverGeometricSeries) {
     // 1/(1+x) at order 4: coefficients are (-1)^k
-    DAd<4> denom{}; denom[0]=1; denom[1]=1;
-    DAd<4> numer{}; numer[0]=1;
-    DAd<4> r = numer / denom;
+    DA<4> denom{}; denom[0]=1; denom[1]=1;
+    DA<4> numer{}; numer[0]=1;
+    DA<4> r = numer / denom;
     for (int k = 0; k <= 4; ++k)
         EXPECT_NEAR(r[k], std::pow(-1.0, k), kTol) << "k=" << k;
 }
 
 TEST(Div, LeafByLeaf_MatchesScalarDivL) {
-    auto x = DAd<5>::variable<0>({2.0});
-    DAd<5> one{1.0};
-    DAd<5> r1 = one / x;          // BinExpr<Div>
-    DAd<5> r2 = 1.0 / x;          // ScalarDivLExpr
+    auto x = DA<5>::variable<0>({2.0});
+    DA<5> one{1.0};
+    DA<5> r1 = one / x;          // BinExpr<Div>
+    DA<5> r2 = 1.0 / x;          // ScalarDivLExpr
     ExpectCoeffsNear(r1, r2);
 }
 
@@ -108,31 +108,31 @@ TEST(Div, LeafByLeaf_MatchesScalarDivL) {
 
 TEST(ProductExpr, ThreeLeaves) {
     // a*b*c: should produce ProductExpr<A,B,C>
-    DAd<4> a{2.0}, b{3.0}, c{4.0};
-    DAd<4> r = a * b * c;
+    DA<4> a{2.0}, b{3.0}, c{4.0};
+    DA<4> r = a * b * c;
     EXPECT_NEAR(r.value(), 24.0, kTol);
 }
 
 TEST(ProductExpr, ThreeLeaves_WithVariables) {
     // x*2*3 at x0=1: (1+δ)*2*3 = 6 + 6δ
-    auto x = DAd<4>::variable<0>({1.0});
-    DAd<4> two{2.0}, three{3.0};
-    DAd<4> r = x * two * three;
+    auto x = DA<4>::variable<0>({1.0});
+    DA<4> two{2.0}, three{3.0};
+    DA<4> r = x * two * three;
     EXPECT_NEAR(r[0], 6.0, kTol);
     EXPECT_NEAR(r[1], 6.0, kTol);
 }
 
 TEST(ProductExpr, FourLeaves_MatchesPairwiseProduct) {
-    auto x = DAd<4>::variable<0>({2.0});
-    DAd<4> a{1.0}, b{2.0}, c{3.0};
-    DAd<4> variadic = x * a * b * c;
-    DAd<4> pairwise = ((x * a) * b) * c;
+    auto x = DA<4>::variable<0>({2.0});
+    DA<4> a{1.0}, b{2.0}, c{3.0};
+    DA<4> variadic = x * a * b * c;
+    DA<4> pairwise = ((x * a) * b) * c;
     ExpectCoeffsNear(variadic, pairwise);
 }
 
 TEST(ProductExpr, BilinearBivariate) {
-    auto [x, y] = DAMd<2,2>::variables({1.0, 1.0});
-    DAMd<2,2> r = x * y;
+    auto [x, y] = DAn<2,2>::variables({1.0, 1.0});
+    DAn<2,2> r = x * y;
     // should give same as single BinExpr multiplication
     EXPECT_NEAR(r.coeff({0,0}), 1.0, kTol);   // 1*1
     EXPECT_NEAR(r.coeff({1,0}), 1.0, kTol);   // ∂/∂x(xy)|1,1 = y = 1
@@ -141,18 +141,18 @@ TEST(ProductExpr, BilinearBivariate) {
 }
 
 TEST(ProductExpr, TripleProduct_Bivariate) {
-    auto [x, y] = DAMd<3,2>::variables({1.0, 1.0});
+    auto [x, y] = DAn<3,2>::variables({1.0, 1.0});
     // x*x*y vs x^2*y computed pairwise
-    DAMd<3,2> variadic = x * x * y;
-    DAMd<3,2> pairwise = (x * x) * y;
+    DAn<3,2> variadic = x * x * y;
+    DAn<3,2> pairwise = (x * x) * y;
     ExpectCoeffsNear(variadic, pairwise);
 }
 
 TEST(ProductExpr, LeftExtend_Associativity) {
     // (a*b)*c and a*b*c (left-extend overload) should be the same
-    auto x = DAd<5>::variable<0>({1.0});
-    DAd<5> two{2.0}, three{3.0};
-    DAd<5> r1 = (x * two) * three;  // left-extend
-    DAd<5> r2 = x * two * three;    // same via left-extend
+    auto x = DA<5>::variable<0>({1.0});
+    DA<5> two{2.0}, three{3.0};
+    DA<5> r1 = (x * two) * three;  // left-extend
+    DA<5> r2 = x * two * three;    // same via left-extend
     ExpectCoeffsNear(r1, r2);
 }

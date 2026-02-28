@@ -6,12 +6,12 @@
 namespace da {
 
 // =============================================================================
-// DA<T, N, M> — leaf / materialised type
+// TDA<T, N, M> — leaf / materialised type
 // =============================================================================
 
 template <typename T, int N, int M = 1>
-class DA
-    : public DAExpr<DA<T, N, M>, T, N, M>
+class TDA
+    : public DAExpr<TDA<T, N, M>, T, N, M>
     , public DALeaf
 {
 public:
@@ -24,27 +24,27 @@ public:
 
     // -- Constructors ---------------------------------------------------------
 
-    constexpr DA() noexcept : c_{} {}
-    explicit constexpr DA(coeff_array c) noexcept : c_(std::move(c)) {}
-    /*implicit*/ constexpr DA(T val) noexcept : c_{} { c_[0] = val; }
+    constexpr TDA() noexcept : c_{} {}
+    explicit constexpr TDA(coeff_array c) noexcept : c_(std::move(c)) {}
+    /*implicit*/ constexpr TDA(T val) noexcept : c_{} { c_[0] = val; }
 
     /// Materialise any expression: a single evalTo into c_.  Zero copies.
     template <typename Derived>
-    /*implicit*/ constexpr DA(const DAExpr<Derived, T, N, M>& expr) noexcept
+    /*implicit*/ constexpr TDA(const DAExpr<Derived, T, N, M>& expr) noexcept
         : c_{} { expr.self().evalTo(c_); }
 
     // -- Variable factories ---------------------------------------------------
 
-    [[nodiscard]] static constexpr DA variable(T x0) noexcept requires (M == 1)
+    [[nodiscard]] static constexpr TDA variable(T x0) noexcept requires (M == 1)
     {
         coeff_array c{};
         c[0] = x0;
         if constexpr (N >= 1) c[1] = T{1};
-        return DA{c};
+        return TDA{c};
     }
 
     template <int I>
-    [[nodiscard]] static constexpr DA variable(const point_type& x0) noexcept {
+    [[nodiscard]] static constexpr TDA variable(const point_type& x0) noexcept {
         static_assert(I >= 0 && I < M, "Variable index out of range");
         coeff_array c{};
         c[0] = x0[I];
@@ -53,7 +53,7 @@ public:
             ei[I] = 1;
             c[detail::flatIndex<M>(ei)] = T{1};
         }
-        return DA{c};
+        return TDA{c};
     }
 
     [[nodiscard]] static constexpr auto variables(const point_type& x0) noexcept {
@@ -62,7 +62,7 @@ public:
         }(std::make_index_sequence<std::size_t(M)>{});
     }
 
-    [[nodiscard]] static constexpr DA constant(T v) noexcept { return DA{v}; }
+    [[nodiscard]] static constexpr TDA constant(T v) noexcept { return TDA{v}; }
 
     // -- evalTo / addTo / subTo -----------------------------------------------
 
@@ -98,19 +98,19 @@ public:
 
     // -- In-place operators ---------------------------------------------------
 
-    constexpr DA& operator+=(const DA& o) noexcept
+    constexpr TDA& operator+=(const TDA& o) noexcept
     { detail::addInPlace<T, ncoef>(c_, o.c_); return *this; }
-    constexpr DA& operator-=(const DA& o) noexcept
+    constexpr TDA& operator-=(const TDA& o) noexcept
     { detail::subInPlace<T, ncoef>(c_, o.c_); return *this; }
     template <typename Derived>
-    constexpr DA& operator+=(const DAExpr<Derived, T, N, M>& e) noexcept
+    constexpr TDA& operator+=(const DAExpr<Derived, T, N, M>& e) noexcept
     { coeff_array t{}; e.self().evalTo(t); detail::addInPlace<T, ncoef>(c_, t); return *this; }
     template <typename Derived>
-    constexpr DA& operator-=(const DAExpr<Derived, T, N, M>& e) noexcept
+    constexpr TDA& operator-=(const DAExpr<Derived, T, N, M>& e) noexcept
     { coeff_array t{}; e.self().evalTo(t); detail::subInPlace<T, ncoef>(c_, t); return *this; }
-    constexpr DA& operator*=(T s) noexcept
+    constexpr TDA& operator*=(T s) noexcept
     { detail::scaleInPlace<T, ncoef>(c_, s); return *this; }
-    constexpr DA& operator/=(T s) noexcept
+    constexpr TDA& operator/=(T s) noexcept
     { detail::scaleInPlace<T, ncoef>(c_, T{1} / s); return *this; }
 
 private:

@@ -71,4 +71,26 @@ struct OpTan {
     { seriesTan<T, N, M>(out, a); }
 };
 
+template <int N, int M>
+struct OpLog {
+    template <typename T>
+    static constexpr void apply(
+        std::array<T, numMonomials(N, M)>&       out,
+        const std::array<T, numMonomials(N, M)>& a) noexcept
+    { seriesLog<T, N, M>(out, a); }
+};
+
+template <int N, int M>
+struct OpLog10 {
+    template <typename T>
+    static constexpr void apply(
+        std::array<T, numMonomials(N, M)>&       out,
+        const std::array<T, numMonomials(N, M)>& a) noexcept
+    {
+        seriesLog<T, N, M>(out, a);
+        const T scale = T{1} / std::log(T{10});
+        for (auto& v : out) v *= scale;
+    }
+};
+
 } // namespace da::detail
