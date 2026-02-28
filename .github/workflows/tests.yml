@@ -134,7 +134,7 @@ jobs:
         run: cmake --build build-coverage -j 2
 
       - name: Test (coverage)
-        run: ctest --test-dir build-coverage --output-on-failure --tests-regex "^test"
+        run: ctest --test-dir build-coverage --output-on-failure
 
       - name: Generate coverage report
         run: |
