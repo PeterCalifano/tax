@@ -1,26 +1,72 @@
 # tax
 
-`tax` is a header-only C++23 Differential Algebra (DA) library for truncated multivariate Taylor expansions.
+`tax` is a header-only C++23 Differential Algebra (DA) library for truncated univariate and multivariate Taylor expansions.
 
-It provides:
-- Materialized DA objects (`tax::TDA<T, N, M>`)
-- Expression templates for zero-temporary composition
-- Arithmetic on DA expressions
+## Highlights
+
+- Compile-time fixed order/variable count (`TDA<T, N, M>`)
+- Lazy expression templates for arithmetic and math composition
+- Direct access to coefficients and partial derivatives at expansion points
 
 ## Requirements
 
 - C++23 compiler
 - CMake 4.2+
 
-## Install / Include
+## Build And Test
 
-This project currently builds as an interface library. Add it with CMake and include the umbrella header:
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+ctest --test-dir build --output-on-failure
+```
+
+## Install
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+cmake --install build --prefix /your/install/prefix
+```
+
+## Use From Another CMake Project
+
+```cmake
+find_package(tax CONFIG REQUIRED)
+target_link_libraries(your_target PRIVATE tax::tax)
+```
+
+If installed to a non-standard prefix, pass it via `CMAKE_PREFIX_PATH`:
+
+```bash
+cmake -S . -B build -DCMAKE_PREFIX_PATH=/your/install/prefix
+```
+
+## API Overview
+
+Include everything:
 
 ```cpp
 #include <tax/tax.hpp>
 ```
 
-You can also include narrower headers (`<tax/da.hpp>`, `<tax/operators.hpp>`, etc.) if preferred.
+Core types:
+
+- `tax::TDA<T, N, M>`: materialized DA polynomial (`N` max total order, `M` variables)
+- `tax::DA<N>`: alias for `tax::TDA<double, N, 1>`
+- `tax::DAn<N, M>`: alias for `tax::TDA<double, N, M>`
+
+Factories and accessors:
+
+- `DA<N>::variable(x0)` for univariate variables
+- `DAn<N, M>::variable<I>(x0)` and `DAn<N, M>::variables(x0)` for multivariate variables
+- `constant(v)`, `value()`, `coeff(alpha)`, `derivative(alpha)`
+
+Supported operations include:
+
+- Arithmetic: `+`, `-`, `*`, `/` between DA expressions and scalars
+- Unary math: `abs`, `square`, `cube`, `sqrt`, `sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `sinh`, `cosh`, `tanh`, `log`, `log10`, `exp`
+- Binary math: `pow`, `atan2`, `hypot`
 
 ## Quick Start (Univariate)
 
@@ -31,18 +77,15 @@ You can also include narrower headers (`<tax/da.hpp>`, `<tax/operators.hpp>`, et
 int main() {
     using tax::DA;
 
-    // 5th-order DA variable expanded around x0 = 1.0
-    auto x = DA<5>::variable(1.0);
+    auto x = DA<5>::variable(1.0);              // expansion point x0 = 1
+    DA<5> f = tax::sin(x) + tax::square(x) / 2; // lazy expression, one materialization
 
-    // Build expression lazily, materialize once
-    DA<5> f = tax::sin(x) + tax::square(x) / 2.0;
-
-    std::cout << "f(x0) = " << f.value() << "\n";
+    std::cout << "f(x0)  = " << f.value() << "\n";
     std::cout << "f'(x0) = " << f.derivative({1}) << "\n";
 }
 ```
 
-## Multivariate Example
+## Quick Start (Multivariate)
 
 ```cpp
 #include <tax/tax.hpp>
@@ -51,27 +94,10 @@ int main() {
 int main() {
     using tax::DAn;
 
-    // 3rd-order in 2 variables, expansion point (x0, y0) = (1, 2)
-    auto [x, y] = DAn<3, 2>::variables({1.0, 2.0});
-
+    auto [x, y] = DAn<3, 2>::variables({1.0, 2.0}); // expansion point (1, 2)
     DAn<3, 2> f = tax::sin(x + y);
 
-    // Coefficient of dx^1 dy^1 term
-    std::cout << f.coeff({1, 1}) << "\n";
-
-    // Mixed partial d^2f/(dx dy) at expansion point
-    std::cout << f.derivative({1, 1}) << "\n";
+    std::cout << "coeff(dx dy) = " << f.coeff({1, 1}) << "\n";
+    std::cout << "d2f/dxdy     = " << f.derivative({1, 1}) << "\n";
 }
 ```
-
-## Build and Test
-
-```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build
-ctest --test-dir build --output-on-failure
-```
-
-## Notes
-
-- This is an in-progress library (`0.1.0`) and installation/export rules are not finalized yet.

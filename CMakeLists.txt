@@ -21,6 +21,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    add_compile_options(-Wno-psabi)
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
         add_compile_options(-fconcepts-diagnostics-depth=2)
     endif()
@@ -64,4 +65,39 @@ endif()
 # -------------------------------
 # Installation
 # -------------------------------
-# TODO
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+
+set(TAX_INSTALL_CMAKEDIR "${CMAKE_INSTALL_LIBDIR}/cmake/tax")
+
+install(TARGETS tax
+    EXPORT taxTargets
+)
+
+install(DIRECTORY include/
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+install(EXPORT taxTargets
+    FILE taxTargets.cmake
+    NAMESPACE tax::
+    DESTINATION ${TAX_INSTALL_CMAKEDIR}
+)
+
+configure_package_config_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/taxConfig.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/taxConfig.cmake"
+    INSTALL_DESTINATION ${TAX_INSTALL_CMAKEDIR}
+)
+
+write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/taxConfigVersion.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+
+install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/taxConfig.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/taxConfigVersion.cmake"
+    DESTINATION ${TAX_INSTALL_CMAKEDIR}
+)
