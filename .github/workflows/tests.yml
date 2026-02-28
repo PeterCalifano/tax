@@ -89,3 +89,62 @@ jobs:
 
       - name: Test
         run: ctest --test-dir build --output-on-failure
+
+  coverage:
+    name: coverage
+    runs-on: ubuntu-latest
+    env:
+      CC: gcc
+      CXX: g++
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup CMake
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: "4.2.x"
+
+      - name: Install coverage toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++ gcovr
+
+      - name: Toolchain info
+        run: |
+          cmake --version
+          "$CC" --version
+          "$CXX" --version
+
+      - name: Install Eigen
+        run: bash tools/install_eigen.sh 5.0.0
+
+      - name: Configure (coverage)
+        run: >
+          cmake -S . -B build-coverage
+          -DCMAKE_BUILD_TYPE=Debug
+          -DTAX_BUILD_BENCH=OFF
+          -DTAX_ENABLE_EIGEN=ON
+          -DCMAKE_CXX_FLAGS=--coverage
+          -DCMAKE_EXE_LINKER_FLAGS=--coverage
+
+      - name: Build (coverage)
+        run: cmake --build build-coverage -j 2
+
+      - name: Test (coverage)
+        run: ctest --test-dir build-coverage --output-on-failure
+
+      - name: Generate coverage report
+        run: |
+          gcovr --root . build-coverage --print-summary
+          gcovr --root . build-coverage --xml-pretty --output build-coverage/coverage.xml
+          gcovr --root . build-coverage --html-details --output build-coverage/coverage.html
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-ubuntu-gcc-eigen-5.0.0
+          path: |
+            build-coverage/coverage.xml
+            build-coverage/coverage.html
