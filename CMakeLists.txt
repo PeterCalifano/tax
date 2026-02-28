@@ -44,7 +44,9 @@ target_include_directories(tax
 if(TAX_ENABLE_EIGEN)
     include(FetchContent)
     find_package(Eigen3 5 QUIET)
-    if(NOT Eigen3_FOUND)
+    if(Eigen3_FOUND)
+        target_link_libraries(tax INTERFACE Eigen3::Eigen)
+    else()
         message(STATUS "Eigen3 not found, fetching via FetchContent...")
         FetchContent_Declare(
             eigen
@@ -52,15 +54,15 @@ if(TAX_ENABLE_EIGEN)
             GIT_TAG 5.0.0
         )
         FetchContent_MakeAvailable(eigen)
+        if(NOT TARGET eigen)
+            message(FATAL_ERROR "Fetched Eigen target is unavailable after dependency resolution")
+        endif()
+        target_include_directories(tax
+            INTERFACE
+                $<BUILD_INTERFACE:${eigen_SOURCE_DIR}>
+        )
+        target_link_libraries(tax INTERFACE $<INSTALL_INTERFACE:Eigen3::Eigen>)
     endif()
-    if(NOT TARGET Eigen3::Eigen)
-        message(FATAL_ERROR "Eigen3::Eigen target is unavailable after dependency resolution")
-    endif()
-    target_link_libraries(tax
-        INTERFACE
-            $<BUILD_INTERFACE:Eigen3::Eigen>
-            $<INSTALL_INTERFACE:Eigen3::Eigen>
-    )
 endif()
 
 # -------------------------------
