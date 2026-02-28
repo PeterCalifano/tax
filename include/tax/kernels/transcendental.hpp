@@ -262,7 +262,7 @@ constexpr void seriesErf( std::array< T, numMonomials( N, M ) >& out,
     using std::exp;
     using std::sqrt;
     constexpr auto S = numMonomials( N, M );
-    constexpr T two_over_sqrtpi = T{ 2 } / sqrt( std::acos( T{ -1 } ) );
+    const T two_over_sqrtpi = T{ 2 } / std::sqrt( std::acos( T{ -1 } ) );
 
     // h = (2/√π) · exp(-a²)
     std::array< T, S > asq{}, neg_asq{}, e{}, h{};
