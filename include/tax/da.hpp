@@ -7,14 +7,6 @@
 #include <ostream>
 #include <type_traits>
 
-#if __has_include( <Eigen/Core>)
-#include <Eigen/Core>
-#include <cassert>
-#define TAX_HAS_EIGEN_CORE 1
-#else
-#define TAX_HAS_EIGEN_CORE 0
-#endif
-
 namespace tax
 {
 
@@ -99,85 +91,6 @@ class TDA : public DAExpr< TDA< T, N, M >, T, N, M >, public DALeaf
             return std::tuple{ variable< int( I ) >( x0 )... };
         }( std::make_index_sequence< std::size_t( M ) >{} );
     }
-
-#if TAX_HAS_EIGEN_CORE
-    /**
-     * @brief Create a DA tensor from a compile-time-sized Eigen vector/matrix expansion point.
-     * @details Supports:
-     * - vectors (`Rows == 1 || Cols == 1`) -> vector/matrix of same shape
-     * - static matrices -> matrix of same shape
-     * Variable mapping is row-major flattening (`(r,c) -> i = r*Cols + c`).
-     */
-    template < typename Derived >
-    [[nodiscard]] static auto tensor( const Eigen::DenseBase< Derived >& x0 ) noexcept
-        requires( M > 1 && std::convertible_to< typename Derived::Scalar, T > )
-    {
-        constexpr int Rows = Derived::RowsAtCompileTime;
-        constexpr int Cols = Derived::ColsAtCompileTime;
-        static_assert( Rows != Eigen::Dynamic && Cols != Eigen::Dynamic,
-                       "tensor(x0) requires compile-time-sized Eigen inputs" );
-        static_assert( Rows >= 1 && Cols >= 1, "tensor(x0) requires non-empty Eigen inputs" );
-        static_assert( Rows * Cols == M, "tensor(x0) size must match number of variables M" );
-
-        using Out = Eigen::Matrix< TDA, Rows, Cols, Derived::Options, Derived::MaxRowsAtCompileTime,
-                                   Derived::MaxColsAtCompileTime >;
-        point_type p{};
-        [&]< std::size_t... I >( std::index_sequence< I... > ) {
-            ( [&] {
-                if constexpr ( Rows == 1 )
-                    p[I] = static_cast< T >( x0( Eigen::Index( 0 ), Eigen::Index( I ) ) );
-                else if constexpr ( Cols == 1 )
-                    p[I] = static_cast< T >( x0( Eigen::Index( I ), Eigen::Index( 0 ) ) );
-                else
-                    p[I] = static_cast< T >(
-                        x0( Eigen::Index( int( I ) / Cols ), Eigen::Index( int( I ) % Cols ) ) );
-            }(),
-              ... );
-        }( std::make_index_sequence< std::size_t( M ) >{} );
-
-        Out out{};
-        [&]< std::size_t... I >( std::index_sequence< I... > ) {
-            ( ( out( Eigen::Index( int( I ) / Cols ), Eigen::Index( int( I ) % Cols ) ) =
-                    variable< int( I ) >( p ) ),
-              ... );
-        }( std::make_index_sequence< std::size_t( M ) >{} );
-        return out;
-    }
-
-    /**
-     * @brief Create all coordinate variables from an Eigen vector expansion point.
-     * @param x0 Eigen vector with `M` entries holding the expansion point.
-     * @return Tuple `(x_0, ..., x_{M-1})` of DA variables.
-     */
-    template < typename Derived >
-    [[nodiscard]] static auto variables( const Eigen::DenseBase< Derived >& x0 ) noexcept
-        requires( M > 1 && std::convertible_to< typename Derived::Scalar, T > )
-    {
-        static_assert( Derived::RowsAtCompileTime == 1 || Derived::ColsAtCompileTime == 1 ||
-                           Derived::RowsAtCompileTime == Eigen::Dynamic ||
-                           Derived::ColsAtCompileTime == Eigen::Dynamic,
-                       "Eigen input must be a vector expression" );
-        static_assert(
-            Derived::SizeAtCompileTime == Eigen::Dynamic || Derived::SizeAtCompileTime == M,
-            "Eigen vector size must match number of variables" );
-        assert( x0.rows() == 1 || x0.cols() == 1 );
-        assert( x0.size() == Eigen::Index( M ) );
-
-        point_type p{};
-        if ( x0.cols() == 1 )
-        {
-            for ( int i = 0; i < M; ++i )
-                p[std::size_t( i )] =
-                    static_cast< T >( x0( Eigen::Index( i ), Eigen::Index( 0 ) ) );
-        } else
-        {
-            for ( int i = 0; i < M; ++i )
-                p[std::size_t( i )] =
-                    static_cast< T >( x0( Eigen::Index( 0 ), Eigen::Index( i ) ) );
-        }
-        return variables( p );
-    }
-#endif
 
     /// @brief Create a constant polynomial with value `v`.
     [[nodiscard]] static constexpr TDA constant( T v ) noexcept { return TDA{ v }; }
@@ -342,23 +255,6 @@ class TDA : public DAExpr< TDA< T, N, M >, T, N, M >, public DALeaf
             return result;
         }
     }
-
-#if TAX_HAS_EIGEN_CORE
-    /**
-     * @brief Evaluate the polynomial at displacement given as an Eigen vector.
-     * @param dx Eigen vector with `M` entries holding the displacement.
-     * @return f(x0 + dx) truncated to order N.
-     */
-    template < typename Derived >
-    [[nodiscard]] T eval( const Eigen::DenseBase< Derived >& dx ) const noexcept
-        requires( M > 1 && std::convertible_to< typename Derived::Scalar, T > )
-    {
-        point_type p{};
-        for ( int i = 0; i < M; ++i )
-            p[std::size_t( i )] = static_cast< T >( dx( Eigen::Index( i ) ) );
-        return eval( p );
-    }
-#endif
 
     // -- In-place operators ---------------------------------------------------
 
@@ -594,32 +490,3 @@ template < int N, int M >
 using DAn = TDA< double, N, M >;
 
 }  // namespace tax
-
-#if TAX_HAS_EIGEN_CORE
-namespace Eigen
-{
-
-template < typename T, int N, int M >
-struct NumTraits< tax::TDA< T, N, M > > : NumTraits< T >
-{
-    using Real = tax::TDA< T, N, M >;
-    using NonInteger = tax::TDA< T, N, M >;
-    using Literal = tax::TDA< T, N, M >;
-    using Nested = tax::TDA< T, N, M >;
-
-    enum
-    {
-        IsComplex = 0,
-        IsInteger = 0,
-        IsSigned = 1,
-        RequireInitialization = 1,
-        ReadCost = NumTraits< T >::ReadCost,
-        AddCost = NumTraits< T >::AddCost,
-        MulCost = NumTraits< T >::MulCost
-    };
-};
-
-}  // namespace Eigen
-#endif
-
-#undef TAX_HAS_EIGEN_CORE

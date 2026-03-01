@@ -1,0 +1,152 @@
+#pragma once
+
+#include <tax/eigen/num_traits.hpp>
+#include <cassert>
+#include <concepts>
+#include <tuple>
+#include <utility>
+
+namespace tax
+{
+
+namespace detail::eigen
+{
+
+/// @brief Traits for extracting scalar type, order, and number of variables from a TDA type.
+template < typename >
+struct da_traits;
+
+template < typename T, int N, int M >
+struct da_traits< TDA< T, N, M > >
+{
+    using scalar_type = T;
+    static constexpr int order = N;
+    static constexpr int vars = M;
+};
+
+/// @brief True if `DA` is a `TDA<T, N, M>` specialization.
+template < typename >
+inline constexpr bool is_da_v = false;
+
+template < typename T, int N, int M >
+inline constexpr bool is_da_v< TDA< T, N, M > > = true;
+
+/// @brief Rebind an Eigen matrix type to use a different scalar.
+template < typename Derived, typename Scalar >
+using rebind_matrix_t =
+    Eigen::Matrix< Scalar, Derived::RowsAtCompileTime, Derived::ColsAtCompileTime,
+                   Derived::Options, Derived::MaxRowsAtCompileTime,
+                   Derived::MaxColsAtCompileTime >;
+
+/// @brief Concept for Eigen dense expression types.
+template < typename T >
+concept EigenDenseExpr = requires( const T& t ) {
+    typename T::Scalar;
+    t.derived();
+};
+
+}  // namespace detail::eigen
+
+/**
+ * @brief Create a DA tensor from a compile-time-sized Eigen vector/matrix expansion point.
+ * @tparam DA The TDA type (e.g., `DAn<2, 4>`). `M` must equal the input size.
+ * @param x0 Eigen matrix/vector with `M` entries.
+ * @return Eigen matrix of same shape with DA variable entries.
+ */
+template < typename DA, typename Derived >
+[[nodiscard]] auto tensor( const Eigen::DenseBase< Derived >& x0 ) noexcept
+    requires( detail::eigen::is_da_v< DA > &&
+              std::convertible_to< typename Derived::Scalar,
+                                   typename detail::eigen::da_traits< DA >::scalar_type > )
+{
+    using T = typename detail::eigen::da_traits< DA >::scalar_type;
+    constexpr int M = detail::eigen::da_traits< DA >::vars;
+    constexpr int Rows = Derived::RowsAtCompileTime;
+    constexpr int Cols = Derived::ColsAtCompileTime;
+    static_assert( Rows != Eigen::Dynamic && Cols != Eigen::Dynamic,
+                   "tensor(x0) requires compile-time-sized Eigen inputs" );
+    static_assert( Rows >= 1 && Cols >= 1, "tensor(x0) requires non-empty Eigen inputs" );
+    static_assert( Rows * Cols == M, "tensor(x0) size must match number of variables M" );
+
+    using Out = Eigen::Matrix< DA, Rows, Cols, Derived::Options, Derived::MaxRowsAtCompileTime,
+                               Derived::MaxColsAtCompileTime >;
+    typename DA::point_type p{};
+    [&]< std::size_t... I >( std::index_sequence< I... > ) {
+        ( [&] {
+            if constexpr ( Rows == 1 )
+                p[I] = static_cast< T >( x0( Eigen::Index( 0 ), Eigen::Index( I ) ) );
+            else if constexpr ( Cols == 1 )
+                p[I] = static_cast< T >( x0( Eigen::Index( I ), Eigen::Index( 0 ) ) );
+            else
+                p[I] = static_cast< T >(
+                    x0( Eigen::Index( int( I ) / Cols ), Eigen::Index( int( I ) % Cols ) ) );
+        }(),
+          ... );
+    }( std::make_index_sequence< std::size_t( M ) >{} );
+
+    Out out{};
+    [&]< std::size_t... I >( std::index_sequence< I... > ) {
+        ( ( out( Eigen::Index( int( I ) / Cols ), Eigen::Index( int( I ) % Cols ) ) =
+                DA::template variable< int( I ) >( p ) ),
+          ... );
+    }( std::make_index_sequence< std::size_t( M ) >{} );
+    return out;
+}
+
+/**
+ * @brief Create all coordinate variables from an Eigen vector expansion point.
+ * @tparam DA The TDA type (e.g., `DAn<2, 3>`). `M` must match the vector size.
+ * @param x0 Eigen vector with `M` entries.
+ * @return Tuple `(x_0, ..., x_{M-1})` of DA variables.
+ */
+template < typename DA, typename Derived >
+[[nodiscard]] auto variables( const Eigen::DenseBase< Derived >& x0 ) noexcept
+    requires( detail::eigen::is_da_v< DA > &&
+              std::convertible_to< typename Derived::Scalar,
+                                   typename detail::eigen::da_traits< DA >::scalar_type > )
+{
+    using T = typename detail::eigen::da_traits< DA >::scalar_type;
+    constexpr int M = detail::eigen::da_traits< DA >::vars;
+
+    static_assert( Derived::RowsAtCompileTime == 1 || Derived::ColsAtCompileTime == 1 ||
+                       Derived::RowsAtCompileTime == Eigen::Dynamic ||
+                       Derived::ColsAtCompileTime == Eigen::Dynamic,
+                   "Eigen input must be a vector expression" );
+    static_assert(
+        Derived::SizeAtCompileTime == Eigen::Dynamic || Derived::SizeAtCompileTime == M,
+        "Eigen vector size must match number of variables" );
+    assert( x0.rows() == 1 || x0.cols() == 1 );
+    assert( x0.size() == Eigen::Index( M ) );
+
+    typename DA::point_type p{};
+    if ( x0.cols() == 1 )
+    {
+        for ( int i = 0; i < M; ++i )
+            p[std::size_t( i )] =
+                static_cast< T >( x0( Eigen::Index( i ), Eigen::Index( 0 ) ) );
+    } else
+    {
+        for ( int i = 0; i < M; ++i )
+            p[std::size_t( i )] =
+                static_cast< T >( x0( Eigen::Index( 0 ), Eigen::Index( i ) ) );
+    }
+    return DA::variables( p );
+}
+
+/**
+ * @brief Evaluate a DA polynomial at displacement given as an Eigen vector.
+ * @param f The DA polynomial.
+ * @param dx Eigen vector with `M` entries holding the displacement.
+ * @return `f(x0 + dx)` truncated to order `N`.
+ */
+template < typename T, int N, int M, typename Derived >
+[[nodiscard]] T eval( const TDA< T, N, M >& f, const Eigen::DenseBase< Derived >& dx ) noexcept
+    requires( M > 1 && std::convertible_to< typename Derived::Scalar, T > )
+{
+    typename TDA< T, N, M >::point_type p{};
+    for ( int i = 0; i < M; ++i )
+        p[std::size_t( i )] = static_cast< T >( dx( Eigen::Index( i ) ) );
+    return f.eval( p );
+}
+
+}  // namespace tax

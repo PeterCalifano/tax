@@ -23,7 +23,7 @@ TEST( EigenTypes, VariablesFromEigenFixedVector )
     Eigen::Vector3d x0;
     x0 << 1.0, 2.0, 3.0;
 
-    auto [x, y, z] = DAn< 2, 3 >::variables( x0 );
+    auto [x, y, z] = variables< DAn< 2, 3 > >( x0 );
 
     EXPECT_NEAR( x.value(), 1.0, kTol );
     EXPECT_NEAR( y.value(), 2.0, kTol );
@@ -39,7 +39,7 @@ TEST( EigenTypes, VariablesFromEigenDynamicVector )
     Eigen::VectorXd x0( 3 );
     x0 << 4.0, 5.0, 6.0;
 
-    auto [x, y, z] = DAn< 2, 3 >::variables( x0 );
+    auto [x, y, z] = variables< DAn< 2, 3 > >( x0 );
 
     EXPECT_NEAR( x.value(), 4.0, kTol );
     EXPECT_NEAR( y.value(), 5.0, kTol );

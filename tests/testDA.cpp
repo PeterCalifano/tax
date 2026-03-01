@@ -337,12 +337,12 @@ TEST( DAEval, MultivariateSin )
     EXPECT_NEAR( f.eval( { 0.1, 0.2 } ), std::sin( 0.3 ), 1e-10 );
 }
 
-#if __has_include( <Eigen/Core>)
+#if TAX_ENABLE_EIGEN
 TEST( DAEval, MultivariateEigenVector )
 {
     auto [x, y] = DAn< 3, 2 >::variables( { 1.0, 2.0 } );
     DAn< 3, 2 > f = x + 2.0 * y;  // 5 + dx + 2*dy
     Eigen::Vector2d dx( 0.5, 0.3 );
-    EXPECT_NEAR( f.eval( dx ), 5.0 + 0.5 + 0.6, kTol );
+    EXPECT_NEAR( tax::eval( f, dx ), 5.0 + 0.5 + 0.6, kTol );
 }
 #endif

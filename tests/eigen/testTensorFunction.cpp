@@ -195,7 +195,7 @@ TEST( TensorFunction, TensorFromStaticVectorMatrix )
     Eigen::Matrix< double, 3, 1 > x0;
     x0 << 1.0, 2.0, 3.0;
 
-    auto tx = DAn< 2, 3 >::tensor( x0 );
+    auto tx = tensor< DAn< 2, 3 > >( x0 );
     static_assert( decltype( tx )::RowsAtCompileTime == 3 );
     static_assert( decltype( tx )::ColsAtCompileTime == 1 );
 
@@ -214,7 +214,7 @@ TEST( TensorFunction, TensorFromStaticMatrix )
     Eigen::Matrix< double, 2, 2 > x0;
     x0 << 1.0, 2.0, 3.0, 4.0;
 
-    auto tx = DAn< 2, 4 >::tensor( x0 );
+    auto tx = tensor< DAn< 2, 4 > >( x0 );
     static_assert( decltype( tx )::RowsAtCompileTime == 2 );
     static_assert( decltype( tx )::ColsAtCompileTime == 2 );
 
@@ -244,4 +244,110 @@ TEST( TensorFunction, TensorRank3Univariate )
     auto d1 = tax::derivative( ten, 1 );
     EXPECT_NEAR( d1( 0, 0, 0 ), std::cos( 2.0 ), kTol );
     EXPECT_NEAR( d1( 1, 0, 0 ), 4.0, kTol );
+}
+
+// =============================================================================
+// gradient
+// =============================================================================
+
+TEST( TensorFunction, GradientUnivariate )
+{
+    auto t = DA< 3 >::variable( 2.0 );
+    DA< 3 > f = sin( t );
+
+    auto g = tax::gradient( f );
+    static_assert( decltype( g )::RowsAtCompileTime == 1 );
+    EXPECT_NEAR( g( 0 ), std::cos( 2.0 ), kTol );
+}
+
+TEST( TensorFunction, GradientMultivariate )
+{
+    auto [x, y] = DAn< 2, 2 >::variables( { 1.0, 2.0 } );
+    DAn< 2, 2 > f = x * x + x * y + y * y;
+
+    auto g = tax::gradient( f );
+    static_assert( decltype( g )::RowsAtCompileTime == 2 );
+    // df/dx = 2x + y = 4, df/dy = x + 2y = 5
+    EXPECT_NEAR( g( 0 ), 4.0, kTol );
+    EXPECT_NEAR( g( 1 ), 5.0, kTol );
+}
+
+// =============================================================================
+// jacobian
+// =============================================================================
+
+TEST( TensorFunction, JacobianVector )
+{
+    auto [x, y] = DAn< 2, 2 >::variables( { 1.0, 2.0 } );
+    Eigen::Matrix< DAn< 2, 2 >, 3, 1 > vec;
+    vec( 0 ) = x * y;
+    vec( 1 ) = sin( x );
+    vec( 2 ) = x + y * y;
+
+    auto J = tax::jacobian( vec );
+    EXPECT_EQ( J.rows(), 3 );
+    EXPECT_EQ( J.cols(), 2 );
+
+    // d(xy)/dx = y = 2, d(xy)/dy = x = 1
+    EXPECT_NEAR( J( 0, 0 ), 2.0, kTol );
+    EXPECT_NEAR( J( 0, 1 ), 1.0, kTol );
+    // d(sin(x))/dx = cos(x), d(sin(x))/dy = 0
+    EXPECT_NEAR( J( 1, 0 ), std::cos( 1.0 ), kTol );
+    EXPECT_NEAR( J( 1, 1 ), 0.0, kTol );
+    // d(x+y^2)/dx = 1, d(x+y^2)/dy = 2y = 4
+    EXPECT_NEAR( J( 2, 0 ), 1.0, kTol );
+    EXPECT_NEAR( J( 2, 1 ), 4.0, kTol );
+}
+
+// =============================================================================
+// container eval
+// =============================================================================
+
+TEST( TensorFunction, EvalContainerUnivariate )
+{
+    auto t = DA< 3 >::variable( 0.0 );
+    Eigen::Matrix< DA< 3 >, 2, 1 > vec;
+    vec( 0 ) = sin( t );
+    vec( 1 ) = exp( t );
+
+    auto vals = tax::eval( vec, 0.5 );
+    EXPECT_NEAR( vals( 0 ), std::sin( 0.5 ), 1e-2 );
+    EXPECT_NEAR( vals( 1 ), std::exp( 0.5 ), 1e-2 );
+}
+
+TEST( TensorFunction, EvalContainerMultivariatePointType )
+{
+    auto [x, y] = DAn< 3, 2 >::variables( { 0.0, 0.0 } );
+    Eigen::Matrix< DAn< 3, 2 >, 2, 1 > vec;
+    vec( 0 ) = x + y;
+    vec( 1 ) = x * y;
+
+    auto vals = tax::eval( vec, DAn< 3, 2 >::point_type{ 1.0, 2.0 } );
+    EXPECT_NEAR( vals( 0 ), 3.0, kTol );
+    EXPECT_NEAR( vals( 1 ), 2.0, kTol );
+}
+
+TEST( TensorFunction, EvalContainerEigenDisplacement )
+{
+    auto [x, y] = DAn< 3, 2 >::variables( { 0.0, 0.0 } );
+    Eigen::Matrix< DAn< 3, 2 >, 2, 1 > vec;
+    vec( 0 ) = x + y;
+    vec( 1 ) = x * y;
+
+    Eigen::Vector2d dx;
+    dx << 1.0, 2.0;
+    auto vals = tax::eval( vec, dx );
+    EXPECT_NEAR( vals( 0 ), 3.0, kTol );
+    EXPECT_NEAR( vals( 1 ), 2.0, kTol );
+}
+
+TEST( TensorFunction, EvalSingleDAEigenDisplacement )
+{
+    auto [x, y] = DAn< 3, 2 >::variables( { 0.0, 0.0 } );
+    DAn< 3, 2 > f = x * x + y * y;
+
+    Eigen::Vector2d dx;
+    dx << 1.0, 2.0;
+    double val = tax::eval( f, dx );
+    EXPECT_NEAR( val, 5.0, kTol );
 }
