@@ -325,6 +325,24 @@ struct OpHypot
     }
 };
 
+/**
+ * @brief Tag for `fma(x, y, z)` — fused multiply-add: x*y + z.
+ * @details Computes Cauchy product of x and y, then adds z.
+ */
+template < int N, int M >
+struct OpFMA
+{
+    template < typename T >
+    static constexpr void apply( std::array< T, numMonomials( N, M ) >& out,
+                                 const std::array< T, numMonomials( N, M ) >& x,
+                                 const std::array< T, numMonomials( N, M ) >& y,
+                                 const std::array< T, numMonomials( N, M ) >& z ) noexcept
+    {
+        cauchyProduct< T, N, M >( out, x, y );
+        addInPlace< T, numMonomials( N, M ) >( out, z );
+    }
+};
+
 template < int N, int M >
 struct OpHypot3
 {

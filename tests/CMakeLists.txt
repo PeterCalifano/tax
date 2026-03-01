@@ -34,6 +34,7 @@ set(TEST_SOURCES
     testExprHyp.cpp
     testExprInvTrig.cpp
     testExprErf.cpp
+    testExprFMA.cpp
     testEnumeration.cpp
     testNested.cpp
     testCompose.cpp

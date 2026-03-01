@@ -9,4 +9,5 @@
 #include <tax/operators/common.hpp>
 #include <tax/operators/math_binary.hpp>
 #include <tax/operators/math_unary.hpp>
+#include <tax/operators/math_ternary.hpp>
 #include <tax/operators/paired.hpp>

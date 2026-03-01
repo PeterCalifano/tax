@@ -340,4 +340,139 @@ constexpr void seriesAtan2( std::array< T, numMonomials( N, M ) >& out,
     }
 }
 
+template < typename T, int N, int M >
+/**
+ * @brief Inverse hyperbolic sine series `out = asinh(a)`.
+ * @details Solves `sqrt(1 + a²) · out' = a'` degree by degree.
+ */
+constexpr void seriesAsinh( std::array< T, numMonomials( N, M ) >& out,
+                             const std::array< T, numMonomials( N, M ) >& a ) noexcept
+{
+    using std::asinh;
+    constexpr auto S = numMonomials( N, M );
+
+    // h = sqrt(1 + a²)
+    std::array< T, S > asq{}, opf{}, h{};
+    cauchyProduct< T, N, M >( asq, a, a );
+    opf = {};
+    opf[0] = T{ 1 };
+    addInPlace< T, S >( opf, asq );
+    seriesSqrt< T, N, M >( h, opf );
+
+    out = {};
+    out[0] = asinh( a[0] );
+    const T inv_h0 = T{ 1 } / h[0];
+
+    if constexpr ( M == 1 )
+    {
+        for ( int d = 1; d <= N; ++d )
+        {
+            T rhs = T{ 0 };
+            for ( int k = 1; k < d; ++k ) rhs += T( k ) * h[d - k] * out[k];
+            out[d] = ( a[d] - rhs / T( d ) ) * inv_h0;
+        }
+    } else
+    {
+        for ( int d = 1; d <= N; ++d )
+        {
+            forEachMonomial< M >( d, [&]( const auto& alpha, std::size_t ai ) {
+                T rhs = T{ 0 };
+                forEachSubIndex< M >( alpha, 1, d - 1, [&]( auto bi, auto gi, int db ) {
+                    rhs += T( d - db ) * h[bi] * out[gi];
+                } );
+                out[ai] = ( a[ai] - rhs / T( d ) ) * inv_h0;
+            } );
+        }
+    }
+}
+
+template < typename T, int N, int M >
+/**
+ * @brief Inverse hyperbolic cosine series `out = acosh(a)`.
+ * @details Solves `sqrt(a² - 1) · out' = a'` degree by degree. Requires `a[0] > 1`.
+ */
+constexpr void seriesAcosh( std::array< T, numMonomials( N, M ) >& out,
+                             const std::array< T, numMonomials( N, M ) >& a ) noexcept
+{
+    using std::acosh;
+    constexpr auto S = numMonomials( N, M );
+
+    // h = sqrt(a² - 1)
+    std::array< T, S > asq{}, amf{}, h{};
+    cauchyProduct< T, N, M >( asq, a, a );
+    amf = asq;
+    amf[0] -= T{ 1 };
+    seriesSqrt< T, N, M >( h, amf );
+
+    out = {};
+    out[0] = acosh( a[0] );
+    const T inv_h0 = T{ 1 } / h[0];
+
+    if constexpr ( M == 1 )
+    {
+        for ( int d = 1; d <= N; ++d )
+        {
+            T rhs = T{ 0 };
+            for ( int k = 1; k < d; ++k ) rhs += T( k ) * h[d - k] * out[k];
+            out[d] = ( a[d] - rhs / T( d ) ) * inv_h0;
+        }
+    } else
+    {
+        for ( int d = 1; d <= N; ++d )
+        {
+            forEachMonomial< M >( d, [&]( const auto& alpha, std::size_t ai ) {
+                T rhs = T{ 0 };
+                forEachSubIndex< M >( alpha, 1, d - 1, [&]( auto bi, auto gi, int db ) {
+                    rhs += T( d - db ) * h[bi] * out[gi];
+                } );
+                out[ai] = ( a[ai] - rhs / T( d ) ) * inv_h0;
+            } );
+        }
+    }
+}
+
+template < typename T, int N, int M >
+/**
+ * @brief Inverse hyperbolic tangent series `out = atanh(a)`.
+ * @details Solves `(1 - a²) · out' = a'` degree by degree. Requires `|a[0]| < 1`.
+ */
+constexpr void seriesAtanh( std::array< T, numMonomials( N, M ) >& out,
+                             const std::array< T, numMonomials( N, M ) >& a ) noexcept
+{
+    using std::atanh;
+    constexpr auto S = numMonomials( N, M );
+
+    // h = 1 - a²
+    std::array< T, S > h{};
+    cauchyProduct< T, N, M >( h, a, a );
+    negateInPlace< T, S >( h );
+    h[0] += T{ 1 };
+
+    out = {};
+    out[0] = atanh( a[0] );
+    const T inv_h0 = T{ 1 } / h[0];
+
+    if constexpr ( M == 1 )
+    {
+        for ( int d = 1; d <= N; ++d )
+        {
+            T rhs = T{ 0 };
+            for ( int k = 1; k < d; ++k ) rhs += T( k ) * h[d - k] * out[k];
+            out[d] = ( a[d] - rhs / T( d ) ) * inv_h0;
+        }
+    } else
+    {
+        for ( int d = 1; d <= N; ++d )
+        {
+            forEachMonomial< M >( d, [&]( const auto& alpha, std::size_t ai ) {
+                T rhs = T{ 0 };
+                forEachSubIndex< M >( alpha, 1, d - 1, [&]( auto bi, auto gi, int db ) {
+                    rhs += T( d - db ) * h[bi] * out[gi];
+                } );
+                out[ai] = ( a[ai] - rhs / T( d ) ) * inv_h0;
+            } );
+        }
+    }
+}
+
 }  // namespace tax::detail
