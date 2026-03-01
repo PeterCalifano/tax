@@ -4,75 +4,27 @@
 [![Sanitizers](https://github.com/andreapasquale94/tax/actions/workflows/sanitizers.yml/badge.svg?branch=main)](https://github.com/andreapasquale94/tax/actions/workflows/sanitizers.yml)
 [![codecov](https://codecov.io/gh/andreapasquale94/tax/graph/badge.svg?token=XwO5JOoaz6)](https://codecov.io/gh/andreapasquale94/tax)
 
-`tax` is a header-only C++23 Differential Algebra (DA) library for truncated univariate and multivariate Taylor expansions.
+**tax** is a header-only C++23 library for **Truncated Algebraic eXpansions** --- a Differential Algebra (DA) framework for computing with truncated multivariate Taylor polynomials.
 
-## Highlights
+Write natural mathematical expressions and tax automatically propagates the full Taylor series, giving you the function value and all partial derivatives up to order $N$ in a single evaluation pass.
 
-- Compile-time fixed order/variable count (`TDA<T, N, M>`)
-- Lazy expression templates for arithmetic and math composition
-- Direct access to coefficients and partial derivatives at expansion points
+## Features
+
+- **Compile-time fixed** order $N$ and variable count $M$ via `TDA<T, N, M>`
+- **Lazy expression templates** with automatic sum/product flattening and leaf fast-paths
+- **Comprehensive math**: arithmetic, trigonometric, hyperbolic, transcendental, power, and special functions
+- **Direct derivative access**: coefficients, partial derivatives, gradient, Jacobian, and higher-order derivative tensors
+- **Eigen integration**: adapters for Eigen vectors, matrices, and tensors (optional)
 
 ## Requirements
 
 - C++23 compiler
 - CMake 4.2+
+- Eigen 3.4+ (optional)
 
-## Build And Test
+## Quick Start
 
-```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build
-ctest --test-dir build --output-on-failure
-```
-
-## Install
-
-```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build
-cmake --install build --prefix /your/install/prefix
-```
-
-## Use From Another CMake Project
-
-```cmake
-find_package(tax CONFIG REQUIRED)
-target_link_libraries(your_target PRIVATE tax::tax)
-```
-
-If installed to a non-standard prefix, pass it via `CMAKE_PREFIX_PATH`:
-
-```bash
-cmake -S . -B build -DCMAKE_PREFIX_PATH=/your/install/prefix
-```
-
-## API Overview
-
-Include everything:
-
-```cpp
-#include <tax/tax.hpp>
-```
-
-Core types:
-
-- `tax::TDA<T, N, M>`: materialized DA polynomial (`N` max total order, `M` variables)
-- `tax::DA<N>`: alias for `tax::TDA<double, N, 1>`
-- `tax::DAn<N, M>`: alias for `tax::TDA<double, N, M>`
-
-Factories and accessors:
-
-- `DA<N>::variable(x0)` for univariate variables
-- `DAn<N, M>::variable<I>(x0)` and `DAn<N, M>::variables(x0)` for multivariate variables
-- `constant(v)`, `value()`, `coeff(alpha)`, `derivative(alpha)`
-
-Supported operations include:
-
-- Arithmetic: `+`, `-`, `*`, `/` between DA expressions and scalars
-- Unary math: `abs`, `square`, `cube`, `sqrt`, `sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `sinh`, `cosh`, `tanh`, `log`, `log10`, `exp`
-- Binary math: `pow`, `atan2`, `hypot`
-
-## Quick Start (Univariate)
+### Univariate
 
 ```cpp
 #include <tax/tax.hpp>
@@ -81,15 +33,18 @@ Supported operations include:
 int main() {
     using tax::DA;
 
-    auto x = DA<5>::variable(1.0);              // expansion point x0 = 1
-    DA<5> f = tax::sin(x) + tax::square(x) / 2; // lazy expression, one materialization
+    // sin(x) expanded at x₀ = 0, up to order 9
+    auto x = DA<9>::variable(0.0);
+    DA<9> f = tax::sin(x);
 
-    std::cout << "f(x0)  = " << f.value() << "\n";
-    std::cout << "f'(x0) = " << f.derivative({1}) << "\n";
+    std::cout << f.value()          << "\n";   // sin(0) = 0
+    std::cout << f.derivative({1})  << "\n";   // cos(0) = 1
+    std::cout << f.derivative({2})  << "\n";   // -sin(0) = 0
+    std::cout << f.eval(0.3)        << "\n";   // ≈ sin(0.3)
 }
 ```
 
-## Quick Start (Multivariate)
+### Multivariate
 
 ```cpp
 #include <tax/tax.hpp>
@@ -98,10 +53,104 @@ int main() {
 int main() {
     using tax::DAn;
 
-    auto [x, y] = DAn<3, 2>::variables({1.0, 2.0}); // expansion point (1, 2)
+    // f(x, y) = sin(x + y) expanded at (1, 2)
+    auto [x, y] = DAn<3, 2>::variables({1.0, 2.0});
     DAn<3, 2> f = tax::sin(x + y);
 
-    std::cout << "coeff(dx dy) = " << f.coeff({1, 1}) << "\n";
-    std::cout << "d2f/dxdy     = " << f.derivative({1, 1}) << "\n";
+    std::cout << f.value()              << "\n";   // sin(3)
+    std::cout << f.derivative({1, 0})   << "\n";   // ∂f/∂x = cos(3)
+    std::cout << f.derivative({1, 1})   << "\n";   // ∂²f/∂x∂y = -sin(3)
 }
 ```
+
+## Build and Test
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+ctest --test-dir build --output-on-failure
+```
+
+With Eigen support:
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DTAX_ENABLE_EIGEN=ON
+cmake --build build
+```
+
+| Option             | Default | Description                       |
+|--------------------|---------|-----------------------------------|
+| `TAX_BUILD_TEST`   | `ON`    | Build the test suite              |
+| `TAX_ENABLE_EIGEN` | `OFF`   | Enable Eigen adapters and tensors |
+
+## Install
+
+```bash
+cmake --install build --prefix /your/install/prefix
+```
+
+From another CMake project:
+
+```cmake
+find_package(tax CONFIG REQUIRED)
+target_link_libraries(your_target PRIVATE tax::tax)
+```
+
+If installed to a non-standard prefix:
+
+```bash
+cmake -S . -B build -DCMAKE_PREFIX_PATH=/your/install/prefix
+```
+
+## API at a Glance
+
+```cpp
+#include <tax/tax.hpp>
+```
+
+### Types
+
+| Type            | Description                                       |
+|-----------------|---------------------------------------------------|
+| `DA<N>`         | `TDA<double, N, 1>`                               |
+| `DAn<N, M>`     | `TDA<double, N, M>`                               |
+
+### Factories
+
+```cpp
+DA<N>::variable(x0)              // univariate variable at x₀
+DAn<N,M>::variable<I>(x0)       // I-th variable at expansion point
+DAn<N,M>::variables(x0)         // all variables (structured bindings)
+TDA::constant(v) / zero() / one()
+```
+
+### Accessors
+
+```cpp
+f.value()            // f(x₀)
+f.coeff({2, 1})      // coefficient of δx²·δy
+f.derivative({2, 1}) // ∂³f/∂x²∂y at x₀
+f.derivatives()      // all partial derivatives
+f.eval(dx)           // polynomial evaluated at x₀ + δx
+```
+
+### Operations
+
+**Arithmetic**: `+`, `-`, `*`, `/` between DA expressions and scalars
+
+**Unary math**: `abs`, `square`, `cube`, `sqrt`, `sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `sinh`, `cosh`, `tanh`, `exp`, `log`, `log10`, `erf`
+
+**Binary math**: `pow` (integer, real, DA exponents), `atan2`, `hypot` (2- and 3-argument)
+
+## Documentation
+
+| Document                                       | Description                                  |
+|------------------------------------------------|----------------------------------------------|
+| [Getting Started](docs/getting_started.md)     | Installation, core concepts, first examples  |
+| [API Reference](docs/api_reference.md)         | Types, factories, accessors, operations      |
+| [Eigen Integration](docs/eigen_integration.md) | Vectors, matrices, tensors, Jacobians        |
+| [Math Operations](docs/math_operations.md)     | Recurrence formulas for every operation      |
+
+## License
+
+See [LICENSE](LICENSE) for details.
