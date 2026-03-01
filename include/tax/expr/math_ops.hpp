@@ -237,7 +237,8 @@ struct OpLog10
                                  const std::array< T, numMonomials( N, M ) >& a ) noexcept
     {
         seriesLog< T, N, M >( out, a );
-        const T scale = T{ 1 } / std::log( T{ 10 } );
+        using std::log;
+        const T scale = T{ 1 } / log( T{ 10 } );
         for ( auto& v : out ) v *= scale;
     }
 };

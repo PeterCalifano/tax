@@ -33,12 +33,27 @@ constexpr void scaleInPlace( std::array< T, S >& o, T s ) noexcept
     for ( auto& v : o ) v *= s;
 }
 
+namespace detail
+{
+
+/// @brief Extract the innermost scalar value for sign comparison.
+template < typename U >
+[[nodiscard]] constexpr auto extractValue( const U& v ) noexcept
+{
+    if constexpr ( requires { v.value(); } )
+        return extractValue( v.value() );
+    else
+        return v;
+}
+
+}  // namespace detail
+
 template < typename T, std::size_t S >
 /// @brief Absolute value: `out = |a|`. Requires `a[0] != 0`.
 constexpr void seriesAbs( std::array< T, S >& out, const std::array< T, S >& a ) noexcept
 {
     out = a;
-    if ( a[0] < T{ 0 } ) negateInPlace< T, S >( out );
+    if ( detail::extractValue( a[0] ) < 0 ) negateInPlace< T, S >( out );
 }
 
 }  // namespace tax::detail

@@ -258,11 +258,12 @@ template < typename T, int N, int M >
 constexpr void seriesErf( std::array< T, numMonomials( N, M ) >& out,
                           const std::array< T, numMonomials( N, M ) >& a ) noexcept
 {
+    using std::acos;
     using std::erf;
     using std::exp;
     using std::sqrt;
     constexpr auto S = numMonomials( N, M );
-    const T two_over_sqrtpi = T{ 2 } / std::sqrt( std::acos( T{ -1 } ) );
+    const T two_over_sqrtpi = T{ 2 } / sqrt( acos( T{ -1 } ) );
 
     // h = (2/√π) · exp(-a²)
     std::array< T, S > asq{}, neg_asq{}, e{}, h{};
@@ -409,7 +410,8 @@ constexpr void seriesAcos( std::array< T, numMonomials( N, M ) >& out,
 {
     seriesAsin< T, N, M >( out, a );
     negateInPlace< T, numMonomials( N, M ) >( out );
-    out[0] += std::acos( T{ -1 } ) / T{ 2 };  // pi/2
+    using std::acos;
+    out[0] += acos( T{ -1 } ) / T{ 2 };  // pi/2
 }
 
 template < typename T, int N, int M >

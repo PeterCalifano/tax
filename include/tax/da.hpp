@@ -351,11 +351,108 @@ class TDA : public DAExpr< TDA< T, N, M >, T, N, M >, public DALeaf
         detail::scaleInPlace< T, ncoef >( c_, s );
         return *this;
     }
+    /// @brief In-place polynomial multiplication (Cauchy product).
+    constexpr TDA& operator*=( const TDA& o ) noexcept
+    {
+        coeff_array tmp{};
+        detail::cauchyProduct< T, N, M >( tmp, c_, o.c_ );
+        c_ = tmp;
+        return *this;
+    }
     /// @brief In-place scalar division.
     constexpr TDA& operator/=( T s ) noexcept
     {
         detail::scaleInPlace< T, ncoef >( c_, T{ 1 } / s );
         return *this;
+    }
+    /// @brief In-place polynomial division.
+    constexpr TDA& operator/=( const TDA& o ) noexcept
+    {
+        coeff_array rec{};
+        detail::seriesReciprocal< T, N, M >( rec, o.c_ );
+        coeff_array tmp{};
+        detail::cauchyProduct< T, N, M >( tmp, c_, rec );
+        c_ = tmp;
+        return *this;
+    }
+
+    // -- Comparison operators (on constant term) --------------------------------
+
+    [[nodiscard]] friend constexpr bool operator==( const TDA& a, const TDA& b ) noexcept
+    {
+        return a.value() == b.value();
+    }
+    [[nodiscard]] friend constexpr bool operator!=( const TDA& a, const TDA& b ) noexcept
+    {
+        return a.value() != b.value();
+    }
+    [[nodiscard]] friend constexpr bool operator<( const TDA& a, const TDA& b ) noexcept
+    {
+        return a.value() < b.value();
+    }
+    [[nodiscard]] friend constexpr bool operator>( const TDA& a, const TDA& b ) noexcept
+    {
+        return a.value() > b.value();
+    }
+    [[nodiscard]] friend constexpr bool operator<=( const TDA& a, const TDA& b ) noexcept
+    {
+        return a.value() <= b.value();
+    }
+    [[nodiscard]] friend constexpr bool operator>=( const TDA& a, const TDA& b ) noexcept
+    {
+        return a.value() >= b.value();
+    }
+
+    // DA vs scalar (T)
+    [[nodiscard]] friend constexpr bool operator==( const TDA& a, const T& s ) noexcept
+    {
+        return a.value() == s;
+    }
+    [[nodiscard]] friend constexpr bool operator!=( const TDA& a, const T& s ) noexcept
+    {
+        return a.value() != s;
+    }
+    [[nodiscard]] friend constexpr bool operator<( const TDA& a, const T& s ) noexcept
+    {
+        return a.value() < s;
+    }
+    [[nodiscard]] friend constexpr bool operator>( const TDA& a, const T& s ) noexcept
+    {
+        return a.value() > s;
+    }
+    [[nodiscard]] friend constexpr bool operator<=( const TDA& a, const T& s ) noexcept
+    {
+        return a.value() <= s;
+    }
+    [[nodiscard]] friend constexpr bool operator>=( const TDA& a, const T& s ) noexcept
+    {
+        return a.value() >= s;
+    }
+
+    // scalar (T) vs DA
+    [[nodiscard]] friend constexpr bool operator==( const T& s, const TDA& a ) noexcept
+    {
+        return s == a.value();
+    }
+    [[nodiscard]] friend constexpr bool operator!=( const T& s, const TDA& a ) noexcept
+    {
+        return s != a.value();
+    }
+    [[nodiscard]] friend constexpr bool operator<( const T& s, const TDA& a ) noexcept
+    {
+        return s < a.value();
+    }
+    [[nodiscard]] friend constexpr bool operator>( const T& s, const TDA& a ) noexcept
+    {
+        return s > a.value();
+    }
+    [[nodiscard]] friend constexpr bool operator<=( const T& s, const TDA& a ) noexcept
+    {
+        return s <= a.value();
+    }
+    [[nodiscard]] friend constexpr bool operator>=( const T& s, const TDA& a ) noexcept
+    {
+        return s >= a.value();
     }
 
    private:

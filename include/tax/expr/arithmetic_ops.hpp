@@ -106,7 +106,7 @@ struct OpScalarDivR
     template < typename T, std::size_t S >
     static constexpr void apply( std::array< T, S >& o, T s ) noexcept
     {
-        scaleInPlace< T, S >( o, T{ 1 } / s );
+        scaleInPlace< T, S >( o, T( T{ 1 } / s ) );
     }
 };
 
