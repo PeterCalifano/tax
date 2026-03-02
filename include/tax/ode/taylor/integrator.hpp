@@ -1,13 +1,12 @@
 #pragma once
 
+#include <algorithm>
+#include <cassert>
+#include <cmath>
+#include <concepts>
 #include <tax/ode/taylor/controller.hpp>
 #include <tax/ode/taylor/stepper.hpp>
 #include <tax/ode/taylor/types.hpp>
-
-#include <algorithm>
-#include <cassert>
-#include <concepts>
-#include <cmath>
 #include <type_traits>
 #include <utility>
 
@@ -25,12 +24,12 @@ namespace tax::ode
 template < int N, typename RHS, typename StepSizeController = JorbaZouStepSizeController< N > >
 class TaylorIntegrator
 {
-  public:
+   public:
     static_assert( N >= 1, "Taylor order N must be at least 1." );
 
     using stepper_type = TaylorStepper< N, RHS >;
-    using da_type      = typename stepper_type::da_type;
-    using scalar_type  = typename stepper_type::scalar_type;
+    using da_type = typename stepper_type::da_type;
+    using scalar_type = typename stepper_type::scalar_type;
 
     using rhs_type = RHS;
     using controller_type = StepSizeController;
@@ -50,7 +49,10 @@ class TaylorIntegrator
     [[nodiscard]] RHS& rhs() noexcept { return stepper_.rhs(); }
     [[nodiscard]] const RHS& rhs() const noexcept { return stepper_.rhs(); }
     [[nodiscard]] StepSizeController& stepSizeController() noexcept { return controller_; }
-    [[nodiscard]] const StepSizeController& stepSizeController() const noexcept { return controller_; }
+    [[nodiscard]] const StepSizeController& stepSizeController() const noexcept
+    {
+        return controller_;
+    }
 
     template < typename C = StepSizeController >
     [[nodiscard]] const auto& options() const noexcept
@@ -85,54 +87,56 @@ class TaylorIntegrator
     }
 
     /**
-     * @brief Integrate dy/dt = rhs(t, y) from @p t0 to @p tf with adaptive steps.
-     *
-     * Uses the Jorba-Zou estimate:
-     *   h_opt = safety * min( (tol/|c[N]|)^(1/N), (tol/|c[N-1]|)^(1/(N-1)) )
-     * with tol = atol + rtol * ||y||_inf.
-     *
-     * @tparam Vec Eigen column-vector state type.
-     * @param t0 Initial time.
-     * @param tf Final time.
-     * @param y0 Initial state.
-     * @param h0 Initial step-size guess.
-     * @return Solution with all accepted points.
+     * @brief Integrate dy/dt = rhs(t, y) from @p t0 to @p tf.
      */
     template < typename Vec >
-    [[nodiscard]] Solution< Vec > integrate( double t0, double tf, const Vec& y0, double h0 )
+    [[nodiscard]] Solution< Vec > integrate( const double t0, const double tf, const Vec& y0,
+                                             double h0 )
+    {
+        return integrateInternal( t0, tf, y0, h0 );
+    }
+
+   private:
+    template < typename Vec >
+    [[nodiscard]] Solution< Vec > integrateInternal( const double t0, const double tf,
+                                                     const Vec& y0, double h0 )
     {
         static_assert( order >= 2, "Taylor order N must be at least 2 for adaptive control." );
 
         detail::taylor::assertColumnVector( y0 );
         assert( h0 > 0.0 );
+        const std::size_t max_steps = detail::taylor::maxSteps( controller_ );
+        const double final_time_rel_eps = detail::taylor::finalTimeRelEps( controller_ );
+        assert( final_time_rel_eps >= 0.0 );
 
         Solution< Vec > result;
         result.t.push_back( t0 );
         result.y.push_back( y0 );
 
         const Eigen::Index dim = y0.size();
-        Vec    y = y0;
+
+        Vec y = y0;
         double t = t0;
         double h = std::min( h0, tf - t0 );
+        std::size_t accepted_steps = 0;
 
-        while ( t < tf - detail::taylor::finalTimeRelEps( controller_ ) * std::abs( tf ) )
+        while ( accepted_steps < max_steps && ( t < tf - final_time_rel_eps * std::abs( tf ) ) )
         {
             h = std::min( h, tf - t );
             if ( h <= 0.0 ) break;
 
-            auto yDA = stepper_.template series< Vec >( t, y );
-            const double h_opt =
-                detail::taylor::proposeNextStep( controller_, h, tf, y, yDA );
+            auto y_da = stepper_.template series< Vec >( t, y );
+            const double h_opt = detail::taylor::proposeNextStep( controller_, h, tf, y, y_da );
             assert( h_opt > 0.0 && "Step-size controller must return a positive h_opt." );
 
             Vec y_new( dim );
-            for ( Eigen::Index i = 0; i < dim; ++i )
-                y_new( i ) = yDA( i ).eval( h );
+            for ( Eigen::Index i = 0; i < dim; ++i ) y_new( i ) = y_da( i ).eval( h );
 
             t += h;
-            y  = y_new;
+            y = y_new;
             result.t.push_back( t );
             result.y.push_back( y_new );
+            ++accepted_steps;
 
             h = ( tf - t > 0.0 ) ? std::min( h_opt, tf - t ) : h_opt;
         }
@@ -140,9 +144,8 @@ class TaylorIntegrator
         return result;
     }
 
-  private:
-    stepper_type         stepper_;
-    StepSizeController   controller_;
+    stepper_type stepper_;
+    StepSizeController controller_;
 };
 
 /**

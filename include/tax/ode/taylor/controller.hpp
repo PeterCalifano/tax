@@ -1,26 +1,17 @@
 #pragma once
 
+#include <tax/ode/taylor/types.hpp>
+
 #include <Eigen/Core>
 #include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <concepts>
+#include <limits>
 #include <type_traits>
 
 namespace tax::ode
 {
-
-/**
- * @brief Runtime options for the default adaptive step-size controller.
- */
-struct TaylorIntegratorOptions
-{
-    double atol = 1e-8;              ///< Absolute tolerance.
-    double rtol = 1e-8;              ///< Relative tolerance.
-    double safetyFactor = 0.9;       ///< Safety factor applied to h_opt.
-    double maxGrowth = 4.0;          ///< Max multiplicative growth per step.
-    double finalTimeRelEps = 1e-14;  ///< Relative epsilon for loop termination.
-};
 
 /**
  * @brief Default Jorba-Zou adaptive step-size controller.
@@ -104,6 +95,18 @@ template < typename Controller >
     } else
     {
         return 1e-14;
+    }
+}
+
+template < typename Controller >
+[[nodiscard]] std::size_t maxSteps( const Controller& controller )
+{
+    if constexpr ( requires { controller.options().maxSteps; } )
+    {
+        return controller.options().maxSteps;
+    } else
+    {
+        return std::numeric_limits< std::size_t >::max();
     }
 }
 
