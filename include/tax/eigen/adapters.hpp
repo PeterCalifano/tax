@@ -150,6 +150,55 @@ template < typename T, int N, int M, typename Derived >
 }
 
 /**
+ * @brief Extract the k-th Taylor coefficient from every element of a DA column-vector.
+ *
+ * Gathers `v(i).coeffs()[k]` for all `i` into a contiguous Eigen vector, making the
+ * extracted slice available for vectorised arithmetic (scaling, norms, etc.).
+ *
+ * @tparam T    Scalar type.
+ * @tparam N    Taylor order of the DA elements.
+ * @tparam Dim  Static row count; use `Eigen::Dynamic` for runtime-sized inputs.
+ * @param  v    DA-typed column vector.
+ * @param  k    Coefficient index (0 ≤ k ≤ N).
+ * @return      `Eigen::Matrix<T, Dim, 1>` containing the k-th coefficients.
+ */
+template < typename T, int N, int Dim >
+[[nodiscard]] Eigen::Matrix< T, Dim, 1 >
+coeffRow( const Eigen::Matrix< TDA< T, N, 1 >, Dim, 1 >& v, int k ) noexcept
+{
+    const Eigen::Index dim = v.size();
+    Eigen::Matrix< T, Dim, 1 > out( dim );
+    for ( Eigen::Index i = 0; i < dim; ++i )
+        out( i ) = v( i ).coeffSpan()[std::size_t( k )];
+    return out;
+}
+
+/**
+ * @brief Scatter values into the k-th Taylor coefficient slot of every element of a
+ *        DA column-vector.
+ *
+ * Sets `v(i).coeffSpan()[k] = vals(i)` for all `i`.  Accepts any Eigen
+ * column-vector *expression* for `vals` so callers can pass temporaries such as
+ * `coeffRow(f_da, k) / (k + 1)` without an extra intermediate allocation.
+ *
+ * @tparam T       Scalar type.
+ * @tparam N       Taylor order of the DA elements.
+ * @tparam Dim     Static row count of the target vector.
+ * @tparam ValsDer Derived type of the source Eigen expression.
+ * @param  v       DA-typed column vector to modify in-place.
+ * @param  k       Coefficient index (0 ≤ k ≤ N).
+ * @param  vals    Source expression; must have the same runtime size as `v`.
+ */
+template < typename T, int N, int Dim, typename ValsDer >
+void setCoeffRow( Eigen::Matrix< TDA< T, N, 1 >, Dim, 1 >& v, int k,
+                  const Eigen::MatrixBase< ValsDer >& vals ) noexcept
+{
+    assert( v.size() == vals.size() );
+    for ( Eigen::Index i = 0; i < v.size(); ++i )
+        v( i ).coeffSpan()[std::size_t( k )] = vals.derived()( i );
+}
+
+/**
  * @brief Vectorised evaluation of a univariate DA column-vector at scalar @p h.
  *
  * All @p Dim polynomial evaluations are performed simultaneously via a single
