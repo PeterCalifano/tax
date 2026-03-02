@@ -2,7 +2,7 @@
  * @file examples/two_body.cpp
  * @brief Two-body (Kepler) problem integrated with the Taylor ODE method.
  *
- * Demonstrates use of tax::ode::taylorIntegrate for a nonlinear autonomous
+ * Demonstrates use of tax::ode::TaylorIntegrator for a nonlinear autonomous
  * ODE with a known analytical solution.  The Keplerian orbit conserves energy
  * and angular momentum, so both quantities are printed alongside the trajectory
  * to illustrate the long-term accuracy of the high-order Taylor integrator.
@@ -35,6 +35,7 @@
 #include <tax/ode/taylor.hpp>
 
 #include <Eigen/Core>
+#include <algorithm>
 #include <cmath>
 #include <iomanip>
 #include <iostream>
@@ -60,13 +61,15 @@ static auto kepler_rhs = []( auto /*t*/, auto y ) -> decltype( y )
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-static double energy( const Eigen::VectorXd& y )
+template < typename Derived >
+static double energy( const Eigen::MatrixBase< Derived >& y )
 {
     const double r = std::sqrt( y( 0 ) * y( 0 ) + y( 1 ) * y( 1 ) );
     return 0.5 * ( y( 2 ) * y( 2 ) + y( 3 ) * y( 3 ) ) - 1.0 / r;
 }
 
-static double angmom( const Eigen::VectorXd& y )
+template < typename Derived >
+static double angmom( const Eigen::MatrixBase< Derived >& y )
 {
     return y( 0 ) * y( 3 ) - y( 1 ) * y( 2 );
 }
@@ -91,7 +94,11 @@ int main()
     std::cout << "Integrating for " << 5 << " periods  (T = " << 2.0 * M_PI << " per orbit)\n";
     std::cout << "Tolerance: atol = rtol = " << atol << "\n\n";
 
-    auto result = taylorIntegrate< N >( kepler_rhs, 0.0, T, y0, h0, atol, rtol );
+    TaylorIntegratorOptions options;
+    options.atol = atol;
+    options.rtol = rtol;
+    auto integrator = makeTaylorIntegrator< N >( kepler_rhs, options );
+    auto result = integrator.integrate( 0.0, T, y0, h0 );
 
     const double E0 = energy( result.y.front() );
     const double L0 = angmom( result.y.front() );

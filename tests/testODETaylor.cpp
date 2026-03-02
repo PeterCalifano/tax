@@ -3,12 +3,13 @@
 
 #include <Eigen/Core>
 #include <cmath>
+#include <type_traits>
 
 using namespace tax;
 using namespace tax::ode;
 
 // =============================================================================
-// taylorStep — single step accuracy
+// TaylorIntegrator::step — single step accuracy
 // =============================================================================
 
 // y' = y,  y(0)=1  =>  y(t) = e^t
@@ -28,8 +29,9 @@ TEST( TaylorStep, ScalarExponential )
     Eigen::Matrix< double, 1, 1 > y0;
     y0( 0 ) = 1.0;
 
+    auto integrator = makeTaylorIntegrator< N >( rhs );
     const double h    = 0.5;
-    auto         y1   = taylorStep< N >( rhs, 0.0, y0, h );
+    auto         y1   = integrator.step( 0.0, y0, h );
     const double exact = std::exp( h );
 
     EXPECT_NEAR( y1( 0 ), exact, 1e-10 );
@@ -50,8 +52,9 @@ TEST( TaylorStep, HarmonicOscillator )
 
     Eigen::Vector2d y0{ 1.0, 0.0 };
 
+    auto integrator = makeTaylorIntegrator< N >( rhs );
     const double h  = 0.3;
-    auto         y1 = taylorStep< N >( rhs, 0.0, y0, h );
+    auto         y1 = integrator.step( 0.0, y0, h );
 
     EXPECT_NEAR( y1( 0 ),  std::cos( h ), 1e-10 );
     EXPECT_NEAR( y1( 1 ), -std::sin( h ), 1e-10 );
@@ -72,8 +75,9 @@ TEST( TaylorStep, NonAutonomousScalar )
     Eigen::Matrix< double, 1, 1 > y0;
     y0( 0 ) = 1.0;
 
+    auto integrator = makeTaylorIntegrator< N >( rhs );
     const double h     = 0.4;
-    auto         y1    = taylorStep< N >( rhs, 0.0, y0, h );
+    auto         y1    = integrator.step( 0.0, y0, h );
     const double exact = std::exp( h * h / 2.0 );
 
     EXPECT_NEAR( y1( 0 ), exact, 1e-10 );
@@ -96,8 +100,9 @@ TEST( TaylorStep, FixedSizeVector )
 
     Eigen::Vector3d y0{ 1.0, 1.0, 1.0 };
 
+    auto integrator = makeTaylorIntegrator< N >( rhs );
     const double h  = 0.1;
-    auto         y1 = taylorStep< N >( rhs, 0.0, y0, h );
+    auto         y1 = integrator.step( 0.0, y0, h );
 
     EXPECT_NEAR( y1( 0 ), std::exp( 1.0 * h ), 1e-10 );
     EXPECT_NEAR( y1( 1 ), std::exp( 2.0 * h ), 1e-10 );
@@ -105,7 +110,7 @@ TEST( TaylorStep, FixedSizeVector )
 }
 
 // =============================================================================
-// taylorIntegrate — full trajectory with adaptive step size
+// TaylorIntegrator::integrate — full trajectory with adaptive step size
 // =============================================================================
 
 TEST( TaylorIntegrate, ScalarExponential )
@@ -122,7 +127,14 @@ TEST( TaylorIntegrate, ScalarExponential )
     Eigen::Matrix< double, 1, 1 > y0;
     y0( 0 ) = 1.0;
 
-    auto result = taylorIntegrate< N >( rhs, 0.0, 2.0, y0, 0.5, 1e-10, 1e-10 );
+    TaylorIntegratorOptions options;
+    options.atol = 1e-10;
+    options.rtol = 1e-10;
+
+    auto integrator = makeTaylorIntegrator< N >( rhs, options );
+    auto result     = integrator.integrate( 0.0, 2.0, y0, 0.5 );
+
+    static_assert( std::is_same_v< decltype( result ), Solution< Eigen::Matrix< double, 1, 1 > > > );
 
     ASSERT_FALSE( result.t.empty() );
     EXPECT_NEAR( result.t.back(), 2.0, 1e-12 );
@@ -143,7 +155,12 @@ TEST( TaylorIntegrate, HarmonicOscillator )
 
     Eigen::Vector2d y0{ 1.0, 0.0 };
 
-    auto result = taylorIntegrate< N >( rhs, 0.0, 2.0, y0, 0.5, 1e-10, 1e-10 );
+    TaylorIntegratorOptions options;
+    options.atol = 1e-10;
+    options.rtol = 1e-10;
+
+    auto integrator = makeTaylorIntegrator< N >( rhs, options );
+    auto result     = integrator.integrate( 0.0, 2.0, y0, 0.5 );
 
     ASSERT_FALSE( result.t.empty() );
     const double tf = result.t.back();
@@ -152,8 +169,8 @@ TEST( TaylorIntegrate, HarmonicOscillator )
     EXPECT_NEAR( result.y.back()( 1 ), -std::sin( tf ), 1e-8 );
 }
 
-// Check that the adaptive step size keeps all intermediate points accurate
-TEST( TaylorIntegrate, TrajectoryAccuracy )
+// Check that the adaptive step size keeps all intermediate solution points accurate
+TEST( TaylorIntegrate, SolutionAccuracy )
 {
     constexpr int N = 10;
 
@@ -168,7 +185,12 @@ TEST( TaylorIntegrate, TrajectoryAccuracy )
     Eigen::Matrix< double, 1, 1 > y0;
     y0( 0 ) = 1.0;
 
-    auto result = taylorIntegrate< N >( rhs, 0.0, 1.0, y0, 0.2, 1e-10, 1e-10 );
+    TaylorIntegratorOptions options;
+    options.atol = 1e-10;
+    options.rtol = 1e-10;
+
+    auto integrator = makeTaylorIntegrator< N >( rhs, options );
+    auto result     = integrator.integrate( 0.0, 1.0, y0, 0.2 );
 
     for ( std::size_t k = 0; k < result.t.size(); ++k )
     {
@@ -194,7 +216,8 @@ TEST( TaylorIntegrate, InitialConditionIncluded )
     Eigen::Matrix< double, 1, 1 > y0;
     y0( 0 ) = 3.14;
 
-    auto result = taylorIntegrate< N >( rhs, 0.5, 1.0, y0, 0.1 );
+    auto integrator = makeTaylorIntegrator< N >( rhs );
+    auto result     = integrator.integrate( 0.5, 1.0, y0, 0.1 );
 
     ASSERT_GE( result.t.size(), 1u );
     EXPECT_NEAR( result.t.front(), 0.5, 1e-14 );
@@ -240,8 +263,9 @@ TEST( TwoBody, SingleStep )
     // Circular orbit: x=1, y=0, vx=0, vy=1
     Eigen::Vector4d y0{ 1.0, 0.0, 0.0, 1.0 };
 
+    auto integrator = makeTaylorIntegrator< N >( kepler_rhs );
     const double h  = 0.3;
-    auto         y1 = taylorStep< N >( kepler_rhs, 0.0, y0, h );
+    auto         y1 = integrator.step( 0.0, y0, h );
 
     EXPECT_NEAR( y1( 0 ),  std::cos( h ), 1e-9 );   // x
     EXPECT_NEAR( y1( 1 ),  std::sin( h ), 1e-9 );   // y
@@ -257,7 +281,12 @@ TEST( TwoBody, FullPeriod )
     Eigen::Vector4d y0{ 1.0, 0.0, 0.0, 1.0 };
     const double    T  = 2.0 * M_PI;
 
-    auto result = taylorIntegrate< N >( kepler_rhs, 0.0, T, y0, 0.5, 1e-10, 1e-10 );
+    TaylorIntegratorOptions options;
+    options.atol = 1e-10;
+    options.rtol = 1e-10;
+
+    auto integrator = makeTaylorIntegrator< N >( kepler_rhs, options );
+    auto result     = integrator.integrate( 0.0, T, y0, 0.5 );
 
     ASSERT_FALSE( result.t.empty() );
     EXPECT_NEAR( result.t.back(), T, 1e-12 );
@@ -282,7 +311,12 @@ TEST( TwoBody, ConservedQuantities )
                       - 1.0 / std::sqrt( y0( 0 ) * y0( 0 ) + y0( 1 ) * y0( 1 ) );
     const double L0 = y0( 0 ) * y0( 3 ) - y0( 1 ) * y0( 2 );
 
-    auto result = taylorIntegrate< N >( kepler_rhs, 0.0, T, y0, 0.5, 1e-10, 1e-10 );
+    TaylorIntegratorOptions options;
+    options.atol = 1e-10;
+    options.rtol = 1e-10;
+
+    auto integrator = makeTaylorIntegrator< N >( kepler_rhs, options );
+    auto result     = integrator.integrate( 0.0, T, y0, 0.5 );
 
     for ( std::size_t k = 0; k < result.t.size(); ++k )
     {
@@ -294,4 +328,34 @@ TEST( TwoBody, ConservedQuantities )
         EXPECT_NEAR( E, E0, 1e-7 ) << "  energy drift at step " << k;
         EXPECT_NEAR( L, L0, 1e-7 ) << "  angular momentum drift at step " << k;
     }
+}
+
+TEST( TaylorIntegrate, CustomStepControllerComposition )
+{
+    constexpr int N = 8;
+
+    auto rhs = []( auto /*t*/, auto y ) -> decltype( y )
+    {
+        decltype( y ) out( 1 );
+        out( 0 ) = y( 0 );
+        return out;
+    };
+
+    int calls = 0;
+    auto controller = [&calls]( double h, double tf, const auto&, const auto& ) -> double
+    {
+        (void)tf;
+        ++calls;
+        return h;  // keep constant step-size
+    };
+
+    Eigen::Matrix< double, 1, 1 > y0;
+    y0( 0 ) = 1.0;
+
+    auto integrator = makeTaylorIntegrator< N >( rhs, controller );
+    auto result     = integrator.integrate( 0.0, 0.25, y0, 0.05 );
+
+    ASSERT_FALSE( result.t.empty() );
+    EXPECT_EQ( calls, int( result.t.size() - 1 ) );
+    EXPECT_NEAR( result.t.back(), 0.25, 1e-12 );
 }
