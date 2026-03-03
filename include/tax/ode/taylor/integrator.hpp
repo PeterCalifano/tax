@@ -113,7 +113,7 @@ class TaylorIntegrator
         result.t.push_back( t0 );
         result.y.push_back( y0 );
 
-        const Eigen::Index dim = y0.size();
+        using DVec = ::tax::detail::eigen::rebind_matrix_t< Vec, da_type >;
 
         Vec y = y0;
         double t = t0;
@@ -125,12 +125,12 @@ class TaylorIntegrator
             h = std::min( h, tf - t );
             if ( h <= 0.0 ) break;
 
-            auto y_da = stepper_.template series< Vec >( t, y );
+            auto y_da     = stepper_.template series< Vec >( t, y );
             const double h_opt = detail::taylor::proposeNextStep( controller_, h, tf, y, y_da );
             assert( h_opt > 0.0 && "Step-size controller must return a positive h_opt." );
 
-            Vec y_new( dim );
-            for ( Eigen::Index i = 0; i < dim; ++i ) y_new( i ) = y_da( i ).eval( h );
+            Vec y_new( ::tax::evalSeries< scalar_type, order, DVec::RowsAtCompileTime >(
+                y_da, scalar_type( h ) ) );
 
             t += h;
             y = y_new;
