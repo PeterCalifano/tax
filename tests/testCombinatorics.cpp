@@ -3,6 +3,19 @@
 // Access detail internals directly for unit-testing the combinatorics layer.
 using namespace tax::detail;
 
+template < int M >
+static void ExpectFlatUnflatRoundTrip( int N )
+{
+    for ( int d = 0; d <= N; ++d )
+    {
+        forEachMonomial< M >( d, [&]( const tax::MultiIndex< M >& alpha, std::size_t k ) {
+            EXPECT_EQ( unflatIndex< M >( k ), alpha ) << "M=" << M << " d=" << d << " k=" << k;
+            EXPECT_EQ( flatIndex< M >( unflatIndex< M >( k ) ), k )
+                << "M=" << M << " d=" << d << " k=" << k;
+        } );
+    }
+}
+
 // =============================================================================
 // binom
 // =============================================================================
@@ -144,4 +157,33 @@ TEST( FlatIndex, ConstantTerm_IsAlwaysZero )
     EXPECT_EQ( flatIndex< 1 >( { 0 } ), 0u );
     EXPECT_EQ( flatIndex< 2 >( { 0, 0 } ), 0u );
     EXPECT_EQ( flatIndex< 3 >( { 0, 0, 0 } ), 0u );
+}
+
+// =============================================================================
+// unflatIndex — inverse grlex mapping
+// =============================================================================
+
+TEST( UnflatIndex, Univariate_MatchesDegree )
+{
+    for ( int k = 0; k <= 6; ++k )
+        EXPECT_EQ( unflatIndex< 1 >( std::size_t( k ) ), ( tax::MultiIndex< 1 >{ k } ) )
+            << "k=" << k;
+}
+
+TEST( UnflatIndex, Bivariate_Order2 )
+{
+    EXPECT_EQ( unflatIndex< 2 >( 0u ), ( tax::MultiIndex< 2 >{ 0, 0 } ) );
+    EXPECT_EQ( unflatIndex< 2 >( 1u ), ( tax::MultiIndex< 2 >{ 1, 0 } ) );
+    EXPECT_EQ( unflatIndex< 2 >( 2u ), ( tax::MultiIndex< 2 >{ 0, 1 } ) );
+    EXPECT_EQ( unflatIndex< 2 >( 3u ), ( tax::MultiIndex< 2 >{ 2, 0 } ) );
+    EXPECT_EQ( unflatIndex< 2 >( 4u ), ( tax::MultiIndex< 2 >{ 1, 1 } ) );
+    EXPECT_EQ( unflatIndex< 2 >( 5u ), ( tax::MultiIndex< 2 >{ 0, 2 } ) );
+}
+
+TEST( UnflatIndex, RoundTrip_UpToOrder4 )
+{
+    ExpectFlatUnflatRoundTrip< 1 >( 4 );
+    ExpectFlatUnflatRoundTrip< 2 >( 4 );
+    ExpectFlatUnflatRoundTrip< 3 >( 4 );
+    ExpectFlatUnflatRoundTrip< 4 >( 4 );
 }

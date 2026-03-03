@@ -1,5 +1,6 @@
 set(DACE_TEST_SOURCES
     testUnivariate.cpp
+    testMultivariate.cpp
 )
 
 include(FetchContent)

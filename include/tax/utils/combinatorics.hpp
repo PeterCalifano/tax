@@ -54,4 +54,39 @@ constexpr std::size_t flatIndex( const tax::MultiIndex< M >& alpha ) noexcept
     return idx;
 }
 
+template < int M >
+/**
+ * @brief Map a flat storage index back to the corresponding multi-index.
+ * @details Inverse of `flatIndex` for the same graded-lex ordering.
+ *          For order-bounded tables, require `k < numMonomials(N, M)`.
+ */
+constexpr tax::MultiIndex< M > unflatIndex( std::size_t k ) noexcept
+{
+    static_assert( M >= 1 );
+    tax::MultiIndex< M > alpha{};
+
+    int d = 0;
+    while ( binom( d + M, M ) <= k ) ++d;
+
+    std::size_t rank = k - binom( d + M - 1, M );
+    int rem = d;
+    for ( int i = 0; i < M - 1; ++i )
+    {
+        const int vars_left = M - i;
+        for ( int ai = rem; ai >= 0; --ai )
+        {
+            const std::size_t block = binom( rem - ai + vars_left - 2, vars_left - 2 );
+            if ( rank < block )
+            {
+                alpha[i] = ai;
+                rem -= ai;
+                break;
+            }
+            rank -= block;
+        }
+    }
+    alpha[M - 1] = rem;
+    return alpha;
+}
+
 }  // namespace tax::detail
