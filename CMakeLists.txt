@@ -7,6 +7,7 @@ project(tax VERSION 0.1.0 LANGUAGES CXX)
 # -------------------------------
 option(TAX_BUILD_TEST "Build and enable unittests" ON)
 option(TAX_ENABLE_EIGEN "Enable Eigen tensor adapters" OFF)
+option(TAX_DACE_TEST "Enable TAX vs DACE tests (fetches dacelib/dace@v2.1.0)" OFF)
 
 # -------------------------------
 # Compiler settings
