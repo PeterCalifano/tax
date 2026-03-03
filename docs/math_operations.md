@@ -110,6 +110,22 @@ $$g_\alpha = \frac{1}{2\,g_0} \left(f_\alpha - \sum_{\substack{\beta \le \alpha 
 
 Requires $f_0 > 0$.
 
+### Cubic Root
+
+Given $g = \sqrt[3]{f}$, the identity $g^3 = f$ yields:
+
+**Univariate:**
+
+$$g_0 = \sqrt[3]{f_0}$$
+
+$$g_d = \frac{1}{3\,g_0^2}\left(f_d - \sum_{\substack{j+k+\ell=d \\ 0 \le j,k,\ell \le d-1}} g_j \, g_k \, g_\ell\right), \qquad d \ge 1$$
+
+**Multivariate ($d = |\alpha|$):**
+
+$$g_\alpha = \frac{1}{3\,g_0^2}\left(f_\alpha - \sum_{\substack{\beta+\gamma+\delta=\alpha \\ |\beta|,|\gamma|,|\delta| \le d-1}} g_\beta \, g_\gamma \, g_\delta\right)$$
+
+Requires $f_0 \neq 0$.
+
 ### Absolute Value
 
 $$|f|_\alpha = \operatorname{sgn}(f_0) \cdot f_\alpha$$
@@ -233,6 +249,60 @@ Solved from $\cosh(f) \cdot t = \sinh(f)$ degree by degree, analogous to tangent
 $$t_0 = \frac{\sinh(f_0)}{\cosh(f_0)}$$
 
 $$t_d = \frac{1}{\mathit{ch}_0}\left(\mathit{sh}_d - \sum_{k=1}^{d} \mathit{ch}_k \, t_{d-k}\right), \qquad d \ge 1$$
+
+### Inverse Hyperbolic Functions
+
+For all three inverse hyperbolics, we solve a first-order relation of the form:
+
+$$h \cdot g' = f'$$
+
+with a different helper series $h$ for each function.
+
+#### Asinh
+
+Let $g = \operatorname{asinh}(f)$ and $h = \sqrt{1 + f^2}$.
+
+**Univariate:**
+
+$$g_0 = \operatorname{asinh}(f_0)$$
+
+$$g_d = \frac{1}{h_0}\left(f_d - \frac{1}{d}\sum_{k=1}^{d-1} k\,h_{d-k}\,g_k\right), \qquad d \ge 1$$
+
+**Multivariate ($d = |\alpha|$):**
+
+$$g_\alpha = \frac{1}{h_0}\left(f_\alpha - \frac{1}{d}\sum_{\substack{\beta \le \alpha \\ 1 \le |\beta| \le d-1}} (d - |\beta|)\,h_\beta\,g_{\alpha-\beta}\right)$$
+
+#### Acosh
+
+Let $g = \operatorname{acosh}(f)$ and $h = \sqrt{f^2 - 1}$.
+
+**Univariate:**
+
+$$g_0 = \operatorname{acosh}(f_0)$$
+
+$$g_d = \frac{1}{h_0}\left(f_d - \frac{1}{d}\sum_{k=1}^{d-1} k\,h_{d-k}\,g_k\right), \qquad d \ge 1$$
+
+**Multivariate ($d = |\alpha|$):**
+
+$$g_\alpha = \frac{1}{h_0}\left(f_\alpha - \frac{1}{d}\sum_{\substack{\beta \le \alpha \\ 1 \le |\beta| \le d-1}} (d - |\beta|)\,h_\beta\,g_{\alpha-\beta}\right)$$
+
+Requires $f_0 > 1$.
+
+#### Atanh
+
+Let $g = \operatorname{atanh}(f)$ and $h = 1 - f^2$.
+
+**Univariate:**
+
+$$g_0 = \operatorname{atanh}(f_0)$$
+
+$$g_d = \frac{1}{h_0}\left(f_d - \frac{1}{d}\sum_{k=1}^{d-1} k\,h_{d-k}\,g_k\right), \qquad d \ge 1$$
+
+**Multivariate ($d = |\alpha|$):**
+
+$$g_\alpha = \frac{1}{h_0}\left(f_\alpha - \frac{1}{d}\sum_{\substack{\beta \le \alpha \\ 1 \le |\beta| \le d-1}} (d - |\beta|)\,h_\beta\,g_{\alpha-\beta}\right)$$
+
+Requires $\lvert f_0 \rvert < 1$.
 
 ---
 

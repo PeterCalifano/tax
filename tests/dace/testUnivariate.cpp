@@ -194,6 +194,48 @@ TEST( DaceUnivariate, Tanh )
     EXPECT_TRUE( expectCoeffsMatch( y, yr ) );
 }
 
+TEST( DaceUnivariate, ASinh )
+{
+    constexpr int N = 40;
+
+    DACE::DA::init( N, 1 );
+    DACE::DA xr( 1 );
+    DACE::DA yr = ( xr + ( xr * xr + 1 ).sqrt() ).log();
+
+    auto x = tax::DA< N >::variable( 0.0 );
+    tax::DA< N > y = tax::asinh( x );
+
+    EXPECT_TRUE( expectCoeffsMatch( y, yr ) );
+}
+
+TEST( DaceUnivariate, ACosh )
+{
+    constexpr int N = 40;
+
+    DACE::DA::init( N, 1 );
+    DACE::DA xr( 1 );
+    DACE::DA yr = ( ( xr + 2 ) + ( ( xr + 2 ) * ( xr + 2 ) - 1 ).sqrt() ).log();
+
+    auto x = tax::DA< N >::variable( 2.0 );
+    tax::DA< N > y = tax::acosh( x );
+
+    EXPECT_TRUE( expectCoeffsMatch( y, yr ) );
+}
+
+TEST( DaceUnivariate, ATanh )
+{
+    constexpr int N = 20;
+
+    DACE::DA::init( N, 1 );
+    DACE::DA xr( 1 );
+    DACE::DA yr = xr.atanh();
+
+    auto x = tax::DA< N >::variable( 0.0 );
+    tax::DA< N > y = tax::atanh( x );
+
+    EXPECT_TRUE( expectCoeffsMatch( y, yr, 1e-9 ) );
+}
+
 TEST( DaceUnivariate, Exp )
 {
     constexpr int N = 40;
@@ -246,6 +288,20 @@ TEST( DaceUnivariate, Sqrt )
 
     auto x = tax::DA< N >::variable( 2.0 );
     tax::DA< N > y = tax::sqrt( x );
+
+    EXPECT_TRUE( expectCoeffsMatch( y, yr ) );
+}
+
+TEST( DaceUnivariate, Cbrt )
+{
+    constexpr int N = 40;
+
+    DACE::DA::init( N, 1 );
+    DACE::DA xr( 1 );
+    DACE::DA yr = ( 8 + xr ).pow( 1.0 / 3.0 );
+
+    auto x = tax::DA< N >::variable( 8.0 );
+    tax::DA< N > y = tax::cbrt( x );
 
     EXPECT_TRUE( expectCoeffsMatch( y, yr ) );
 }

@@ -313,3 +313,54 @@ TEST( SeriesSqrt, ConstantInput )
     EXPECT_NEAR( g[1], 0.0, kTol );
     EXPECT_NEAR( g[2], 0.0, kTol );
 }
+
+// =============================================================================
+// seriesCbrt — solve g*g*g = a
+// =============================================================================
+
+TEST( SeriesCbrt, CbrtOf8PlusX )
+{
+    // cbrt(8+x) at order 4:
+    //   c[0]=2, c[1]=1/12, c[2]=-1/288, c[3]=5/20736
+    constexpr int N = 4, M = 1;
+    using arr = std::array< double, numMonomials( N, M ) >;
+    arr a{};
+    a[0] = 8.0;
+    a[1] = 1.0;
+    arr g{};
+    seriesCbrt< double, N, M >( g, a );
+    EXPECT_NEAR( g[0], 2.0, kTol );
+    EXPECT_NEAR( g[1], 1.0 / 12.0, kTol );
+    EXPECT_NEAR( g[2], -1.0 / 288.0, kTol );
+    EXPECT_NEAR( g[3], 5.0 / 20736.0, kTol );
+}
+
+TEST( SeriesCbrt, CubedIsOriginal )
+{
+    // g^3 should recover a (up to truncation)
+    constexpr int N = 4, M = 1;
+    using arr = std::array< double, numMonomials( N, M ) >;
+    arr a{};
+    a[0] = 8.0;
+    a[1] = 1.0;
+    arr g{};
+    seriesCbrt< double, N, M >( g, a );
+    arr check{};
+    seriesCube< double, N, M >( check, g );
+    for ( std::size_t i = 0; i < numMonomials( N, M ); ++i )
+        EXPECT_NEAR( check[i], a[i], kTol ) << "i=" << i;
+}
+
+TEST( SeriesCbrt, ConstantInput )
+{
+    // cbrt(8) = 2, all higher coefficients zero
+    constexpr int N = 3, M = 1;
+    using arr = std::array< double, numMonomials( N, M ) >;
+    arr a{};
+    a[0] = 8.0;
+    arr g{};
+    seriesCbrt< double, N, M >( g, a );
+    EXPECT_NEAR( g[0], 2.0, kTol );
+    EXPECT_NEAR( g[1], 0.0, kTol );
+    EXPECT_NEAR( g[2], 0.0, kTol );
+}

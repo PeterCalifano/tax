@@ -8,6 +8,8 @@
 
 Write natural mathematical expressions and tax automatically propagates the full Taylor series, giving you the function value and all partial derivatives up to order $N$ in a single evaluation pass.
 
+    DISCAIMER: this repository is under active development. APIs and behavior may change; use with care.
+
 ## Features
 
 - **Compile-time fixed** order $N$ and variable count $M$ via `TDA<T, N, M>`
@@ -157,7 +159,7 @@ f.eval(dx)           // polynomial evaluated at x₀ + δx
 
 **Arithmetic**: `+`, `-`, `*`, `/` between DA expressions and scalars
 
-**Unary math**: `abs`, `square`, `cube`, `sqrt`, `sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `sinh`, `cosh`, `tanh`, `exp`, `log`, `log10`, `erf`
+**Unary math**: `abs`, `square`, `cube`, `sqrt`, `cbrt`, `sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `sinh`, `cosh`, `tanh`, `asinh`, `acosh`, `atanh`, `exp`, `log`, `log10`, `erf`
 
 **Binary math**: `pow` (integer, real, DA exponents), `atan2`, `hypot` (2- and 3-argument)
 

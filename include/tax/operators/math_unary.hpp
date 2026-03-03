@@ -31,6 +31,12 @@ template < typename E >
 }
 
 template < typename E >
+[[nodiscard]] constexpr auto cbrt( const ExprBase< E >& e ) noexcept
+{
+    return detail::FuncExpr< E, detail::OpCbrt< E::order, E::nvars > >{ e.self() };
+}
+
+template < typename E >
 [[nodiscard]] constexpr auto sin( const ExprBase< E >& e ) noexcept
 {
     return detail::FuncExpr< E, detail::OpSin< E::order, E::nvars > >{ e.self() };
@@ -82,6 +88,24 @@ template < typename E >
 [[nodiscard]] constexpr auto tanh( const ExprBase< E >& e ) noexcept
 {
     return detail::FuncExpr< E, detail::OpTanh< E::order, E::nvars > >{ e.self() };
+}
+
+template < typename E >
+[[nodiscard]] constexpr auto asinh( const ExprBase< E >& e ) noexcept
+{
+    return detail::FuncExpr< E, detail::OpAsinh< E::order, E::nvars > >{ e.self() };
+}
+
+template < typename E >
+[[nodiscard]] constexpr auto acosh( const ExprBase< E >& e ) noexcept
+{
+    return detail::FuncExpr< E, detail::OpAcosh< E::order, E::nvars > >{ e.self() };
+}
+
+template < typename E >
+[[nodiscard]] constexpr auto atanh( const ExprBase< E >& e ) noexcept
+{
+    return detail::FuncExpr< E, detail::OpAtanh< E::order, E::nvars > >{ e.self() };
 }
 
 template < typename E >

@@ -105,4 +105,44 @@ constexpr void seriesSqrt( std::array< T, numMonomials( N, M ) >& out,
     }
 }
 
+template < typename T, int N, int M >
+/**
+ * @brief Cubic-root series solve `out * out * out = a`.
+ * @details Uses the real branch from `cbrt(a[0])`. Requires `a[0] != 0`.
+ */
+constexpr void seriesCbrt( std::array< T, numMonomials( N, M ) >& out,
+                           const std::array< T, numMonomials( N, M ) >& a ) noexcept
+{
+    using std::cbrt;
+    constexpr auto S = numMonomials( N, M );
+
+    out = {};
+    out[0] = cbrt( a[0] );
+    const T inv3g0sq = T{ 1 } / ( T{ 3 } * out[0] * out[0] );
+
+    if constexpr ( M == 1 )
+    {
+        for ( int d = 1; d <= N; ++d )
+        {
+            // Degree-d coefficient in g^3 depends on g_d only through 3*g0^2*g_d.
+            T rhs = T{ 0 };
+            for ( int j = 0; j <= d; ++j )
+                for ( int k = 0; k <= d - j; ++k ) rhs += out[j] * out[k] * out[d - j - k];
+            out[d] = ( a[d] - rhs ) * inv3g0sq;
+        }
+    } else
+    {
+        for ( int d = 1; d <= N; ++d )
+        {
+            // Keep all degree-d coefficients at zero while building the known part of g^3.
+            std::array< T, S > sq{}, cube{};
+            cauchyProduct< T, N, M >( sq, out, out );
+            cauchyProduct< T, N, M >( cube, sq, out );
+            forEachMonomial< M >( d, [&]( const auto&, std::size_t ai ) {
+                out[ai] = ( a[ai] - cube[ai] ) * inv3g0sq;
+            } );
+        }
+    }
+}
+
 }  // namespace tax::detail
