@@ -167,3 +167,65 @@ TEST( Sqrt, OfExpression )
     DA< 4 > r = sqrt( a + b );  // sqrt(4) = 2
     EXPECT_NEAR( r.value(), 2.0, kTol );
 }
+
+// =============================================================================
+// CbrtExpr — Taylor series of cbrt(f)
+// =============================================================================
+
+TEST( Cbrt, ConstantCbrt )
+{
+    DA< 3 > a{ 8.0 };
+    DA< 3 > r = cbrt( a );
+    EXPECT_NEAR( r.value(), 2.0, kTol );
+    for ( std::size_t k = 1; k < DA< 3 >::ncoef; ++k ) EXPECT_NEAR( r[k], 0.0, kTol );
+}
+
+TEST( Cbrt, Cbrt8PlusX )
+{
+    // cbrt(8+x) = 2 + x/12 - x^2/288 + 5 x^3/20736 + ...
+    auto x = DA< 4 >::variable< 0 >( { 8.0 } );
+    DA< 4 > r = cbrt( x );
+    EXPECT_NEAR( r[0], 2.0, kTol );
+    EXPECT_NEAR( r[1], 1.0 / 12.0, kTol );
+    EXPECT_NEAR( r[2], -1.0 / 288.0, kTol );
+    EXPECT_NEAR( r[3], 5.0 / 20736.0, kTol );
+}
+
+TEST( Cbrt, CbrtCubedIsIdentity )
+{
+    auto x = DA< 5 >::variable< 0 >( { 8.0 } );
+    DA< 5 > r = cube( cbrt( x ) );
+    ExpectCoeffsNear( r, x );
+}
+
+TEST( Cbrt, CubeThenCbrt )
+{
+    auto x = DA< 4 >::variable< 0 >( { 3.0 } );
+    DA< 4 > r = cbrt( cube( x ) );
+    ExpectCoeffsNear( r, x );
+}
+
+TEST( Cbrt, DerivativeCheck )
+{
+    // d/dx cbrt(x) at x0=8: value = 2, deriv = 1/(3*cbrt(8)^2) = 1/12
+    auto x = DA< 3 >::variable< 0 >( { 8.0 } );
+    DA< 3 > r = cbrt( x );
+    EXPECT_NEAR( r.value(), 2.0, kTol );
+    EXPECT_NEAR( r.derivative( { 1 } ), 1.0 / 12.0, kTol );
+}
+
+TEST( Cbrt, Bivariate )
+{
+    auto [x, y] = DAn< 3, 2 >::variables( { 8.0, 1.0 } );
+    DAn< 3, 2 > r1 = cbrt( x );
+    // cbrt(x) should not depend on y
+    EXPECT_NEAR( r1.coeff( { 0, 1 } ), 0.0, kTol );
+    EXPECT_NEAR( r1.coeff( { 0, 0 } ), 2.0, kTol );
+}
+
+TEST( Cbrt, OfExpression )
+{
+    DA< 4 > a{ 7.0 }, b{ 1.0 };
+    DA< 4 > r = cbrt( a + b );  // cbrt(8) = 2
+    EXPECT_NEAR( r.value(), 2.0, kTol );
+}

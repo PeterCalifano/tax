@@ -32,6 +32,7 @@ set(TEST_SOURCES
     testExprLog.cpp
     testExprPow.cpp
     testExprHyp.cpp
+    testExprInvHyp.cpp
     testExprInvTrig.cpp
     testExprErf.cpp
     testExprFMA.cpp

@@ -62,6 +62,21 @@ struct OpSqrt
 };
 
 /**
+ * @brief Tag for `cbrt(expr)`.
+ * @details Delegates to `seriesCbrt`.
+ */
+template < int N, int M >
+struct OpCbrt
+{
+    template < typename T >
+    static constexpr void apply( std::array< T, numMonomials( N, M ) >& out,
+                                 const std::array< T, numMonomials( N, M ) >& a ) noexcept
+    {
+        seriesCbrt< T, N, M >( out, a );
+    }
+};
+
+/**
  * @brief Tag for reciprocal series `1/expr`.
  * @details Delegates to `seriesReciprocal`.
  */
@@ -207,6 +222,39 @@ struct OpTanh
                                  const std::array< T, numMonomials( N, M ) >& a ) noexcept
     {
         seriesTanh< T, N, M >( out, a );
+    }
+};
+
+template < int N, int M >
+struct OpAsinh
+{
+    template < typename T >
+    static constexpr void apply( std::array< T, numMonomials( N, M ) >& out,
+                                 const std::array< T, numMonomials( N, M ) >& a ) noexcept
+    {
+        seriesAsinh< T, N, M >( out, a );
+    }
+};
+
+template < int N, int M >
+struct OpAcosh
+{
+    template < typename T >
+    static constexpr void apply( std::array< T, numMonomials( N, M ) >& out,
+                                 const std::array< T, numMonomials( N, M ) >& a ) noexcept
+    {
+        seriesAcosh< T, N, M >( out, a );
+    }
+};
+
+template < int N, int M >
+struct OpAtanh
+{
+    template < typename T >
+    static constexpr void apply( std::array< T, numMonomials( N, M ) >& out,
+                                 const std::array< T, numMonomials( N, M ) >& a ) noexcept
+    {
+        seriesAtanh< T, N, M >( out, a );
     }
 };
 

@@ -39,7 +39,7 @@ template < int N, int M >
 
 // Operators
 
-TEST( DaceUnivariate, Div )
+TEST( DaceMultivariate, Div )
 {
     constexpr int N = 5;
 
@@ -61,7 +61,7 @@ TEST( DaceUnivariate, Div )
 
 // Operations
 
-TEST( DaceUnivariate, Sin )
+TEST( DaceMultivariate, Sin )
 {
     constexpr int N = 5;
 
@@ -82,7 +82,7 @@ TEST( DaceUnivariate, Sin )
     EXPECT_TRUE( expectCoeffsMatch( v, vr ) );
 }
 
-TEST( DaceUnivariate, Cos )
+TEST( DaceMultivariate, Cos )
 {
     constexpr int N = 5;
 
@@ -103,7 +103,7 @@ TEST( DaceUnivariate, Cos )
     EXPECT_TRUE( expectCoeffsMatch( v, vr ) );
 }
 
-TEST( DaceUnivariate, Tan )
+TEST( DaceMultivariate, Tan )
 {
     constexpr int N = 5;
 
@@ -124,7 +124,7 @@ TEST( DaceUnivariate, Tan )
     EXPECT_TRUE( expectCoeffsMatch( v, vr ) );
 }
 
-TEST( DaceUnivariate, Sinh )
+TEST( DaceMultivariate, Sinh )
 {
     constexpr int N = 5;
 
@@ -145,7 +145,7 @@ TEST( DaceUnivariate, Sinh )
     EXPECT_TRUE( expectCoeffsMatch( v, vr ) );
 }
 
-TEST( DaceUnivariate, Cosh )
+TEST( DaceMultivariate, Cosh )
 {
     constexpr int N = 5;
 
@@ -166,7 +166,7 @@ TEST( DaceUnivariate, Cosh )
     EXPECT_TRUE( expectCoeffsMatch( v, vr ) );
 }
 
-TEST( DaceUnivariate, Tanh )
+TEST( DaceMultivariate, Tanh )
 {
     constexpr int N = 5;
 
@@ -187,7 +187,73 @@ TEST( DaceUnivariate, Tanh )
     EXPECT_TRUE( expectCoeffsMatch( v, vr ) );
 }
 
-TEST( DaceUnivariate, ASin )
+TEST( DaceMultivariate, ASinh )
+{
+    constexpr int N = 5;
+
+    DACE::DA::init( N, 3 );
+    DACE::DA dxr( 1 );
+    DACE::DA dyr( 2 );
+    DACE::DA dzr( 3 );
+
+    auto xr = dxr + 1.0;
+    auto yr = dyr + 0.5;
+    auto zr = dzr + 1.0;
+
+    auto wr = xr * yr / zr;
+    auto vr = ( wr + ( wr * wr + 1 ).sqrt() ).log();
+
+    auto [x, y, z] = tax::DAn< N, 3 >::variables( { 1.0, 0.5, 1.0 } );
+    tax::DAn< N, 3 > v = tax::asinh( x * y / z );
+
+    EXPECT_TRUE( expectCoeffsMatch( v, vr ) );
+}
+
+TEST( DaceMultivariate, ACosh )
+{
+    constexpr int N = 5;
+
+    DACE::DA::init( N, 3 );
+    DACE::DA dxr( 1 );
+    DACE::DA dyr( 2 );
+    DACE::DA dzr( 3 );
+
+    auto xr = dxr + 2.0;
+    auto yr = dyr + 1.0;
+    auto zr = dzr + 1.0;
+
+    auto wr = xr * yr / zr;
+    auto vr = ( wr + ( wr * wr - 1 ).sqrt() ).log();
+
+    auto [x, y, z] = tax::DAn< N, 3 >::variables( { 2.0, 1.0, 1.0 } );
+    tax::DAn< N, 3 > v = tax::acosh( x * y / z );
+
+    EXPECT_TRUE( expectCoeffsMatch( v, vr ) );
+}
+
+TEST( DaceMultivariate, ATanh )
+{
+    constexpr int N = 5;
+
+    DACE::DA::init( N, 3 );
+    DACE::DA dxr( 1 );
+    DACE::DA dyr( 2 );
+    DACE::DA dzr( 3 );
+
+    auto xr = dxr + 0.2;
+    auto yr = dyr + 0.5;
+    auto zr = dzr + 1.0;
+
+    auto wr = xr * yr / zr;
+    auto vr = 0.5 * ( ( 1 + wr ) / ( 1 - wr ) ).log();
+
+    auto [x, y, z] = tax::DAn< N, 3 >::variables( { 0.2, 0.5, 1.0 } );
+    tax::DAn< N, 3 > v = tax::atanh( x * y / z );
+
+    EXPECT_TRUE( expectCoeffsMatch( v, vr ) );
+}
+
+TEST( DaceMultivariate, ASin )
 {
     constexpr int N = 5;
 
@@ -208,7 +274,7 @@ TEST( DaceUnivariate, ASin )
     EXPECT_TRUE( expectCoeffsMatch( v, vr ) );
 }
 
-TEST( DaceUnivariate, ACos )
+TEST( DaceMultivariate, ACos )
 {
     constexpr int N = 5;
 
@@ -229,7 +295,7 @@ TEST( DaceUnivariate, ACos )
     EXPECT_TRUE( expectCoeffsMatch( v, vr ) );
 }
 
-TEST( DaceUnivariate, ATan )
+TEST( DaceMultivariate, ATan )
 {
     constexpr int N = 5;
 
@@ -250,7 +316,7 @@ TEST( DaceUnivariate, ATan )
     EXPECT_TRUE( expectCoeffsMatch( v, vr ) );
 }
 
-TEST( DaceUnivariate, Log )
+TEST( DaceMultivariate, Log )
 {
     constexpr int N = 5;
 
@@ -271,7 +337,7 @@ TEST( DaceUnivariate, Log )
     EXPECT_TRUE( expectCoeffsMatch( v, vr ) );
 }
 
-TEST( DaceUnivariate, Log10 )
+TEST( DaceMultivariate, Log10 )
 {
     constexpr int N = 5;
 
@@ -292,7 +358,7 @@ TEST( DaceUnivariate, Log10 )
     EXPECT_TRUE( expectCoeffsMatch( v, vr ) );
 }
 
-TEST( DaceUnivariate, Exp )
+TEST( DaceMultivariate, Exp )
 {
     constexpr int N = 5;
 
@@ -313,7 +379,7 @@ TEST( DaceUnivariate, Exp )
     EXPECT_TRUE( expectCoeffsMatch( v, vr ) );
 }
 
-TEST( DaceUnivariate, Sqrt )
+TEST( DaceMultivariate, Sqrt )
 {
     constexpr int N = 5;
 
@@ -334,7 +400,28 @@ TEST( DaceUnivariate, Sqrt )
     EXPECT_TRUE( expectCoeffsMatch( v, vr ) );
 }
 
-TEST( DaceUnivariate, IPow )
+TEST( DaceMultivariate, Cbrt )
+{
+    constexpr int N = 5;
+
+    DACE::DA::init( N, 3 );
+    DACE::DA dxr( 1 );
+    DACE::DA dyr( 2 );
+    DACE::DA dzr( 3 );
+
+    auto xr = dxr + 4.0;
+    auto yr = dyr + 2.0;
+    auto zr = dzr + 1.0;
+
+    auto vr = ( xr * yr / zr ).pow( 1.0 / 3.0 );
+
+    auto [x, y, z] = tax::DAn< N, 3 >::variables( { 4.0, 2.0, 1.0 } );
+    tax::DAn< N, 3 > v = tax::cbrt( x * y / z );
+
+    EXPECT_TRUE( expectCoeffsMatch( v, vr ) );
+}
+
+TEST( DaceMultivariate, IPow )
 {
     constexpr int N = 5;
 
@@ -355,7 +442,7 @@ TEST( DaceUnivariate, IPow )
     EXPECT_TRUE( expectCoeffsMatch( v, vr ) );
 }
 
-TEST( DaceUnivariate, Pow )
+TEST( DaceMultivariate, Pow )
 {
     constexpr int N = 5;
 

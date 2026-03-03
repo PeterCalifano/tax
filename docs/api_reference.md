@@ -278,6 +278,7 @@ All functions live in the `tax` namespace and return lazy expressions.
 | `tax::square(f)`  | $f^2$                       | Square (Cauchy self-product) |
 | `tax::cube(f)`    | $f^3$                       | Cube                         |
 | `tax::sqrt(f)`    | $\sqrt{f}$                  | Square root ($f_0 > 0$)     |
+| `tax::cbrt(f)`    | $\sqrt[3]{f}$               | Cubic root ($f_0 \ne 0$)    |
 | `tax::sin(f)`     | $\sin(f)$                   | Sine                         |
 | `tax::cos(f)`     | $\cos(f)$                   | Cosine                       |
 | `tax::tan(f)`     | $\tan(f)$                   | Tangent                      |
@@ -287,6 +288,9 @@ All functions live in the `tax` namespace and return lazy expressions.
 | `tax::sinh(f)`    | $\sinh(f)$                  | Hyperbolic sine              |
 | `tax::cosh(f)`    | $\cosh(f)$                  | Hyperbolic cosine            |
 | `tax::tanh(f)`    | $\tanh(f)$                  | Hyperbolic tangent           |
+| `tax::asinh(f)`   | $\operatorname{asinh}(f)$   | Inverse hyperbolic sine      |
+| `tax::acosh(f)`   | $\operatorname{acosh}(f)$   | Inverse hyperbolic cosine    |
+| `tax::atanh(f)`   | $\operatorname{atanh}(f)$   | Inverse hyperbolic tangent   |
 | `tax::exp(f)`     | $e^f$                       | Exponential                  |
 | `tax::log(f)`     | $\ln(f)$                    | Natural logarithm ($f_0 > 0$) |
 | `tax::log10(f)`   | $\log_{10}(f)$              | Base-10 logarithm            |
