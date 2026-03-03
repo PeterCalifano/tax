@@ -67,3 +67,7 @@ foreach(test_file IN LISTS TEST_SOURCES)
     # Register with CTest
     gtest_discover_tests(${test_name})
 endforeach()
+
+if(TAX_USE_DACE)
+    add_subdirectory(dace)
+endif()
