@@ -20,6 +20,9 @@
 //   endpoint_compare.csv     — endpoint at t = T_orbit across δ ∈ [-1, 1]
 //                              for: truth, single flow polynomial, ADS
 //   ads_leaves.csv           — IC-space bounds of each 1-D ADS leaf
+//   ads_box_snapshots.csv    — boundary of each ADS leaf at each snapshot time
+//   flow_box_snapshots.csv   — single-flow polygon boundary at each snapshot time
+//   ads_box_leaves.csv       — IC-space bounds of every ADS leaf at each snapshot
 //   split_ic.csv             — parent/children IC-space bounds at each split
 //   split_phase.csv          — parent/children boundary curves at t = T_orbit
 //                              for each split event (the "why we split" plot)
@@ -28,7 +31,9 @@
 //
 // Companion scripts:
 //   plotEllipticOrbit.py     — orbit, endpoint scatter, error-vs-δ figure
-//   plotBoxEvolution.py      — split-event view: parent vs children both in
+//   plotBoxEvolution.py      — time-snapshot view: ADS leaves vs single-flow
+//                              polygon at each snapshot time
+//   plotBoxOnSplit.py        — split-event view: parent vs children both in
 //                              IC-space and pushed forward to T_orbit
 // =============================================================================
 
@@ -235,13 +240,16 @@ int main()
     }
 
     // -------------------------------------------------------------------------
-    // 4) 2-D IC box pushed forward to t = T_orbit, with one snapshot per split.
+    // 4) 2-D IC box: two complementary visualisations of how the IC box
+    //    deforms under the flow.  Both share the same Box<2D-active> domain.
     //
-    // We capture every split event during the ADS run.  For each event we
-    // record the parent box and the two children both in IC-space and
-    // separately push them forward to T_orbit through the DaIntegrator.  The
-    // resulting "snapshot timeline" is indexed by split number, not by time —
-    // it shows the algorithm refining the IC partition.
+    //    4a) Time snapshots  — uniform times in [0, T_orbit].  At each time
+    //                          we run a fresh ADS and a fresh single-flow
+    //                          DA propagation and dump the boundary curves.
+    //    4b) Split snapshots — a SINGLE ADS run over T_orbit; on_split fires
+    //                          once per split event and we record the parent
+    //                          box and its two children, both in IC-space and
+    //                          pushed forward to T_orbit through DaIntegrator.
     // -------------------------------------------------------------------------
     Box< double, kD > box2D{ { rp, 0.0, 0.0, vp }, { 0.0, 0.005, 0.0, 0.008 } };
 
@@ -267,6 +275,79 @@ int main()
         return pts;
     };
     const auto bnd = unit_square_boundary( n_per_edge );
+
+    // -------------------------------------------------------------------------
+    // 4a) Time-snapshot view: at every snapshot time t_k, run a fresh ADS and
+    //     a fresh single flow DA propagation and dump the boundary curves.
+    // -------------------------------------------------------------------------
+    {
+        constexpr int         n_snapshots = 10;
+        std::vector< double > snapshots( n_snapshots );
+        for ( int k = 0; k < n_snapshots; ++k )
+            snapshots[k] = ( double( k + 1 ) / double( n_snapshots ) ) * tmax;
+
+        std::ofstream sf( "ads_box_snapshots.csv" );
+        sf << "snapshot,t,leaf_idx,sample_idx,x,y\n";
+        std::ofstream sff( "flow_box_snapshots.csv" );
+        sff << "snapshot,t,sample_idx,x,y\n";
+        std::ofstream sfl( "ads_box_leaves.csv" );
+        sfl << "snapshot,t,leaf_idx,dy_lo,dy_hi,dvy_lo,dvy_hi\n";
+
+        ode::DaIntegrator< kN, kP, kD > time_da{
+            kepler, ode::IntegratorConfig< double >{ .abstol = 1e-14 } };
+        ode::AdsIntegrator< kN, kP, kD > time_ads{
+            kepler, ode::AdsConfig{ .step_tol = 1e-13, .ads_tol = 1e-3, .max_depth = 4 } };
+
+        for ( std::size_t s = 0; s < snapshots.size(); ++s )
+        {
+            const double t_snap = snapshots[s];
+
+            auto tree_t = time_ads.integrate( box2D, 0.0, t_snap );
+            auto flow_t = time_da.integrate( box2D, 0.0, t_snap );
+
+            std::cout << "Snapshot t = " << t_snap << ":  ADS leaves = " << tree_t.numDone()
+                      << '\n';
+
+            for ( int li : tree_t.doneLeaves() )
+            {
+                const auto& leaf = tree_t.node( li ).leaf();
+                for ( std::size_t i = 0; i < bnd.size(); ++i )
+                {
+                    const std::array< double, kD > d{ 0.0, bnd[i][0], 0.0, bnd[i][1] };
+                    const double                   x = leaf.tte.state( 0 ).eval( d );
+                    const double                   y = leaf.tte.state( 1 ).eval( d );
+                    sf << s << ',' << t_snap << ',' << li << ',' << i << ',' << x << ',' << y
+                       << '\n';
+                }
+                const double dy_lo  = ( leaf.box.center[1] - leaf.box.halfWidth[1]
+                                       - box2D.center[1] ) / box2D.halfWidth[1];
+                const double dy_hi  = ( leaf.box.center[1] + leaf.box.halfWidth[1]
+                                       - box2D.center[1] ) / box2D.halfWidth[1];
+                const double dvy_lo = ( leaf.box.center[3] - leaf.box.halfWidth[3]
+                                        - box2D.center[3] ) / box2D.halfWidth[3];
+                const double dvy_hi = ( leaf.box.center[3] + leaf.box.halfWidth[3]
+                                        - box2D.center[3] ) / box2D.halfWidth[3];
+                sfl << s << ',' << t_snap << ',' << li << ',' << dy_lo << ',' << dy_hi << ','
+                    << dvy_lo << ',' << dvy_hi << '\n';
+            }
+
+            for ( std::size_t i = 0; i < bnd.size(); ++i )
+            {
+                const std::array< double, kD > d{ 0.0, bnd[i][0], 0.0, bnd[i][1] };
+                const double                   x = flow_t.state( 0 ).eval( d );
+                const double                   y = flow_t.state( 1 ).eval( d );
+                sff << s << ',' << t_snap << ',' << i << ',' << x << ',' << y << '\n';
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 4b) Split-snapshot view: a single ADS run over the full orbit.  on_split
+    //     captures every split event; for each event we record parent and
+    //     children IC-space boxes plus their boundary curves pushed forward to
+    //     T_orbit.  The "snapshot timeline" is indexed by split number, not
+    //     by time — it shows the algorithm refining the IC partition.
+    // -------------------------------------------------------------------------
 
     // Capture every split event.
     struct SplitSnap
@@ -365,7 +446,8 @@ int main()
     }
 
     std::cout << "Wrote: orbit_reference.csv, orbits_perturbed.csv, endpoint_compare.csv,\n"
-              << "       ads_leaves.csv, split_ic.csv, split_phase.csv,\n"
-              << "       ads_final_leaves.csv, flow_image.csv\n";
+              << "       ads_leaves.csv,\n"
+              << "       ads_box_snapshots.csv, flow_box_snapshots.csv, ads_box_leaves.csv,\n"
+              << "       split_ic.csv, split_phase.csv, ads_final_leaves.csv, flow_image.csv\n";
     return 0;
 }
