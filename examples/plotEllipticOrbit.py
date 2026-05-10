@@ -101,10 +101,15 @@ def main() -> None:
     ax_err.semilogy(cmp_["delta"], err_ads, "+-", color="tab:green", ms=6,
                     label="ADS piecewise flow")
 
-    # Annotate ADS sub-domain boundaries on the δ-axis
-    centre = 0.5 * (leaves["vy_lo"][0] + leaves["vy_hi"][-1])
-    half = 0.5 * (leaves["vy_hi"][-1] - leaves["vy_lo"][0])
-    boundaries = sorted(set(list(leaves["vy_lo"]) + list(leaves["vy_hi"])))
+    # Annotate ADS sub-domain boundaries on the δ-axis (use min/max across all leaves
+    # because tree.doneLeaves() returns leaves in arena order, not sorted by bound).
+    vy_lo_all = leaves["vy_lo"]
+    vy_hi_all = leaves["vy_hi"]
+    vy_min = float(np.min(vy_lo_all))
+    vy_max = float(np.max(vy_hi_all))
+    centre = 0.5 * (vy_min + vy_max)
+    half = 0.5 * (vy_max - vy_min)
+    boundaries = sorted(set(list(vy_lo_all) + list(vy_hi_all)))
     for vy_b in boundaries:
         d_b = (vy_b - centre) / half
         if -1.0 < d_b < 1.0:

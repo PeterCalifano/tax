@@ -13,12 +13,22 @@
 //      flow map.
 //
 // All three runs share the same right-hand side and the same final time.  The
-// program writes four CSV files consumed by the companion plotting script:
+// program writes the following CSV files consumed by the companion plotting
+// scripts:
 //
 //   orbit_reference.csv     — reference trajectory (t, x, y, vx, vy)
 //   orbits_perturbed.csv    — a handful of perturbed trajectories
 //   endpoint_compare.csv    — endpoint of every method at tmax across δ ∈ [-1,1]
-//   ads_leaves.csv          — sub-domain bounds of each ADS leaf
+//   ads_leaves.csv          — sub-domain bounds of each 1-D ADS leaf
+//   ads_box_snapshots.csv   — boundary of each ADS leaf at each snapshot time
+//   flow_box_snapshots.csv  — boundary of the single-flow polygon at each
+//                             snapshot time
+//   ads_box_leaves.csv      — IC-space bounds of every ADS leaf at each snapshot
+//
+// Companion scripts:
+//   plotEllipticOrbit.py     — orbit, endpoint scatter, error-vs-δ figure
+//   plotBoxEvolution.py      — ADS leaves vs single-flow polygon at each
+//                              snapshot time (the "box pushed forward" plot)
 // =============================================================================
 
 #include <array>
@@ -36,7 +46,7 @@ using namespace tax;
 namespace
 {
 
-constexpr int kN = 14;  ///< Taylor expansion order in time.
+constexpr int kN = 12;  ///< Taylor expansion order in time.
 constexpr int kP = 4;   ///< DA expansion order in initial conditions.
 constexpr int kD = 4;   ///< 2 position + 2 velocity components.
 
@@ -66,7 +76,8 @@ int main()
     constexpr double e    = 0.5;
     const double     rp   = a * ( 1.0 - e );
     const double     vp   = std::sqrt( ( 1.0 + e ) / ( 1.0 - e ) );
-    const double     tmax = std::numbers::pi;  // periapsis → apoapsis (half period)
+    const double     tmax_orbit = std::numbers::pi;       // periapsis → apoapsis
+    const double     tmax       = 0.5 * std::numbers::pi; // DA work uses quarter orbit
 
     Eigen::Vector< double, kD > x0;
     x0 << rp, 0.0, 0.0, vp;
@@ -74,7 +85,7 @@ int main()
     // -------------------------------------------------------------------------
     // 1) Plain Taylor integration of the reference orbit.
     // -------------------------------------------------------------------------
-    auto sol = ode::integrate< kN >( kepler, x0, 0.0, tmax, 1e-16 );
+    auto sol = ode::integrate< kN >( kepler, x0, 0.0, tmax_orbit, 1e-16 );
     {
         std::ofstream out( "orbit_reference.csv" );
         out << "t,x,y,vx,vy\n";
@@ -90,7 +101,7 @@ int main()
     // The box is large enough that a single Taylor flow visibly degrades by
     // tmax (one full period), motivating the ADS split.
     // -------------------------------------------------------------------------
-    Box< double, kD > box{ { rp, 0.0, 0.0, vp }, { 0.0, 0.0, 0.0, 0.10 } };
+    Box< double, kD > box{ { rp, 0.0, 0.0, vp }, { 0.0, 0.0, 0.0, 0.08 } };
 
     // -------------------------------------------------------------------------
     // 2) Single flow expansion (propagateBox, no splitting).
@@ -103,7 +114,7 @@ int main()
     // -------------------------------------------------------------------------
     constexpr double ads_tol = 1e-4;
     auto             tree    = ode::integrateAds< kN, kP >( kepler, box, 0.0, tmax, 1e-14, ads_tol,
-                                                            12 );
+                                                            6 );
     std::cout << "ADS:                  " << tree.numDone() << " leaves (tol = " << ads_tol << ")\n";
 
     // -------------------------------------------------------------------------
@@ -195,7 +206,7 @@ int main()
     {
         Eigen::Vector< double, kD > x0p;
         x0p << rp, 0.0, 0.0, vp + box.halfWidth[3] * d;
-        auto sp = ode::integrate< kN >( kepler, x0p, 0.0, tmax, 1e-16 );
+        auto sp = ode::integrate< kN >( kepler, x0p, 0.0, tmax_orbit, 1e-16 );
         for ( std::size_t i = 0; i < sp.t.size(); ++i )
             traj << d << ',' << sp.t[i] << ',' << sp.x[i]( 0 ) << ',' << sp.x[i]( 1 ) << '\n';
     }
@@ -213,7 +224,100 @@ int main()
         lf << li << ',' << lo << ',' << hi << '\n';
     }
 
-    std::cout << "Wrote: orbit_reference.csv, orbits_perturbed.csv, "
-                 "endpoint_compare.csv, ads_leaves.csv\n";
+    // -------------------------------------------------------------------------
+    // 2-D IC box pushed forward in time: the classic ADS visualisation.
+    //
+    // Perturb both y(0) and v_y(0) about the periapsis IC.  At a handful of
+    // snapshot times we run propagateBox (single polynomial) and integrateAds
+    // (piecewise) and sample the boundary of the unit square in normalised
+    // δ ∈ [-1, 1]^2.  Mapping that boundary through each leaf's polynomial
+    // gives a deformed quadrilateral in the (x, y) plane: the original IC box
+    // pushed forward to the snapshot time, partitioned into ADS leaves.
+    // -------------------------------------------------------------------------
+    Box< double, kD > box2D{ { rp, 0.0, 0.0, vp }, { 0.0, 0.04, 0.0, 0.06 } };
+
+    const std::vector< double > snapshots = { 0.125 * std::numbers::pi,
+                                              0.250 * std::numbers::pi,
+                                              0.375 * std::numbers::pi,
+                                              0.500 * std::numbers::pi };
+
+    constexpr int n_per_edge = 24;  ///< boundary samples per side of the unit square
+
+    auto unit_square_boundary = []( int n ) {
+        std::vector< std::array< double, 2 > > pts;
+        pts.reserve( std::size_t( 4 * n + 1 ) );
+        for ( int e = 0; e < 4; ++e )
+            for ( int i = 0; i < n; ++i )
+            {
+                const double s = double( i ) / double( n );
+                double       dy = 0.0, dvy = 0.0;
+                switch ( e )
+                {
+                case 0: dy = -1.0 + 2.0 * s; dvy = +1.0; break;            // top
+                case 1: dy = +1.0; dvy = +1.0 - 2.0 * s; break;            // right
+                case 2: dy = +1.0 - 2.0 * s; dvy = -1.0; break;            // bottom
+                case 3: dy = -1.0; dvy = -1.0 + 2.0 * s; break;            // left
+                }
+                pts.push_back( { dy, dvy } );
+            }
+        pts.push_back( pts.front() );  // close the loop
+        return pts;
+    };
+
+    const auto bnd = unit_square_boundary( n_per_edge );
+
+    std::ofstream sf( "ads_box_snapshots.csv" );
+    sf << "snapshot,t,leaf_idx,sample_idx,x,y\n";
+    std::ofstream sff( "flow_box_snapshots.csv" );
+    sff << "snapshot,t,sample_idx,x,y\n";
+    std::ofstream sfl( "ads_box_leaves.csv" );
+    sfl << "snapshot,t,leaf_idx,dy_lo,dy_hi,dvy_lo,dvy_hi\n";
+
+    for ( std::size_t s = 0; s < snapshots.size(); ++s )
+    {
+        const double t_snap = snapshots[s];
+
+        auto tree2 = ode::integrateAds< kN, kP >( kepler, box2D, 0.0, t_snap, 1e-13, 1e-4, 5 );
+        auto flow2 = ode::propagateBox< kN, kP, kD >( kepler, box2D, 0.0, t_snap, 1e-14 );
+
+        std::cout << "Snapshot t = " << t_snap << ":  ADS leaves = " << tree2.numDone() << '\n';
+
+        // ADS: sample the unit-square boundary in each leaf's local δ.
+        for ( int li : tree2.doneLeaves() )
+        {
+            const auto& leaf = tree2.node( li ).leaf();
+            for ( std::size_t i = 0; i < bnd.size(); ++i )
+            {
+                const std::array< double, kD > d{ 0.0, bnd[i][0], 0.0, bnd[i][1] };
+                const double                   x = leaf.tte.state( 0 ).eval( d );
+                const double                   y = leaf.tte.state( 1 ).eval( d );
+                sf << s << ',' << t_snap << ',' << li << ',' << i << ',' << x << ',' << y << '\n';
+            }
+            // Leaf bounds in the original normalised δ-space (for the IC-side panel).
+            const double dy_lo = ( ( leaf.box.center[1] - leaf.box.halfWidth[1] ) -
+                                   box2D.center[1] ) / box2D.halfWidth[1];
+            const double dy_hi = ( ( leaf.box.center[1] + leaf.box.halfWidth[1] ) -
+                                   box2D.center[1] ) / box2D.halfWidth[1];
+            const double dvy_lo = ( ( leaf.box.center[3] - leaf.box.halfWidth[3] ) -
+                                    box2D.center[3] ) / box2D.halfWidth[3];
+            const double dvy_hi = ( ( leaf.box.center[3] + leaf.box.halfWidth[3] ) -
+                                    box2D.center[3] ) / box2D.halfWidth[3];
+            sfl << s << ',' << t_snap << ',' << li << ',' << dy_lo << ',' << dy_hi << ','
+                << dvy_lo << ',' << dvy_hi << '\n';
+        }
+
+        // Single flow: sample the unit-square boundary in box2D-relative δ.
+        for ( std::size_t i = 0; i < bnd.size(); ++i )
+        {
+            const std::array< double, kD > d{ 0.0, bnd[i][0], 0.0, bnd[i][1] };
+            const double                   x = flow2( 0 ).eval( d );
+            const double                   y = flow2( 1 ).eval( d );
+            sff << s << ',' << t_snap << ',' << i << ',' << x << ',' << y << '\n';
+        }
+    }
+
+    std::cout << "Wrote: orbit_reference.csv, orbits_perturbed.csv, endpoint_compare.csv,\n"
+              << "       ads_leaves.csv, ads_box_snapshots.csv, flow_box_snapshots.csv,\n"
+              << "       ads_box_leaves.csv\n";
     return 0;
 }
