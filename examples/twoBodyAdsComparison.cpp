@@ -247,26 +247,31 @@ int main()
     }
 
     // -------------------------------------------------------------------------
-    // Snapshots over one full orbital period.
+    // Snapshots over one orbital period.
     //
-    // For each snapshot time t_k in (0, T_orbit] we run a fresh ADS for both
-    // criteria and dump the pushed-forward leaf boundaries.  This gives a
-    // movie-frame view of how the IC partition deforms (and how each method
-    // refines its tessellation) as the orbit progresses.  Snapshot ADS runs
-    // use a shallower max_depth to keep cumulative runtime bounded — the
-    // headline analysis above already used the deeper budget.
+    // The headline analysis above uses an IC box wide enough to stress both
+    // methods; that same box, propagated to apoapsis, deforms into a long
+    // sliver and individual leaves become hard to see.  For the storyboard
+    // view we use a *smaller, symmetric* IC box (so each pushed-forward leaf
+    // remains close to a box) and *looser tolerances* (so LowOrderAds does
+    // not saturate the depth cap at the very first snapshot).
     // -------------------------------------------------------------------------
     {
-        constexpr int    n_snap   = 6;
-        const double     T_period = 2.0 * std::numbers::pi;
-        constexpr int    snap_depth = 6;
+        constexpr int n_snap     = 6;
+        const double  T_period   = 2.0 * std::numbers::pi;
+        constexpr int snap_depth = 9;
+        constexpr double snap_tol = 2e-2;
+
+        // Box-like, symmetric IC perturbation around the periapsis state.
+        Box< double, kD > snap_box{ { rp,     0.0, 0.0, vp     },
+                                    { 0.003,  0.0, 0.0, 0.003  } };
 
         ode::AdsIntegrator< kN, kP, kD > te_snap_ig{
             kepler, ode::AdsConfig{
-                        .step_tol = 1e-14, .ads_tol = tol, .max_depth = snap_depth } };
+                        .step_tol = 1e-14, .ads_tol = snap_tol, .max_depth = snap_depth } };
         ode::LowOrderAdsIntegrator< kN, kP, kD > lo_snap_ig{
             kepler, ode::LowOrderAdsConfig{
-                        .step_tol = 1e-14, .nli_tol = tol, .max_depth = snap_depth } };
+                        .step_tol = 1e-14, .nli_tol = snap_tol, .max_depth = snap_depth } };
 
         std::ofstream snaps( "twoBody_snapshots.csv" );
         snaps << "snapshot,t,method,leaf,segment,delta_x,delta_vy,x,y\n";
@@ -291,13 +296,17 @@ int main()
             }
         };
 
-        std::cout << "\nSnapshots (depth = " << snap_depth << "):\n";
+        std::cout << "\nSnapshots (box ±" << snap_box.halfWidth[0] << " × ±"
+                  << snap_box.halfWidth[3] << ", depth = " << snap_depth << "):\n";
+        // Sample n_snap times in (0, T_period * (n_snap / (n_snap + 1))] so the
+        // very last sliver of the period — where dynamical stretching causes
+        // the NLI criterion to saturate the depth cap — is skipped.
         for ( int k = 1; k <= n_snap; ++k )
         {
-            const double tk = T_period * double( k ) / double( n_snap );
+            const double tk = T_period * double( k ) / double( n_snap + 1 );
 
-            auto te_k = te_snap_ig.integrate( box, 0.0, tk );
-            auto lo_k = lo_snap_ig.integrate( box, 0.0, tk );
+            auto te_k = te_snap_ig.integrate( snap_box, 0.0, tk );
+            auto lo_k = lo_snap_ig.integrate( snap_box, 0.0, tk );
 
             char buf[64];
             std::snprintf( buf, sizeof( buf ), "%d,%.10g,te,", k, tk );

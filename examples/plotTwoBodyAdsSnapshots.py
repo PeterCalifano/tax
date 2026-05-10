@@ -35,7 +35,7 @@ def _load_csv(path: Path) -> np.ndarray:
     return np.genfromtxt(path, delimiter=",", names=True, dtype=None, encoding="utf-8")
 
 
-def _draw_leaf_polygons(ax, leaves: np.ndarray, lw: float = 0.45) -> None:
+def _draw_leaf_polygons(ax, leaves: np.ndarray, lw: float = 0.65) -> None:
     leaf_ids = np.unique(leaves["leaf"]).astype(int)
     for li in leaf_ids:
         m = leaves["leaf"] == li
@@ -47,7 +47,7 @@ def _draw_leaf_polygons(ax, leaves: np.ndarray, lw: float = 0.45) -> None:
                 facecolor=LEAF_FACE,
                 edgecolor=LEAF_EDGE,
                 linewidth=lw,
-                alpha=0.85,
+                alpha=0.9,
                 zorder=2,
             )
         )
@@ -100,18 +100,8 @@ def _plot_snapshot(
     show_xlabel: bool,
     show_ylabel: bool,
 ) -> None:
-    ax.plot(orbit["x"], orbit["y"], color=ORBIT_COLOR, lw=0.8, zorder=1, alpha=0.85)
+    ax.plot(orbit["x"], orbit["y"], color=ORBIT_COLOR, lw=0.6, zorder=1, alpha=0.5)
     _draw_leaf_polygons(ax, leaves)
-    ax.plot(
-        [0.0],
-        [0.0],
-        marker="+",
-        color="black",
-        markersize=8,
-        markeredgewidth=1.0,
-        linestyle="",
-        zorder=5,
-    )
     ax.set_aspect("equal", adjustable="box")
     ax.set_title(title, fontsize=10)
     if show_xlabel:
@@ -167,12 +157,10 @@ def main() -> None:
     snap_methods = snaps["method"]
     ic_methods = ic["method"]
 
-    # Shared limits so all panels show the same chunk of the (x, y) plane.
-    xlim = (float(orbit["x"].min()) - 0.1, float(orbit["x"].max()) + 0.1)
-    ylim = (float(orbit["y"].min()) - 0.1, float(orbit["y"].max()) + 0.1)
-
-    fig, axes = plt.subplots(2, n_snap, figsize=(2.8 * n_snap, 6.0),
-                             sharex=True, sharey=True)
+    # Each column has its own zoom on the local pushed-forward cluster so
+    # individual leaves are visible as small rotated rectangles instead of
+    # dots on the full orbit.
+    fig, axes = plt.subplots(2, n_snap, figsize=(3.1 * n_snap, 6.6))
     if n_snap == 1:
         axes = axes.reshape(2, 1)
 
@@ -187,6 +175,20 @@ def main() -> None:
         ic_te = ic[(ic["snapshot"] == k) & (ic_methods == "te")]
         ic_lo = ic[(ic["snapshot"] == k) & (ic_methods == "lo")]
 
+        # Zoom that contains both methods' clusters with generous padding so
+        # the leaves read as boxes rather than dots.
+        col_x = np.concatenate([snaps["x"][m_te], snaps["x"][m_lo]])
+        col_y = np.concatenate([snaps["y"][m_te], snaps["y"][m_lo]])
+        cx_lo, cx_hi = float(col_x.min()), float(col_x.max())
+        cy_lo, cy_hi = float(col_y.min()), float(col_y.max())
+        # Keep a square aspect inside the panel by padding the shorter axis.
+        span = max(cx_hi - cx_lo, cy_hi - cy_lo)
+        pad = 0.40 * max(span, 1e-3)
+        cx = 0.5 * (cx_lo + cx_hi)
+        cy = 0.5 * (cy_lo + cy_hi)
+        zoom_x = (cx - 0.5 * span - pad, cx + 0.5 * span + pad)
+        zoom_y = (cy - 0.5 * span - pad, cy + 0.5 * span + pad)
+
         _plot_snapshot(
             axes[0, col],
             snaps[m_te],
@@ -196,6 +198,8 @@ def main() -> None:
             show_xlabel=False,
             show_ylabel=(col == 0),
         )
+        axes[0, col].set_xlim(zoom_x)
+        axes[0, col].set_ylim(zoom_y)
         _plot_snapshot(
             axes[1, col],
             snaps[m_lo],
@@ -205,10 +209,8 @@ def main() -> None:
             show_xlabel=True,
             show_ylabel=(col == 0),
         )
-
-    for ax in axes.flat:
-        ax.set_xlim(xlim)
-        ax.set_ylim(ylim)
+        axes[1, col].set_xlim(zoom_x)
+        axes[1, col].set_ylim(zoom_y)
 
     axes[0, 0].annotate(
         "AdsIntegrator\n(truncation error)",
