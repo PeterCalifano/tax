@@ -1,30 +1,35 @@
 // =============================================================================
 // Planar elliptic orbit: plain Taylor → flow expansion → ADS
 //
-// Three runs of the same Kepler problem (μ = 1, planar) propagated for one
-// orbital period of an a=1, e=0.5 ellipse:
+// The Kepler problem (μ = 1, planar) propagated over one full orbital period
+// of an a = 1, e = 0.5 ellipse:
 //
-//   1. Plain Taylor integration of a single trajectory — Integrator<N>
-//   2. Single flow polynomial in the IC neighbourhood — DaIntegrator<N,P,D>
-//   3. Same domain, automatically split into pieces  — AdsIntegrator<N,P,D>
+//   1. Plain Taylor integration of a single trajectory — Integrator<N, Vec>
+//   2. Single flow polynomial in a 1-D IC neighbourhood — DaIntegrator<N,P,D>
+//   3. Same domain, automatically split into pieces    — AdsIntegrator<N,P,D>
+//   4. 2-D IC box: snapshots driven by ADS *split events* — each on_split
+//      callback fires one snapshot showing the parent box being divided into
+//      two children, both in IC-space and pushed forward to t = T_orbit.
 //
-// All three runs share the same right-hand side and the same final time.  The
+// All four runs use the same RHS and the same final time T_orbit = 2π.  The
 // program writes the following CSV files consumed by the companion plotting
 // scripts:
 //
-//   orbit_reference.csv     — reference trajectory (t, x, y, vx, vy)
-//   orbits_perturbed.csv    — a handful of perturbed trajectories
-//   endpoint_compare.csv    — endpoint of every method at tmax across δ ∈ [-1,1]
-//   ads_leaves.csv          — sub-domain bounds of each 1-D ADS leaf
-//   ads_box_snapshots.csv   — boundary of each ADS leaf at each snapshot time
-//   flow_box_snapshots.csv  — boundary of the single-flow polygon at each
-//                             snapshot time
-//   ads_box_leaves.csv      — IC-space bounds of every ADS leaf at each snapshot
+//   orbit_reference.csv      — reference trajectory (t, x, y, vx, vy)
+//   orbits_perturbed.csv     — a handful of perturbed reference trajectories
+//   endpoint_compare.csv     — endpoint at t = T_orbit across δ ∈ [-1, 1]
+//                              for: truth, single flow polynomial, ADS
+//   ads_leaves.csv           — IC-space bounds of each 1-D ADS leaf
+//   split_ic.csv             — parent/children IC-space bounds at each split
+//   split_phase.csv          — parent/children boundary curves at t = T_orbit
+//                              for each split event (the "why we split" plot)
+//   ads_final_leaves.csv     — boundary of every final ADS leaf at T_orbit
+//   flow_image.csv           — boundary of the single-flow polygon at T_orbit
 //
 // Companion scripts:
 //   plotEllipticOrbit.py     — orbit, endpoint scatter, error-vs-δ figure
-//   plotBoxEvolution.py      — ADS leaves vs single-flow polygon at each
-//                              snapshot time (the "box pushed forward" plot)
+//   plotBoxEvolution.py      — split-event view: parent vs children both in
+//                              IC-space and pushed forward to T_orbit
 // =============================================================================
 
 #include <array>
@@ -70,8 +75,7 @@ int main()
     constexpr double e    = 0.5;
     const double     rp   = a * ( 1.0 - e );
     const double     vp   = std::sqrt( ( 1.0 + e ) / ( 1.0 - e ) );
-    const double     tmax_orbit = 2.0 * std::numbers::pi;       // full period
-    const double     tmax       = 0.5 * std::numbers::pi;       // 1-D analysis (faster)
+    const double     tmax = 2.0 * std::numbers::pi;  // one full orbital period
 
     using Vec = Eigen::Vector< double, kD >;
 
@@ -84,7 +88,7 @@ int main()
     ode::Integrator< kN, Vec > scalar_ig{
         kepler, ode::IntegratorConfig< double >{ .abstol = 1e-16 } };
 
-    auto sol = scalar_ig.integrate( x0, 0.0, tmax_orbit );
+    auto sol = scalar_ig.integrate( x0, 0.0, tmax );
     {
         std::ofstream out( "orbit_reference.csv" );
         out << "t,x,y,vx,vy\n";
@@ -96,9 +100,12 @@ int main()
               << '\n';
 
     // -------------------------------------------------------------------------
-    // IC uncertainty: a 1-D box in periapsis tangential velocity v_y(0).
+    // 1-D IC uncertainty: variation in periapsis tangential velocity v_y(0).
+    //
+    // 2% velocity perturbation over a full orbit is enough that the single
+    // flow polynomial is visibly inaccurate near apoapsis — ADS recovers it.
     // -------------------------------------------------------------------------
-    Box< double, kD > box{ { rp, 0.0, 0.0, vp }, { 0.0, 0.0, 0.0, 0.08 } };
+    Box< double, kD > box{ { rp, 0.0, 0.0, vp }, { 0.0, 0.0, 0.0, 0.02 } };
 
     // -------------------------------------------------------------------------
     // 2) Single flow expansion (DaIntegrator, no splitting).
@@ -112,10 +119,10 @@ int main()
     // 3) ADS-integrated flow expansion.
     // -------------------------------------------------------------------------
     ode::AdsIntegrator< kN, kP, kD > ads_ig{
-        kepler, ode::AdsConfig{ .step_tol = 1e-14, .ads_tol = 1e-4, .max_depth = 6 } };
+        kepler, ode::AdsConfig{ .step_tol = 1e-14, .ads_tol = 1e-4, .max_depth = 8 } };
 
     int splits_logged = 0;
-    ads_ig.on_split = [&]( const ode::SplitEvent< kP, kD >& ev ) {
+    ads_ig.on_split   = [&]( const ode::SplitEvent< kP, kD >& ev ) {
         ++splits_logged;
         if ( splits_logged <= 2 )
             std::cout << "  on_split[" << splits_logged << "]: depth = " << ev.parent_depth
@@ -171,12 +178,12 @@ int main()
         const auto& xt    = sol_p.x.back();
 
         const std::array< double, kD > d_full{ 0.0, 0.0, 0.0, delta };
-        Eigen::Vector< double, kD >    xf;
+        Vec                            xf;
         for ( int k = 0; k < kD; ++k ) xf( k ) = flow.state( k ).eval( d_full );
 
         const std::array< double, kD > query{ rp, 0.0, 0.0, vy0 };
         const int                      leaf_idx = find_leaf_robust( query );
-        Eigen::Vector< double, kD >    xa       = Eigen::Vector< double, kD >::Zero();
+        Vec                            xa       = Vec::Zero();
         if ( leaf_idx >= 0 )
         {
             const auto&              leaf = tree.node( leaf_idx ).leaf();
@@ -212,7 +219,7 @@ int main()
     {
         Vec x0p;
         x0p << rp, 0.0, 0.0, vp + box.halfWidth[3] * d;
-        auto sp = scalar_ig.integrate( x0p, 0.0, tmax_orbit );
+        auto sp = scalar_ig.integrate( x0p, 0.0, tmax );
         for ( std::size_t i = 0; i < sp.t.size(); ++i )
             traj << d << ',' << sp.t[i] << ',' << sp.x[i]( 0 ) << ',' << sp.x[i]( 1 ) << '\n';
     }
@@ -228,24 +235,24 @@ int main()
     }
 
     // -------------------------------------------------------------------------
-    // 2-D IC box pushed forward in time: the classic ADS visualisation.
+    // 4) 2-D IC box pushed forward to t = T_orbit, with one snapshot per split.
+    //
+    // We capture every split event during the ADS run.  For each event we
+    // record the parent box and the two children both in IC-space and
+    // separately push them forward to T_orbit through the DaIntegrator.  The
+    // resulting "snapshot timeline" is indexed by split number, not by time —
+    // it shows the algorithm refining the IC partition.
     // -------------------------------------------------------------------------
-    Box< double, kD > box2D{ { rp, 0.0, 0.0, vp }, { 0.0, 0.020, 0.0, 0.030 } };
-
-    constexpr int         n_snapshots = 10;
-    std::vector< double > snapshots( n_snapshots );
-    for ( int k = 0; k < n_snapshots; ++k )
-        snapshots[k] = ( double( k + 1 ) / double( n_snapshots ) ) * tmax_orbit;
+    Box< double, kD > box2D{ { rp, 0.0, 0.0, vp }, { 0.0, 0.005, 0.0, 0.008 } };
 
     constexpr int n_per_edge = 24;
-
     auto unit_square_boundary = []( int n ) {
         std::vector< std::array< double, 2 > > pts;
         pts.reserve( std::size_t( 4 * n + 1 ) );
         for ( int e = 0; e < 4; ++e )
             for ( int i = 0; i < n; ++i )
             {
-                const double s = double( i ) / double( n );
+                const double s  = double( i ) / double( n );
                 double       dy = 0.0, dvy = 0.0;
                 switch ( e )
                 {
@@ -259,64 +266,106 @@ int main()
         pts.push_back( pts.front() );
         return pts;
     };
-
     const auto bnd = unit_square_boundary( n_per_edge );
 
-    std::ofstream sf( "ads_box_snapshots.csv" );
-    sf << "snapshot,t,leaf_idx,sample_idx,x,y\n";
-    std::ofstream sff( "flow_box_snapshots.csv" );
-    sff << "snapshot,t,sample_idx,x,y\n";
-    std::ofstream sfl( "ads_box_leaves.csv" );
-    sfl << "snapshot,t,leaf_idx,dy_lo,dy_hi,dvy_lo,dvy_hi\n";
-
-    // One DA integrator and one ADS integrator reused across all snapshots.
-    ode::DaIntegrator< kN, kP, kD > snap_da{
-        kepler, ode::IntegratorConfig< double >{ .abstol = 1e-14 } };
-    ode::AdsIntegrator< kN, kP, kD > snap_ads{
-        kepler, ode::AdsConfig{ .step_tol = 1e-13, .ads_tol = 1e-3, .max_depth = 4 } };
-
-    for ( std::size_t s = 0; s < snapshots.size(); ++s )
+    // Capture every split event.
+    struct SplitSnap
     {
-        const double t_snap = snapshots[s];
+        int               idx;
+        int               parent_depth;
+        int               split_dim;
+        double            err;
+        Box< double, kD > parent_box;
+        Box< double, kD > left_box;
+        Box< double, kD > right_box;
+    };
+    std::vector< SplitSnap > snaps;
 
-        auto tree2 = snap_ads.integrate( box2D, 0.0, t_snap );
-        auto flow2 = snap_da.integrate( box2D, 0.0, t_snap );
+    ode::AdsIntegrator< kN, kP, kD > snap_ads{
+        kepler, ode::AdsConfig{ .step_tol = 1e-13, .ads_tol = 1e-4, .max_depth = 6 } };
+    snap_ads.on_split = [&]( const ode::SplitEvent< kP, kD >& ev ) {
+        snaps.push_back( SplitSnap{ static_cast< int >( snaps.size() ), ev.parent_depth,
+                                    ev.split_dim, ev.truncation_error, ev.parent_box,
+                                    ev.left_box, ev.right_box } );
+    };
 
-        std::cout << "Snapshot t = " << t_snap << ":  ADS leaves = " << tree2.numDone() << '\n';
+    auto tree2 = snap_ads.integrate( box2D, 0.0, tmax );
+    std::cout << "2-D ADS over one orbit:  " << tree2.numDone() << " final leaves, "
+              << snaps.size() << " split events captured\n";
 
-        for ( int li : tree2.doneLeaves() )
-        {
-            const auto& leaf = tree2.node( li ).leaf();
-            for ( std::size_t i = 0; i < bnd.size(); ++i )
-            {
-                const std::array< double, kD > d{ 0.0, bnd[i][0], 0.0, bnd[i][1] };
-                const double                   x = leaf.tte.state( 0 ).eval( d );
-                const double                   y = leaf.tte.state( 1 ).eval( d );
-                sf << s << ',' << t_snap << ',' << li << ',' << i << ',' << x << ',' << y << '\n';
-            }
-            const double dy_lo = ( ( leaf.box.center[1] - leaf.box.halfWidth[1] ) -
-                                   box2D.center[1] ) / box2D.halfWidth[1];
-            const double dy_hi = ( ( leaf.box.center[1] + leaf.box.halfWidth[1] ) -
-                                   box2D.center[1] ) / box2D.halfWidth[1];
-            const double dvy_lo = ( ( leaf.box.center[3] - leaf.box.halfWidth[3] ) -
-                                    box2D.center[3] ) / box2D.halfWidth[3];
-            const double dvy_hi = ( ( leaf.box.center[3] + leaf.box.halfWidth[3] ) -
-                                    box2D.center[3] ) / box2D.halfWidth[3];
-            sfl << s << ',' << t_snap << ',' << li << ',' << dy_lo << ',' << dy_hi << ','
-                << dvy_lo << ',' << dvy_hi << '\n';
-        }
+    // Helpers: convert an IC-space Box into normalised (dy, dvy) corners.
+    auto ic_corners = [&]( const Box< double, kD >& b ) {
+        const double dy_lo  = ( b.center[1] - b.halfWidth[1] - box2D.center[1] ) / box2D.halfWidth[1];
+        const double dy_hi  = ( b.center[1] + b.halfWidth[1] - box2D.center[1] ) / box2D.halfWidth[1];
+        const double dvy_lo = ( b.center[3] - b.halfWidth[3] - box2D.center[3] ) / box2D.halfWidth[3];
+        const double dvy_hi = ( b.center[3] + b.halfWidth[3] - box2D.center[3] ) / box2D.halfWidth[3];
+        return std::array< double, 4 >{ dy_lo, dy_hi, dvy_lo, dvy_hi };
+    };
 
+    // IC-space record: parent + children boxes per split.
+    std::ofstream ic( "split_ic.csv" );
+    ic << "split_idx,parent_depth,split_dim,trunc_err,role,dy_lo,dy_hi,dvy_lo,dvy_hi\n";
+    auto write_ic = [&]( const SplitSnap& s, const char* role,
+                          const Box< double, kD >& b ) {
+        const auto c = ic_corners( b );
+        ic << s.idx << ',' << s.parent_depth << ',' << s.split_dim << ',' << s.err << ','
+           << role << ',' << c[0] << ',' << c[1] << ',' << c[2] << ',' << c[3] << '\n';
+    };
+    for ( const auto& s : snaps )
+    {
+        write_ic( s, "parent", s.parent_box );
+        write_ic( s, "left", s.left_box );
+        write_ic( s, "right", s.right_box );
+    }
+
+    // Phase-space record: parent + children pushed forward to t = T_orbit.
+    ode::DaIntegrator< kN, kP, kD > snap_da{
+        kepler, ode::IntegratorConfig< double >{ .abstol = 1e-13 } };
+    std::ofstream ph( "split_phase.csv" );
+    ph << "split_idx,role,sample_idx,x,y\n";
+    auto write_phase = [&]( int idx, const char* role, const Box< double, kD >& b ) {
+        auto fm = snap_da.integrate( b, 0.0, tmax );
         for ( std::size_t i = 0; i < bnd.size(); ++i )
         {
             const std::array< double, kD > d{ 0.0, bnd[i][0], 0.0, bnd[i][1] };
-            const double                   x = flow2.state( 0 ).eval( d );
-            const double                   y = flow2.state( 1 ).eval( d );
-            sff << s << ',' << t_snap << ',' << i << ',' << x << ',' << y << '\n';
+            ph << idx << ',' << role << ',' << i << ',' << fm.state( 0 ).eval( d ) << ','
+               << fm.state( 1 ).eval( d ) << '\n';
+        }
+    };
+    for ( const auto& s : snaps )
+    {
+        write_phase( s.idx, "parent", s.parent_box );
+        write_phase( s.idx, "left", s.left_box );
+        write_phase( s.idx, "right", s.right_box );
+    }
+
+    // Final ADS leaves at T_orbit (the converged piecewise approximation).
+    std::ofstream fl( "ads_final_leaves.csv" );
+    fl << "leaf_idx,sample_idx,x,y\n";
+    for ( int li : tree2.doneLeaves() )
+    {
+        const auto& leaf = tree2.node( li ).leaf();
+        for ( std::size_t i = 0; i < bnd.size(); ++i )
+        {
+            const std::array< double, kD > d{ 0.0, bnd[i][0], 0.0, bnd[i][1] };
+            fl << li << ',' << i << ',' << leaf.tte.state( 0 ).eval( d ) << ','
+               << leaf.tte.state( 1 ).eval( d ) << '\n';
         }
     }
 
+    // The single flow polynomial pushed forward to T_orbit (no splitting).
+    auto flow2D = snap_da.integrate( box2D, 0.0, tmax );
+    std::ofstream fim( "flow_image.csv" );
+    fim << "sample_idx,x,y\n";
+    for ( std::size_t i = 0; i < bnd.size(); ++i )
+    {
+        const std::array< double, kD > d{ 0.0, bnd[i][0], 0.0, bnd[i][1] };
+        fim << i << ',' << flow2D.state( 0 ).eval( d ) << ',' << flow2D.state( 1 ).eval( d )
+            << '\n';
+    }
+
     std::cout << "Wrote: orbit_reference.csv, orbits_perturbed.csv, endpoint_compare.csv,\n"
-              << "       ads_leaves.csv, ads_box_snapshots.csv, flow_box_snapshots.csv,\n"
-              << "       ads_box_leaves.csv\n";
+              << "       ads_leaves.csv, split_ic.csv, split_phase.csv,\n"
+              << "       ads_final_leaves.csv, flow_image.csv\n";
     return 0;
 }
