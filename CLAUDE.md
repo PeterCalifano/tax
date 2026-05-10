@@ -24,17 +24,20 @@ tax/
 │   ├── utils.hpp         # Facade: includes all utils/
 │   ├── ads/              # Automatic Domain Splitting (ADS)
 │   ├── expr/             # Expression template nodes (lazy evaluation)
-│   ├── kernels/          # Series computation kernels (recurrence relations)
+│   ├── kernels/          # Series computation kernels (recurrence relations,
+│   │                       static + runtime-shape `*RT` overloads)
 │   ├── ode/              # Taylor ODE integrator
 │   ├── operators/        # Free-function operators and math functions
+│   ├── storage/          # ShapeBase EBO + fully-dynamic TTE specialisation
 │   ├── utils/            # Type traits, combinatorics, enumeration
 │   └── eigen/            # Eigen3 integration helpers
-├── tests/                # Google Test suite (29 test executables, 440 tests)
+├── tests/                # Google Test suite (~33 test executables, 523 tests)
 │   ├── ads/              # ADS tree and runner tests
 │   ├── core/             # Basic TTE construction, nesting, composition, deriv/integ
+│   ├── dynamic/          # Dynamic-shape TaylorExpansionT tests
 │   ├── expr/             # Expression template correctness
-│   ├── kernels/          # Kernel algorithm verification
-│   ├── foundation/       # Combinatorics and enumeration utilities
+│   ├── kernels/          # Kernel algorithm verification (incl. runtime-shape)
+│   ├── foundation/       # Combinatorics, enumeration, ShapeBase EBO
 │   ├── eigen/            # Eigen integration tests
 │   ├── ode/              # Taylor integrator and ADS-integrated ODE tests
 │   ├── dace/             # Optional DACE comparative tests
@@ -106,26 +109,62 @@ gcovr --root . build-cov --filter "^include/tax/"
 ### The Main Type
 
 ```cpp
-tax::TruncatedTaylorExpansionT<T, N, M>
+tax::TaylorExpansionT<T, N, M>
 // T = scalar type (double, float)
-// N = truncation order
-// M = number of variables
+// N = truncation order (compile-time integer, or `tax::Dynamic`)
+// M = number of variables (compile-time integer, or `tax::Dynamic`)
 ```
 
 Convenient aliases:
 ```cpp
-tax::TE<N>        // univariate: TruncatedTaylorExpansionT<double, N, 1>
-tax::TEn<N, M>    // multivariate: TruncatedTaylorExpansionT<double, N, M>
+tax::TE<N>        // univariate: TaylorExpansionT<double, N, 1>
+tax::TEn<N, M>    // multivariate: TaylorExpansionT<double, N, M>
+tax::DynTE<T = double>  // fully dynamic: TaylorExpansionT<T, Dynamic, Dynamic>
 ```
+
+`tax::TruncatedTaylorExpansionT` survives as a deprecated alias for one
+transition cycle and emits a `[[deprecated]]` warning at use.
+
+### Static vs. Dynamic Shape
+
+The library follows Eigen's `Matrix<T, Rows, Cols>` design:
+- **Both N and M are non-negative integers (static config)**: stack-resident
+  `std::array<T, numMonomials(N, M)>` storage, full constexpr surface,
+  expression-template fusion. This is the hot path used by ODE and ADS.
+- **N and/or M are `tax::Dynamic` (-1)**: shape resolved at construction;
+  storage is `std::vector<T>`; operators are eager (no ET fusion). Intended
+  for Python bindings, REPL use, and runtime composition.
+
+The two configurations share the kernel layer: static-mode kernels operate
+on `std::array`, dynamic-mode `*RT` overloads operate on raw `T*` plus
+runtime `(N, M)` sizes; both implement the same recurrence relations and
+agree numerically to within 1e-12.
+
+ODE and ADS modules require static shape — they `static_assert(N >= 0)`
+via the static `TaylorExpansionT` template itself. Trying to pass `Dynamic`
+through `ode::integrate<...>` or `AdsIntegrator<...>` produces a clear
+compile error.
 
 ### Creating Variables
 
 ```cpp
-// Univariate
-auto x = tax::TE<3>::variable(x0);       // x = x0 + 1*dx
+// Static, univariate
+auto x = tax::TE<3>::variable(x0);            // x = x0 + 1*dx
 
-// Multivariate (structured bindings)
+// Static, multivariate (structured bindings)
 auto [x, y] = tax::TEn<3, 2>::variables(x0, y0);
+
+// Dynamic, runtime order/nvars
+auto z = tax::DynTE<>::variable(/*x0=*/2.0,
+                                /*var_idx=*/0,
+                                /*order=*/5,
+                                /*nvars=*/3);
+
+// Vector of dynamic coordinate variables
+std::array<double, 3> x0{1.0, 2.0, 3.0};
+auto vars = tax::DynTE<>::variables(std::span<const double>(x0), /*order=*/5);
+auto sum = vars[0] + vars[1] + vars[2];        // eager evaluation
+auto f   = tax::sin(vars[0] * vars[1]) + tax::exp(vars[2]);
 ```
 
 ### Using the Library

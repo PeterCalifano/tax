@@ -12,7 +12,11 @@ Write natural mathematical expressions and tax automatically propagates the full
 
 ## Features
 
-- **Compile-time fixed** order $N$ and variable count $M$ via `TruncatedTaylorExpansionT<T, N, M>`
+- **Static or dynamic shape** — `TaylorExpansionT<T, N, M>` accepts compile-time
+  integers *or* `tax::Dynamic` (= -1) for either dimension, mirroring Eigen's
+  `Matrix<T, Rows, Cols>` design. Static config uses stack `std::array` with
+  expression-template fusion; fully-dynamic config (`tax::DynTE`) uses
+  `std::vector` storage with eager evaluation
 - **Lazy expression templates** with automatic sum/product flattening and leaf fast-paths
 - **Comprehensive math**: arithmetic, trigonometric, hyperbolic, transcendental, power, and special functions
 - **Direct derivative access**: coefficients, partial derivatives, gradient, Jacobian, and higher-order derivative tensors
@@ -125,8 +129,8 @@ cmake -S . -B build -DCMAKE_PREFIX_PATH=/your/install/prefix
 
 | Type            | Description                                       |
 |-----------------|---------------------------------------------------|
-| `TE<N>`         | `TruncatedTaylorExpansionT<double, N, 1>`                               |
-| `TEn<N, M>`     | `TruncatedTaylorExpansionT<double, N, M>`                               |
+| `TE<N>`         | `TaylorExpansionT<double, N, 1>`                               |
+| `TEn<N, M>`     | `TaylorExpansionT<double, N, M>`                               |
 
 ### Factories
 
@@ -134,7 +138,7 @@ cmake -S . -B build -DCMAKE_PREFIX_PATH=/your/install/prefix
 TE<N>::variable(x0)              // univariate variable at x₀
 TEn<N,M>::variable<I>(x0)       // I-th variable at expansion point
 TEn<N,M>::variables(x0)         // all variables (structured bindings)
-TruncatedTaylorExpansionT::constant(v) / zero() / one()
+TaylorExpansionT::constant(v) / zero() / one()
 ```
 
 ### Accessors
