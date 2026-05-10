@@ -48,6 +48,9 @@ set(TEST_SOURCES
     eigen/testInvertMap.cpp
     ads/testAdsTree.cpp
     ads/testAdsGaussian.cpp
+    ads/testNonlinearityIndex.cpp
+    ads/testLowOrderAds.cpp
+    ads/testAdsMerger.cpp
     ode/testTaylorIntegrator.cpp
     ode/testIntegrateAds.cpp
     ode/testEvents.cpp

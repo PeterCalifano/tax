@@ -9,3 +9,6 @@
 #include <tax/ads/ads_node.hpp>
 #include <tax/ads/ads_tree.hpp>
 #include <tax/ads/ads_runner.hpp>
+#include <tax/ads/nonlinearity_index.hpp>
+#include <tax/ads/low_order_ads_runner.hpp>
+#include <tax/ads/ads_merger.hpp>

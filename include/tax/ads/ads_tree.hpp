@@ -1,6 +1,7 @@
 #pragma once
 
 #include <tax/ads/ads_node.hpp>
+#include <algorithm>
 #include <cassert>
 #include <deque>
 #include <span>
@@ -190,6 +191,71 @@ class AdsTree
         return { left_idx, right_idx };
     }
 
+    /**
+     * @brief Merge an internal node's two leaf children back into a single leaf.
+     *
+     * Inverse operation of @ref split.  The node at @p idx must currently be
+     * an Internal node and both its children must be Leaves (either active
+     * in the work queue or already marked done).  After the call:
+     *   - the node at @p idx is a Leaf holding @p tte over the parent's box,
+     *     reconstructed from the recorded split dimension and value;
+     *   - the two former children remain in the arena but are no longer
+     *     reachable through @ref leafList or @ref findLeaf;
+     *   - the merged leaf is added to `leafList_` and, if @p markDone is
+     *     true, to `doneLeaves_`; otherwise it is enqueued on the work
+     *     queue for further processing.
+     *
+     * @param idx       Arena index of the internal node to merge.
+     * @param tte       TTE for the merged subdomain (covers the parent box).
+     * @param markDone  When true, mark the merged leaf as done immediately;
+     *                  when false, push it back onto the work queue.
+     * @return @p idx — now a Leaf node.
+     */
+    int merge( int idx, TTE tte, bool markDone = true )
+    {
+        assert( nodes_[idx].isInternal() );
+
+        // 1. Capture all information from the internal node before mutating.
+        const auto& in        = nodes_[idx].internal();
+        const int   left_idx  = in.leftIdx;
+        const int   right_idx = in.rightIdx;
+        const int   split_dim = in.splitDim;
+        const T     split_val = in.splitValue;
+        assert( nodes_[left_idx].isLeaf() );
+        assert( nodes_[right_idx].isLeaf() );
+
+        // Reconstruct the parent box from the left child's box: restore the
+        // original centre along the split dimension and double its half-width.
+        Box< T, M > parent_box        = nodes_[left_idx].leaf().box;
+        parent_box.center[split_dim]    = split_val;
+        parent_box.halfWidth[split_dim] = parent_box.halfWidth[split_dim] * T{ 2 };
+
+        // 2. Drop the children from the work queue and the done list (if present).
+        eraseFromQueue( left_idx );
+        eraseFromQueue( right_idx );
+        eraseFromDone( left_idx );
+        eraseFromDone( right_idx );
+
+        // 3. Remove the children from leafList_ via O(1) swap-and-pop each.
+        eraseFromLeafList( left_idx );
+        eraseFromLeafList( right_idx );
+
+        // 4. Convert idx to a Leaf holding the merged TTE.
+        typename Node::Leaf merged{ std::move( tte ),
+                                    std::move( parent_box ),
+                                    markDone,
+                                    int( leafList_.size() ) };
+        nodes_[idx].data = std::move( merged );
+        leafList_.push_back( idx );
+
+        if ( markDone )
+            doneLeaves_.push_back( idx );
+        else
+            workQueue_.push_back( idx );
+
+        return idx;
+    }
+
     // =========================================================================
     // Point lookup
     // =========================================================================
@@ -250,6 +316,30 @@ class AdsTree
     [[nodiscard]] int numActive() const noexcept { return int( workQueue_.size() ); }
 
    private:
+    // ---- merge() helpers --------------------------------------------------
+    void eraseFromQueue( int idx )
+    {
+        auto it = std::find( workQueue_.begin(), workQueue_.end(), idx );
+        if ( it != workQueue_.end() ) workQueue_.erase( it );
+    }
+
+    void eraseFromDone( int idx )
+    {
+        auto it = std::find( doneLeaves_.begin(), doneLeaves_.end(), idx );
+        if ( it != doneLeaves_.end() ) doneLeaves_.erase( it );
+    }
+
+    /// O(1) swap-and-pop removal from `leafList_`; keeps `leavesPos`
+    /// indices of all remaining leaves consistent.
+    void eraseFromLeafList( int idx )
+    {
+        const int pos  = nodes_[idx].leaf().leavesPos;
+        const int last = leafList_.back();
+        leafList_[pos] = last;
+        if ( last != idx ) nodes_[last].leaf().leavesPos = pos;
+        leafList_.pop_back();
+    }
+
     std::vector< Node > nodes_;       ///< arena: all nodes, root(s) at lowest indices
     std::deque< int >   workQueue_;   ///< indices of unprocessed (active) leaves
     std::vector< int >  leafList_;    ///< indices of all current leaf nodes (O(1) updates)
