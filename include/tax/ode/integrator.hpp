@@ -66,7 +66,7 @@ template < int N, typename T >
 class Integrator< N, T, T >
 {
 public:
-    using TimeTTE   = TruncatedTaylorExpansionT< T, N, 1 >;
+    using TimeTTE   = TaylorExpansionT< T, N, 1 >;
     using Rhs       = std::function< TimeTTE( const TimeTTE&, const TimeTTE& ) >;
     using Config    = IntegratorConfig< T >;
     using EventList = std::vector< Event< N, T, T > >;
@@ -142,7 +142,7 @@ class Integrator< N, Eigen::Matrix< T, D, 1 >, T >
 {
 public:
     using State     = Eigen::Matrix< T, D, 1 >;
-    using TimeTTE   = TruncatedTaylorExpansionT< T, N, 1 >;
+    using TimeTTE   = TaylorExpansionT< T, N, 1 >;
     using VecTTE    = Eigen::Matrix< TimeTTE, D, 1 >;
     using Rhs       = std::function< void( VecTTE&, const VecTTE&, const TimeTTE& ) >;
     using Config    = IntegratorConfig< T >;
@@ -236,7 +236,7 @@ template < int N, typename Params, typename T >
 class IntegratorP< N, T, Params, T >
 {
 public:
-    using TimeTTE   = TruncatedTaylorExpansionT< T, N, 1 >;
+    using TimeTTE   = TaylorExpansionT< T, N, 1 >;
     using Rhs       = std::function< TimeTTE( const TimeTTE&, const Params&, const TimeTTE& ) >;
     using Config    = IntegratorConfig< T >;
     using Solution  = TaylorSolution< N, T, T >;
@@ -298,7 +298,7 @@ class IntegratorP< N, Eigen::Matrix< T, D, 1 >, Params, T >
 {
 public:
     using State    = Eigen::Matrix< T, D, 1 >;
-    using TimeTTE  = TruncatedTaylorExpansionT< T, N, 1 >;
+    using TimeTTE  = TaylorExpansionT< T, N, 1 >;
     using VecTTE   = Eigen::Matrix< TimeTTE, D, 1 >;
     using Rhs      = std::function< void( VecTTE&, const VecTTE&, const Params&, const TimeTTE& ) >;
     using Config   = IntegratorConfig< T >;

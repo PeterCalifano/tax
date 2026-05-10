@@ -244,7 +244,7 @@ expand in time around a spatial expansion.
 #include <tax/tax.hpp>
 
 using SpatialDA = tax::TEn<4, 2>;   // order-4, 2 spatial variables
-using TimeDA = tax::TruncatedTaylorExpansionT<SpatialDA, 6, 1>;
+using TimeDA = tax::TaylorExpansionT<SpatialDA, 6, 1>;
 // order-6 in time, coefficients are spatial polynomials
 
 // Create a time variable whose constant term is a spatial expansion

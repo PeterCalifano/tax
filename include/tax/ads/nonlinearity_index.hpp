@@ -50,13 +50,13 @@ namespace tax
  */
 template < typename T, int N, int M >
 [[nodiscard]] constexpr std::array< T, M >
-jacobianVariationBound( const TruncatedTaylorExpansionT< T, N, M >& f ) noexcept
+jacobianVariationBound( const TaylorExpansionT< T, N, M >& f ) noexcept
 {
     using std::abs;
     std::array< T, M > bound{};
     if constexpr ( N < 2 ) return bound;
 
-    using TTE = TruncatedTaylorExpansionT< T, N, M >;
+    using TTE = TaylorExpansionT< T, N, M >;
     for ( std::size_t i = 0; i < TTE::nCoefficients; ++i )
     {
         const T c = f[i];
@@ -78,7 +78,7 @@ jacobianVariationBound( const TruncatedTaylorExpansionT< T, N, M >& f ) noexcept
  */
 template < typename T, int N, int M >
 [[nodiscard]] constexpr T
-jacobianVariationNorm( const TruncatedTaylorExpansionT< T, N, M >& f ) noexcept
+jacobianVariationNorm( const TaylorExpansionT< T, N, M >& f ) noexcept
 {
     const auto b = jacobianVariationBound< T, N, M >( f );
     T sum{};
@@ -93,7 +93,7 @@ jacobianVariationNorm( const TruncatedTaylorExpansionT< T, N, M >& f ) noexcept
  */
 template < typename T, int N, int M >
 [[nodiscard]] constexpr T
-centralJacobianNorm( const TruncatedTaylorExpansionT< T, N, M >& f ) noexcept
+centralJacobianNorm( const TaylorExpansionT< T, N, M >& f ) noexcept
 {
     using std::abs;
     T sum{};
@@ -135,7 +135,7 @@ centralJacobianNorm( const TruncatedTaylorExpansionT< T, N, M >& f ) noexcept
  */
 template < typename T, int N, int M >
 [[nodiscard]] double nonlinearityIndex(
-    std::span< const TruncatedTaylorExpansionT< T, N, M > > outputs ) noexcept
+    std::span< const TaylorExpansionT< T, N, M > > outputs ) noexcept
 {
     double num = 0.0;
     double den = 0.0;
@@ -154,10 +154,10 @@ template < typename T, int N, int M >
 /// @brief Scalar overload: nonlinearity index of a single TTE.
 template < typename T, int N, int M >
 [[nodiscard]] double nonlinearityIndex(
-    const TruncatedTaylorExpansionT< T, N, M >& f ) noexcept
+    const TaylorExpansionT< T, N, M >& f ) noexcept
 {
     return nonlinearityIndex< T, N, M >(
-        std::span< const TruncatedTaylorExpansionT< T, N, M > >{ &f, 1 } );
+        std::span< const TaylorExpansionT< T, N, M > >{ &f, 1 } );
 }
 
 // ---------------------------------------------------------------------------
@@ -178,13 +178,13 @@ template < typename T, int N, int M >
  */
 template < typename T, int N, int M >
 [[nodiscard]] std::array< double, M > nliPerVariable(
-    std::span< const TruncatedTaylorExpansionT< T, N, M > > outputs ) noexcept
+    std::span< const TaylorExpansionT< T, N, M > > outputs ) noexcept
 {
     std::array< double, M > scores{};
     if constexpr ( N < 2 ) return scores;
 
     using std::abs;
-    using TTE = TruncatedTaylorExpansionT< T, N, M >;
+    using TTE = TaylorExpansionT< T, N, M >;
     for ( const auto& f : outputs )
     {
         for ( std::size_t i = 0; i < TTE::nCoefficients; ++i )
@@ -205,16 +205,16 @@ template < typename T, int N, int M >
 /// @brief Scalar overload of @ref nliPerVariable for a single TTE.
 template < typename T, int N, int M >
 [[nodiscard]] std::array< double, M > nliPerVariable(
-    const TruncatedTaylorExpansionT< T, N, M >& f ) noexcept
+    const TaylorExpansionT< T, N, M >& f ) noexcept
 {
     return nliPerVariable< T, N, M >(
-        std::span< const TruncatedTaylorExpansionT< T, N, M > >{ &f, 1 } );
+        std::span< const TaylorExpansionT< T, N, M > >{ &f, 1 } );
 }
 
 /// @brief Argmax of @ref nliPerVariable — the recommended split dimension.
 template < typename T, int N, int M >
 [[nodiscard]] int nliSplitDim(
-    std::span< const TruncatedTaylorExpansionT< T, N, M > > outputs ) noexcept
+    std::span< const TaylorExpansionT< T, N, M > > outputs ) noexcept
 {
     const auto s = nliPerVariable< T, N, M >( outputs );
     return int( std::max_element( s.begin(), s.end() ) - s.begin() );
@@ -222,10 +222,10 @@ template < typename T, int N, int M >
 
 template < typename T, int N, int M >
 [[nodiscard]] int nliSplitDim(
-    const TruncatedTaylorExpansionT< T, N, M >& f ) noexcept
+    const TaylorExpansionT< T, N, M >& f ) noexcept
 {
     return nliSplitDim< T, N, M >(
-        std::span< const TruncatedTaylorExpansionT< T, N, M > >{ &f, 1 } );
+        std::span< const TaylorExpansionT< T, N, M > >{ &f, 1 } );
 }
 
 }  // namespace tax

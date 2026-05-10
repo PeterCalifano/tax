@@ -6,7 +6,7 @@ Write natural mathematical expressions and tax automatically propagates the full
 
 ## Features
 
-- **Compile-time fixed** order \(N\) and variable count \(M\) via `TruncatedTaylorExpansionT<T, N, M>`
+- **Compile-time fixed** order \(N\) and variable count \(M\) via `TaylorExpansionT<T, N, M>`
 - **Lazy expression templates** with automatic sum/product flattening and leaf fast-paths
 - **Comprehensive math**: arithmetic, trigonometric, hyperbolic, transcendental, power, and special functions
 - **Direct derivative access**: coefficients, partial derivatives, gradient, Jacobian, and higher-order derivative tensors

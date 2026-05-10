@@ -55,10 +55,10 @@ namespace detail
 
 /// @brief Infinity norm of a DA polynomial (max absolute coefficient).
 template < typename T, int P, int M >
-[[nodiscard]] double infNorm( const TruncatedTaylorExpansionT< T, P, M >& x ) noexcept
+[[nodiscard]] double infNorm( const TaylorExpansionT< T, P, M >& x ) noexcept
 {
     double n = 0.0;
-    for ( std::size_t i = 0; i < TruncatedTaylorExpansionT< T, P, M >::nCoefficients; ++i )
+    for ( std::size_t i = 0; i < TaylorExpansionT< T, P, M >::nCoefficients; ++i )
         n = std::max( n, std::abs( x[i] ) );
     return n;
 }
@@ -68,7 +68,7 @@ template < typename T, int P, int M >
 ///        infinity norm of polynomial-valued coefficients).
 template < int P, int M, int N >
 [[nodiscard]] double stepsizeDa(
-    const TruncatedTaylorExpansionT< TEn< P, M >, N, 1 >& x, double abstol ) noexcept
+    const TaylorExpansionT< TEn< P, M >, N, 1 >& x, double abstol ) noexcept
 {
     double h = std::numeric_limits< double >::infinity();
 
@@ -86,7 +86,7 @@ template < int P, int M, int N >
 
 template < int P, int M, int N, int D >
 [[nodiscard]] double stepsizeDa(
-    const Eigen::Matrix< TruncatedTaylorExpansionT< TEn< P, M >, N, 1 >, D, 1 >& x,
+    const Eigen::Matrix< TaylorExpansionT< TEn< P, M >, N, 1 >, D, 1 >& x,
     double abstol ) noexcept
 {
     double h = std::numeric_limits< double >::infinity();
@@ -98,7 +98,7 @@ template < int P, int M, int N, int D >
 /// @brief Evaluate a DA-valued time-TTE at a scalar displacement (Horner).
 template < typename DA, int N >
 [[nodiscard]] DA evalAtScalar(
-    const TruncatedTaylorExpansionT< DA, N, 1 >& poly, double dt ) noexcept
+    const TaylorExpansionT< DA, N, 1 >& poly, double dt ) noexcept
 {
     DA result = poly[N];
     for ( int i = N - 1; i >= 0; --i )
@@ -111,7 +111,7 @@ template < typename DA, int N >
 
 template < typename DA, int N, int D >
 [[nodiscard]] Eigen::Matrix< DA, D, 1 > evalAtScalar(
-    const Eigen::Matrix< TruncatedTaylorExpansionT< DA, N, 1 >, D, 1 >& poly,
+    const Eigen::Matrix< TaylorExpansionT< DA, N, 1 >, D, 1 >& poly,
     double dt ) noexcept
 {
     Eigen::Matrix< DA, D, 1 > result( poly.size() );
@@ -215,11 +215,11 @@ template < int P, int D, int Q >
  */
 template < int N, int P, int D, typename F >
 [[nodiscard]] StepResult<
-    Eigen::Matrix< TruncatedTaylorExpansionT< TEn< P, D >, N, 1 >, D, 1 >, double >
+    Eigen::Matrix< TaylorExpansionT< TEn< P, D >, N, 1 >, D, 1 >, double >
 stepDa( F&& f, const Eigen::Matrix< TEn< P, D >, D, 1 >& x0, double tc, double abstol )
 {
     using DA     = TEn< P, D >;
-    using TTE    = TruncatedTaylorExpansionT< DA, N, 1 >;
+    using TTE    = TaylorExpansionT< DA, N, 1 >;
     using VecTTE = Eigen::Matrix< TTE, D, 1 >;
 
     const Eigen::Index dim = x0.size();
@@ -263,13 +263,13 @@ stepDa( F&& f, const Eigen::Matrix< TEn< P, D >, D, 1 >& x0, double tc, double a
  */
 template < int N, int P, int D, int Q, typename F >
 [[nodiscard]] StepResult<
-    Eigen::Matrix< TruncatedTaylorExpansionT< TEn< P, D + Q >, N, 1 >, D, 1 >, double >
+    Eigen::Matrix< TaylorExpansionT< TEn< P, D + Q >, N, 1 >, D, 1 >, double >
 stepDa( F&& f, const Eigen::Matrix< TEn< P, D + Q >, D, 1 >& x0,
         const Eigen::Matrix< TEn< P, D + Q >, Q, 1 >& p, double tc, double abstol )
 {
     constexpr int M = D + Q;
     using DA        = TEn< P, M >;
-    using TTE       = TruncatedTaylorExpansionT< DA, N, 1 >;
+    using TTE       = TaylorExpansionT< DA, N, 1 >;
     using VecTTE    = Eigen::Matrix< TTE, D, 1 >;
 
     const Eigen::Index dim = x0.size();
@@ -387,7 +387,7 @@ public:
     static constexpr int M = D + Q;
 
     using DA       = TEn< P, M >;
-    using TimeTTE  = TruncatedTaylorExpansionT< DA, N, 1 >;
+    using TimeTTE  = TaylorExpansionT< DA, N, 1 >;
     using VecTTE   = Eigen::Matrix< TimeTTE, D, 1 >;
     using VecDaP   = Eigen::Matrix< DA, Q, 1 >;
     using Config   = IntegratorConfig< double >;

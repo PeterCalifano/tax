@@ -39,7 +39,7 @@ A single umbrella header pulls in everything:
 
 ## Core Type
 
-The central type is `TruncatedTaylorExpansionT<T, N, M>`:
+The central type is `TaylorExpansionT<T, N, M>`:
 
 | Parameter | Meaning |
 |-----------|---------|
@@ -83,7 +83,7 @@ auto x = tax::TE<6>::variable(0.0);
 tax::TE<6> f = tax::sin(x) + tax::square(x) / 2.0;
 ```
 
-The right-hand side builds a lazy expression tree. Evaluation happens only on assignment to a `TruncatedTaylorExpansionT` object.
+The right-hand side builds a lazy expression tree. Evaluation happens only on assignment to a `TaylorExpansionT` object.
 
 ## Extracting Results
 

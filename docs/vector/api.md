@@ -13,7 +13,7 @@ integration module.
 namespace tax {
 
 template <typename T, int N, int M, int Rows, int Cols>
-using Mat = Eigen::Matrix<TruncatedTaylorExpansionT<T, N, M>, Rows, Cols>;
+using Mat = Eigen::Matrix<TaylorExpansionT<T, N, M>, Rows, Cols>;
 
 template <typename Scalar, int Size>
 using VecT = Eigen::Matrix<Scalar, Size, 1>;
@@ -38,7 +38,7 @@ using TEnRowVec = RowVecT<TEn<N, M>, Size>;
 
 | Alias | Description |
 |-------|-------------|
-| `Mat<T, N, M, Rows, Cols>` | Eigen matrix with `TruncatedTaylorExpansionT<T, N, M>` scalar type |
+| `Mat<T, N, M, Rows, Cols>` | Eigen matrix with `TaylorExpansionT<T, N, M>` scalar type |
 | `VecT<Scalar, Size>` | Generic column vector `Eigen::Matrix<Scalar, Size, 1>` |
 | `RowVecT<Scalar, Size>` | Generic row vector `Eigen::Matrix<Scalar, 1, Size>` |
 | `TEVec<N, Size>` | Univariate TTE column vector (`TE<N>` elements) |
@@ -56,11 +56,11 @@ using TEnRowVec = RowVecT<TEn<N, M>, Size>;
 namespace Eigen {
 
 template <typename T, int N, int M>
-struct NumTraits<tax::TruncatedTaylorExpansionT<T, N, M>> : NumTraits<T> {
-    using Real       = tax::TruncatedTaylorExpansionT<T, N, M>;
-    using NonInteger = tax::TruncatedTaylorExpansionT<T, N, M>;
-    using Literal    = tax::TruncatedTaylorExpansionT<T, N, M>;
-    using Nested     = tax::TruncatedTaylorExpansionT<T, N, M>;
+struct NumTraits<tax::TaylorExpansionT<T, N, M>> : NumTraits<T> {
+    using Real       = tax::TaylorExpansionT<T, N, M>;
+    using NonInteger = tax::TaylorExpansionT<T, N, M>;
+    using Literal    = tax::TaylorExpansionT<T, N, M>;
+    using Nested     = tax::TaylorExpansionT<T, N, M>;
 
     enum {
         IsComplex             = 0,
@@ -143,7 +143,7 @@ auto [x, y, z] = tax::variables<tax::TEn<3, 3>>(x0);
 ```cpp
 template <typename T, int N, int M>
 [[nodiscard]] constexpr T value(
-    const TruncatedTaylorExpansionT<T, N, M>& f) noexcept;
+    const TaylorExpansionT<T, N, M>& f) noexcept;
 ```
 
 Returns the constant term (zeroth-order coefficient) of a scalar TTE.
@@ -167,7 +167,7 @@ vector.
 ```cpp
 template <typename T, int N, int M, int Rank>
 [[nodiscard]] auto value(
-    const Eigen::Tensor<TruncatedTaylorExpansionT<T, N, M>, Rank>& t);
+    const Eigen::Tensor<TaylorExpansionT<T, N, M>, Rank>& t);
 ```
 
 Extracts the constant term from each TTE element of an Eigen tensor.
@@ -187,11 +187,11 @@ Extracts the constant term from each TTE element of an Eigen tensor.
 ```cpp
 template <typename T, int N, int M, typename Dx>
 [[nodiscard]] constexpr T eval(
-    const TruncatedTaylorExpansionT<T, N, M>& f, const Dx& dx) noexcept;
+    const TaylorExpansionT<T, N, M>& f, const Dx& dx) noexcept;
 ```
 
 Evaluates a scalar TTE at displacement `dx`. The displacement type must be
-accepted by `TruncatedTaylorExpansionT::eval` (scalar for univariate, array
+accepted by `TaylorExpansionT::eval` (scalar for univariate, array
 for multivariate).
 
 ### Scalar TTE with Eigen displacement
@@ -199,7 +199,7 @@ for multivariate).
 ```cpp
 template <typename T, int N, int M, typename Derived>
 [[nodiscard]] T eval(
-    const TruncatedTaylorExpansionT<T, N, M>& f,
+    const TaylorExpansionT<T, N, M>& f,
     const Eigen::DenseBase<Derived>& dx) noexcept;
 ```
 
@@ -231,7 +231,7 @@ The displacement can be a scalar, `Input` array, or Eigen vector.
 ```cpp
 template <typename T, int N, int M, int Rank, typename Dx>
 [[nodiscard]] auto eval(
-    const Eigen::Tensor<TruncatedTaylorExpansionT<T, N, M>, Rank>& t,
+    const Eigen::Tensor<TaylorExpansionT<T, N, M>, Rank>& t,
     const Dx& dx);
 ```
 
@@ -244,7 +244,7 @@ Evaluates each TTE element of an Eigen tensor at displacement `dx`.
 ```cpp
 template <typename T, int N, int Dim>
 [[nodiscard]] Eigen::Matrix<T, Dim, 1> eval(
-    const Eigen::Matrix<TruncatedTaylorExpansionT<T, N, 1>, Dim, 1>& f,
+    const Eigen::Matrix<TaylorExpansionT<T, N, 1>, Dim, 1>& f,
     T dx) noexcept;
 ```
 
@@ -319,7 +319,7 @@ Extracts the partial derivative specified by compile-time multi-index
 ```cpp
 template <typename T, int N, int M>
 [[nodiscard]] auto gradient(
-    const TruncatedTaylorExpansionT<T, N, M>& f);
+    const TaylorExpansionT<T, N, M>& f);
 ```
 
 Computes the gradient of a scalar TTE at its expansion point.
@@ -351,7 +351,7 @@ expansion point.
 ```cpp
 template <int K, typename T, int N, int M>
 [[nodiscard]] auto derivative(
-    const TruncatedTaylorExpansionT<T, N, M>& f);
+    const TaylorExpansionT<T, N, M>& f);
 ```
 
 Builds the order-\(K\) derivative object of a scalar TTE at its expansion
@@ -375,19 +375,19 @@ overloads for `Eigen::Tensor`:
 // Runtime multi-index
 template <typename T, int N, int M, int Rank>
 [[nodiscard]] auto derivative(
-    const Eigen::Tensor<TruncatedTaylorExpansionT<T, N, M>, Rank>& t,
+    const Eigen::Tensor<TaylorExpansionT<T, N, M>, Rank>& t,
     const std::array<int, std::size_t(M)>& alpha);
 
 // Univariate shorthand
 template <typename T, int N, int Rank>
 [[nodiscard]] auto derivative(
-    const Eigen::Tensor<TruncatedTaylorExpansionT<T, N, 1>, Rank>& t,
+    const Eigen::Tensor<TaylorExpansionT<T, N, 1>, Rank>& t,
     int k);
 
 // Compile-time multi-index
 template <int... Alpha, typename T, int N, int M, int Rank>
 [[nodiscard]] auto derivative(
-    const Eigen::Tensor<TruncatedTaylorExpansionT<T, N, M>, Rank>& t);
+    const Eigen::Tensor<TaylorExpansionT<T, N, M>, Rank>& t);
 ```
 
 All require `Rank >= 1` and return `Eigen::Tensor<T, Rank>` with the same

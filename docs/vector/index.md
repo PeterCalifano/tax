@@ -1,6 +1,6 @@
 # Vector (Eigen) Module
 
-The Eigen integration module enables using `TruncatedTaylorExpansionT` types inside
+The Eigen integration module enables using `TaylorExpansionT` types inside
 Eigen matrices, vectors, and tensors. This provides seamless interoperability between
 the tax library and the Eigen linear algebra ecosystem, so you can build vector-valued
 Taylor maps, extract Jacobians and Hessians, evaluate polynomial flows, and invert
@@ -18,7 +18,7 @@ The module is composed of seven headers, all under `include/tax/eigen/`:
 
 | Header | Purpose |
 |--------|---------|
-| `tax/eigen/num_traits.hpp` | `Eigen::NumTraits` specialization for `TruncatedTaylorExpansionT`, allowing Eigen to treat TTE as a scalar type |
+| `tax/eigen/num_traits.hpp` | `Eigen::NumTraits` specialization for `TaylorExpansionT`, allowing Eigen to treat TTE as a scalar type |
 | `tax/eigen/types.hpp` | Convenience type aliases (`Mat`, `VecT`, `TEVec`, `TEnVec`, etc.) |
 | `tax/eigen/variables.hpp` | Create TTE variables from Eigen vectors: `tax::vector` and `tax::variables` |
 | `tax/eigen/value.hpp` | Extract the scalar constant term from TTE containers: `tax::value` |

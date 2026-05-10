@@ -37,10 +37,10 @@ struct StepResult
  * @return StepResult with the solution polynomial and recommended step size.
  */
 template < int N, typename F, typename T = double >
-[[nodiscard]] StepResult< TruncatedTaylorExpansionT< T, N, 1 >, T >
+[[nodiscard]] StepResult< TaylorExpansionT< T, N, 1 >, T >
 step( F&& f, T x0, T tc, T abstol )
 {
-    using TTE = TruncatedTaylorExpansionT< T, N, 1 >;
+    using TTE = TaylorExpansionT< T, N, 1 >;
 
     TTE t_da{};
     t_da[0] = tc;
@@ -73,10 +73,10 @@ step( F&& f, T x0, T tc, T abstol )
  * @param abstol Absolute tolerance for step-size control.
  */
 template < int N, typename F, typename P, typename T = double >
-[[nodiscard]] StepResult< TruncatedTaylorExpansionT< T, N, 1 >, T >
+[[nodiscard]] StepResult< TaylorExpansionT< T, N, 1 >, T >
 step( F&& f, T x0, const P& p, T tc, T abstol )
 {
-    using TTE = TruncatedTaylorExpansionT< T, N, 1 >;
+    using TTE = TaylorExpansionT< T, N, 1 >;
 
     TTE t_da{};
     t_da[0] = tc;
@@ -112,10 +112,10 @@ step( F&& f, T x0, const P& p, T tc, T abstol )
  * @return StepResult with the solution polynomial vector and recommended step size.
  */
 template < int N, typename F, typename T, int D >
-[[nodiscard]] StepResult< Eigen::Matrix< TruncatedTaylorExpansionT< T, N, 1 >, D, 1 >, T >
+[[nodiscard]] StepResult< Eigen::Matrix< TaylorExpansionT< T, N, 1 >, D, 1 >, T >
 step( F&& f, const Eigen::Matrix< T, D, 1 >& x0, T tc, T abstol )
 {
-    using TTE = TruncatedTaylorExpansionT< T, N, 1 >;
+    using TTE = TaylorExpansionT< T, N, 1 >;
     using VecTTE = Eigen::Matrix< TTE, D, 1 >;
 
     const Eigen::Index dim = x0.size();
@@ -150,10 +150,10 @@ step( F&& f, const Eigen::Matrix< T, D, 1 >& x0, T tc, T abstol )
  * @tparam P Parameter type (arbitrary; user-defined).
  */
 template < int N, typename F, typename P, typename T, int D >
-[[nodiscard]] StepResult< Eigen::Matrix< TruncatedTaylorExpansionT< T, N, 1 >, D, 1 >, T >
+[[nodiscard]] StepResult< Eigen::Matrix< TaylorExpansionT< T, N, 1 >, D, 1 >, T >
 step( F&& f, const Eigen::Matrix< T, D, 1 >& x0, const P& p, T tc, T abstol )
 {
-    using TTE = TruncatedTaylorExpansionT< T, N, 1 >;
+    using TTE = TaylorExpansionT< T, N, 1 >;
     using VecTTE = Eigen::Matrix< TTE, D, 1 >;
 
     const Eigen::Index dim = x0.size();

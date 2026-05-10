@@ -38,7 +38,7 @@ template < int N, typename State, typename T = double >
 struct Event
 {
     using StatePoly = detail::poly_t< N, State, T >;
-    using TimePoly = TruncatedTaylorExpansionT< T, N, 1 >;
+    using TimePoly = TaylorExpansionT< T, N, 1 >;
     using GFn = std::function< TimePoly( const StatePoly&, const TimePoly& ) >;
 
     GFn g;                                                  ///< Event function `g(x,t)`.
@@ -52,7 +52,7 @@ namespace detail
 /// @brief Locate a root of `g_poly` inside `[tau_lo, tau_hi]` by bisection.
 /// @pre  `g_poly.eval(tau_lo) * g_poly.eval(tau_hi) <= 0` (strict sign change).
 template < typename T, int N >
-[[nodiscard]] T bisectEvent( const TruncatedTaylorExpansionT< T, N, 1 >& g_poly, T tau_lo,
+[[nodiscard]] T bisectEvent( const TaylorExpansionT< T, N, 1 >& g_poly, T tau_lo,
                              T tau_hi ) noexcept
 {
     constexpr int max_iter = 80;
@@ -84,9 +84,9 @@ template < typename T, int N >
 
 /// @brief Build the time-TTE used during a step: t(τ) = tc + τ.
 template < int N, typename T >
-[[nodiscard]] TruncatedTaylorExpansionT< T, N, 1 > makeTimePoly( T tc ) noexcept
+[[nodiscard]] TaylorExpansionT< T, N, 1 > makeTimePoly( T tc ) noexcept
 {
-    TruncatedTaylorExpansionT< T, N, 1 > t_da{};
+    TaylorExpansionT< T, N, 1 > t_da{};
     t_da[0] = tc;
     if constexpr ( N >= 1 ) t_da[1] = T{ 1 };
     return t_da;
@@ -108,14 +108,14 @@ struct StepEventResult
 /// polynomial in τ.  Records are sorted by step-progression (smallest |τ|
 /// first); the earliest terminal hit truncates the step.
 ///
-/// @tparam StepPoly  Either `TruncatedTaylorExpansionT<T,N,1>` or
-///                   `Eigen::Matrix<TruncatedTaylorExpansionT<T,N,1>,D,1>`.
+/// @tparam StepPoly  Either `TaylorExpansionT<T,N,1>` or
+///                   `Eigen::Matrix<TaylorExpansionT<T,N,1>,D,1>`.
 template < int N, typename State, typename T, typename StepPoly >
 [[nodiscard]] StepEventResult< T > processStepEvents(
     const std::vector< Event< N, State, T > >& events, const StepPoly& p, T tc, T dt,
     std::vector< EventRecord< N, State, T > >& out, std::size_t step_idx )
 {
-    using TimePoly = TruncatedTaylorExpansionT< T, N, 1 >;
+    using TimePoly = TaylorExpansionT< T, N, 1 >;
 
     if ( events.empty() || dt == T{ 0 } ) return { dt, false };
 

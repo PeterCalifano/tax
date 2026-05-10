@@ -23,7 +23,7 @@ where \(\alpha = (\alpha_1, \ldots, \alpha_M)\) is a multi-index with
 \(\delta\mathbf{x}^\alpha = \delta x_1^{\alpha_1} \cdots \delta x_M^{\alpha_M}\).
 
 In tax, each component \(F_i\) is stored as a
-`TruncatedTaylorExpansionT<T, N, M>` and the full map is an
+`TaylorExpansionT<T, N, M>` and the full map is an
 `Eigen::Matrix<TTE, K, 1>` (or any compatible Eigen dense expression).
 
 ---

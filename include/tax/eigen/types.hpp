@@ -6,7 +6,7 @@ namespace tax
 {
 
 template < typename T, int N, int M, int Rows, int Cols >
-using Mat = Eigen::Matrix< TruncatedTaylorExpansionT< T, N, M >, Rows, Cols >;
+using Mat = Eigen::Matrix< TaylorExpansionT< T, N, M >, Rows, Cols >;
 
 template < typename Scalar, int Size >
 using VecT = Eigen::Matrix< Scalar, Size, 1 >;

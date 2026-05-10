@@ -10,7 +10,7 @@ Complete reference for the core **tax** types, constructors, accessors, operator
 namespace tax {
 
 template <typename T, int N, int M = 1>
-class TruncatedTaylorExpansionT;
+class TaylorExpansionT;
 
 }
 ```
@@ -27,10 +27,10 @@ class TruncatedTaylorExpansionT;
 
 ```cpp
 template <int N>
-using TE = TruncatedTaylorExpansionT<double, N, 1>;    // univariate, double
+using TE = TaylorExpansionT<double, N, 1>;    // univariate, double
 
 template <int N, int M>
-using TEn = TruncatedTaylorExpansionT<double, N, M>;   // multivariate, double
+using TEn = TaylorExpansionT<double, N, M>;   // multivariate, double
 ```
 
 ### Constants and Member Types
@@ -47,17 +47,17 @@ using TEn = TruncatedTaylorExpansionT<double, N, M>;   // multivariate, double
 
 ```cpp
 // Zero polynomial (all coefficients = 0)
-constexpr TruncatedTaylorExpansionT() noexcept;
+constexpr TaylorExpansionT() noexcept;
 
 // From full coefficient array
-explicit constexpr TruncatedTaylorExpansionT(Data c) noexcept;
+explicit constexpr TaylorExpansionT(Data c) noexcept;
 
 // Constant polynomial (value = val, all other coefficients = 0)
-/*implicit*/ constexpr TruncatedTaylorExpansionT(T val) noexcept;
+/*implicit*/ constexpr TaylorExpansionT(T val) noexcept;
 
 // Materialize an expression template
 template <typename Derived>
-/*implicit*/ constexpr TruncatedTaylorExpansionT(const Expr<Derived, T, N, M>& expr) noexcept;
+/*implicit*/ constexpr TaylorExpansionT(const Expr<Derived, T, N, M>& expr) noexcept;
 ```
 
 The expression constructor evaluates the entire lazy expression tree in a single pass, writing the result directly into the coefficient array.
@@ -66,16 +66,16 @@ The expression constructor evaluates the entire lazy expression tree in a single
 
 ## Variable Factories
 
-All factories are `static constexpr` member functions of `TruncatedTaylorExpansionT`.
+All factories are `static constexpr` member functions of `TaylorExpansionT`.
 
 ```cpp
 // Univariate variable: x = x0 + 1*dx (requires M == 1)
-[[nodiscard]] static constexpr TruncatedTaylorExpansionT
+[[nodiscard]] static constexpr TaylorExpansionT
 variable(T x0) noexcept;
 
 // Multivariate variable x_I at expansion point x0
 template <int I>
-[[nodiscard]] static constexpr TruncatedTaylorExpansionT
+[[nodiscard]] static constexpr TaylorExpansionT
 variable(const Input& x0) noexcept;
 
 // All M variables at expansion point x0, returned as std::tuple
@@ -88,15 +88,15 @@ template <typename... X0>
 variables(X0&&... x0) noexcept;
 
 // Constant polynomial with value v
-[[nodiscard]] static constexpr TruncatedTaylorExpansionT
+[[nodiscard]] static constexpr TaylorExpansionT
 constant(T v) noexcept;
 
 // Zero polynomial
-[[nodiscard]] static constexpr TruncatedTaylorExpansionT
+[[nodiscard]] static constexpr TaylorExpansionT
 zero() noexcept;
 
 // Unit polynomial (constant = 1)
-[[nodiscard]] static constexpr TruncatedTaylorExpansionT
+[[nodiscard]] static constexpr TaylorExpansionT
 one() noexcept;
 ```
 
@@ -153,20 +153,20 @@ These methods return new TTE objects representing the symbolic derivative or int
 ```cpp
 // Partial derivative w.r.t. variable I (compile-time index)
 template <int I>
-[[nodiscard]] constexpr TruncatedTaylorExpansionT deriv() const noexcept;
+[[nodiscard]] constexpr TaylorExpansionT deriv() const noexcept;
 
 // Partial derivative w.r.t. variable var (runtime index)
 // Throws std::out_of_range if var >= M
-[[nodiscard]] constexpr TruncatedTaylorExpansionT deriv(int var) const;
+[[nodiscard]] constexpr TaylorExpansionT deriv(int var) const;
 
 // Indefinite integral w.r.t. variable I (compile-time index)
 // Terms of degree N are dropped; constant of integration is zero
 template <int I>
-[[nodiscard]] constexpr TruncatedTaylorExpansionT integ() const noexcept;
+[[nodiscard]] constexpr TaylorExpansionT integ() const noexcept;
 
 // Indefinite integral w.r.t. variable var (runtime index)
 // Throws std::out_of_range if var >= M
-[[nodiscard]] constexpr TruncatedTaylorExpansionT integ(int var) const;
+[[nodiscard]] constexpr TaylorExpansionT integ(int var) const;
 ```
 
 ---
@@ -214,20 +214,20 @@ T radius(T eps, unsigned int type = 1) const;
 
 ```cpp
 // TTE-TTE arithmetic
-constexpr TruncatedTaylorExpansionT& operator+=(const TruncatedTaylorExpansionT& o) noexcept;
-constexpr TruncatedTaylorExpansionT& operator-=(const TruncatedTaylorExpansionT& o) noexcept;
-constexpr TruncatedTaylorExpansionT& operator*=(const TruncatedTaylorExpansionT& o) noexcept;
-constexpr TruncatedTaylorExpansionT& operator/=(const TruncatedTaylorExpansionT& o) noexcept;
+constexpr TaylorExpansionT& operator+=(const TaylorExpansionT& o) noexcept;
+constexpr TaylorExpansionT& operator-=(const TaylorExpansionT& o) noexcept;
+constexpr TaylorExpansionT& operator*=(const TaylorExpansionT& o) noexcept;
+constexpr TaylorExpansionT& operator/=(const TaylorExpansionT& o) noexcept;
 
 // TTE-expression arithmetic
 template <typename Derived>
-constexpr TruncatedTaylorExpansionT& operator+=(const Expr<Derived, T, N, M>& e) noexcept;
+constexpr TaylorExpansionT& operator+=(const Expr<Derived, T, N, M>& e) noexcept;
 template <typename Derived>
-constexpr TruncatedTaylorExpansionT& operator-=(const Expr<Derived, T, N, M>& e) noexcept;
+constexpr TaylorExpansionT& operator-=(const Expr<Derived, T, N, M>& e) noexcept;
 
 // TTE-scalar arithmetic
-constexpr TruncatedTaylorExpansionT& operator*=(T s) noexcept;
-constexpr TruncatedTaylorExpansionT& operator/=(T s) noexcept;
+constexpr TaylorExpansionT& operator*=(T s) noexcept;
+constexpr TaylorExpansionT& operator/=(T s) noexcept;
 ```
 
 Division (`/=`) with a TTE computes the reciprocal of the divisor (via the reciprocal recurrence), then multiplies.
@@ -246,7 +246,7 @@ All comparison operators act on the **constant term** only. Supported for TTE vs
 
 ## Arithmetic Operators (Free Functions)
 
-All binary arithmetic operators return **lazy expression objects** that are evaluated only on assignment to a `TruncatedTaylorExpansionT`. Supported operand combinations: TTE-TTE, TTE-scalar, and scalar-TTE.
+All binary arithmetic operators return **lazy expression objects** that are evaluated only on assignment to a `TaylorExpansionT`. Supported operand combinations: TTE-TTE, TTE-scalar, and scalar-TTE.
 
 ```cpp
 auto operator+(lhs, rhs);   // sum (flattened N-ary for chains)
@@ -308,7 +308,7 @@ All functions accept expression arguments and return lazy expression objects. De
 ## Streaming
 
 ```cpp
-friend std::ostream& operator<<(std::ostream& os, const TruncatedTaylorExpansionT& a);
+friend std::ostream& operator<<(std::ostream& os, const TaylorExpansionT& a);
 ```
 
 Outputs the polynomial in human-readable form with Unicode superscripts for powers and subscripts for variable indices. Zero coefficients are suppressed. The truncation remainder \(\mathcal{O}(\delta\mathbf{x}^{N+1})\) is appended.

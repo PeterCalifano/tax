@@ -36,7 +36,7 @@ struct StepResult
 
 ```cpp
 template <int N, typename F, typename T = double>
-StepResult<TruncatedTaylorExpansionT<T, N, 1>, T>
+StepResult<TaylorExpansionT<T, N, 1>, T>
 step(F&& f, T x0, T tc, T abstol);
 ```
 
@@ -58,7 +58,7 @@ displacement \(\tau\) via `p.eval(tau)`) and the recommended step size `h`.
 
 ```cpp
 template <int N, typename F, typename T, int D>
-StepResult<Eigen::Matrix<TruncatedTaylorExpansionT<T, N, 1>, D, 1>, T>
+StepResult<Eigen::Matrix<TaylorExpansionT<T, N, 1>, D, 1>, T>
 step(F&& f, const Eigen::Matrix<T, D, 1>& x0, T tc, T abstol);
 ```
 
@@ -85,7 +85,7 @@ displacement \(\tau\) via `tax::eval(p, tau)`) and the recommended step size `h`
 
 ```cpp
 template <typename T, int N>
-T stepsize(const TruncatedTaylorExpansionT<T, N, 1>& x, T abstol) noexcept;
+T stepsize(const TaylorExpansionT<T, N, 1>& x, T abstol) noexcept;
 ```
 
 Compute the adaptive step size from the last two Taylor coefficients using the
@@ -98,7 +98,7 @@ constrain the step size.
 ```cpp
 template <typename T, int N, int D>
 T stepsize(
-    const Eigen::Matrix<TruncatedTaylorExpansionT<T, N, 1>, D, 1>& x,
+    const Eigen::Matrix<TaylorExpansionT<T, N, 1>, D, 1>& x,
     T abstol) noexcept;
 ```
 
@@ -218,7 +218,7 @@ the specified-output-times overload, which does not store polynomials).
 
 ```cpp
 template <int N, int P, int D, typename F>
-StepResult<Eigen::Matrix<TruncatedTaylorExpansionT<TEn<P, D>, N, 1>, D, 1>, double>
+StepResult<Eigen::Matrix<TaylorExpansionT<TEn<P, D>, N, 1>, D, 1>, double>
 stepDa(F&& f, const Eigen::Matrix<TEn<P, D>, D, 1>& x0, double tc, double abstol);
 ```
 

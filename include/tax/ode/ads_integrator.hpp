@@ -201,7 +201,7 @@ public:
     static constexpr int M = D + Q;
 
     using DA          = TEn< P, M >;
-    using TimeTTE     = TruncatedTaylorExpansionT< DA, N, 1 >;
+    using TimeTTE     = TaylorExpansionT< DA, N, 1 >;
     using VecTTE      = Eigen::Matrix< TimeTTE, D, 1 >;
     using VecDaP      = Eigen::Matrix< DA, Q, 1 >;
     using Config      = AdsConfig;
