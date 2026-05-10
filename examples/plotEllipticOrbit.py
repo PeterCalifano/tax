@@ -41,11 +41,11 @@ def main() -> None:
         "--output",
         type=Path,
         default=None,
-        help="Output PNG path (default: <data-dir>/ellipticOrbit.png)",
+        help="Output PNG path (default: <script-dir>/ellipticOrbit.png)",
     )
     args = parser.parse_args()
 
-    out_path = args.output or args.data_dir / "ellipticOrbit.png"
+    out_path = args.output or Path(__file__).resolve().parent / "ellipticOrbit.png"
 
     ref = _load_csv(args.data_dir / "orbit_reference.csv")
     pert = _load_csv(args.data_dir / "orbits_perturbed.csv")
