@@ -8,6 +8,7 @@ project(tax VERSION 0.1.0 LANGUAGES CXX)
 option(TAX_BUILD_TEST "Build and enable unittests" ON)
 option(TAX_BUILD_BENCHMARK "Build benchmark suite (Google Benchmark)" OFF)
 option(TAX_BUILD_EXAMPLES "Build the examples/ programs" OFF)
+option(TAX_USE_OPENMP "Enable OpenMP parallelism in the ADS integrator" ON)
 option(TAX_USE_DACE "Enable DACE integration (fetches dacelib/dace@v2.1.0) for tests and benchmarks" OFF)
 
 # -------------------------------
@@ -47,6 +48,20 @@ target_include_directories(tax
 # -------------------------------
 find_package(Eigen3 REQUIRED)
 target_link_libraries(tax INTERFACE Eigen3::Eigen)
+
+# -------------------------------
+# Optional OpenMP (parallel ADS leaf propagation)
+# -------------------------------
+if(TAX_USE_OPENMP)
+    find_package(OpenMP)
+    if(OpenMP_CXX_FOUND)
+        target_link_libraries(tax INTERFACE OpenMP::OpenMP_CXX)
+        target_compile_definitions(tax INTERFACE TAX_HAVE_OPENMP=1)
+        message(STATUS "OpenMP enabled for tax (parallel ADS).")
+    else()
+        message(STATUS "OpenMP requested via TAX_USE_OPENMP but not found; building serial.")
+    endif()
+endif()
 
 # -------------------------------
 # Optional DACE dependency
