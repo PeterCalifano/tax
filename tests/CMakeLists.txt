@@ -53,6 +53,7 @@ set(TEST_SOURCES
     ads/testAdsMerger.cpp
     ode/testTaylorIntegrator.cpp
     ode/testIntegrateAds.cpp
+    ode/testLowOrderAdsIntegrator.cpp
     ode/testEvents.cpp
 )
 

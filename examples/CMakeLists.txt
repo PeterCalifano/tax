@@ -1,2 +1,5 @@
 add_executable(ellipticOrbit ellipticOrbit.cpp)
 target_link_libraries(ellipticOrbit PRIVATE tax)
+
+add_executable(twoBodyAdsComparison twoBodyAdsComparison.cpp)
+target_link_libraries(twoBodyAdsComparison PRIVATE tax)
