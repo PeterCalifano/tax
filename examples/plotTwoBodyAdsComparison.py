@@ -31,29 +31,27 @@ def _load_csv(path: Path) -> np.ndarray:
     return np.genfromtxt(path, delimiter=",", names=True)
 
 
+LEAF_FACE = "#dcdcdc"
+LEAF_EDGE = "#5a5a5a"
+
+
 def _plot_leaves(
     ax,
     leaves: np.ndarray,
     title: str,
     box_xy_extent: tuple[float, float, float, float],
 ) -> None:
-    """Plot the IC-space leaves as colour-filled rectangles.
-
-    Each leaf gets a deterministic colour drawn from the tab20 cycle so
-    neighbouring leaves are visually distinct without relying on alpha
-    blending.
-    """
+    """Plot the IC-space leaves as light-grey rectangles."""
     x_lo, x_hi, vy_lo, vy_hi = box_xy_extent
-    cmap = plt.get_cmap("tab20")
-    for i, row in enumerate(leaves):
+    for row in leaves:
         rect = Rectangle(
             (row["x_lo"], row["vy_lo"]),
             row["x_hi"] - row["x_lo"],
             row["vy_hi"] - row["vy_lo"],
-            linewidth=0.8,
-            edgecolor="black",
-            facecolor=cmap(i % 20),
-            alpha=0.7,
+            linewidth=0.5,
+            edgecolor=LEAF_EDGE,
+            facecolor=LEAF_FACE,
+            alpha=0.95,
         )
         ax.add_patch(rect)
     # Outer box for context.
@@ -62,7 +60,7 @@ def _plot_leaves(
             (x_lo, vy_lo),
             x_hi - x_lo,
             vy_hi - vy_lo,
-            linewidth=1.6,
+            linewidth=1.1,
             edgecolor="black",
             facecolor="none",
             zorder=4,
@@ -127,6 +125,19 @@ def main() -> None:
         help="Output PNG path (default: <script-dir>/twoBodyAdsComparison.png)",
     )
     args = parser.parse_args()
+
+    plt.rcParams.update(
+        {
+            "font.family": "serif",
+            "font.size": 10,
+            "axes.titlesize": 11,
+            "axes.labelsize": 10,
+            "axes.edgecolor": "#333333",
+            "axes.linewidth": 0.8,
+            "xtick.color": "#333333",
+            "ytick.color": "#333333",
+        }
+    )
 
     out_path = (
         args.output

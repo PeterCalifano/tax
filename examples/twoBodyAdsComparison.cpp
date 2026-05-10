@@ -32,10 +32,13 @@
 //   twoBody_lo_leaf_orbit.csv     — same for the LowOrderAdsIntegrator leaves
 //   twoBody_orbit_reference.csv   — full elliptic orbit of the central IC
 //   twoBody_orbit_endpoint.csv    — central-IC position at t = tmax
+//   twoBody_snapshots.csv         — leaf boundaries at each snapshot time, both methods
+//   twoBody_snapshots_meta.csv    — snapshot time and per-method leaf count
 //
 // Companion plotting scripts:
 //   plotTwoBodyAdsComparison.py  — IC-space + endpoint error figure
 //   plotTwoBodyAdsOrbit.py       — splitting projected onto the orbit
+//   plotTwoBodyAdsSnapshots.py   — time evolution of the partition through one orbit
 // =============================================================================
 
 #include <algorithm>
@@ -185,43 +188,38 @@ int main()
     // phase space around the reference endpoint.
     // -------------------------------------------------------------------------
     constexpr int n_perim = 24;  // points per box edge
-    auto dumpLeafBoundaries = [&]( const auto& tree, const char* path ) {
-        std::ofstream out( path );
-        out << "leaf,segment,delta_x,delta_vy,x,y\n";
+
+    // Walk every leaf's perimeter in δ-space and stream the (x, y) image to
+    // @p sink.  @p prefix is prepended verbatim to each line (used to attach
+    // snapshot/method metadata in the multi-snapshot CSV).
+    auto streamLeafBoundaries = [&]( const auto& tree, std::ostream& sink,
+                                     std::string_view prefix ) {
         for ( int li : tree.doneLeaves() )
         {
             const auto& lf = tree.node( li ).leaf();
-            // Walk the perimeter δ ∈ [-1,1]² counter-clockwise.
             auto emit = [&]( double dx, double dv, int seg ) {
                 std::array< double, kD > local{ dx, 0.0, 0.0, dv };
                 const double x_pred = lf.tte.state( 0 ).eval( local );
                 const double y_pred = lf.tte.state( 1 ).eval( local );
-                out << li << ',' << seg << ',' << dx << ',' << dv << ',' << x_pred << ','
-                    << y_pred << '\n';
+                sink << prefix << li << ',' << seg << ',' << dx << ',' << dv << ','
+                     << x_pred << ',' << y_pred << '\n';
             };
             for ( int i = 0; i < n_perim; ++i )
-            {
-                const double t = double( i ) / double( n_perim );
-                emit( -1.0 + 2.0 * t, -1.0, 0 );  // bottom edge
-            }
+                emit( -1.0 + 2.0 * double( i ) / n_perim, -1.0, 0 );  // bottom
             for ( int i = 0; i < n_perim; ++i )
-            {
-                const double t = double( i ) / double( n_perim );
-                emit( 1.0, -1.0 + 2.0 * t, 1 );  // right edge
-            }
+                emit( 1.0, -1.0 + 2.0 * double( i ) / n_perim, 1 );   // right
             for ( int i = 0; i < n_perim; ++i )
-            {
-                const double t = double( i ) / double( n_perim );
-                emit( 1.0 - 2.0 * t, 1.0, 2 );  // top edge
-            }
+                emit( 1.0 - 2.0 * double( i ) / n_perim, 1.0, 2 );    // top
             for ( int i = 0; i < n_perim; ++i )
-            {
-                const double t = double( i ) / double( n_perim );
-                emit( -1.0, 1.0 - 2.0 * t, 3 );  // left edge
-            }
-            // Close the loop.
-            emit( -1.0, -1.0, 4 );
+                emit( -1.0, 1.0 - 2.0 * double( i ) / n_perim, 3 );   // left
+            emit( -1.0, -1.0, 4 );                                    // close loop
         }
+    };
+
+    auto dumpLeafBoundaries = [&]( const auto& tree, const char* path ) {
+        std::ofstream out( path );
+        out << "leaf,segment,delta_x,delta_vy,x,y\n";
+        streamLeafBoundaries( tree, out, "" );
     };
     dumpLeafBoundaries( te_tree, "twoBody_te_leaf_orbit.csv" );
     dumpLeafBoundaries( lo_tree, "twoBody_lo_leaf_orbit.csv" );
@@ -246,6 +244,76 @@ int main()
         Vec x_at_tmax = ref_ig.integrate( x0_center, 0.0, tmax ).x.back();
         std::ofstream ep( "twoBody_orbit_endpoint.csv" );
         ep << "x,y\n" << x_at_tmax( 0 ) << ',' << x_at_tmax( 1 ) << '\n';
+    }
+
+    // -------------------------------------------------------------------------
+    // Snapshots over one full orbital period.
+    //
+    // For each snapshot time t_k in (0, T_orbit] we run a fresh ADS for both
+    // criteria and dump the pushed-forward leaf boundaries.  This gives a
+    // movie-frame view of how the IC partition deforms (and how each method
+    // refines its tessellation) as the orbit progresses.  Snapshot ADS runs
+    // use a shallower max_depth to keep cumulative runtime bounded — the
+    // headline analysis above already used the deeper budget.
+    // -------------------------------------------------------------------------
+    {
+        constexpr int    n_snap   = 6;
+        const double     T_period = 2.0 * std::numbers::pi;
+        constexpr int    snap_depth = 6;
+
+        ode::AdsIntegrator< kN, kP, kD > te_snap_ig{
+            kepler, ode::AdsConfig{
+                        .step_tol = 1e-14, .ads_tol = tol, .max_depth = snap_depth } };
+        ode::LowOrderAdsIntegrator< kN, kP, kD > lo_snap_ig{
+            kepler, ode::LowOrderAdsConfig{
+                        .step_tol = 1e-14, .nli_tol = tol, .max_depth = snap_depth } };
+
+        std::ofstream snaps( "twoBody_snapshots.csv" );
+        snaps << "snapshot,t,method,leaf,segment,delta_x,delta_vy,x,y\n";
+
+        std::ofstream snap_ic( "twoBody_snapshots_ic.csv" );
+        snap_ic << "snapshot,t,method,leaf,x_lo,x_hi,vy_lo,vy_hi\n";
+
+        std::ofstream snap_meta( "twoBody_snapshots_meta.csv" );
+        snap_meta << "snapshot,t,te_leaves,lo_leaves\n";
+
+        auto dumpIc = [&]( const auto& tree, int k_snap, double tk,
+                           const char* tag ) {
+            for ( int li : tree.doneLeaves() )
+            {
+                const auto& b   = tree.node( li ).leaf().box;
+                const double xlo = b.center[0] - b.halfWidth[0];
+                const double xhi = b.center[0] + b.halfWidth[0];
+                const double vlo = b.center[3] - b.halfWidth[3];
+                const double vhi = b.center[3] + b.halfWidth[3];
+                snap_ic << k_snap << ',' << tk << ',' << tag << ',' << li << ','
+                        << xlo << ',' << xhi << ',' << vlo << ',' << vhi << '\n';
+            }
+        };
+
+        std::cout << "\nSnapshots (depth = " << snap_depth << "):\n";
+        for ( int k = 1; k <= n_snap; ++k )
+        {
+            const double tk = T_period * double( k ) / double( n_snap );
+
+            auto te_k = te_snap_ig.integrate( box, 0.0, tk );
+            auto lo_k = lo_snap_ig.integrate( box, 0.0, tk );
+
+            char buf[64];
+            std::snprintf( buf, sizeof( buf ), "%d,%.10g,te,", k, tk );
+            streamLeafBoundaries( te_k, snaps, buf );
+            std::snprintf( buf, sizeof( buf ), "%d,%.10g,lo,", k, tk );
+            streamLeafBoundaries( lo_k, snaps, buf );
+
+            dumpIc( te_k, k, tk, "te" );
+            dumpIc( lo_k, k, tk, "lo" );
+
+            snap_meta << k << ',' << tk << ',' << te_k.numDone() << ','
+                      << lo_k.numDone() << '\n';
+
+            std::cout << "  t = " << tk << ":  te = " << te_k.numDone()
+                      << " leaves,  lo = " << lo_k.numDone() << " leaves\n";
+        }
     }
 
     // -------------------------------------------------------------------------
