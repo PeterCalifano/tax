@@ -25,11 +25,17 @@
 //     the same IC, sampled on a regular grid over δ ∈ [-1, 1]^2.
 //
 // Output:
-//   twoBody_ads_comparison.csv  — per-sample errors of both methods
-//   twoBody_te_leaves.csv       — IC-space bounds of the AdsIntegrator leaves
-//   twoBody_lo_leaves.csv       — IC-space bounds of the LowOrderAdsIntegrator leaves
+//   twoBody_ads_comparison.csv    — per-sample errors of both methods
+//   twoBody_te_leaves.csv         — IC-space bounds of the AdsIntegrator leaves
+//   twoBody_lo_leaves.csv         — IC-space bounds of the LowOrderAdsIntegrator leaves
+//   twoBody_te_leaf_orbit.csv     — leaf boundaries pushed forward to (x, y)
+//   twoBody_lo_leaf_orbit.csv     — same for the LowOrderAdsIntegrator leaves
+//   twoBody_orbit_reference.csv   — full elliptic orbit of the central IC
+//   twoBody_orbit_endpoint.csv    — central-IC position at t = tmax
 //
-// Companion plotting script: plotTwoBodyAdsComparison.py
+// Companion plotting scripts:
+//   plotTwoBodyAdsComparison.py  — IC-space + endpoint error figure
+//   plotTwoBodyAdsOrbit.py       — splitting projected onto the orbit
 // =============================================================================
 
 #include <algorithm>
@@ -116,12 +122,11 @@ int main()
     const double     vp   = std::sqrt( ( 1.0 + e ) / ( 1.0 - e ) );
     const double     tmax = std::numbers::pi;  // half orbital period (apoapsis pass)
 
-    // 2-D IC uncertainty: small offsets on x(0) and v_y(0).  Kept small enough
-    // that both criteria converge with a moderate split budget; the *relative*
-    // count of leaves is what matters for the comparison, not the absolute
-    // magnitude of each ADS run.
-    Box< double, kD > box{ { rp,     0.0, 0.0, vp    },
-                           { 0.005,  0.0, 0.0, 0.01  } };
+    // 2-D IC uncertainty along x(0) and v_y(0).  Sized so the IC partition is
+    // visible when pushed forward to (x, y) at t_max while still letting both
+    // criteria converge with a moderate split budget.
+    Box< double, kD > box{ { rp,    0.0, 0.0, vp   },
+                           { 0.01,  0.0, 0.0, 0.02 } };
 
     std::cout << "Two-body ADS comparison\n"
               << "  Orbit:        a = " << a << ", e = " << e << "\n"
@@ -137,7 +142,7 @@ int main()
     // 1) Truncation-error ADS (classical Wittig criterion).
     // -------------------------------------------------------------------------
     ode::AdsIntegrator< kN, kP, kD > te_ig{
-        kepler, ode::AdsConfig{ .step_tol = 1e-14, .ads_tol = tol, .max_depth = 6 } };
+        kepler, ode::AdsConfig{ .step_tol = 1e-14, .ads_tol = tol, .max_depth = 8 } };
     int te_splits = 0;
     te_ig.on_split = [&]( const ode::SplitEvent< kP, kD >& ) { ++te_splits; };
     auto te_tree = te_ig.integrate( box, 0.0, tmax );
@@ -146,7 +151,7 @@ int main()
     // 2) Low-order NLI-driven ADS.
     // -------------------------------------------------------------------------
     ode::LowOrderAdsIntegrator< kN, kP, kD > lo_ig{
-        kepler, ode::LowOrderAdsConfig{ .step_tol = 1e-14, .nli_tol = tol, .max_depth = 6 } };
+        kepler, ode::LowOrderAdsConfig{ .step_tol = 1e-14, .nli_tol = tol, .max_depth = 8 } };
     int lo_splits = 0;
     lo_ig.on_split = [&]( const ode::LowOrderSplitEvent< kP, kD >& ) { ++lo_splits; };
     auto lo_tree = lo_ig.integrate( box, 0.0, tmax );
@@ -171,6 +176,77 @@ int main()
     };
     dumpLeaves( te_tree, "twoBody_te_leaves.csv" );
     dumpLeaves( lo_tree, "twoBody_lo_leaves.csv" );
+
+    // -------------------------------------------------------------------------
+    // Push every leaf's IC-box boundary forward to (x, y) at t = tmax by
+    // evaluating its flow polynomial at uniformly spaced points along the
+    // perimeter of δ ∈ [-1, 1]² (the two active dimensions).  This is the
+    // "split on orbit" view: each method's IC partition becomes a tiling of
+    // phase space around the reference endpoint.
+    // -------------------------------------------------------------------------
+    constexpr int n_perim = 24;  // points per box edge
+    auto dumpLeafBoundaries = [&]( const auto& tree, const char* path ) {
+        std::ofstream out( path );
+        out << "leaf,segment,delta_x,delta_vy,x,y\n";
+        for ( int li : tree.doneLeaves() )
+        {
+            const auto& lf = tree.node( li ).leaf();
+            // Walk the perimeter δ ∈ [-1,1]² counter-clockwise.
+            auto emit = [&]( double dx, double dv, int seg ) {
+                std::array< double, kD > local{ dx, 0.0, 0.0, dv };
+                const double x_pred = lf.tte.state( 0 ).eval( local );
+                const double y_pred = lf.tte.state( 1 ).eval( local );
+                out << li << ',' << seg << ',' << dx << ',' << dv << ',' << x_pred << ','
+                    << y_pred << '\n';
+            };
+            for ( int i = 0; i < n_perim; ++i )
+            {
+                const double t = double( i ) / double( n_perim );
+                emit( -1.0 + 2.0 * t, -1.0, 0 );  // bottom edge
+            }
+            for ( int i = 0; i < n_perim; ++i )
+            {
+                const double t = double( i ) / double( n_perim );
+                emit( 1.0, -1.0 + 2.0 * t, 1 );  // right edge
+            }
+            for ( int i = 0; i < n_perim; ++i )
+            {
+                const double t = double( i ) / double( n_perim );
+                emit( 1.0 - 2.0 * t, 1.0, 2 );  // top edge
+            }
+            for ( int i = 0; i < n_perim; ++i )
+            {
+                const double t = double( i ) / double( n_perim );
+                emit( -1.0, 1.0 - 2.0 * t, 3 );  // left edge
+            }
+            // Close the loop.
+            emit( -1.0, -1.0, 4 );
+        }
+    };
+    dumpLeafBoundaries( te_tree, "twoBody_te_leaf_orbit.csv" );
+    dumpLeafBoundaries( lo_tree, "twoBody_lo_leaf_orbit.csv" );
+
+    // -------------------------------------------------------------------------
+    // Reference orbit of the central IC over a full period (for the "split
+    // on orbit" plot backdrop).  The flow-map view uses tmax; the orbit
+    // backdrop uses 2π so the ellipse is shown in full.
+    // -------------------------------------------------------------------------
+    {
+        ode::Integrator< kN, Vec > ref_ig{
+            kepler, ode::IntegratorConfig< double >{ .abstol = 1e-14 } };
+        Vec x0_center;
+        for ( int k = 0; k < kD; ++k ) x0_center( k ) = box.center[k];
+        auto ref_sol = ref_ig.integrate( x0_center, 0.0, 2.0 * std::numbers::pi );
+        std::ofstream ref( "twoBody_orbit_reference.csv" );
+        ref << "t,x,y\n";
+        for ( std::size_t i = 0; i < ref_sol.t.size(); ++i )
+            ref << ref_sol.t[i] << ',' << ref_sol.x[i]( 0 ) << ','
+                << ref_sol.x[i]( 1 ) << '\n';
+        // Also record where the reference is at t = tmax so the plot can mark it.
+        Vec x_at_tmax = ref_ig.integrate( x0_center, 0.0, tmax ).x.back();
+        std::ofstream ep( "twoBody_orbit_endpoint.csv" );
+        ep << "x,y\n" << x_at_tmax( 0 ) << ',' << x_at_tmax( 1 ) << '\n';
+    }
 
     // -------------------------------------------------------------------------
     // 3) Reference: scalar integrator at tight tolerance for every sample.
