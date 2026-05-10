@@ -59,6 +59,42 @@ step( F&& f, T x0, T tc, T abstol )
     return { std::move( x_da ), h };
 }
 
+/**
+ * @brief Compute a single Taylor step for a scalar ODE dx/dt = f(x, p, t).
+ * @details Identical to the no-parameter overload, but forwards a constant
+ *   parameter argument @p p to the right-hand side.  The parameter object is
+ *   passed through unchanged at every internal RHS call.
+ * @tparam N Taylor expansion order.
+ * @tparam P Parameter type (arbitrary; user-defined).
+ * @param f Right-hand side: callable `f(x, p, t)` returning the derivative.
+ * @param x0 Current state value.
+ * @param p Parameter object forwarded to @p f.
+ * @param tc Current time.
+ * @param abstol Absolute tolerance for step-size control.
+ */
+template < int N, typename F, typename P, typename T = double >
+[[nodiscard]] StepResult< TruncatedTaylorExpansionT< T, N, 1 >, T >
+step( F&& f, T x0, const P& p, T tc, T abstol )
+{
+    using TTE = TruncatedTaylorExpansionT< T, N, 1 >;
+
+    TTE t_da{};
+    t_da[0] = tc;
+    if constexpr ( N >= 1 ) t_da[1] = T{ 1 };
+
+    TTE x_da{};
+    x_da[0] = x0;
+
+    for ( int k = 0; k < N; ++k )
+    {
+        TTE dx = f( x_da, p, t_da );
+        x_da[k + 1] = dx[k] / T( k + 1 );
+    }
+
+    auto h = stepsize( x_da, abstol );
+    return { std::move( x_da ), h };
+}
+
 // =============================================================================
 // Vector step
 // =============================================================================
@@ -99,6 +135,44 @@ step( F&& f, const Eigen::Matrix< T, D, 1 >& x0, T tc, T abstol )
     for ( int k = 0; k < N; ++k )
     {
         f( dx, x_da, t_da );
+        for ( Eigen::Index i = 0; i < dim; ++i ) x_da( i )[k + 1] = dx( i )[k] / T( k + 1 );
+    }
+
+    auto h = stepsize( x_da, abstol );
+    return { std::move( x_da ), h };
+}
+
+/**
+ * @brief Compute a single Taylor step for a vector ODE f(dx, x, p, t).
+ * @details Identical to the no-parameter vector overload, but forwards a
+ *   constant parameter argument @p p to the right-hand side.
+ * @tparam N Taylor expansion order.
+ * @tparam P Parameter type (arbitrary; user-defined).
+ */
+template < int N, typename F, typename P, typename T, int D >
+[[nodiscard]] StepResult< Eigen::Matrix< TruncatedTaylorExpansionT< T, N, 1 >, D, 1 >, T >
+step( F&& f, const Eigen::Matrix< T, D, 1 >& x0, const P& p, T tc, T abstol )
+{
+    using TTE = TruncatedTaylorExpansionT< T, N, 1 >;
+    using VecTTE = Eigen::Matrix< TTE, D, 1 >;
+
+    const Eigen::Index dim = x0.size();
+
+    TTE t_da{};
+    t_da[0] = tc;
+    if constexpr ( N >= 1 ) t_da[1] = T{ 1 };
+
+    VecTTE x_da( dim );
+    for ( Eigen::Index i = 0; i < dim; ++i )
+    {
+        x_da( i ) = TTE{};
+        x_da( i )[0] = x0( i );
+    }
+
+    VecTTE dx( dim );
+    for ( int k = 0; k < N; ++k )
+    {
+        f( dx, x_da, p, t_da );
         for ( Eigen::Index i = 0; i < dim; ++i ) x_da( i )[k + 1] = dx( i )[k] / T( k + 1 );
     }
 

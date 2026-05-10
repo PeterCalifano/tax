@@ -55,22 +55,22 @@ inline void validate( const LowOrderAdsConfig& cfg )
 }
 
 /// @brief Nonlinearity index of a propagated DA flow-state vector.
-template < int P, int D >
+template < int P, int D, int M = D >
 [[nodiscard]] inline double stateNonlinearityIndex(
-    const Eigen::Matrix< TEn< P, D >, D, 1 >& state ) noexcept
+    const Eigen::Matrix< TEn< P, M >, D, 1 >& state ) noexcept
 {
-    return tax::nonlinearityIndex< double, P, D >(
-        std::span< const TEn< P, D > >( state.data(),
+    return tax::nonlinearityIndex< double, P, M >(
+        std::span< const TEn< P, M > >( state.data(),
                                         std::size_t( state.size() ) ) );
 }
 
-/// @brief Argmax of the per-IC nonlinearity contribution.
-template < int P, int D >
+/// @brief Argmax of the per-variable nonlinearity contribution.
+template < int P, int D, int M = D >
 [[nodiscard]] inline int stateNliSplitDim(
-    const Eigen::Matrix< TEn< P, D >, D, 1 >& state ) noexcept
+    const Eigen::Matrix< TEn< P, M >, D, 1 >& state ) noexcept
 {
-    return tax::nliSplitDim< double, P, D >(
-        std::span< const TEn< P, D > >( state.data(),
+    return tax::nliSplitDim< double, P, M >(
+        std::span< const TEn< P, M > >( state.data(),
                                         std::size_t( state.size() ) ) );
 }
 
@@ -84,20 +84,22 @@ template < int P, int D >
  * @brief Information about a single low-order ADS bisection.
  *
  * Mirrors @ref SplitEvent but carries the nonlinearity index that
- * triggered the split instead of a truncation-error norm.
+ * triggered the split instead of a truncation-error norm.  For
+ * parameter-aware integrators (`Q > 0`), boxes span `D + Q` dimensions.
  */
-template < int P, int D >
+template < int P, int D, int Q = 0 >
 struct LowOrderSplitEvent
 {
-    int              parent_idx;          ///< Arena index of the parent (now Internal).
-    int              left_idx;            ///< Arena index of the left  child leaf.
-    int              right_idx;           ///< Arena index of the right child leaf.
-    int              split_dim;           ///< IC variable on which the split was made.
-    int              parent_depth;        ///< Depth of the parent (root = 0).
-    double           nonlinearity_index;  ///< NLI value that triggered the split.
-    Box< double, D > parent_box;          ///< Parent's IC box.
-    Box< double, D > left_box;            ///< Left  child's IC box.
-    Box< double, D > right_box;           ///< Right child's IC box.
+    static constexpr int M = D + Q;
+    int                  parent_idx;          ///< Arena index of the parent (now Internal).
+    int                  left_idx;            ///< Arena index of the left  child leaf.
+    int                  right_idx;           ///< Arena index of the right child leaf.
+    int                  split_dim;           ///< Variable on which the split was made.
+    int                  parent_depth;        ///< Depth of the parent (root = 0).
+    double               nonlinearity_index;  ///< NLI value that triggered the split.
+    Box< double, M >     parent_box;          ///< Parent's IC (+ param) box.
+    Box< double, M >     left_box;            ///< Left  child's IC (+ param) box.
+    Box< double, M >     right_box;           ///< Right child's IC (+ param) box.
 };
 
 // =============================================================================
@@ -124,7 +126,7 @@ struct LowOrderSplitEvent
  *            Must satisfy P ≥ 2.
  * @tparam D  State-space dimension (= number of DA variables).
  */
-template < int N, int P, int D >
+template < int N, int P, int D, int Q = 0 >
 class LowOrderAdsIntegrator
 {
 public:
@@ -132,15 +134,23 @@ public:
                    "LowOrderAdsIntegrator requires P >= 2 (the nonlinearity "
                    "index is defined from degree-≥-2 coefficients)" );
 
-    using DA          = TEn< P, D >;
+    static constexpr int M = D + Q;
+
+    using DA          = TEn< P, M >;
     using TimeTTE     = TruncatedTaylorExpansionT< DA, N, 1 >;
     using VecTTE      = Eigen::Matrix< TimeTTE, D, 1 >;
-    using Rhs         = std::function< void( VecTTE&, const VecTTE&, const TimeTTE& ) >;
+    using VecDaP      = Eigen::Matrix< DA, Q, 1 >;
     using Config      = LowOrderAdsConfig;
-    using FlowMapT    = FlowMap< P, D >;
+    using FlowMapT    = FlowMap< P, D, Q >;
     using TreeT       = AdsTree< FlowMapT >;
-    using SplitEventT = LowOrderSplitEvent< P, D >;
+    using SplitEventT = LowOrderSplitEvent< P, D, Q >;
     using OnSplitFn   = std::function< void( const SplitEventT& ) >;
+
+    using RhsNoParams =
+        std::function< void( VecTTE&, const VecTTE&, const TimeTTE& ) >;
+    using RhsWithParams =
+        std::function< void( VecTTE&, const VecTTE&, const VecDaP&, const TimeTTE& ) >;
+    using Rhs = std::conditional_t< ( Q == 0 ), RhsNoParams, RhsWithParams >;
 
     explicit LowOrderAdsIntegrator( Rhs f, Config cfg = {} )
         : f_( std::move( f ) ), cfg_( cfg )
@@ -153,36 +163,68 @@ public:
     /**
      * @brief Optional callback fired once per ADS split.
      *
-     * Assign any callable matching `void(const LowOrderSplitEvent<P,D>&)`.
+     * Assign any callable matching `void(const LowOrderSplitEvent<P,D,Q>&)`.
      * Leave as default-constructed `std::function` to disable.
      */
     OnSplitFn on_split{};
 
     /// @brief Integrate the IC domain @p x0_box from @p t0 to @p tmax
     ///        with NLI-driven domain splitting.
-    [[nodiscard]] TreeT
-    integrate( const Box< double, D >& x0_box, double t0, double tmax ) const
+    [[nodiscard]] TreeT integrate( const Box< double, D >& x0_box, double t0,
+                                   double tmax ) const
+        requires( Q == 0 )
+    {
+        return integrateImpl( x0_box, t0, tmax );
+    }
+
+    /// @brief Integrate the IC domain @p x0_box with parameters expanded
+    ///        about @p p_box, from @p t0 to @p tmax, with NLI-driven
+    ///        splitting across both IC and parameter directions.
+    [[nodiscard]] TreeT integrate( const Box< double, D >& x0_box,
+                                   const Box< double, Q >& p_box, double t0,
+                                   double tmax ) const
+        requires( Q > 0 )
+    {
+        return integrateImpl( detail::combineBoxes< D, Q >( x0_box, p_box ), t0, tmax );
+    }
+
+private:
+    [[nodiscard]] FlowMapT propagateRoot( const Box< double, M >& box, double t0,
+                                          double tmax ) const
+    {
+        if constexpr ( Q == 0 )
+        {
+            return FlowMapT{ detail::propagateDa< N, P, D >(
+                f_, makeDaState< P, D >( box ), t0, tmax, cfg_.step_tol, cfg_.max_steps ) };
+        }
+        else
+        {
+            const auto x_box = detail::stateSubBox< D, Q >( box );
+            const auto p_box = detail::paramSubBox< D, Q >( box );
+            return FlowMapT{ detail::propagateDa< N, P, D, Q >(
+                f_, makeDaState< P, D, Q >( x_box ), makeDaParams< P, D, Q >( p_box ), t0, tmax,
+                cfg_.step_tol, cfg_.max_steps ) };
+        }
+    }
+
+    [[nodiscard]] TreeT integrateImpl( const Box< double, M >& root_box, double t0,
+                                        double tmax ) const
     {
         TreeT tree;
 
-        {
-            auto root = FlowMapT{ detail::propagateDa< N, P, D >(
-                f_, makeDaState< P, D >( x0_box ), t0, tmax, cfg_.step_tol,
-                cfg_.max_steps ) };
-            tree.addLeaf( std::move( root ), x0_box );
-        }
+        tree.addLeaf( propagateRoot( root_box, t0, tmax ), root_box );
 
         std::vector< int > depth( 1, 0 );
 
         struct PendingSplit
         {
-            int               parent_idx;
-            int               dim;
-            int               parent_depth;
-            double            nu;
-            Box< double, D >  parent_box;
-            Box< double, D >  lb, rb;
-            FlowMapT          lt, rt;
+            int                parent_idx;
+            int                dim;
+            int                parent_depth;
+            double             nu;
+            Box< double, M >   parent_box;
+            Box< double, M >   lb, rb;
+            FlowMapT           lt, rt;
         };
         std::vector< PendingSplit > splits;
 
@@ -197,8 +239,9 @@ public:
             for ( int idx : wave )
             {
                 const auto&  lf = tree.node( idx ).leaf();
-                const double nu = detail::stateNonlinearityIndex< P, D >( lf.tte.state );
-                const int    d  = depth[idx];
+                const double nu =
+                    detail::stateNonlinearityIndex< P, D, M >( lf.tte.state );
+                const int d = depth[idx];
 
                 if ( nu <= cfg_.nli_tol || d >= cfg_.max_depth )
                 {
@@ -206,7 +249,7 @@ public:
                 }
                 else
                 {
-                    const int dim = detail::stateNliSplitDim< P, D >( lf.tte.state );
+                    const int dim = detail::stateNliSplitDim< P, D, M >( lf.tte.state );
                     auto [lb, rb] = lf.box.split( dim );
                     splits.push_back(
                         { idx, dim, d, nu, lf.box, lb, rb, FlowMapT{}, FlowMapT{} } );
@@ -221,9 +264,7 @@ public:
                 const int   s       = i / 2;
                 const bool  is_left = ( i & 1 ) == 0;
                 const auto& box     = is_left ? splits[s].lb : splits[s].rb;
-                FlowMapT    result{ detail::propagateDa< N, P, D >(
-                    f_, makeDaState< P, D >( box ), t0, tmax, cfg_.step_tol,
-                    cfg_.max_steps ) };
+                FlowMapT    result  = propagateRoot( box, t0, tmax );
                 if ( is_left )
                     splits[s].lt = std::move( result );
                 else
@@ -248,7 +289,6 @@ public:
         return tree;
     }
 
-private:
     Rhs    f_;
     Config cfg_;
 };

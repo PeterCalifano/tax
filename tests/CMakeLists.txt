@@ -55,6 +55,7 @@ set(TEST_SOURCES
     ode/testIntegrateAds.cpp
     ode/testLowOrderAdsIntegrator.cpp
     ode/testEvents.cpp
+    ode/testParameterIntegrators.cpp
 )
 
 include(GoogleTest)

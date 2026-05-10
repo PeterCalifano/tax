@@ -205,4 +205,151 @@ private:
     EventList events_;
 };
 
+// =============================================================================
+// IntegratorP — parameter-aware variant
+// =============================================================================
+
+/**
+ * @brief Adaptive Taylor integrator for scalar or Eigen-vector ODEs that take
+ *        an additional constant-parameter object.
+ *
+ * @tparam N       Taylor expansion order in time.
+ * @tparam State   `T` for scalar ODEs, `Eigen::Matrix<T, D, 1>` for vector ODEs.
+ * @tparam Params  Arbitrary parameter type forwarded to the right-hand side.
+ * @tparam T       Scalar coefficient type (default `double`).
+ *
+ * @details Mirrors @ref Integrator but binds a right-hand side of the form
+ *   `dx/dt = f(x, p, t)` (scalar) or `f(dx, x, p, t)` (vector).  The parameter
+ *   object @p p is supplied at every @ref integrate call and forwarded
+ *   unchanged at every internal RHS evaluation.  No flow expansion in @p p
+ *   is performed at this level — see @ref DaIntegrator and the ADS integrators
+ *   for parameter-aware flow expansion.
+ */
+template < int N, typename State, typename Params, typename T = double >
+class IntegratorP;  // primary, undefined
+
+// -----------------------------------------------------------------------------
+// Scalar specialisation: State == T
+// -----------------------------------------------------------------------------
+
+template < int N, typename Params, typename T >
+class IntegratorP< N, T, Params, T >
+{
+public:
+    using TimeTTE   = TruncatedTaylorExpansionT< T, N, 1 >;
+    using Rhs       = std::function< TimeTTE( const TimeTTE&, const Params&, const TimeTTE& ) >;
+    using Config    = IntegratorConfig< T >;
+    using Solution  = TaylorSolution< N, T, T >;
+
+    explicit IntegratorP( Rhs f, Config cfg = {} )
+        : f_( std::move( f ) ), cfg_( cfg )
+    {
+        detail::validate( cfg_ );
+    }
+
+    [[nodiscard]] const Config& config() const noexcept { return cfg_; }
+
+    /// @brief Integrate `dx/dt = f(x, p, t)` from @p x0 at @p t0 to @p tmax,
+    ///        with parameter object @p p.
+    [[nodiscard]] Solution integrate( T x0, const Params& p, T t0, T tmax ) const
+    {
+        Solution sol;
+        sol.t.reserve( std::size_t( cfg_.max_steps + 1 ) );
+        sol.x.reserve( std::size_t( cfg_.max_steps + 1 ) );
+        sol.p.reserve( std::size_t( cfg_.max_steps + 1 ) );
+        sol.t.push_back( t0 );
+        sol.x.push_back( x0 );
+
+        const T sign = tmax >= t0 ? T{ 1 } : T{ -1 };
+        T       tc   = t0;
+        T       xc   = x0;
+
+        for ( int s = 0; s < cfg_.max_steps; ++s )
+        {
+            if ( sign * ( tmax - tc ) <= T{} ) break;
+
+            auto [poly, h] = step< N >( f_, xc, p, tc, cfg_.abstol );
+            if ( h <= T{} ) break;
+
+            const T dt = sign * std::min( h, std::abs( tmax - tc ) );
+
+            xc = poly.eval( dt );
+            sol.p.push_back( std::move( poly ) );
+            tc += dt;
+
+            sol.t.push_back( tc );
+            sol.x.push_back( xc );
+        }
+
+        return sol;
+    }
+
+private:
+    Rhs    f_;
+    Config cfg_;
+};
+
+// -----------------------------------------------------------------------------
+// Vector specialisation: State == Eigen::Matrix<T, D, 1>
+// -----------------------------------------------------------------------------
+
+template < int N, typename Params, typename T, int D >
+class IntegratorP< N, Eigen::Matrix< T, D, 1 >, Params, T >
+{
+public:
+    using State    = Eigen::Matrix< T, D, 1 >;
+    using TimeTTE  = TruncatedTaylorExpansionT< T, N, 1 >;
+    using VecTTE   = Eigen::Matrix< TimeTTE, D, 1 >;
+    using Rhs      = std::function< void( VecTTE&, const VecTTE&, const Params&, const TimeTTE& ) >;
+    using Config   = IntegratorConfig< T >;
+    using Solution = TaylorSolution< N, State, T >;
+
+    explicit IntegratorP( Rhs f, Config cfg = {} )
+        : f_( std::move( f ) ), cfg_( cfg )
+    {
+        detail::validate( cfg_ );
+    }
+
+    [[nodiscard]] const Config& config() const noexcept { return cfg_; }
+
+    /// @brief Integrate `f(dx, x, p, t)` from @p x0 at @p t0 to @p tmax,
+    ///        with parameter object @p p.
+    [[nodiscard]] Solution integrate( State x0, const Params& p, T t0, T tmax ) const
+    {
+        Solution sol;
+        sol.t.reserve( std::size_t( cfg_.max_steps + 1 ) );
+        sol.x.reserve( std::size_t( cfg_.max_steps + 1 ) );
+        sol.p.reserve( std::size_t( cfg_.max_steps + 1 ) );
+        sol.t.push_back( t0 );
+        sol.x.push_back( x0 );
+
+        const T sign = tmax >= t0 ? T{ 1 } : T{ -1 };
+        T       tc   = t0;
+        State   xc   = x0;
+
+        for ( int s = 0; s < cfg_.max_steps; ++s )
+        {
+            if ( sign * ( tmax - tc ) <= T{} ) break;
+
+            auto [poly, h] = step< N >( f_, xc, p, tc, cfg_.abstol );
+            if ( h <= T{} ) break;
+
+            const T dt = sign * std::min( h, std::abs( tmax - tc ) );
+
+            xc = eval( poly, dt );
+            sol.p.push_back( std::move( poly ) );
+            tc += dt;
+
+            sol.t.push_back( tc );
+            sol.x.push_back( xc );
+        }
+
+        return sol;
+    }
+
+private:
+    Rhs    f_;
+    Config cfg_;
+};
+
 }  // namespace tax::ode

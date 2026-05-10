@@ -49,44 +49,89 @@ inline void validate( const AdsConfig& cfg )
 }
 
 /// @brief Truncation error of a DA state vector (max degree-P coefficient).
-template < int P, int D >
+template < int P, int D, int M = D >
 [[nodiscard]] double truncationError(
-    const Eigen::Matrix< TEn< P, D >, D, 1 >& state ) noexcept
+    const Eigen::Matrix< TEn< P, M >, D, 1 >& state ) noexcept
 {
     double err = 0.0;
     for ( Eigen::Index i = 0; i < state.size(); ++i )
     {
         const auto& poly = state( i );
-        for ( std::size_t j = 0; j < TEn< P, D >::nCoefficients; ++j )
+        for ( std::size_t j = 0; j < TEn< P, M >::nCoefficients; ++j )
         {
-            const auto alpha = tax::detail::unflatIndex< D >( j );
-            if ( tax::detail::totalDegree< D >( alpha ) == P )
+            const auto alpha = tax::detail::unflatIndex< M >( j );
+            if ( tax::detail::totalDegree< M >( alpha ) == P )
                 err = std::max( err, std::abs( poly[j] ) );
         }
     }
     return err;
 }
 
-/// @brief Pick the IC variable that contributes most to the degree-P
+/// @brief Pick the DA variable that contributes most to the degree-P
 ///        truncation error (Wittig et al. 2015).
-template < int P, int D >
+template < int P, int D, int M = D >
 [[nodiscard]] int bestSplitDim(
-    const Eigen::Matrix< TEn< P, D >, D, 1 >& state ) noexcept
+    const Eigen::Matrix< TEn< P, M >, D, 1 >& state ) noexcept
 {
-    std::array< double, D > scores{};
+    std::array< double, M > scores{};
     for ( Eigen::Index i = 0; i < state.size(); ++i )
     {
         const auto& poly = state( i );
-        for ( std::size_t j = 0; j < TEn< P, D >::nCoefficients; ++j )
+        for ( std::size_t j = 0; j < TEn< P, M >::nCoefficients; ++j )
         {
-            const auto alpha = tax::detail::unflatIndex< D >( j );
-            if ( tax::detail::totalDegree< D >( alpha ) == P )
-                for ( int k = 0; k < D; ++k )
+            const auto alpha = tax::detail::unflatIndex< M >( j );
+            if ( tax::detail::totalDegree< M >( alpha ) == P )
+                for ( int k = 0; k < M; ++k )
                     if ( alpha[k] > 0 ) scores[k] += std::abs( poly[j] );
         }
     }
     return static_cast< int >(
         std::max_element( scores.begin(), scores.end() ) - scores.begin() );
+}
+
+/// @brief Build a combined Box<D+Q> by stacking an IC box and a parameter box.
+template < int D, int Q >
+[[nodiscard]] Box< double, D + Q > combineBoxes( const Box< double, D >& xb,
+                                                  const Box< double, Q >& pb ) noexcept
+{
+    Box< double, D + Q > c{};
+    for ( int i = 0; i < D; ++i )
+    {
+        c.center[i]    = xb.center[i];
+        c.halfWidth[i] = xb.halfWidth[i];
+    }
+    for ( int i = 0; i < Q; ++i )
+    {
+        c.center[D + i]    = pb.center[i];
+        c.halfWidth[D + i] = pb.halfWidth[i];
+    }
+    return c;
+}
+
+/// @brief Extract the leading D coordinates of a combined IC+param box.
+template < int D, int Q >
+[[nodiscard]] Box< double, D > stateSubBox( const Box< double, D + Q >& c ) noexcept
+{
+    Box< double, D > b{};
+    for ( int i = 0; i < D; ++i )
+    {
+        b.center[i]    = c.center[i];
+        b.halfWidth[i] = c.halfWidth[i];
+    }
+    return b;
+}
+
+/// @brief Extract the trailing Q coordinates of a combined IC+param box.
+template < int D, int Q >
+[[nodiscard]] Box< double, Q > paramSubBox( const Box< double, D + Q >& c ) noexcept
+{
+    Box< double, Q > b{};
+    for ( int i = 0; i < Q; ++i )
+    {
+        b.center[i]    = c.center[D + i];
+        b.halfWidth[i] = c.halfWidth[D + i];
+    }
+    return b;
 }
 
 }  // namespace detail
@@ -101,19 +146,24 @@ template < int P, int D >
  * Passed to @ref AdsIntegrator::on_split each time a leaf is bisected.  The
  * callback is invoked from the serial tree-update phase, after the parallel
  * propagation of the two children, so it observes a consistent tree state.
+ *
+ * For parameter-aware integrators (`Q > 0`), boxes span `D + Q` dimensions:
+ * the first @p D coordinates are IC deviations and the trailing @p Q
+ * coordinates are parameter deviations.
  */
-template < int P, int D >
+template < int P, int D, int Q = 0 >
 struct SplitEvent
 {
-    int                parent_idx;       ///< Arena index of the parent (now Internal).
-    int                left_idx;         ///< Arena index of the left  child leaf.
-    int                right_idx;        ///< Arena index of the right child leaf.
-    int                split_dim;        ///< IC variable on which the split was made.
-    int                parent_depth;     ///< Depth of the parent (root = 0).
-    double             truncation_error; ///< Truncation error that triggered the split.
-    Box< double, D >   parent_box;       ///< Parent's IC box.
-    Box< double, D >   left_box;         ///< Left  child's IC box.
-    Box< double, D >   right_box;        ///< Right child's IC box.
+    static constexpr int M = D + Q;
+    int                  parent_idx;        ///< Arena index of the parent (now Internal).
+    int                  left_idx;          ///< Arena index of the left  child leaf.
+    int                  right_idx;         ///< Arena index of the right child leaf.
+    int                  split_dim;         ///< Variable on which the split was made.
+    int                  parent_depth;      ///< Depth of the parent (root = 0).
+    double               truncation_error;  ///< Truncation error that triggered the split.
+    Box< double, M >     parent_box;        ///< Parent's IC (+ param) box.
+    Box< double, M >     left_box;          ///< Left  child's IC (+ param) box.
+    Box< double, M >     right_box;         ///< Right child's IC (+ param) box.
 };
 
 // =============================================================================
@@ -144,19 +194,27 @@ struct SplitEvent
  * @tparam P  DA expansion order in the initial-condition variables.
  * @tparam D  State-space dimension (= number of DA variables).
  */
-template < int N, int P, int D >
+template < int N, int P, int D, int Q = 0 >
 class AdsIntegrator
 {
 public:
-    using DA          = TEn< P, D >;
+    static constexpr int M = D + Q;
+
+    using DA          = TEn< P, M >;
     using TimeTTE     = TruncatedTaylorExpansionT< DA, N, 1 >;
     using VecTTE      = Eigen::Matrix< TimeTTE, D, 1 >;
-    using Rhs         = std::function< void( VecTTE&, const VecTTE&, const TimeTTE& ) >;
+    using VecDaP      = Eigen::Matrix< DA, Q, 1 >;
     using Config      = AdsConfig;
-    using FlowMapT    = FlowMap< P, D >;
+    using FlowMapT    = FlowMap< P, D, Q >;
     using TreeT       = AdsTree< FlowMapT >;
-    using SplitEventT = SplitEvent< P, D >;
+    using SplitEventT = SplitEvent< P, D, Q >;
     using OnSplitFn   = std::function< void( const SplitEventT& ) >;
+
+    using RhsNoParams =
+        std::function< void( VecTTE&, const VecTTE&, const TimeTTE& ) >;
+    using RhsWithParams =
+        std::function< void( VecTTE&, const VecTTE&, const VecDaP&, const TimeTTE& ) >;
+    using Rhs = std::conditional_t< ( Q == 0 ), RhsNoParams, RhsWithParams >;
 
     /**
      * @brief Construct with the given right-hand side and configuration.
@@ -173,37 +231,69 @@ public:
     /**
      * @brief Optional callback fired once per ADS split.
      *
-     * Assign any callable matching `void(const SplitEvent<P,D>&)`.  Leave as
+     * Assign any callable matching `void(const SplitEvent<P,D,Q>&)`.  Leave as
      * default-constructed `std::function` to disable.
      */
     OnSplitFn on_split{};
 
     /// @brief Integrate the IC domain @p x0_box from @p t0 to @p tmax with
     ///        adaptive domain splitting.
-    [[nodiscard]] TreeT
-    integrate( const Box< double, D >& x0_box, double t0, double tmax ) const
+    [[nodiscard]] TreeT integrate( const Box< double, D >& x0_box, double t0,
+                                   double tmax ) const
+        requires( Q == 0 )
+    {
+        return integrateImpl( x0_box, t0, tmax );
+    }
+
+    /// @brief Integrate the IC domain @p x0_box with parameters expanded
+    ///        about @p p_box, from @p t0 to @p tmax, with adaptive splitting
+    ///        across both IC and parameter directions.
+    [[nodiscard]] TreeT integrate( const Box< double, D >& x0_box,
+                                   const Box< double, Q >& p_box, double t0,
+                                   double tmax ) const
+        requires( Q > 0 )
+    {
+        return integrateImpl( detail::combineBoxes< D, Q >( x0_box, p_box ), t0, tmax );
+    }
+
+private:
+    [[nodiscard]] FlowMapT propagateRoot( const Box< double, M >& box, double t0,
+                                          double tmax ) const
+    {
+        if constexpr ( Q == 0 )
+        {
+            return FlowMapT{ detail::propagateDa< N, P, D >(
+                f_, makeDaState< P, D >( box ), t0, tmax, cfg_.step_tol, cfg_.max_steps ) };
+        }
+        else
+        {
+            const auto x_box = detail::stateSubBox< D, Q >( box );
+            const auto p_box = detail::paramSubBox< D, Q >( box );
+            return FlowMapT{ detail::propagateDa< N, P, D, Q >(
+                f_, makeDaState< P, D, Q >( x_box ), makeDaParams< P, D, Q >( p_box ), t0, tmax,
+                cfg_.step_tol, cfg_.max_steps ) };
+        }
+    }
+
+    [[nodiscard]] TreeT integrateImpl( const Box< double, M >& root_box, double t0,
+                                        double tmax ) const
     {
         TreeT tree;
 
         // Root leaf.
-        {
-            auto root = FlowMapT{ detail::propagateDa< N, P, D >(
-                f_, makeDaState< P, D >( x0_box ), t0, tmax, cfg_.step_tol,
-                cfg_.max_steps ) };
-            tree.addLeaf( std::move( root ), x0_box );
-        }
+        tree.addLeaf( propagateRoot( root_box, t0, tmax ), root_box );
 
         std::vector< int > depth( 1, 0 );
 
         struct PendingSplit
         {
-            int               parent_idx;
-            int               dim;
-            int               parent_depth;
-            double            err;
-            Box< double, D >  parent_box;
-            Box< double, D >  lb, rb;
-            FlowMapT          lt, rt;
+            int                parent_idx;
+            int                dim;
+            int                parent_depth;
+            double             err;
+            Box< double, M >   parent_box;
+            Box< double, M >   lb, rb;
+            FlowMapT           lt, rt;
         };
         std::vector< PendingSplit > splits;
 
@@ -218,7 +308,7 @@ public:
             for ( int idx : wave )
             {
                 const auto&  lf  = tree.node( idx ).leaf();
-                const double err = detail::truncationError< P, D >( lf.tte.state );
+                const double err = detail::truncationError< P, D, M >( lf.tte.state );
                 const int    d   = depth[idx];
 
                 if ( err < cfg_.ads_tol || d >= cfg_.max_depth )
@@ -227,8 +317,8 @@ public:
                 }
                 else
                 {
-                    const int dim   = detail::bestSplitDim< P, D >( lf.tte.state );
-                    auto [lb, rb]   = lf.box.split( dim );
+                    const int dim = detail::bestSplitDim< P, D, M >( lf.tte.state );
+                    auto [lb, rb] = lf.box.split( dim );
                     splits.push_back(
                         { idx, dim, d, err, lf.box, lb, rb, FlowMapT{}, FlowMapT{} } );
                 }
@@ -239,12 +329,10 @@ public:
 #pragma omp parallel for schedule( dynamic ) if ( n2 > 1 )
             for ( int i = 0; i < n2; ++i )
             {
-                const int  s       = i / 2;
-                const bool is_left = ( i & 1 ) == 0;
-                const auto& box    = is_left ? splits[s].lb : splits[s].rb;
-                FlowMapT    result{ detail::propagateDa< N, P, D >(
-                    f_, makeDaState< P, D >( box ), t0, tmax, cfg_.step_tol,
-                    cfg_.max_steps ) };
+                const int   s       = i / 2;
+                const bool  is_left = ( i & 1 ) == 0;
+                const auto& box     = is_left ? splits[s].lb : splits[s].rb;
+                FlowMapT    result  = propagateRoot( box, t0, tmax );
                 if ( is_left )
                     splits[s].lt = std::move( result );
                 else
@@ -269,7 +357,6 @@ public:
         return tree;
     }
 
-private:
     Rhs    f_;
     Config cfg_;
 };
