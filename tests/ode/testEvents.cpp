@@ -26,7 +26,7 @@ TEST( OdeEvents, ScalarTerminalCrossing )
     events[0].direction = ode::EventDirection::Decreasing;
     events[0].terminal = true;
 
-    auto sol = ode::integrate< N >( f, 1.0, 0.0, 5.0, abstol, events );
+    auto sol = ode::Integrator< N >{ ode::IntegratorConfig< double >{ .abstol = abstol } }.integrate( f, 1.0, 0.0, 5.0, events );
 
     ASSERT_EQ( sol.events.size(), 1u );
     EXPECT_EQ( sol.events[0].event_idx, 0u );
@@ -65,7 +65,7 @@ TEST( OdeEvents, ScalarDirectionFilter )
     events[0].direction = ode::EventDirection::Increasing;
     events[0].terminal = false;
 
-    auto sol = ode::integrate< N >( f, 0.0, 0.0, 2.0 * std::numbers::pi, abstol, events );
+    auto sol = ode::Integrator< N >{ ode::IntegratorConfig< double >{ .abstol = abstol } }.integrate( f, 0.0, 0.0, 2.0 * std::numbers::pi, events );
 
     // Rising zeros of x - 0.5 occur at t = π/6 and t = 2π + π/6 (out of range).
     // The falling zero at t = 5π/6 must be filtered out.
@@ -99,7 +99,7 @@ TEST( OdeEvents, ScalarMultipleEvents )
     events[1].g = []( const auto& x, [[maybe_unused]] const auto& t ) { return x - 3.0; };
     events[1].terminal = true;
 
-    auto sol = ode::integrate< N >( f, 0.0, 0.0, 10.0, abstol, events );
+    auto sol = ode::Integrator< N >{ ode::IntegratorConfig< double >{ .abstol = abstol } }.integrate( f, 0.0, 0.0, 10.0, events );
 
     ASSERT_EQ( sol.events.size(), 2u );
     EXPECT_EQ( sol.events[0].event_idx, 0u );
@@ -123,7 +123,7 @@ TEST( OdeEvents, EmptyEventsRunsToTmax )
     auto f = []( const auto& x, [[maybe_unused]] const auto& t ) { return -x; };
 
     std::vector< ode::Event< N, double, double > > events;
-    auto sol = ode::integrate< N >( f, 3.0, 0.0, 2.0, abstol, events );
+    auto sol = ode::Integrator< N >{ ode::IntegratorConfig< double >{ .abstol = abstol } }.integrate( f, 3.0, 0.0, 2.0, events );
 
     EXPECT_TRUE( sol.events.empty() );
     EXPECT_NEAR( sol.t.back(), 2.0, 1e-14 );
@@ -153,7 +153,7 @@ TEST( OdeEvents, VectorHarmonicOscillator )
     events[0].direction = ode::EventDirection::Decreasing;
     events[0].terminal = true;
 
-    auto sol = ode::integrate< N >( f, x0, 0.0, 5.0, abstol, events );
+    auto sol = ode::Integrator< N >{ ode::IntegratorConfig< double >{ .abstol = abstol } }.integrate( f, x0, 0.0, 5.0, events );
 
     ASSERT_EQ( sol.events.size(), 1u );
     EXPECT_EQ( sol.events[0].direction, ode::EventDirection::Decreasing );
@@ -183,7 +183,7 @@ TEST( OdeEvents, ScalarBackwardIntegration )
     events[0].direction = ode::EventDirection::Increasing;  // dx/dt = 1 > 0 in t
     events[0].terminal = true;
 
-    auto sol = ode::integrate< N >( f, 5.0, 5.0, 0.0, abstol, events );
+    auto sol = ode::Integrator< N >{ ode::IntegratorConfig< double >{ .abstol = abstol } }.integrate( f, 5.0, 5.0, 0.0, events );
 
     ASSERT_EQ( sol.events.size(), 1u );
     EXPECT_NEAR( sol.events[0].t, 2.0, 1e-12 );
@@ -208,7 +208,7 @@ TEST( OdeEvents, EventRecordSensitivitySurface )
     events[0].g = []( const auto& x, [[maybe_unused]] const auto& t ) { return x; };
     events[0].terminal = true;
 
-    auto sol = ode::integrate< N >( f, 1.0, 0.0, 5.0, abstol, events );
+    auto sol = ode::Integrator< N >{ ode::IntegratorConfig< double >{ .abstol = abstol } }.integrate( f, 1.0, 0.0, 5.0, events );
 
     ASSERT_EQ( sol.events.size(), 1u );
     const auto& ev = sol.events[0];
