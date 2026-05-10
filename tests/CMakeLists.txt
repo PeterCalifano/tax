@@ -26,6 +26,7 @@ set(TEST_SOURCES
     foundation/testEnumeration.cpp
     foundation/testShapeBaseEbo.cpp
     kernels/testKernels.cpp
+    kernels/testKernelsRuntime.cpp
     core/testTTE.cpp
     core/testNested.cpp
     core/testCompose.cpp

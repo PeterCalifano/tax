@@ -93,4 +93,71 @@ constexpr void cauchyAccumulate( std::array< T, numMonomials( N, M ) >& out,
     }
 }
 
+// =============================================================================
+// Runtime-shape variants (used by the dynamic-shape `TaylorExpansionT`).
+// =============================================================================
+
+/// @brief Runtime overload of `cauchyAccumulate`: `out += f * g` with runtime `(N, M)`.
+template < typename T >
+inline void cauchyAccumulateRT( T* out, const T* f, const T* g, std::size_t N,
+                                std::size_t M ) noexcept
+{
+    if ( M == 1 )
+    {
+        for ( std::size_t d = 0; d <= N; ++d )
+            for ( std::size_t k = 0; k <= d; ++k ) out[d] += f[k] * g[d - k];
+    }
+    else
+    {
+        for ( int d = 0; d <= int( N ); ++d )
+        {
+            forEachMonomial( int( M ), d, [&]( std::span< const int > alpha, std::size_t ai ) {
+                forEachSubIndex( alpha,
+                                 [&]( std::size_t bi, std::size_t gi ) { out[ai] += f[bi] * g[gi]; } );
+            } );
+        }
+    }
+}
+
+/// @brief Runtime overload of `cauchyProduct`: `out = f * g` with runtime `(N, M)`.
+template < typename T >
+inline void cauchyProductRT( T* out, const T* f, const T* g, std::size_t N,
+                             std::size_t M ) noexcept
+{
+    const std::size_t S = numMonomials( N, M );
+    for ( std::size_t i = 0; i < S; ++i ) out[i] = T{ 0 };
+    cauchyAccumulateRT( out, f, g, N, M );
+}
+
+/// @brief Runtime overload of `cauchySelfProduct`: `out = f * f` exploiting symmetry.
+template < typename T >
+inline void cauchySelfProductRT( T* out, const T* f, std::size_t N, std::size_t M ) noexcept
+{
+    const std::size_t S = numMonomials( N, M );
+    for ( std::size_t i = 0; i < S; ++i ) out[i] = T{ 0 };
+
+    if ( M == 1 )
+    {
+        for ( std::size_t d = 0; d <= N; ++d )
+        {
+            for ( std::size_t k = 0; k + k < d; ++k ) out[d] += T{ 2 } * f[k] * f[d - k];
+            if ( d % 2 == 0 ) out[d] += f[d / 2] * f[d / 2];
+        }
+    }
+    else
+    {
+        for ( int d = 0; d <= int( N ); ++d )
+        {
+            forEachMonomial( int( M ), d, [&]( std::span< const int > alpha, std::size_t ai ) {
+                forEachSubIndex( alpha, [&]( std::size_t bi, std::size_t gi ) {
+                    if ( bi < gi )
+                        out[ai] += T{ 2 } * f[bi] * f[gi];
+                    else if ( bi == gi )
+                        out[ai] += f[bi] * f[bi];
+                } );
+            } );
+        }
+    }
+}
+
 }  // namespace tax::detail

@@ -111,6 +111,40 @@ inline void forEachSubIndex( std::span< const int > alpha, Func&& func )
 }
 
 /**
+ * @brief Runtime-M overload of `forEachSubIndex` with a `|beta|` band.
+ * @details Calls `func(bi, gi, db)` for every sub-index pair where `db = |beta|`
+ *          lies in `[db_lo, db_hi]`.
+ */
+template < typename Func >
+inline void forEachSubIndex( std::span< const int > alpha, int db_lo, int db_hi, Func&& func )
+{
+    const int M = int( alpha.size() );
+    std::vector< int > beta( std::size_t( M ), 0 );
+    std::vector< int > gamma( std::size_t( M ), 0 );
+    for ( int db = db_lo; db <= db_hi; ++db )
+    {
+        auto fill = [&]( auto& self, int var, int rem ) -> void {
+            if ( var == M - 1 )
+            {
+                beta[std::size_t( var )] = rem;
+                if ( beta[std::size_t( var )] > alpha[var] ) return;
+                for ( int i = 0; i < M; ++i )
+                    gamma[std::size_t( i )] = alpha[i] - beta[std::size_t( i )];
+                func( flatIndex( std::span< const int >( beta.data(), std::size_t( M ) ) ),
+                      flatIndex( std::span< const int >( gamma.data(), std::size_t( M ) ) ), db );
+                return;
+            }
+            for ( int b = 0; b <= std::min( rem, alpha[var] ); ++b )
+            {
+                beta[std::size_t( var )] = b;
+                self( self, var + 1, rem - b );
+            }
+        };
+        fill( fill, 0, db );
+    }
+}
+
+/**
  * @brief Enumerate (beta, gamma) sub-index pairs with beta + gamma = alpha
  *        and |beta| in [db_lo, db_hi].
  * @details Calls `func(bi, gi, db)` where `db = |beta|`.

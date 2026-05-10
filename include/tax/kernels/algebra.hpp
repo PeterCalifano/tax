@@ -1,6 +1,9 @@
 #pragma once
 
 #include <cmath>
+#include <span>
+#include <vector>
+
 #include <tax/kernels/cauchy.hpp>
 #include <tax/kernels/ops.hpp>
 
@@ -183,6 +186,90 @@ constexpr void seriesCbrt( std::array< T, numMonomials( N, M ) >& out,
             } );
         }
     }
+}
+
+// =============================================================================
+// Runtime-shape variants (used by the dynamic-shape `TaylorExpansionT`).
+// =============================================================================
+
+/// @brief Runtime overload of `seriesReciprocal`: `a * out = 1` with runtime `(N, M)`.
+template < typename T >
+inline void seriesReciprocalRT( T* out, const T* a, std::size_t N, std::size_t M ) noexcept
+{
+    const std::size_t S = numMonomials( N, M );
+    for ( std::size_t i = 0; i < S; ++i ) out[i] = T{ 0 };
+
+    const T inv_a0 = T{ 1 } / a[0];
+
+    if ( M == 1 )
+    {
+        out[0] = inv_a0;
+        for ( std::size_t d = 1; d <= N; ++d )
+        {
+            T rhs = T{ 0 };
+            for ( std::size_t k = 1; k <= d; ++k ) rhs -= a[k] * out[d - k];
+            out[d] = rhs * inv_a0;
+        }
+    }
+    else
+    {
+        for ( int d = 0; d <= int( N ); ++d )
+        {
+            forEachMonomial( int( M ), d, [&]( std::span< const int > alpha, std::size_t ai ) {
+                T rhs = ( d == 0 ) ? T{ 1 } : T{ 0 };
+                forEachSubIndex( alpha, 1, d, [&]( std::size_t bi, std::size_t gi, int ) {
+                    rhs -= a[bi] * out[gi];
+                } );
+                out[ai] = rhs * inv_a0;
+            } );
+        }
+    }
+}
+
+/// @brief Runtime overload of `seriesSqrt`.
+template < typename T >
+inline void seriesSqrtRT( T* out, const T* a, std::size_t N, std::size_t M ) noexcept
+{
+    using std::sqrt;
+    const std::size_t S = numMonomials( N, M );
+    for ( std::size_t i = 0; i < S; ++i ) out[i] = T{ 0 };
+
+    out[0] = sqrt( a[0] );
+    const T inv2g0 = T{ 1 } / ( T{ 2 } * out[0] );
+
+    if ( M == 1 )
+    {
+        for ( std::size_t d = 1; d <= N; ++d )
+        {
+            T rhs = a[d];
+            for ( std::size_t k = 1; k + k < d; ++k ) rhs -= T{ 2 } * out[k] * out[d - k];
+            if ( d % 2 == 0 ) rhs -= out[d / 2] * out[d / 2];
+            out[d] = rhs * inv2g0;
+        }
+    }
+    else
+    {
+        for ( int d = 1; d <= int( N ); ++d )
+        {
+            forEachMonomial( int( M ), d, [&]( std::span< const int > alpha, std::size_t ai ) {
+                T rhs = a[ai];
+                forEachSubIndex( alpha, 1, d - 1, [&]( std::size_t bi, std::size_t gi, int ) {
+                    if ( bi < gi )
+                        rhs -= T{ 2 } * out[bi] * out[gi];
+                    else if ( bi == gi )
+                        rhs -= out[bi] * out[bi];
+                } );
+                out[ai] = rhs * inv2g0;
+            } );
+        }
+    }
+}
+
+/// @brief Runtime overload of `seriesSquare`: `out = a^2`.
+template < typename T >
+inline void seriesSquareRT( T* out, const T* a, std::size_t N, std::size_t M ) noexcept
+{
+    cauchySelfProductRT( out, a, N, M );
 }
 
 }  // namespace tax::detail

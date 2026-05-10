@@ -1,6 +1,9 @@
 #pragma once
 
 #include <cmath>
+#include <span>
+#include <vector>
+
 #include <tax/utils/enumeration.hpp>
 
 namespace tax::detail
@@ -209,6 +212,76 @@ constexpr void seriesTanh( std::array< T, numMonomials( N, M ) >& out,
             } );
         }
     }
+}
+
+// =============================================================================
+// Runtime-shape variants (used by the dynamic-shape `TaylorExpansionT`).
+// =============================================================================
+
+/// @brief Runtime overload of `seriesSinCos`: jointly compute `sin(a)` and `cos(a)`.
+template < typename T >
+inline void seriesSinCosRT( T* s, T* c, const T* a, std::size_t N, std::size_t M ) noexcept
+{
+    using std::cos;
+    using std::sin;
+    const std::size_t S = numMonomials( N, M );
+    for ( std::size_t i = 0; i < S; ++i ) s[i] = T{ 0 };
+    for ( std::size_t i = 0; i < S; ++i ) c[i] = T{ 0 };
+    s[0] = sin( a[0] );
+    c[0] = cos( a[0] );
+
+    if ( M == 1 )
+    {
+        for ( std::size_t d = 1; d <= N; ++d )
+        {
+            T sr = T{ 0 }, cr = T{ 0 };
+            for ( std::size_t k = 0; k < d; ++k )
+            {
+                const T w = T( d - k ) * a[d - k];
+                sr += w * c[k];
+                cr += w * s[k];
+            }
+            const T inv_d = T{ 1 } / T( d );
+            s[d] = sr * inv_d;
+            c[d] = -cr * inv_d;
+        }
+    }
+    else
+    {
+        for ( int d = 1; d <= int( N ); ++d )
+        {
+            forEachMonomial( int( M ), d, [&]( std::span< const int > alpha, std::size_t ai ) {
+                T sin_rhs = T{ 0 };
+                T cos_rhs = T{ 0 };
+                forEachSubIndex( alpha, 0, d - 1, [&]( std::size_t bi, std::size_t gi, int db ) {
+                    const T fg = T( d - db ) * a[gi];
+                    sin_rhs += fg * c[bi];
+                    cos_rhs += fg * s[bi];
+                } );
+                const T inv_d = T{ 1 } / T( d );
+                s[ai] = sin_rhs * inv_d;
+                c[ai] = -cos_rhs * inv_d;
+            } );
+        }
+    }
+}
+
+/// @brief Runtime sin: thin wrapper around `seriesSinCosRT`.
+template < typename T >
+inline void seriesSinRT( T* out, const T* a, std::size_t N, std::size_t M )
+{
+    const std::size_t S = numMonomials( N, M );
+    std::vector< T > scratch( S, T{ 0 } );
+    seriesSinCosRT( out, scratch.data(), a, N, M );
+}
+
+/// @brief Runtime cos: thin wrapper around `seriesSinCosRT`.
+template < typename T >
+inline void seriesCosRT( T* out, const T* a, std::size_t N, std::size_t M )
+{
+    const std::size_t S = numMonomials( N, M );
+    std::vector< T > scratch( S, T{ 0 } );
+    seriesSinCosRT( scratch.data(), out, a, N, M );
 }
 
 }  // namespace tax::detail

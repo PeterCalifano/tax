@@ -1,6 +1,9 @@
 #pragma once
 
 #include <cmath>
+#include <span>
+#include <vector>
+
 #include <tax/kernels/algebra.hpp>
 #include <tax/kernels/cauchy.hpp>
 #include <tax/kernels/ops.hpp>
@@ -470,6 +473,112 @@ constexpr void seriesAtanh( std::array< T, numMonomials( N, M ) >& out,
                     rhs += T( d - db ) * h[bi] * out[gi];
                 } );
                 out[ai] = ( a[ai] - rhs / T( d ) ) * inv_h0;
+            } );
+        }
+    }
+}
+
+// =============================================================================
+// Runtime-shape variants (used by the dynamic-shape `TaylorExpansionT`).
+// =============================================================================
+
+/// @brief Runtime overload of `seriesExp`.
+template < typename T >
+inline void seriesExpRT( T* out, const T* a, std::size_t N, std::size_t M ) noexcept
+{
+    using std::exp;
+    const std::size_t S = numMonomials( N, M );
+    for ( std::size_t i = 0; i < S; ++i ) out[i] = T{ 0 };
+    out[0] = exp( a[0] );
+
+    if ( M == 1 )
+    {
+        for ( std::size_t d = 1; d <= N; ++d )
+        {
+            T rhs = T{ 0 };
+            for ( std::size_t k = 0; k < d; ++k ) rhs += T( d - k ) * a[d - k] * out[k];
+            out[d] = rhs / T( d );
+        }
+    }
+    else
+    {
+        for ( int d = 1; d <= int( N ); ++d )
+        {
+            forEachMonomial( int( M ), d, [&]( std::span< const int > alpha, std::size_t ai ) {
+                T rhs = T{ 0 };
+                forEachSubIndex( alpha, 1, d, [&]( std::size_t bi, std::size_t gi, int db ) {
+                    rhs += T( db ) * a[bi] * out[gi];
+                } );
+                out[ai] = rhs / T( d );
+            } );
+        }
+    }
+}
+
+/// @brief Runtime overload of `seriesLog`. Requires `a[0] > 0`.
+template < typename T >
+inline void seriesLogRT( T* out, const T* a, std::size_t N, std::size_t M ) noexcept
+{
+    using std::log;
+    const std::size_t S = numMonomials( N, M );
+    for ( std::size_t i = 0; i < S; ++i ) out[i] = T{ 0 };
+    out[0] = log( a[0] );
+    const T inv_a0 = T{ 1 } / a[0];
+
+    if ( M == 1 )
+    {
+        for ( std::size_t d = 1; d <= N; ++d )
+        {
+            T rhs = T{ 0 };
+            for ( std::size_t k = 1; k < d; ++k ) rhs += T( k ) * a[d - k] * out[k];
+            out[d] = ( a[d] - rhs / T( d ) ) * inv_a0;
+        }
+    }
+    else
+    {
+        for ( int d = 1; d <= int( N ); ++d )
+        {
+            forEachMonomial( int( M ), d, [&]( std::span< const int > alpha, std::size_t ai ) {
+                T rhs = T{ 0 };
+                forEachSubIndex( alpha, 1, d - 1, [&]( std::size_t bi, std::size_t gi, int db ) {
+                    rhs += T( d - db ) * a[bi] * out[gi];
+                } );
+                out[ai] = ( a[ai] - rhs / T( d ) ) * inv_a0;
+            } );
+        }
+    }
+}
+
+/// @brief Runtime overload of `seriesPow`: `out = a^c` for a real exponent.
+template < typename T >
+inline void seriesPowRT( T* out, const T* a, T c, std::size_t N, std::size_t M ) noexcept
+{
+    using std::pow;
+    const std::size_t S = numMonomials( N, M );
+    for ( std::size_t i = 0; i < S; ++i ) out[i] = T{ 0 };
+    out[0] = pow( a[0], c );
+    const T inv_a0 = T{ 1 } / a[0];
+
+    if ( M == 1 )
+    {
+        for ( std::size_t d = 1; d <= N; ++d )
+        {
+            T rhs = T{ 0 };
+            for ( std::size_t k = 0; k < d; ++k )
+                rhs += ( c * T( d - k ) - T( k ) ) * a[d - k] * out[k];
+            out[d] = rhs * inv_a0 / T( d );
+        }
+    }
+    else
+    {
+        for ( int d = 1; d <= int( N ); ++d )
+        {
+            forEachMonomial( int( M ), d, [&]( std::span< const int > alpha, std::size_t ai ) {
+                T rhs = T{ 0 };
+                forEachSubIndex( alpha, 1, d, [&]( std::size_t bi, std::size_t gi, int db ) {
+                    rhs += ( c * T( db ) - T( d - db ) ) * a[bi] * out[gi];
+                } );
+                out[ai] = rhs * inv_a0 / T( d );
             } );
         }
     }

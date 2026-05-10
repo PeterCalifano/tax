@@ -33,6 +33,38 @@ constexpr void scaleInPlace( std::array< T, S >& o, T s ) noexcept
     for ( auto& v : o ) v *= s;
 }
 
+// =============================================================================
+// Runtime-shape variants (used by the dynamic-shape `TaylorExpansionT`).
+// =============================================================================
+
+/// @brief Runtime overload of `addInPlace`. Caller owns `o.size() == r.size()`.
+template < typename T >
+inline void addInPlaceRT( T* o, const T* r, std::size_t S ) noexcept
+{
+    for ( std::size_t i = 0; i < S; ++i ) o[i] += r[i];
+}
+
+/// @brief Runtime overload of `subInPlace`.
+template < typename T >
+inline void subInPlaceRT( T* o, const T* r, std::size_t S ) noexcept
+{
+    for ( std::size_t i = 0; i < S; ++i ) o[i] -= r[i];
+}
+
+/// @brief Runtime overload of `negateInPlace`.
+template < typename T >
+inline void negateInPlaceRT( T* o, std::size_t S ) noexcept
+{
+    for ( std::size_t i = 0; i < S; ++i ) o[i] = -o[i];
+}
+
+/// @brief Runtime overload of `scaleInPlace`.
+template < typename T >
+inline void scaleInPlaceRT( T* o, T s, std::size_t S ) noexcept
+{
+    for ( std::size_t i = 0; i < S; ++i ) o[i] *= s;
+}
+
 namespace detail
 {
 
