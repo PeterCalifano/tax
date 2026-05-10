@@ -73,16 +73,18 @@ int main()
     const double     tmax_orbit = 2.0 * std::numbers::pi;       // full period
     const double     tmax       = 0.5 * std::numbers::pi;       // 1-D analysis (faster)
 
-    Eigen::Vector< double, kD > x0;
+    using Vec = Eigen::Vector< double, kD >;
+
+    Vec x0;
     x0 << rp, 0.0, 0.0, vp;
 
     // -------------------------------------------------------------------------
     // 1) Plain Taylor integration of the reference orbit.
     // -------------------------------------------------------------------------
-    ode::Integrator< kN > scalar_ig{
-        ode::IntegratorConfig< double >{ .abstol = 1e-16 } };
+    ode::Integrator< kN, Vec > scalar_ig{
+        kepler, ode::IntegratorConfig< double >{ .abstol = 1e-16 } };
 
-    auto sol = scalar_ig.integrate( kepler, x0, 0.0, tmax_orbit );
+    auto sol = scalar_ig.integrate( x0, 0.0, tmax_orbit );
     {
         std::ofstream out( "orbit_reference.csv" );
         out << "t,x,y,vx,vy\n";
@@ -102,15 +104,15 @@ int main()
     // 2) Single flow expansion (DaIntegrator, no splitting).
     // -------------------------------------------------------------------------
     ode::DaIntegrator< kN, kP, kD > da_ig{
-        ode::IntegratorConfig< double >{ .abstol = 1e-14 } };
-    auto flow = da_ig.integrate( kepler, box, 0.0, tmax );
+        kepler, ode::IntegratorConfig< double >{ .abstol = 1e-14 } };
+    auto flow = da_ig.integrate( box, 0.0, tmax );
     std::cout << "Flow expansion:       single polynomial, order P = " << kP << '\n';
 
     // -------------------------------------------------------------------------
     // 3) ADS-integrated flow expansion.
     // -------------------------------------------------------------------------
     ode::AdsIntegrator< kN, kP, kD > ads_ig{
-        ode::AdsConfig{ .step_tol = 1e-14, .ads_tol = 1e-4, .max_depth = 6 } };
+        kepler, ode::AdsConfig{ .step_tol = 1e-14, .ads_tol = 1e-4, .max_depth = 6 } };
 
     int splits_logged = 0;
     ads_ig.on_split = [&]( const ode::SplitEvent< kP, kD >& ev ) {
@@ -121,7 +123,7 @@ int main()
                       << ", err = " << ev.truncation_error << '\n';
     };
 
-    auto tree = ads_ig.integrate( kepler, box, 0.0, tmax );
+    auto tree = ads_ig.integrate( box, 0.0, tmax );
     std::cout << "ADS:                  " << tree.numDone()
               << " leaves (tol = " << ads_ig.config().ads_tol << ", "
               << splits_logged << " splits observed)\n";
@@ -163,9 +165,9 @@ int main()
         const double delta = -1.0 + 2.0 * ( double( i ) + 0.5 ) / double( n_samples );
         const double vy0   = vp + box.halfWidth[3] * delta;
 
-        Eigen::Vector< double, kD > x0p;
+        Vec x0p;
         x0p << rp, 0.0, 0.0, vy0;
-        auto        sol_p = scalar_ig.integrate( kepler, x0p, 0.0, tmax );
+        auto        sol_p = scalar_ig.integrate( x0p, 0.0, tmax );
         const auto& xt    = sol_p.x.back();
 
         const std::array< double, kD > d_full{ 0.0, 0.0, 0.0, delta };
@@ -208,9 +210,9 @@ int main()
     traj << "delta,t,x,y\n";
     for ( double d : deltas_traj )
     {
-        Eigen::Vector< double, kD > x0p;
+        Vec x0p;
         x0p << rp, 0.0, 0.0, vp + box.halfWidth[3] * d;
-        auto sp = scalar_ig.integrate( kepler, x0p, 0.0, tmax_orbit );
+        auto sp = scalar_ig.integrate( x0p, 0.0, tmax_orbit );
         for ( std::size_t i = 0; i < sp.t.size(); ++i )
             traj << d << ',' << sp.t[i] << ',' << sp.x[i]( 0 ) << ',' << sp.x[i]( 1 ) << '\n';
     }
@@ -269,16 +271,16 @@ int main()
 
     // One DA integrator and one ADS integrator reused across all snapshots.
     ode::DaIntegrator< kN, kP, kD > snap_da{
-        ode::IntegratorConfig< double >{ .abstol = 1e-14 } };
+        kepler, ode::IntegratorConfig< double >{ .abstol = 1e-14 } };
     ode::AdsIntegrator< kN, kP, kD > snap_ads{
-        ode::AdsConfig{ .step_tol = 1e-13, .ads_tol = 1e-3, .max_depth = 4 } };
+        kepler, ode::AdsConfig{ .step_tol = 1e-13, .ads_tol = 1e-3, .max_depth = 4 } };
 
     for ( std::size_t s = 0; s < snapshots.size(); ++s )
     {
         const double t_snap = snapshots[s];
 
-        auto tree2 = snap_ads.integrate( kepler, box2D, 0.0, t_snap );
-        auto flow2 = snap_da.integrate( kepler, box2D, 0.0, t_snap );
+        auto tree2 = snap_ads.integrate( box2D, 0.0, t_snap );
+        auto flow2 = snap_da.integrate( box2D, 0.0, t_snap );
 
         std::cout << "Snapshot t = " << t_snap << ":  ADS leaves = " << tree2.numDone() << '\n';
 

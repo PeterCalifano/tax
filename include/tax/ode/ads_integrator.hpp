@@ -148,6 +148,10 @@ template < int N, int P, int D >
 class AdsIntegrator
 {
 public:
+    using DA          = TEn< P, D >;
+    using TimeTTE     = TruncatedTaylorExpansionT< DA, N, 1 >;
+    using VecTTE      = Eigen::Matrix< TimeTTE, D, 1 >;
+    using Rhs         = std::function< void( VecTTE&, const VecTTE&, const TimeTTE& ) >;
     using Config      = AdsConfig;
     using FlowMapT    = FlowMap< P, D >;
     using TreeT       = AdsTree< FlowMapT >;
@@ -155,10 +159,14 @@ public:
     using OnSplitFn   = std::function< void( const SplitEventT& ) >;
 
     /**
-     * @brief Construct with the given configuration.
+     * @brief Construct with the given right-hand side and configuration.
      * @throws std::invalid_argument on invalid configuration.
      */
-    explicit AdsIntegrator( Config cfg = {} ) : cfg_( cfg ) { detail::validate( cfg_ ); }
+    explicit AdsIntegrator( Rhs f, Config cfg = {} )
+        : f_( std::move( f ) ), cfg_( cfg )
+    {
+        detail::validate( cfg_ );
+    }
 
     [[nodiscard]] const Config& config() const noexcept { return cfg_; }
 
@@ -170,20 +178,17 @@ public:
      */
     OnSplitFn on_split{};
 
-    /**
-     * @brief Integrate the IC domain @p x0_box from @p t0 to @p tmax with
-     *        adaptive domain splitting.
-     */
-    template < typename F >
+    /// @brief Integrate the IC domain @p x0_box from @p t0 to @p tmax with
+    ///        adaptive domain splitting.
     [[nodiscard]] TreeT
-    integrate( F&& f, const Box< double, D >& x0_box, double t0, double tmax ) const
+    integrate( const Box< double, D >& x0_box, double t0, double tmax ) const
     {
         TreeT tree;
 
         // Root leaf.
         {
             auto root = FlowMapT{ detail::propagateDa< N, P, D >(
-                f, makeDaState< P, D >( x0_box ), t0, tmax, cfg_.step_tol,
+                f_, makeDaState< P, D >( x0_box ), t0, tmax, cfg_.step_tol,
                 cfg_.max_steps ) };
             tree.addLeaf( std::move( root ), x0_box );
         }
@@ -238,7 +243,7 @@ public:
                 const bool is_left = ( i & 1 ) == 0;
                 const auto& box    = is_left ? splits[s].lb : splits[s].rb;
                 FlowMapT    result{ detail::propagateDa< N, P, D >(
-                    f, makeDaState< P, D >( box ), t0, tmax, cfg_.step_tol,
+                    f_, makeDaState< P, D >( box ), t0, tmax, cfg_.step_tol,
                     cfg_.max_steps ) };
                 if ( is_left )
                     splits[s].lt = std::move( result );
@@ -265,6 +270,7 @@ public:
     }
 
 private:
+    Rhs    f_;
     Config cfg_;
 };
 

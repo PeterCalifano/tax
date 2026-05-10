@@ -17,9 +17,9 @@ using namespace tax;
 
 TEST( DaIntegrator, StepDaHarmonicOscillator )
 {
-    constexpr int N = 10;  // time Taylor order
-    constexpr int P = 2;   // DA order
-    constexpr int D = 2;   // state dimension
+    constexpr int N = 10;
+    constexpr int P = 2;
+    constexpr int D = 2;
 
     Box< double, D > box{ { 1.0, 0.0 }, { 0.1, 0.1 } };
     auto             x0 = ode::makeDaState< P, D >( box );
@@ -35,18 +35,16 @@ TEST( DaIntegrator, StepDaHarmonicOscillator )
 
     EXPECT_NEAR( p( 0 )[0].value(), 1.0, 1e-14 );
     EXPECT_NEAR( p( 1 )[0].value(), 0.0, 1e-14 );
-
     EXPECT_NEAR( p( 0 )[1].value(), 0.0, 1e-14 );
     EXPECT_NEAR( p( 1 )[1].value(), -1.0, 1e-14 );
-
     EXPECT_NEAR( p( 0 )[2].value(), -0.5, 1e-14 );
 }
 
 // =============================================================================
-// DaIntegrator::propagate — linear ODE, P=1 should give exact flow map
+// DaIntegrator — linear ODE, P=1 should give the exact flow map
 // =============================================================================
 
-TEST( DaIntegrator, PropagateLinearHarmonicOscillator )
+TEST( DaIntegrator, IntegrateLinearHarmonicOscillator )
 {
     constexpr int N = 20;
     constexpr int P = 1;
@@ -59,9 +57,10 @@ TEST( DaIntegrator, PropagateLinearHarmonicOscillator )
         dx( 1 ) = -x( 0 );
     };
 
-    const double          tmax = std::numbers::pi / 2.0;
-    ode::DaIntegrator< N, P, D > ig{ ode::IntegratorConfig< double >{ .abstol = 1e-16 } };
-    auto fm = ig.integrate( f, box, 0.0, tmax );
+    const double tmax = std::numbers::pi / 2.0;
+
+    ode::DaIntegrator< N, P, D > ig{ f, ode::IntegratorConfig< double >{ .abstol = 1e-16 } };
+    auto                          fm = ig.integrate( box, 0.0, tmax );
 
     EXPECT_NEAR( fm.state( 0 ).value(), 0.0, 1e-10 );
     EXPECT_NEAR( fm.state( 1 ).value(), -1.0, 1e-10 );
@@ -70,16 +69,15 @@ TEST( DaIntegrator, PropagateLinearHarmonicOscillator )
     MultiIndex< D > e_dv{ 0, 1 };
     EXPECT_NEAR( fm.state( 0 ).coeff( e_dx ), 0.0, 1e-10 );
     EXPECT_NEAR( fm.state( 0 ).coeff( e_dv ), 0.1, 1e-10 );
-
     EXPECT_NEAR( fm.state( 1 ).coeff( e_dx ), -0.1, 1e-10 );
     EXPECT_NEAR( fm.state( 1 ).coeff( e_dv ), 0.0, 1e-10 );
 }
 
 // =============================================================================
-// DaIntegrator::propagate — point evaluation matches direct integration
+// DaIntegrator — point evaluation matches direct integration
 // =============================================================================
 
-TEST( DaIntegrator, PropagatePointEvaluation )
+TEST( DaIntegrator, IntegratePointEvaluation )
 {
     constexpr int N = 20;
     constexpr int P = 3;
@@ -94,9 +92,9 @@ TEST( DaIntegrator, PropagatePointEvaluation )
         dx( 1 ) = -x( 0 );
     };
 
-    const double          tmax = 1.0;
-    ode::DaIntegrator< N, P, D > ig{ ode::IntegratorConfig< double >{ .abstol = 1e-16 } };
-    auto fm = ig.integrate( f, box, 0.0, tmax );
+    const double                 tmax = 1.0;
+    ode::DaIntegrator< N, P, D > ig{ f, ode::IntegratorConfig< double >{ .abstol = 1e-16 } };
+    auto                          fm = ig.integrate( box, 0.0, tmax );
 
     DA::Input delta{ 0.5, -0.3 };
     double    x0_pt = 1.0 + 0.1 * 0.5;
@@ -126,8 +124,9 @@ TEST( AdsIntegrator, NoSplitLinearSystem )
         dx( 1 ) = -x( 0 );
     };
 
-    ode::AdsIntegrator< N, P, D > ig{ ode::AdsConfig{ .step_tol = 1e-16, .ads_tol = 1e-6 } };
-    auto                          tree = ig.integrate( f, box, 0.0, 1.0 );
+    ode::AdsIntegrator< N, P, D > ig{ f,
+                                        ode::AdsConfig{ .step_tol = 1e-16, .ads_tol = 1e-6 } };
+    auto                          tree = ig.integrate( box, 0.0, 1.0 );
 
     EXPECT_EQ( tree.numDone(), 1 );
     EXPECT_TRUE( tree.empty() );
@@ -150,10 +149,10 @@ TEST( AdsIntegrator, SplitsNonlinearODE )
         dx( 1 ) = -x( 0 ) - x( 0 ) * x( 0 ) * x( 0 );
     };
 
-    ode::AdsIntegrator< N, P, D > ig{ ode::AdsConfig{
-        .step_tol = 1e-12, .ads_tol = 1e-4, .max_depth = 6 } };
+    ode::AdsIntegrator< N, P, D > ig{
+        f, ode::AdsConfig{ .step_tol = 1e-12, .ads_tol = 1e-4, .max_depth = 6 } };
 
-    int                                splits_observed = 0;
+    int splits_observed = 0;
     ig.on_split = [&]( const ode::SplitEvent< P, D >& ev ) {
         ++splits_observed;
         EXPECT_GE( ev.split_dim, 0 );
@@ -162,7 +161,7 @@ TEST( AdsIntegrator, SplitsNonlinearODE )
         EXPECT_GE( ev.truncation_error, 1e-4 );
     };
 
-    auto tree = ig.integrate( f, box, 0.0, 3.0 );
+    auto tree = ig.integrate( box, 0.0, 3.0 );
 
     EXPECT_GT( tree.numDone(), 1 );
     EXPECT_TRUE( tree.empty() );
@@ -186,12 +185,13 @@ TEST( AdsIntegrator, PointAccuracyAcrossSubdomains )
         dx( 1 ) = -x( 0 ) - x( 0 ) * x( 0 ) * x( 0 );
     };
 
-    const double                       tmax = 2.0;
-    ode::AdsIntegrator< N, P, D > ads_ig{ ode::AdsConfig{
-        .step_tol = 1e-12, .ads_tol = 1e-4, .max_depth = 8 } };
-    auto tree = ads_ig.integrate( f, box, 0.0, tmax );
+    const double                  tmax = 2.0;
+    ode::AdsIntegrator< N, P, D > ads_ig{
+        f, ode::AdsConfig{ .step_tol = 1e-12, .ads_tol = 1e-4, .max_depth = 8 } };
+    auto tree = ads_ig.integrate( box, 0.0, tmax );
 
-    ode::Integrator< N > scalar_ig{ ode::IntegratorConfig< double >{ .abstol = 1e-16 } };
+    ode::Integrator< N, Eigen::Vector2d > scalar_ig{
+        f, ode::IntegratorConfig< double >{ .abstol = 1e-16 } };
 
     const std::array< std::array< double, 2 >, 3 > test_points = {
         { { 1.2, 0.1 }, { 0.8, -0.3 }, { 1.0, 0.0 } } };
@@ -219,7 +219,7 @@ TEST( AdsIntegrator, PointAccuracyAcrossSubdomains )
         double v_ads = leaf.tte.state( 1 ).eval( local_delta );
 
         Eigen::Vector2d x0_pt( pt[0], pt[1] );
-        auto            sol_ref = scalar_ig.integrate( f, x0_pt, 0.0, tmax );
+        auto            sol_ref = scalar_ig.integrate( x0_pt, 0.0, tmax );
 
         EXPECT_NEAR( x_ads, sol_ref.x.back()( 0 ), 1e-2 );
         EXPECT_NEAR( v_ads, sol_ref.x.back()( 1 ), 1e-2 );
@@ -249,19 +249,21 @@ TEST( AdsIntegrator, KeplerOrbitSplits )
         dx( 3 ) = -x( 1 ) / r3;
     };
 
+    using Vec = Eigen::Vector< double, D >;
+
     const double                  tmax = std::numbers::pi;
-    ode::AdsIntegrator< N, P, D > ads_ig{ ode::AdsConfig{
-        .step_tol = 1e-14, .ads_tol = 1e-3, .max_depth = 4 } };
-    auto                          tree = ads_ig.integrate( f, box, 0.0, tmax );
+    ode::AdsIntegrator< N, P, D > ads_ig{
+        f, ode::AdsConfig{ .step_tol = 1e-14, .ads_tol = 1e-3, .max_depth = 4 } };
+    auto tree = ads_ig.integrate( box, 0.0, tmax );
 
     EXPECT_TRUE( tree.empty() );
     EXPECT_GE( tree.numDone(), 1 );
 
-    Eigen::Vector< double, D > x0c;
+    Vec x0c;
     x0c << 1.0, 0.0, 0.0, 1.0;
 
-    ode::Integrator< N > vec_ig{ ode::IntegratorConfig< double >{ .abstol = 1e-16 } };
-    auto                 sol_ref = vec_ig.integrate( f, x0c, 0.0, tmax );
+    ode::Integrator< N, Vec > vec_ig{ f, ode::IntegratorConfig< double >{ .abstol = 1e-16 } };
+    auto                       sol_ref = vec_ig.integrate( x0c, 0.0, tmax );
 
     bool found = false;
     for ( int di : tree.doneLeaves() )
@@ -291,8 +293,13 @@ TEST( AdsIntegrator, KeplerOrbitSplits )
 TEST( AdsIntegrator, ConfigRejectsInvalidValues )
 {
     using AI = ode::AdsIntegrator< 10, 2, 2 >;
-    EXPECT_THROW( ( AI{ ode::AdsConfig{ .step_tol = 0.0 } } ), std::invalid_argument );
-    EXPECT_THROW( ( AI{ ode::AdsConfig{ .ads_tol = 0.0 } } ), std::invalid_argument );
-    EXPECT_THROW( ( AI{ ode::AdsConfig{ .max_depth = -1 } } ), std::invalid_argument );
-    EXPECT_THROW( ( AI{ ode::AdsConfig{ .max_steps = 0 } } ), std::invalid_argument );
+    auto f   = []( auto& dx, const auto& x, [[maybe_unused]] const auto& t ) {
+        dx( 0 ) = x( 1 );
+        dx( 1 ) = -x( 0 );
+    };
+
+    EXPECT_THROW( ( AI{ f, ode::AdsConfig{ .step_tol = 0.0 } } ), std::invalid_argument );
+    EXPECT_THROW( ( AI{ f, ode::AdsConfig{ .ads_tol = 0.0 } } ), std::invalid_argument );
+    EXPECT_THROW( ( AI{ f, ode::AdsConfig{ .max_depth = -1 } } ), std::invalid_argument );
+    EXPECT_THROW( ( AI{ f, ode::AdsConfig{ .max_steps = 0 } } ), std::invalid_argument );
 }

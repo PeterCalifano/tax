@@ -2,8 +2,8 @@
 
 #include <cmath>
 #include <cstddef>
+#include <functional>
 #include <stdexcept>
-#include <string>
 #include <utility>
 #include <vector>
 
@@ -39,90 +39,57 @@ inline void validate( const IntegratorConfig< T >& cfg )
 
 }  // namespace detail
 
+// =============================================================================
+// Integrator — primary template (must specialize on a supported State)
+// =============================================================================
+
 /**
- * @brief Adaptive Taylor integrator for scalar and Eigen-vector ODEs.
+ * @brief Adaptive Taylor integrator for scalar or Eigen-vector ODEs.
  *
- * @tparam N Taylor expansion order in time.
- * @tparam T Scalar coefficient type (default `double`).
+ * @tparam N      Taylor expansion order in time.
+ * @tparam State  `T` for scalar ODEs, `Eigen::Matrix<T, D, 1>` for vector ODEs.
+ * @tparam T      Scalar coefficient type (default `double`).
  *
- * @details The integrator is constructed with a configuration once, then
- *   `integrate()` may be called repeatedly with different right-hand sides,
- *   initial states, and time ranges.  Optional event detection is supported
- *   via the @ref Event vector overload.
- *
- *   The class itself is stateless: every `integrate()` call produces an
- *   independent solution, so the same integrator instance is safe to reuse
- *   across threads.
+ * @details The right-hand side, configuration, and event list are bound at
+ *   construction; subsequent `integrate(x0, t0, tmax)` calls only need the
+ *   initial state and time range.  The instance is read-only after
+ *   construction so it can be reused (and shared across threads) safely.
  */
-template < int N, typename T = double >
-class Integrator
+template < int N, typename State, typename T = double >
+class Integrator;  // primary, undefined
+
+// -----------------------------------------------------------------------------
+// Scalar specialization: State == T
+// -----------------------------------------------------------------------------
+
+template < int N, typename T >
+class Integrator< N, T, T >
 {
 public:
-    using Config = IntegratorConfig< T >;
+    using TimeTTE   = TruncatedTaylorExpansionT< T, N, 1 >;
+    using Rhs       = std::function< TimeTTE( const TimeTTE&, const TimeTTE& ) >;
+    using Config    = IntegratorConfig< T >;
+    using EventList = std::vector< Event< N, T, T > >;
+    using Solution  = TaylorSolution< N, T, T >;
 
     /**
-     * @brief Construct with the given configuration.
-     * @throws std::invalid_argument if any configuration value is invalid.
+     * @brief Construct an integrator bound to a given RHS, configuration, and
+     *        (optional) event list.
+     * @throws std::invalid_argument if the configuration is invalid.
      */
-    explicit Integrator( Config cfg = {} ) : cfg_( cfg ) { detail::validate( cfg_ ); }
-
-    [[nodiscard]] const Config& config() const noexcept { return cfg_; }
-
-    // -------------------------------------------------------------------------
-    // Scalar ODE
-    // -------------------------------------------------------------------------
-
-    /**
-     * @brief Integrate scalar ODE `dx/dt = f(x, t)` with adaptive step size.
-     */
-    template < typename F >
-    [[nodiscard]] TaylorSolution< N, T, T > integrate( F&& f, T x0, T t0, T tmax ) const
+    explicit Integrator( Rhs f, Config cfg = {}, EventList events = {} )
+        : f_( std::move( f ) ), cfg_( cfg ), events_( std::move( events ) )
     {
-        return integrateImpl( std::forward< F >( f ), x0, t0, tmax,
-                              std::vector< Event< N, T, T > >{} );
+        detail::validate( cfg_ );
     }
 
-    /// @overload Same with event detection.
-    template < typename F >
-    [[nodiscard]] TaylorSolution< N, T, T >
-    integrate( F&& f, T x0, T t0, T tmax, const std::vector< Event< N, T, T > >& events ) const
+    [[nodiscard]] const Config&    config() const noexcept { return cfg_; }
+    [[nodiscard]] const EventList& events() const noexcept { return events_; }
+
+    /// @brief Integrate `dx/dt = f(x, t)` from @p x0 at @p t0 to @p tmax.
+    [[nodiscard]] Solution integrate( T x0, T t0, T tmax ) const
     {
-        return integrateImpl( std::forward< F >( f ), x0, t0, tmax, events );
-    }
-
-    // -------------------------------------------------------------------------
-    // Vector ODE
-    // -------------------------------------------------------------------------
-
-    /**
-     * @brief Integrate vector ODE `f(dx, x, t)` with adaptive step size.
-     */
-    template < typename F, int D >
-    [[nodiscard]] TaylorSolution< N, Eigen::Matrix< T, D, 1 >, T >
-    integrate( F&& f, const Eigen::Matrix< T, D, 1 >& x0, T t0, T tmax ) const
-    {
-        return integrateImpl< F, D >(
-            std::forward< F >( f ), x0, t0, tmax,
-            std::vector< Event< N, Eigen::Matrix< T, D, 1 >, T > >{} );
-    }
-
-    /// @overload Same with event detection.
-    template < typename F, int D >
-    [[nodiscard]] TaylorSolution< N, Eigen::Matrix< T, D, 1 >, T >
-    integrate( F&& f, const Eigen::Matrix< T, D, 1 >& x0, T t0, T tmax,
-               const std::vector< Event< N, Eigen::Matrix< T, D, 1 >, T > >& events ) const
-    {
-        return integrateImpl< F, D >( std::forward< F >( f ), x0, t0, tmax, events );
-    }
-
-private:
-    Config cfg_;
-
-    template < typename F >
-    [[nodiscard]] TaylorSolution< N, T, T > integrateImpl(
-        F&& f, T x0, T t0, T tmax, const std::vector< Event< N, T, T > >& events ) const
-    {
-        TaylorSolution< N, T, T > sol;
+        Solution sol;
         sol.t.reserve( std::size_t( cfg_.max_steps + 1 ) );
         sol.x.reserve( std::size_t( cfg_.max_steps + 1 ) );
         sol.p.reserve( std::size_t( cfg_.max_steps + 1 ) );
@@ -137,13 +104,13 @@ private:
         {
             if ( sign * ( tmax - tc ) <= T{} ) break;
 
-            auto [p, h] = step< N >( f, xc, tc, cfg_.abstol );
+            auto [p, h] = step< N >( f_, xc, tc, cfg_.abstol );
             if ( h <= T{} ) break;
 
             T dt = sign * std::min( h, std::abs( tmax - tc ) );
 
             const std::size_t step_idx = sol.p.size();
-            const auto er = detail::processStepEvents< N, T, T >( events, p, tc, dt, sol.events,
+            const auto er = detail::processStepEvents< N, T, T >( events_, p, tc, dt, sol.events,
                                                                   step_idx );
             dt = er.effective_dt;
 
@@ -160,14 +127,41 @@ private:
         return sol;
     }
 
-    template < typename F, int D >
-    [[nodiscard]] TaylorSolution< N, Eigen::Matrix< T, D, 1 >, T > integrateImpl(
-        F&& f, const Eigen::Matrix< T, D, 1 >& x0, T t0, T tmax,
-        const std::vector< Event< N, Eigen::Matrix< T, D, 1 >, T > >& events ) const
-    {
-        using Vec = Eigen::Matrix< T, D, 1 >;
+private:
+    Rhs       f_;
+    Config    cfg_;
+    EventList events_;
+};
 
-        TaylorSolution< N, Vec, T > sol;
+// -----------------------------------------------------------------------------
+// Vector specialization: State == Eigen::Matrix<T, D, 1>
+// -----------------------------------------------------------------------------
+
+template < int N, typename T, int D >
+class Integrator< N, Eigen::Matrix< T, D, 1 >, T >
+{
+public:
+    using State     = Eigen::Matrix< T, D, 1 >;
+    using TimeTTE   = TruncatedTaylorExpansionT< T, N, 1 >;
+    using VecTTE    = Eigen::Matrix< TimeTTE, D, 1 >;
+    using Rhs       = std::function< void( VecTTE&, const VecTTE&, const TimeTTE& ) >;
+    using Config    = IntegratorConfig< T >;
+    using EventList = std::vector< Event< N, State, T > >;
+    using Solution  = TaylorSolution< N, State, T >;
+
+    explicit Integrator( Rhs f, Config cfg = {}, EventList events = {} )
+        : f_( std::move( f ) ), cfg_( cfg ), events_( std::move( events ) )
+    {
+        detail::validate( cfg_ );
+    }
+
+    [[nodiscard]] const Config&    config() const noexcept { return cfg_; }
+    [[nodiscard]] const EventList& events() const noexcept { return events_; }
+
+    /// @brief Integrate `f(dx, x, t)` from @p x0 at @p t0 to @p tmax.
+    [[nodiscard]] Solution integrate( State x0, T t0, T tmax ) const
+    {
+        Solution sol;
         sol.t.reserve( std::size_t( cfg_.max_steps + 1 ) );
         sol.x.reserve( std::size_t( cfg_.max_steps + 1 ) );
         sol.p.reserve( std::size_t( cfg_.max_steps + 1 ) );
@@ -176,20 +170,20 @@ private:
 
         const T sign = tmax >= t0 ? T{ 1 } : T{ -1 };
         T       tc   = t0;
-        Vec     xc   = x0;
+        State   xc   = x0;
 
         for ( int s = 0; s < cfg_.max_steps; ++s )
         {
             if ( sign * ( tmax - tc ) <= T{} ) break;
 
-            auto [p, h] = step< N >( f, xc, tc, cfg_.abstol );
+            auto [p, h] = step< N >( f_, xc, tc, cfg_.abstol );
             if ( h <= T{} ) break;
 
             T dt = sign * std::min( h, std::abs( tmax - tc ) );
 
             const std::size_t step_idx = sol.p.size();
-            const auto er = detail::processStepEvents< N, Vec, T >( events, p, tc, dt, sol.events,
-                                                                    step_idx );
+            const auto er = detail::processStepEvents< N, State, T >( events_, p, tc, dt,
+                                                                      sol.events, step_idx );
             dt = er.effective_dt;
 
             xc = eval( p, dt );
@@ -204,6 +198,11 @@ private:
 
         return sol;
     }
+
+private:
+    Rhs       f_;
+    Config    cfg_;
+    EventList events_;
 };
 
 }  // namespace tax::ode

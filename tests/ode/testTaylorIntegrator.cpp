@@ -2,7 +2,6 @@
 
 #include <cmath>
 #include <numbers>
-#include <vector>
 
 #include <tax/tax.hpp>
 #include <tax/ode/taylor_integrator.hpp>
@@ -12,10 +11,10 @@ using namespace tax;
 namespace
 {
 
-template < int N >
-auto makeIntegrator( double abstol )
+template < typename T = double >
+auto cfg( T abstol )
 {
-    return ode::Integrator< N >{ ode::IntegratorConfig< double >{ .abstol = abstol } };
+    return ode::IntegratorConfig< T >{ .abstol = abstol };
 }
 
 }  // namespace
@@ -24,121 +23,97 @@ auto makeIntegrator( double abstol )
 // Scalar ODE tests
 // =============================================================================
 
-// dx/dt = x  →  x(t) = x0 * exp(t)
 TEST( TaylorIntegratorScalar, ExponentialGrowth )
 {
     constexpr int N      = 25;
     const double  x0     = 1.0;
     const double  t0     = 0.0;
     const double  tmax   = 1.0;
-    const double  abstol = 1e-20;
 
-    auto f = []( const auto& x, [[maybe_unused]] const auto& t ) { return x; };
+    auto                          f = []( const auto& x, [[maybe_unused]] const auto& t ) { return x; };
+    ode::Integrator< N, double > ig{ f, cfg( 1e-20 ) };
 
-    auto sol = makeIntegrator< N >( abstol ).integrate( f, x0, t0, tmax );
+    auto sol = ig.integrate( x0, t0, tmax );
 
     EXPECT_GT( sol.t.size(), 1u );
     EXPECT_NEAR( sol.t.back(), tmax, 1e-14 );
     EXPECT_NEAR( sol.x.back(), std::exp( tmax ), 1e-14 );
 }
 
-// dx/dt = -x  →  x(t) = x0 * exp(-t)
 TEST( TaylorIntegratorScalar, ExponentialDecay )
 {
-    constexpr int N      = 25;
-    const double  x0     = 3.0;
-    const double  t0     = 0.0;
-    const double  tmax   = 2.0;
-    const double  abstol = 1e-20;
+    constexpr int N    = 25;
+    const double  x0   = 3.0;
+    const double  tmax = 2.0;
 
-    auto f = []( const auto& x, [[maybe_unused]] const auto& t ) { return -x; };
+    auto                          f = []( const auto& x, [[maybe_unused]] const auto& t ) { return -x; };
+    ode::Integrator< N, double > ig{ f, cfg( 1e-20 ) };
 
-    auto sol = makeIntegrator< N >( abstol ).integrate( f, x0, t0, tmax );
+    auto sol = ig.integrate( x0, 0.0, tmax );
 
     EXPECT_NEAR( sol.t.back(), tmax, 1e-14 );
     EXPECT_NEAR( sol.x.back(), x0 * std::exp( -tmax ), 1e-14 );
 }
 
-// dx/dt = cos(t)  →  x(t) = sin(t)   (x(0) = 0)
 TEST( TaylorIntegratorScalar, CosineForcing )
 {
-    constexpr int N      = 25;
-    const double  x0     = 0.0;
-    const double  t0     = 0.0;
-    const double  tmax   = std::numbers::pi;
-    const double  abstol = 1e-20;
+    constexpr int N    = 25;
+    const double  tmax = std::numbers::pi;
 
     auto f = []( [[maybe_unused]] const auto& x, const auto& t ) {
         using std::cos;
         return cos( t );
     };
+    ode::Integrator< N, double > ig{ f, cfg( 1e-20 ) };
 
-    auto sol = makeIntegrator< N >( abstol ).integrate( f, x0, t0, tmax );
+    auto sol = ig.integrate( 0.0, 0.0, tmax );
 
     EXPECT_NEAR( sol.t.back(), tmax, 1e-14 );
     EXPECT_NEAR( sol.x.back(), std::sin( tmax ), 1e-13 );
 }
 
-// dx/dt = 2*t  →  x(t) = t^2   (x(0) = 0)
 TEST( TaylorIntegratorScalar, Quadratic )
 {
-    constexpr int N      = 10;
-    const double  x0     = 0.0;
-    const double  t0     = 0.0;
-    const double  tmax   = 5.0;
-    const double  abstol = 1e-20;
+    constexpr int N    = 10;
+    const double  tmax = 5.0;
 
-    auto f = []( [[maybe_unused]] const auto& x, const auto& t ) { return 2.0 * t; };
+    auto                          f = []( [[maybe_unused]] const auto& x, const auto& t ) { return 2.0 * t; };
+    ode::Integrator< N, double > ig{ f, cfg( 1e-20 ) };
 
-    auto sol = makeIntegrator< N >( abstol ).integrate( f, x0, t0, tmax );
+    auto sol = ig.integrate( 0.0, 0.0, tmax );
 
     EXPECT_NEAR( sol.t.back(), tmax, 1e-14 );
     EXPECT_NEAR( sol.x.back(), tmax * tmax, 1e-12 );
 }
 
-// Backward integration: dx/dt = -x from x(0) = e^2 to t = -2.
-// Solution: x(t) = e^(2 - t)·... actually for backward we set x0 at t0=0
-// and integrate to tmax = -2: solution x(-2) = x0*exp(-(-2)) = x0*e^2 doesn't
-// match.  Instead: dx/dt = x, x(0) = 1 → x(-1) = e^{-1}.
 TEST( TaylorIntegratorScalar, BackwardIntegration )
 {
-    constexpr int N      = 25;
-    const double  x0     = 1.0;
-    const double  t0     = 0.0;
-    const double  tmax   = -1.0;
-    const double  abstol = 1e-20;
+    constexpr int N    = 25;
+    const double  tmax = -1.0;
 
-    auto f = []( const auto& x, [[maybe_unused]] const auto& t ) { return x; };
+    auto                          f = []( const auto& x, [[maybe_unused]] const auto& t ) { return x; };
+    ode::Integrator< N, double > ig{ f, cfg( 1e-20 ) };
 
-    auto sol = makeIntegrator< N >( abstol ).integrate( f, x0, t0, tmax );
+    auto sol = ig.integrate( 1.0, 0.0, tmax );
 
     EXPECT_NEAR( sol.t.back(), tmax, 1e-14 );
     EXPECT_NEAR( sol.x.back(), std::exp( -1.0 ), 1e-14 );
 }
 
-// =============================================================================
-// Dense output (scalar)
-// =============================================================================
-
 TEST( TaylorIntegratorScalar, DenseOutput )
 {
-    constexpr int N      = 25;
-    const double  x0     = 1.0;
-    const double  t0     = 0.0;
-    const double  tmax   = 2.0;
-    const double  abstol = 1e-20;
+    constexpr int N = 25;
 
-    auto f = []( const auto& x, [[maybe_unused]] const auto& t ) { return x; };
+    auto                          f = []( const auto& x, [[maybe_unused]] const auto& t ) { return x; };
+    ode::Integrator< N, double > ig{ f, cfg( 1e-20 ) };
 
-    auto sol = makeIntegrator< N >( abstol ).integrate( f, x0, t0, tmax );
+    auto sol = ig.integrate( 1.0, 0.0, 2.0 );
 
     EXPECT_FALSE( sol.p.empty() );
     EXPECT_EQ( sol.p.size(), sol.t.size() - 1 );
 
     for ( double t = 0.0; t <= 2.0; t += 0.07 )
-    {
         EXPECT_NEAR( sol( t ), std::exp( t ), 1e-13 ) << "  at t=" << t;
-    }
 }
 
 // =============================================================================
@@ -147,10 +122,8 @@ TEST( TaylorIntegratorScalar, DenseOutput )
 
 TEST( TaylorIntegratorVector, HarmonicOscillator )
 {
-    constexpr int N      = 25;
-    const double  t0     = 0.0;
-    const double  tmax   = 2.0 * std::numbers::pi;
-    const double  abstol = 1e-20;
+    constexpr int N    = 25;
+    const double  tmax = 2.0 * std::numbers::pi;
 
     Eigen::Vector2d x0( 1.0, 0.0 );
 
@@ -158,8 +131,9 @@ TEST( TaylorIntegratorVector, HarmonicOscillator )
         dx( 0 ) = x( 1 );
         dx( 1 ) = -x( 0 );
     };
+    ode::Integrator< N, Eigen::Vector2d > ig{ f, cfg( 1e-20 ) };
 
-    auto sol = makeIntegrator< N >( abstol ).integrate( f, x0, t0, tmax );
+    auto sol = ig.integrate( x0, 0.0, tmax );
 
     EXPECT_NEAR( sol.t.back(), tmax, 1e-14 );
     EXPECT_NEAR( sol.x.back()( 0 ), 1.0, 1e-12 );
@@ -168,10 +142,8 @@ TEST( TaylorIntegratorVector, HarmonicOscillator )
 
 TEST( TaylorIntegratorVector, DecoupledExponentials )
 {
-    constexpr int N      = 25;
-    const double  t0     = 0.0;
-    const double  tmax   = 1.0;
-    const double  abstol = 1e-20;
+    constexpr int N    = 25;
+    const double  tmax = 1.0;
 
     Eigen::Vector2d x0( 1.0, 1.0 );
 
@@ -179,8 +151,9 @@ TEST( TaylorIntegratorVector, DecoupledExponentials )
         dx( 0 ) = x( 0 );
         dx( 1 ) = -x( 1 );
     };
+    ode::Integrator< N, Eigen::Vector2d > ig{ f, cfg( 1e-20 ) };
 
-    auto sol = makeIntegrator< N >( abstol ).integrate( f, x0, t0, tmax );
+    auto sol = ig.integrate( x0, 0.0, tmax );
 
     EXPECT_NEAR( sol.t.back(), tmax, 1e-14 );
     EXPECT_NEAR( sol.x.back()( 0 ), std::exp( tmax ), 1e-14 );
@@ -189,12 +162,12 @@ TEST( TaylorIntegratorVector, DecoupledExponentials )
 
 TEST( TaylorIntegratorVector, KeplerCircularOrbit )
 {
-    constexpr int N      = 25;
-    const double  t0     = 0.0;
-    const double  tmax   = 2.0 * std::numbers::pi;
-    const double  abstol = 1e-20;
+    constexpr int N    = 25;
+    const double  tmax = 2.0 * std::numbers::pi;
 
-    Eigen::Vector< double, 4 > x0;
+    using Vec = Eigen::Vector< double, 4 >;
+
+    Vec x0;
     x0 << 1.0, 0.0, 0.0, 1.0;
 
     auto f = []( auto& dx, const auto& x, [[maybe_unused]] const auto& t ) {
@@ -207,8 +180,9 @@ TEST( TaylorIntegratorVector, KeplerCircularOrbit )
         dx( 2 ) = -x( 0 ) / r3;
         dx( 3 ) = -x( 1 ) / r3;
     };
+    ode::Integrator< N, Vec > ig{ f, cfg( 1e-20 ) };
 
-    auto sol = makeIntegrator< N >( abstol ).integrate( f, x0, t0, tmax );
+    auto sol = ig.integrate( x0, 0.0, tmax );
 
     EXPECT_NEAR( sol.x.back()( 0 ), 1.0, 1e-10 );
     EXPECT_NEAR( sol.x.back()( 1 ), 0.0, 1e-10 );
@@ -221,14 +195,9 @@ TEST( TaylorIntegratorVector, KeplerCircularOrbit )
     EXPECT_NEAR( 0.5 * v2 - 1.0 / r, -0.5, 1e-10 );
 }
 
-// =============================================================================
-// Dense output (vector)
-// =============================================================================
-
 TEST( TaylorIntegratorVector, DenseOutput )
 {
-    constexpr int N      = 25;
-    const double  abstol = 1e-20;
+    constexpr int N = 25;
 
     Eigen::Vector2d x0( 1.0, 0.0 );
 
@@ -236,8 +205,9 @@ TEST( TaylorIntegratorVector, DenseOutput )
         dx( 0 ) = x( 1 );
         dx( 1 ) = -x( 0 );
     };
+    ode::Integrator< N, Eigen::Vector2d > ig{ f, cfg( 1e-20 ) };
 
-    auto sol = makeIntegrator< N >( abstol ).integrate( f, x0, 0.0, 3.0 );
+    auto sol = ig.integrate( x0, 0.0, 3.0 );
 
     EXPECT_FALSE( sol.p.empty() );
 
@@ -255,18 +225,22 @@ TEST( TaylorIntegratorVector, DenseOutput )
 
 TEST( TaylorIntegratorConfig, RejectsNonPositiveTolerance )
 {
+    auto f = []( const auto& x, [[maybe_unused]] const auto& t ) { return x; };
+
     EXPECT_THROW(
-        ( ode::Integrator< 10 >{ ode::IntegratorConfig< double >{ .abstol = 0.0 } } ),
+        ( ode::Integrator< 10, double >{ f, ode::IntegratorConfig< double >{ .abstol = 0.0 } } ),
         std::invalid_argument );
     EXPECT_THROW(
-        ( ode::Integrator< 10 >{ ode::IntegratorConfig< double >{ .abstol = -1e-12 } } ),
+        ( ode::Integrator< 10, double >{ f, ode::IntegratorConfig< double >{ .abstol = -1e-12 } } ),
         std::invalid_argument );
 }
 
 TEST( TaylorIntegratorConfig, RejectsNonPositiveMaxSteps )
 {
+    auto f = []( const auto& x, [[maybe_unused]] const auto& t ) { return x; };
+
     EXPECT_THROW(
-        ( ode::Integrator< 10 >{ ode::IntegratorConfig< double >{ .max_steps = 0 } } ),
+        ( ode::Integrator< 10, double >{ f, ode::IntegratorConfig< double >{ .max_steps = 0 } } ),
         std::invalid_argument );
 }
 

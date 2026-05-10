@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <functional>
 #include <limits>
 #include <stdexcept>
 #include <utility>
@@ -232,8 +233,9 @@ template < int N, int P, int D, typename F >
  *
  * Produces the polynomial flow map `x(tmax)` as a function of the normalised
  * initial-condition deviations δ ∈ [−1, 1]^D about a box centre, with no
- * domain splitting.  This is the right tool when a single multivariate
- * polynomial is accurate enough on the chosen domain.
+ * domain splitting.  The right-hand side and configuration are bound at
+ * construction; subsequent `integrate(box, t0, tmax)` calls only need the
+ * IC domain and time range.
  *
  * @tparam N Taylor expansion order in time.
  * @tparam P DA expansion order in the initial-condition variables.
@@ -243,27 +245,31 @@ template < int N, int P, int D >
 class DaIntegrator
 {
 public:
+    using DA       = TEn< P, D >;
+    using TimeTTE  = TruncatedTaylorExpansionT< DA, N, 1 >;
+    using VecTTE   = Eigen::Matrix< TimeTTE, D, 1 >;
+    using Rhs      = std::function< void( VecTTE&, const VecTTE&, const TimeTTE& ) >;
     using Config   = IntegratorConfig< double >;
     using FlowMapT = FlowMap< P, D >;
 
-    explicit DaIntegrator( Config cfg = {} ) : cfg_( cfg ) { detail::validate( cfg_ ); }
+    explicit DaIntegrator( Rhs f, Config cfg = {} )
+        : f_( std::move( f ) ), cfg_( cfg )
+    {
+        detail::validate( cfg_ );
+    }
 
     [[nodiscard]] const Config& config() const noexcept { return cfg_; }
 
-    /**
-     * @brief Integrate the DA state derived from @p box from @p t0 to @p tmax.
-     * @return Polynomial flow map at @p tmax.
-     */
-    template < typename F >
-    [[nodiscard]] FlowMapT
-    integrate( F&& f, const Box< double, D >& box, double t0, double tmax ) const
+    /// @brief Integrate the DA state derived from @p box from @p t0 to @p tmax.
+    [[nodiscard]] FlowMapT integrate( const Box< double, D >& box, double t0, double tmax ) const
     {
         auto x0 = makeDaState< P, D >( box );
-        return FlowMapT{ detail::propagateDa< N, P, D >( std::forward< F >( f ), std::move( x0 ),
-                                                        t0, tmax, cfg_.abstol, cfg_.max_steps ) };
+        return FlowMapT{ detail::propagateDa< N, P, D >( f_, std::move( x0 ), t0, tmax,
+                                                        cfg_.abstol, cfg_.max_steps ) };
     }
 
 private:
+    Rhs    f_;
     Config cfg_;
 };
 
