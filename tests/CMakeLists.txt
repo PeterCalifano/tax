@@ -22,6 +22,7 @@ endif()
 # Collect all tests
 set(TEST_SOURCES
     foundation/testCombinatorics.cpp
+    foundation/testCombinatoricsDynamic.cpp
     foundation/testEnumeration.cpp
     kernels/testKernels.cpp
     core/testTTE.cpp

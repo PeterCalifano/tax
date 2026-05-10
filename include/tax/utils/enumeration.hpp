@@ -1,5 +1,8 @@
 #pragma once
 
+#include <algorithm>
+#include <vector>
+
 #include <tax/utils/combinatorics.hpp>
 
 namespace tax::detail
@@ -30,6 +33,32 @@ constexpr void forEachMonomial( int degree, Func&& func )
 }
 
 /**
+ * @brief Runtime-M overload of `forEachMonomial`.
+ * @details `func(std::span<const int> alpha, std::size_t ai)` is called for each
+ *          monomial of total degree `degree` in `M` variables.
+ */
+template < typename Func >
+inline void forEachMonomial( int M, int degree, Func&& func )
+{
+    std::vector< int > alpha( std::size_t( M ), 0 );
+    auto fill = [&]( auto& self, int var, int rem ) -> void {
+        if ( var == M - 1 )
+        {
+            alpha[std::size_t( var )] = rem;
+            func( std::span< const int >( alpha.data(), std::size_t( M ) ),
+                  flatIndex( std::span< const int >( alpha.data(), std::size_t( M ) ) ) );
+            return;
+        }
+        for ( int k = rem; k >= 0; --k )
+        {
+            alpha[std::size_t( var )] = k;
+            self( self, var + 1, rem - k );
+        }
+    };
+    fill( fill, 0, degree );
+}
+
+/**
  * @brief Enumerate all (beta, gamma) sub-index pairs with beta + gamma = alpha.
  * @details No degree constraint. Calls `func(bi, gi)`.
  */
@@ -48,6 +77,33 @@ constexpr void forEachSubIndex( const tax::MultiIndex< M >& alpha, Func&& func )
         for ( int b = 0; b <= alpha[var]; ++b )
         {
             beta[var] = b;
+            self( self, var + 1 );
+        }
+    };
+    fill( fill, 0 );
+}
+
+/**
+ * @brief Runtime-M overload of `forEachSubIndex` taking a span of exponents.
+ * @details Calls `func(bi, gi)` for every pair of sub-indices summing to `alpha`.
+ */
+template < typename Func >
+inline void forEachSubIndex( std::span< const int > alpha, Func&& func )
+{
+    const int M = int( alpha.size() );
+    std::vector< int > beta( std::size_t( M ), 0 );
+    std::vector< int > gamma( std::size_t( M ), 0 );
+    auto fill = [&]( auto& self, int var ) -> void {
+        if ( var == M )
+        {
+            for ( int i = 0; i < M; ++i ) gamma[std::size_t( i )] = alpha[i] - beta[std::size_t( i )];
+            func( flatIndex( std::span< const int >( beta.data(), std::size_t( M ) ) ),
+                  flatIndex( std::span< const int >( gamma.data(), std::size_t( M ) ) ) );
+            return;
+        }
+        for ( int b = 0; b <= alpha[var]; ++b )
+        {
+            beta[std::size_t( var )] = b;
             self( self, var + 1 );
         }
     };

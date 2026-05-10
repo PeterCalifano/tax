@@ -1,5 +1,7 @@
 #pragma once
 
+#include <span>
+
 #include <tax/utils/fwd.hpp>
 
 namespace tax::detail
@@ -26,12 +28,26 @@ constexpr std::size_t binom( int n, int k ) noexcept
 /// @brief Number of monomials with total degree `<= N` in `M` variables.
 constexpr std::size_t numMonomials( int N, int M ) noexcept { return binom( N + M, M ); }
 
+/// @brief Runtime overload of `numMonomials` for use on the dynamic-shape path.
+constexpr std::size_t numMonomials( std::size_t N, std::size_t M ) noexcept
+{
+    return binom( int( N + M ), int( M ) );
+}
+
 template < int M >
 /// @brief Total degree `|a| = sum_i a[i]` of a multi-index.
 constexpr int totalDegree( const tax::MultiIndex< M >& a ) noexcept
 {
     int d = 0;
     for ( int i = 0; i < M; ++i ) d += a[i];
+    return d;
+}
+
+/// @brief Runtime-M overload of `totalDegree` taking a span view of the exponents.
+constexpr int totalDegree( std::span< const int > a ) noexcept
+{
+    int d = 0;
+    for ( int v : a ) d += v;
     return d;
 }
 
@@ -44,6 +60,22 @@ constexpr std::size_t flatIndex( const tax::MultiIndex< M >& alpha ) noexcept
 {
     static_assert( M >= 1 );
     const int d = totalDegree< M >( alpha );
+    std::size_t idx = binom( d + M - 1, M );
+    int rem = d;
+    for ( int i = 0; i < M - 1; ++i )
+    {
+        idx += binom( rem - alpha[i] + ( M - 2 - i ), M - 1 - i );
+        rem -= alpha[i];
+    }
+    return idx;
+}
+
+/// @brief Runtime-M overload of `flatIndex` taking a span view of the exponents.
+/// @details Same graded-lex layout as the templated version; M is `alpha.size()`.
+constexpr std::size_t flatIndex( std::span< const int > alpha ) noexcept
+{
+    const int M = int( alpha.size() );
+    const int d = totalDegree( alpha );
     std::size_t idx = binom( d + M - 1, M );
     int rem = d;
     for ( int i = 0; i < M - 1; ++i )
@@ -87,6 +119,35 @@ constexpr tax::MultiIndex< M > unflatIndex( std::size_t k ) noexcept
     }
     alpha[M - 1] = rem;
     return alpha;
+}
+
+/// @brief Runtime-M overload of `unflatIndex` writing into a span (caller owns storage).
+/// @details Same graded-lex layout; M is `out.size()`. `out` is overwritten entirely.
+constexpr void unflatIndex( std::size_t k, std::span< int > out ) noexcept
+{
+    const int M = int( out.size() );
+
+    int d = 0;
+    while ( binom( d + M, M ) <= k ) ++d;
+
+    std::size_t rank = k - binom( d + M - 1, M );
+    int rem = d;
+    for ( int i = 0; i < M - 1; ++i )
+    {
+        const int vars_left = M - i;
+        for ( int ai = rem; ai >= 0; --ai )
+        {
+            const std::size_t block = binom( rem - ai + vars_left - 2, vars_left - 2 );
+            if ( rank < block )
+            {
+                out[i] = ai;
+                rem -= ai;
+                break;
+            }
+            rank -= block;
+        }
+    }
+    out[M - 1] = rem;
 }
 
 }  // namespace tax::detail
