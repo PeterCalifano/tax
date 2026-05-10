@@ -26,6 +26,10 @@
 //
 // Output:
 //   twoBody_ads_comparison.csv  — per-sample errors of both methods
+//   twoBody_te_leaves.csv       — IC-space bounds of the AdsIntegrator leaves
+//   twoBody_lo_leaves.csv       — IC-space bounds of the LowOrderAdsIntegrator leaves
+//
+// Companion plotting script: plotTwoBodyAdsComparison.py
 // =============================================================================
 
 #include <algorithm>
@@ -148,6 +152,27 @@ int main()
     auto lo_tree = lo_ig.integrate( box, 0.0, tmax );
 
     // -------------------------------------------------------------------------
+    // Dump the IC-space partition produced by each method along the two
+    // *active* axes: x(0) (dim 0) and v_y(0) (dim 3).  The other two axes are
+    // degenerate (halfWidth = 0) and need not be plotted.
+    // -------------------------------------------------------------------------
+    auto dumpLeaves = [&]( const auto& tree, const char* path ) {
+        std::ofstream out( path );
+        out << "x_lo,x_hi,vy_lo,vy_hi\n";
+        for ( int li : tree.doneLeaves() )
+        {
+            const auto& b = tree.node( li ).leaf().box;
+            const double xlo = b.center[0] - b.halfWidth[0];
+            const double xhi = b.center[0] + b.halfWidth[0];
+            const double vlo = b.center[3] - b.halfWidth[3];
+            const double vhi = b.center[3] + b.halfWidth[3];
+            out << xlo << ',' << xhi << ',' << vlo << ',' << vhi << '\n';
+        }
+    };
+    dumpLeaves( te_tree, "twoBody_te_leaves.csv" );
+    dumpLeaves( lo_tree, "twoBody_lo_leaves.csv" );
+
+    // -------------------------------------------------------------------------
     // 3) Reference: scalar integrator at tight tolerance for every sample.
     //   1e-12 is comfortably below the 1e-3 comparison tolerance, so the
     //   reference dominates the error budget while staying tractable on a
@@ -159,7 +184,7 @@ int main()
     // -------------------------------------------------------------------------
     // Sample δ ∈ [-1, 1]^2 along the active IC dimensions (x and v_y).
     // -------------------------------------------------------------------------
-    constexpr int n_grid = 7;
+    constexpr int n_grid = 11;
     std::ofstream csv( "twoBody_ads_comparison.csv" );
     csv << "delta_x,delta_vy,err_te,err_lo\n";
 
