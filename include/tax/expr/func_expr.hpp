@@ -12,11 +12,11 @@ namespace tax::detail
  * otherwise the operand is materialized once into a temporary buffer.
  */
 template < typename E, typename Op >
-class FuncExpr : public tax::Expr< FuncExpr< E, Op >, typename E::scalar_type, E::order, E::nvars >
+class FuncExpr : public tax::Expr< FuncExpr< E, Op >, typename E::scalar_type, E::order_ct, E::vars_ct >
 {
    public:
     using T = typename E::scalar_type;
-    static constexpr int N = E::order, M = E::nvars;
+    static constexpr int N = E::order_ct, M = E::vars_ct;
     using coeff_array = std::array< T, numMonomials( N, M ) >;
 
     /// @brief Construct from operand.
@@ -46,11 +46,11 @@ class FuncExpr : public tax::Expr< FuncExpr< E, Op >, typename E::scalar_type, E
  */
 template < typename E, typename Op, typename P >
 class ParamFuncExpr
-    : public tax::Expr< ParamFuncExpr< E, Op, P >, typename E::scalar_type, E::order, E::nvars >
+    : public tax::Expr< ParamFuncExpr< E, Op, P >, typename E::scalar_type, E::order_ct, E::vars_ct >
 {
    public:
     using T = typename E::scalar_type;
-    static constexpr int N = E::order, M = E::nvars;
+    static constexpr int N = E::order_ct, M = E::vars_ct;
     using coeff_array = std::array< T, numMonomials( N, M ) >;
 
     /// @brief Construct from operand and parameter.
@@ -81,14 +81,14 @@ class ParamFuncExpr
  */
 template < typename L, typename R, typename Op >
 class BinFuncExpr
-    : public tax::Expr< BinFuncExpr< L, R, Op >, typename L::scalar_type, L::order, L::nvars >
+    : public tax::Expr< BinFuncExpr< L, R, Op >, typename L::scalar_type, L::order_ct, L::vars_ct >
 {
-    static_assert( L::order == R::order && L::nvars == R::nvars &&
+    static_assert( L::order_ct == R::order_ct && L::vars_ct == R::vars_ct &&
                    std::is_same_v< typename L::scalar_type, typename R::scalar_type > );
 
    public:
     using T = typename L::scalar_type;
-    static constexpr int N = L::order, M = L::nvars;
+    static constexpr int N = L::order_ct, M = L::vars_ct;
     using coeff_array = std::array< T, numMonomials( N, M ) >;
 
     /// @brief Construct from left/right operands.
@@ -129,16 +129,16 @@ class BinFuncExpr
  */
 template < typename A, typename B, typename C, typename Op >
 class TerFuncExpr
-    : public tax::Expr< TerFuncExpr< A, B, C, Op >, typename A::scalar_type, A::order, A::nvars >
+    : public tax::Expr< TerFuncExpr< A, B, C, Op >, typename A::scalar_type, A::order_ct, A::vars_ct >
 {
-    static_assert( A::order == B::order && B::order == C::order && A::nvars == B::nvars &&
-                   B::nvars == C::nvars &&
+    static_assert( A::order_ct == B::order_ct && B::order_ct == C::order_ct && A::vars_ct == B::vars_ct &&
+                   B::vars_ct == C::vars_ct &&
                    std::is_same_v< typename A::scalar_type, typename B::scalar_type > &&
                    std::is_same_v< typename B::scalar_type, typename C::scalar_type > );
 
    public:
     using T = typename A::scalar_type;
-    static constexpr int N = A::order, M = A::nvars;
+    static constexpr int N = A::order_ct, M = A::vars_ct;
     using coeff_array = std::array< T, numMonomials( N, M ) >;
 
     /// @brief Construct from three operands.

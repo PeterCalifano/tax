@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <tax/expr/base.hpp>
 #include <tax/kernels.hpp>
+#include <tax/storage/shape.hpp>
 #include <tax/utils/enumeration.hpp>
 #include <tax/utils/streaming.hpp>
 #include <type_traits>
@@ -23,12 +24,18 @@ namespace tax
  * @details Coefficients are stored in graded-lex order as defined by `flatIndex`.
  */
 template < typename T, int N, int M = 1 >
-class TaylorExpansionT : public Expr< TaylorExpansionT< T, N, M >, T, N, M >,
-                                  public ExprLeaf
+class TaylorExpansionT : public detail::ShapeBase< N, M >,
+                         public Expr< TaylorExpansionT< T, N, M >, T, N, M >,
+                         public ExprLeaf
 {
    public:
     static_assert( N >= 0, "DA order must be non-negative" );
     static_assert( M >= 1, "Number of variables must be at least 1" );
+
+    using ShapeBaseT = detail::ShapeBase< N, M >;
+    using ShapeBaseT::coeffsSize;
+    using ShapeBaseT::nvars;
+    using ShapeBaseT::order;
 
     /// @brief Number of stored coefficients.
     static constexpr std::size_t nCoefficients = detail::numMonomials( N, M );

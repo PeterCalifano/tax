@@ -78,7 +78,7 @@ template < typename L, typename R >
     requires CompatibleTTE< L, R >
 [[nodiscard]] constexpr auto operator/( const ExprBase< L >& l, const ExprBase< R >& r ) noexcept
 {
-    return detail::BinExpr< L, R, detail::OpDiv< L::order, L::nvars > >{ l.self(), r.self() };
+    return detail::BinExpr< L, R, detail::OpDiv< L::order_ct, L::vars_ct > >{ l.self(), r.self() };
 }
 
 // -- Unary negation ----------------------------------------------------------
@@ -138,7 +138,7 @@ template < typename E >
 template < typename E >
 [[nodiscard]] constexpr auto operator/( typename E::scalar_type s, const ExprBase< E >& e ) noexcept
 {
-    using Recip = detail::FuncExpr< E, detail::OpReciprocal< E::order, E::nvars > >;
+    using Recip = detail::FuncExpr< E, detail::OpReciprocal< E::order_ct, E::vars_ct > >;
     return detail::ScalarExpr< Recip, detail::OpScalarMul >{ Recip{ e.self() }, s };
 }
 

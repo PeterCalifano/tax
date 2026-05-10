@@ -14,7 +14,7 @@ template < typename E >
 [[nodiscard]] constexpr auto sincos( const ExprBase< E >& e ) noexcept
 {
     using T = typename E::scalar_type;
-    constexpr int N = E::order, M = E::nvars;
+    constexpr int N = E::order_ct, M = E::vars_ct;
     using TTEType = TaylorExpansionT< T, N, M >;
     using coeff_array = std::array< T, detail::numMonomials( N, M ) >;
 
@@ -35,7 +35,7 @@ template < typename E >
 [[nodiscard]] constexpr auto sinhcosh( const ExprBase< E >& e ) noexcept
 {
     using T = typename E::scalar_type;
-    constexpr int N = E::order, M = E::nvars;
+    constexpr int N = E::order_ct, M = E::vars_ct;
     using TTEType = TaylorExpansionT< T, N, M >;
     using coeff_array = std::array< T, detail::numMonomials( N, M ) >;
 

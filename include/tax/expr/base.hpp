@@ -23,8 +23,10 @@ template < typename Derived, typename T, int N, int M >
 struct Expr
 {
     using scalar_type = T;
-    static constexpr int order = N;
-    static constexpr int nvars = M;
+    /// @brief Compile-time order template argument (may be `tax::Dynamic`).
+    static constexpr int order_ct = N;
+    /// @brief Compile-time nvars template argument (may be `tax::Dynamic`).
+    static constexpr int vars_ct = M;
     static constexpr std::size_t nCoefficients = detail::numMonomials( N, M );
     using Data = std::array< T, nCoefficients >;
 

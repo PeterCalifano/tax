@@ -13,8 +13,8 @@ template < typename... Es >
 class SumExpr
     : public tax::Expr< SumExpr< Es... >,
                         typename std::tuple_element_t< 0, std::tuple< Es... > >::scalar_type,
-                        std::tuple_element_t< 0, std::tuple< Es... > >::order,
-                        std::tuple_element_t< 0, std::tuple< Es... > >::nvars >
+                        std::tuple_element_t< 0, std::tuple< Es... > >::order_ct,
+                        std::tuple_element_t< 0, std::tuple< Es... > >::vars_ct >
 {
     static_assert( sizeof...( Es ) >= 2, "SumExpr needs at least 2 operands" );
     template < typename... >
@@ -22,8 +22,8 @@ class SumExpr
 
    public:
     using T = typename std::tuple_element_t< 0, std::tuple< Es... > >::scalar_type;
-    static constexpr int N = std::tuple_element_t< 0, std::tuple< Es... > >::order;
-    static constexpr int M = std::tuple_element_t< 0, std::tuple< Es... > >::nvars;
+    static constexpr int N = std::tuple_element_t< 0, std::tuple< Es... > >::order_ct;
+    static constexpr int M = std::tuple_element_t< 0, std::tuple< Es... > >::vars_ct;
     using coeff_array = std::array< T, numMonomials( N, M ) >;
 
     /// @brief Construct from operand pack.

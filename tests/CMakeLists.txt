@@ -24,6 +24,7 @@ set(TEST_SOURCES
     foundation/testCombinatorics.cpp
     foundation/testCombinatoricsDynamic.cpp
     foundation/testEnumeration.cpp
+    foundation/testShapeBaseEbo.cpp
     kernels/testKernels.cpp
     core/testTTE.cpp
     core/testNested.cpp

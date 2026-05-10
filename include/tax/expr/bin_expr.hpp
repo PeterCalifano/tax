@@ -11,14 +11,14 @@ namespace tax::detail
  * @details Stores leaf operands by reference and composite operands by value.
  */
 template < typename L, typename R, typename Op >
-class BinExpr : public tax::Expr< BinExpr< L, R, Op >, typename L::scalar_type, L::order, L::nvars >
+class BinExpr : public tax::Expr< BinExpr< L, R, Op >, typename L::scalar_type, L::order_ct, L::vars_ct >
 {
-    static_assert( L::order == R::order && L::nvars == R::nvars &&
+    static_assert( L::order_ct == R::order_ct && L::vars_ct == R::vars_ct &&
                    std::is_same_v< typename L::scalar_type, typename R::scalar_type > );
 
    public:
     using T = typename L::scalar_type;
-    static constexpr int N = L::order, M = L::nvars;
+    static constexpr int N = L::order_ct, M = L::vars_ct;
     using coeff_array = std::array< T, numMonomials( N, M ) >;
 
     /// @brief Construct from left/right operands.
