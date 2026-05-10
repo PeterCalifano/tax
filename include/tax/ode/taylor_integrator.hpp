@@ -10,4 +10,5 @@
 #include <tax/ode/solution.hpp>
 #include <tax/ode/events.hpp>
 #include <tax/ode/integrate.hpp>
+#include <tax/ode/integrate_da.hpp>
 #include <tax/ode/integrate_ads.hpp>
