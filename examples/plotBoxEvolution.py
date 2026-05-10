@@ -58,7 +58,7 @@ def main() -> None:
     # One snapshot time per snapshot index.
     snap_t = {s: float(ads_box["t"][ads_box["snapshot"] == s][0]) for s in snapshots}
 
-    fig, (ax_ads, ax_flow) = plt.subplots(1, 2, figsize=(13.5, 6.5),
+    fig, (ax_ads, ax_flow) = plt.subplots(1, 2, figsize=(15.0, 7.5),
                                            constrained_layout=True)
 
     # ---------- Common axis range ----------
@@ -71,7 +71,8 @@ def main() -> None:
 
     # Snapshot color map (time → colour).
     snap_cmap = plt.get_cmap("plasma")
-    snap_colors = [snap_cmap(0.15 + 0.7 * i / max(n_snap - 1, 1)) for i in range(n_snap)]
+    snap_colors = [snap_cmap(0.05 + 0.85 * i / max(n_snap - 1, 1)) for i in range(n_snap)]
+    snap_t_arr = np.array([snap_t[s] for s in snapshots])
 
     # ---------- Left: ADS ----------
     ax_ads.plot(ref["x"], ref["y"], "k-", lw=1.0, alpha=0.5, label="reference orbit")
@@ -102,7 +103,8 @@ def main() -> None:
     ax_ads.set_title("ADS: piecewise polynomial flow\n"
                      "(IC box partitioned, each leaf shown as a filled patch)")
     ax_ads.grid(True, alpha=0.25)
-    ax_ads.legend(loc="upper right", fontsize=8, framealpha=0.95)
+    if n_snap <= 6:
+        ax_ads.legend(loc="upper right", fontsize=8, framealpha=0.95)
 
     # ---------- Right: single flow ----------
     ax_flow.plot(ref["x"], ref["y"], "k-", lw=1.0, alpha=0.5, label="reference orbit")
@@ -128,7 +130,20 @@ def main() -> None:
     ax_flow.set_title("Single multivariate-Taylor flow polynomial\n"
                       "(one polygon per time; shape is the polynomial image of the IC box)")
     ax_flow.grid(True, alpha=0.25)
-    ax_flow.legend(loc="upper right", fontsize=8, framealpha=0.95)
+    if n_snap <= 6:
+        ax_flow.legend(loc="upper right", fontsize=8, framealpha=0.95)
+
+    # Colorbar showing snapshot time when too many to legend.
+    if n_snap > 6:
+        from matplotlib.cm import ScalarMappable
+        from matplotlib.colors import Normalize
+        norm = Normalize(vmin=float(snap_t_arr.min()), vmax=float(snap_t_arr.max()))
+        sm = ScalarMappable(norm=norm, cmap=snap_cmap)
+        sm.set_array([])
+        cb = fig.colorbar(sm, ax=[ax_ads, ax_flow], orientation="horizontal",
+                          fraction=0.06, pad=0.08, shrink=0.6, aspect=40)
+        cb.set_label("snapshot time t  (rad,  full period = 2π ≈ 6.283)",
+                     fontsize=9)
 
     # ---------- Inset: IC-space splits at latest snapshot ----------
     last_snap = snapshots[-1]

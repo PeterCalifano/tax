@@ -76,8 +76,8 @@ int main()
     constexpr double e    = 0.5;
     const double     rp   = a * ( 1.0 - e );
     const double     vp   = std::sqrt( ( 1.0 + e ) / ( 1.0 - e ) );
-    const double     tmax_orbit = std::numbers::pi;       // periapsis → apoapsis
-    const double     tmax       = 0.5 * std::numbers::pi; // DA work uses quarter orbit
+    const double     tmax_orbit = 2.0 * std::numbers::pi; // full period
+    const double     tmax       = 0.5 * std::numbers::pi; // 1-D analysis (faster)
 
     Eigen::Vector< double, kD > x0;
     x0 << rp, 0.0, 0.0, vp;
@@ -234,12 +234,16 @@ int main()
     // gives a deformed quadrilateral in the (x, y) plane: the original IC box
     // pushed forward to the snapshot time, partitioned into ADS leaves.
     // -------------------------------------------------------------------------
-    Box< double, kD > box2D{ { rp, 0.0, 0.0, vp }, { 0.0, 0.04, 0.0, 0.06 } };
+    Box< double, kD > box2D{ { rp, 0.0, 0.0, vp }, { 0.0, 0.020, 0.0, 0.030 } };
 
-    const std::vector< double > snapshots = { 0.125 * std::numbers::pi,
-                                              0.250 * std::numbers::pi,
-                                              0.375 * std::numbers::pi,
-                                              0.500 * std::numbers::pi };
+    // Ten snapshots equally spaced along one full orbital period.  Equal time
+    // spacing (not equal anomaly) puts more snapshots near apoapsis where the
+    // orbit is slow.  Each snapshot triggers a fresh propagateBox + integrateAds
+    // run from t=0; the late ones (near apoapsis return) dominate the runtime.
+    constexpr int         n_snapshots = 10;
+    std::vector< double > snapshots( n_snapshots );
+    for ( int k = 0; k < n_snapshots; ++k )
+        snapshots[k] = ( double( k + 1 ) / double( n_snapshots ) ) * tmax_orbit;
 
     constexpr int n_per_edge = 24;  ///< boundary samples per side of the unit square
 
@@ -277,7 +281,7 @@ int main()
     {
         const double t_snap = snapshots[s];
 
-        auto tree2 = ode::integrateAds< kN, kP >( kepler, box2D, 0.0, t_snap, 1e-13, 1e-4, 5 );
+        auto tree2 = ode::integrateAds< kN, kP >( kepler, box2D, 0.0, t_snap, 1e-13, 1e-3, 4 );
         auto flow2 = ode::propagateBox< kN, kP, kD >( kepler, box2D, 0.0, t_snap, 1e-14 );
 
         std::cout << "Snapshot t = " << t_snap << ":  ADS leaves = " << tree2.numDone() << '\n';
