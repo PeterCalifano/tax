@@ -59,6 +59,8 @@ set(TEST_SOURCES
     ode/testLowOrderAdsIntegrator.cpp
     ode/testEvents.cpp
     ode/testParameterIntegrators.cpp
+    dynamic/testDynTteConstruct.cpp
+    dynamic/testDynTteArithmetic.cpp
 )
 
 include(GoogleTest)
