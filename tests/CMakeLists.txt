@@ -50,6 +50,7 @@ set(TEST_SOURCES
     ads/testAdsGaussian.cpp
     ode/testTaylorIntegrator.cpp
     ode/testIntegrateAds.cpp
+    ode/testEvents.cpp
 )
 
 include(GoogleTest)

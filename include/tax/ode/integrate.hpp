@@ -1,9 +1,11 @@
 #pragma once
 
 #include <cmath>
+#include <cstddef>
 #include <utility>
 #include <vector>
 
+#include <tax/ode/events.hpp>
 #include <tax/ode/solution.hpp>
 #include <tax/ode/step.hpp>
 
@@ -204,6 +206,120 @@ template < int N, typename F, typename T, int D >
         xc = eval( p, dt );
         tc = tc_new;
         ++nsteps;
+    }
+
+    return sol;
+}
+
+// =============================================================================
+// Scalar ODE – adaptive stepping with events
+// =============================================================================
+
+/**
+ * @brief Integrate scalar ODE dx/dt = f(x, t) with event detection.
+ *
+ * @details At each step the event polynomials are obtained by composing
+ *   each `Event::g` with the step's Taylor polynomial; strict sign
+ *   changes within the step are located by bisection.  Non-terminal
+ *   events are appended to `solution.events` and integration continues;
+ *   the earliest terminal event truncates the step and stops integration.
+ *
+ * @param events Per-event direction filter and terminal flag.  Pass an
+ *               empty vector for behaviour identical to the no-events
+ *               overload.
+ */
+template < int N, typename F, typename T = double >
+[[nodiscard]] TaylorSolution< N, T, T > integrate(
+    F&& f, T x0, T t0, T tmax, T abstol, const std::vector< Event< N, T, T > >& events,
+    int maxsteps = 500 )
+{
+    TaylorSolution< N, T, T > sol;
+    sol.t.reserve( std::size_t( maxsteps + 1 ) );
+    sol.x.reserve( std::size_t( maxsteps + 1 ) );
+    sol.p.reserve( std::size_t( maxsteps + 1 ) );
+    sol.t.push_back( t0 );
+    sol.x.push_back( x0 );
+
+    const T sign = tmax >= t0 ? T{ 1 } : T{ -1 };
+    T tc = t0;
+    T xc = x0;
+
+    for ( int s = 0; s < maxsteps; ++s )
+    {
+        if ( sign * ( tmax - tc ) <= T{} ) break;
+
+        auto [p, h] = step< N >( f, xc, tc, abstol );
+        if ( h <= T{} ) break;
+
+        const T dt_full = sign * std::min( h, std::abs( tmax - tc ) );
+        const std::size_t step_idx = sol.p.size();
+
+        const auto er =
+            detail::processStepEvents< N, T, T >( events, p, tc, dt_full, sol.events, step_idx );
+        const T dt = er.effective_dt;
+
+        xc = p.eval( dt );
+        sol.p.push_back( std::move( p ) );
+        tc += dt;
+
+        sol.t.push_back( tc );
+        sol.x.push_back( xc );
+
+        if ( er.terminate ) break;
+    }
+
+    return sol;
+}
+
+// =============================================================================
+// Vector ODE – adaptive stepping with events
+// =============================================================================
+
+/**
+ * @brief Integrate vector ODE f(dx, x, t) with event detection.
+ *
+ * @copydetails integrate(F&&,T,T,T,T,const std::vector<Event<N,T,T>>&,int)
+ */
+template < int N, typename F, typename T, int D >
+[[nodiscard]] TaylorSolution< N, Eigen::Matrix< T, D, 1 >, T > integrate(
+    F&& f, const Eigen::Matrix< T, D, 1 >& x0, T t0, T tmax, T abstol,
+    const std::vector< Event< N, Eigen::Matrix< T, D, 1 >, T > >& events, int maxsteps = 500 )
+{
+    using Vec = Eigen::Matrix< T, D, 1 >;
+
+    TaylorSolution< N, Vec, T > sol;
+    sol.t.reserve( std::size_t( maxsteps + 1 ) );
+    sol.x.reserve( std::size_t( maxsteps + 1 ) );
+    sol.p.reserve( std::size_t( maxsteps + 1 ) );
+    sol.t.push_back( t0 );
+    sol.x.push_back( x0 );
+
+    const T sign = tmax >= t0 ? T{ 1 } : T{ -1 };
+    T tc = t0;
+    Vec xc = x0;
+
+    for ( int s = 0; s < maxsteps; ++s )
+    {
+        if ( sign * ( tmax - tc ) <= T{} ) break;
+
+        auto [p, h] = step< N >( f, xc, tc, abstol );
+        if ( h <= T{} ) break;
+
+        const T dt_full = sign * std::min( h, std::abs( tmax - tc ) );
+        const std::size_t step_idx = sol.p.size();
+
+        const auto er =
+            detail::processStepEvents< N, Vec, T >( events, p, tc, dt_full, sol.events, step_idx );
+        const T dt = er.effective_dt;
+
+        xc = eval( p, dt );
+        sol.p.push_back( std::move( p ) );
+        tc += dt;
+
+        sol.t.push_back( tc );
+        sol.x.push_back( xc );
+
+        if ( er.terminate ) break;
     }
 
     return sol;
