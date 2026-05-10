@@ -61,7 +61,7 @@ TEST( DaIntegrator, PropagateLinearHarmonicOscillator )
 
     const double          tmax = std::numbers::pi / 2.0;
     ode::DaIntegrator< N, P, D > ig{ ode::IntegratorConfig< double >{ .abstol = 1e-16 } };
-    auto fm = ig.propagate( f, box, 0.0, tmax );
+    auto fm = ig.integrate( f, box, 0.0, tmax );
 
     EXPECT_NEAR( fm.state( 0 ).value(), 0.0, 1e-10 );
     EXPECT_NEAR( fm.state( 1 ).value(), -1.0, 1e-10 );
@@ -96,7 +96,7 @@ TEST( DaIntegrator, PropagatePointEvaluation )
 
     const double          tmax = 1.0;
     ode::DaIntegrator< N, P, D > ig{ ode::IntegratorConfig< double >{ .abstol = 1e-16 } };
-    auto fm = ig.propagate( f, box, 0.0, tmax );
+    auto fm = ig.integrate( f, box, 0.0, tmax );
 
     DA::Input delta{ 0.5, -0.3 };
     double    x0_pt = 1.0 + 0.1 * 0.5;
@@ -127,7 +127,7 @@ TEST( AdsIntegrator, NoSplitLinearSystem )
     };
 
     ode::AdsIntegrator< N, P, D > ig{ ode::AdsConfig{ .step_tol = 1e-16, .ads_tol = 1e-6 } };
-    auto                          tree = ig.propagate( f, box, 0.0, 1.0 );
+    auto                          tree = ig.integrate( f, box, 0.0, 1.0 );
 
     EXPECT_EQ( tree.numDone(), 1 );
     EXPECT_TRUE( tree.empty() );
@@ -162,7 +162,7 @@ TEST( AdsIntegrator, SplitsNonlinearODE )
         EXPECT_GE( ev.truncation_error, 1e-4 );
     };
 
-    auto tree = ig.propagate( f, box, 0.0, 3.0 );
+    auto tree = ig.integrate( f, box, 0.0, 3.0 );
 
     EXPECT_GT( tree.numDone(), 1 );
     EXPECT_TRUE( tree.empty() );
@@ -189,7 +189,7 @@ TEST( AdsIntegrator, PointAccuracyAcrossSubdomains )
     const double                       tmax = 2.0;
     ode::AdsIntegrator< N, P, D > ads_ig{ ode::AdsConfig{
         .step_tol = 1e-12, .ads_tol = 1e-4, .max_depth = 8 } };
-    auto tree = ads_ig.propagate( f, box, 0.0, tmax );
+    auto tree = ads_ig.integrate( f, box, 0.0, tmax );
 
     ode::Integrator< N > scalar_ig{ ode::IntegratorConfig< double >{ .abstol = 1e-16 } };
 
@@ -252,7 +252,7 @@ TEST( AdsIntegrator, KeplerOrbitSplits )
     const double                  tmax = std::numbers::pi;
     ode::AdsIntegrator< N, P, D > ads_ig{ ode::AdsConfig{
         .step_tol = 1e-14, .ads_tol = 1e-3, .max_depth = 4 } };
-    auto                          tree = ads_ig.propagate( f, box, 0.0, tmax );
+    auto                          tree = ads_ig.integrate( f, box, 0.0, tmax );
 
     EXPECT_TRUE( tree.empty() );
     EXPECT_GE( tree.numDone(), 1 );

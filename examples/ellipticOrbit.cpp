@@ -103,7 +103,7 @@ int main()
     // -------------------------------------------------------------------------
     ode::DaIntegrator< kN, kP, kD > da_ig{
         ode::IntegratorConfig< double >{ .abstol = 1e-14 } };
-    auto flow = da_ig.propagate( kepler, box, 0.0, tmax );
+    auto flow = da_ig.integrate( kepler, box, 0.0, tmax );
     std::cout << "Flow expansion:       single polynomial, order P = " << kP << '\n';
 
     // -------------------------------------------------------------------------
@@ -121,7 +121,7 @@ int main()
                       << ", err = " << ev.truncation_error << '\n';
     };
 
-    auto tree = ads_ig.propagate( kepler, box, 0.0, tmax );
+    auto tree = ads_ig.integrate( kepler, box, 0.0, tmax );
     std::cout << "ADS:                  " << tree.numDone()
               << " leaves (tol = " << ads_ig.config().ads_tol << ", "
               << splits_logged << " splits observed)\n";
@@ -277,8 +277,8 @@ int main()
     {
         const double t_snap = snapshots[s];
 
-        auto tree2 = snap_ads.propagate( kepler, box2D, 0.0, t_snap );
-        auto flow2 = snap_da.propagate( kepler, box2D, 0.0, t_snap );
+        auto tree2 = snap_ads.integrate( kepler, box2D, 0.0, t_snap );
+        auto flow2 = snap_da.integrate( kepler, box2D, 0.0, t_snap );
 
         std::cout << "Snapshot t = " << t_snap << ":  ADS leaves = " << tree2.numDone() << '\n';
 

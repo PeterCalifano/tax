@@ -251,12 +251,12 @@ public:
     [[nodiscard]] const Config& config() const noexcept { return cfg_; }
 
     /**
-     * @brief Propagate the DA state derived from @p box from @p t0 to @p tmax.
+     * @brief Integrate the DA state derived from @p box from @p t0 to @p tmax.
      * @return Polynomial flow map at @p tmax.
      */
     template < typename F >
     [[nodiscard]] FlowMapT
-    propagate( F&& f, const Box< double, D >& box, double t0, double tmax ) const
+    integrate( F&& f, const Box< double, D >& box, double t0, double tmax ) const
     {
         auto x0 = makeDaState< P, D >( box );
         return FlowMapT{ detail::propagateDa< N, P, D >( std::forward< F >( f ), std::move( x0 ),

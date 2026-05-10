@@ -171,12 +171,12 @@ public:
     OnSplitFn on_split{};
 
     /**
-     * @brief Propagate the IC domain @p x0_box from @p t0 to @p tmax with
+     * @brief Integrate the IC domain @p x0_box from @p t0 to @p tmax with
      *        adaptive domain splitting.
      */
     template < typename F >
     [[nodiscard]] TreeT
-    propagate( F&& f, const Box< double, D >& x0_box, double t0, double tmax ) const
+    integrate( F&& f, const Box< double, D >& x0_box, double t0, double tmax ) const
     {
         TreeT tree;
 
