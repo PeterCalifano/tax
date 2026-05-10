@@ -7,6 +7,7 @@ project(tax VERSION 0.1.0 LANGUAGES CXX)
 # -------------------------------
 option(TAX_BUILD_TEST "Build and enable unittests" ON)
 option(TAX_BUILD_BENCHMARK "Build benchmark suite (Google Benchmark)" OFF)
+option(TAX_BUILD_EXAMPLES "Build the examples/ programs" OFF)
 option(TAX_USE_DACE "Enable DACE integration (fetches dacelib/dace@v2.1.0) for tests and benchmarks" OFF)
 
 # -------------------------------
@@ -104,7 +105,9 @@ if(TAX_BUILD_BENCHMARK)
     add_subdirectory(benchmarks)
 endif()
 
-# add_subdirectory(examples)
+if(TAX_BUILD_EXAMPLES)
+    add_subdirectory(examples)
+endif()
 
 # -------------------------------
 # Installation
