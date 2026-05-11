@@ -8,15 +8,11 @@
 namespace tax_py
 {
 
-void bind_la( nb::module_& m, nb::class_< TeVec >& vec_cls,
-              nb::class_< TeMat >& mat_cls )
+// The `la` submodule is created by `tax_module.cpp` and the Vec / Mat
+// classes are registered there directly — this file just adds the free
+// linear-algebra functions on top.
+void bind_la( nb::module_& la_mod )
 {
-    nb::module_ la_mod = m.def_submodule(
-        "la", "Linear-algebra helpers for TaylorExpansion vectors / matrices." );
-
-    la_mod.attr( "Vec" ) = vec_cls;
-    la_mod.attr( "Mat" ) = mat_cls;
-
     la_mod.def(
         "norm",
         []( const TeVec& v ) {

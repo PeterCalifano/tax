@@ -9,10 +9,8 @@
 namespace tax_py
 {
 
-void bind_mat( nb::module_& m, nb::class_< TeVec >& vec_cls,
-               nb::class_< TeMat >& mat_cls )
+void bind_mat( nb::class_< TeVec >& vec_cls, nb::class_< TeMat >& mat_cls )
 {
-    ( void )m;
     ( void )vec_cls;  // referenced implicitly through TeVec lambdas
 
     mat_cls.def(

@@ -16,8 +16,8 @@ import tax
 
 def _make_vec_and_mat(order=3):
     x, y = tax.variables([1.0, 2.0], order=order)
-    v = tax.Vec([x, y, x * y])
-    m = tax.Mat([[x, y], [x * y, x + y]])
+    v = tax.la.Vec([x, y, x * y])
+    m = tax.la.Mat([[x, y], [x * y, x + y]])
     return x, y, v, m
 
 
@@ -27,7 +27,7 @@ def _make_vec_and_mat(order=3):
 
 def test_vec_add_sub_mul_div_with_vec():
     _, _, v, _ = _make_vec_and_mat()
-    w = tax.Vec([v[2], v[1], v[0]])  # [x*y, y, x]
+    w = tax.la.Vec([v[2], v[1], v[0]])  # [x*y, y, x]
     np.testing.assert_allclose((v + w).value(), [1 + 2, 2 + 2, 2 + 1])
     np.testing.assert_allclose((v - w).value(), [1 - 2, 2 - 2, 2 - 1])
     np.testing.assert_allclose((v * w).value(), [1 * 2, 2 * 2, 2 * 1])
@@ -41,7 +41,7 @@ def test_vec_unary_negation():
 
 def test_vec_size_mismatch_raises():
     _, _, v, _ = _make_vec_and_mat()
-    short = tax.Vec([v[0]])
+    short = tax.la.Vec([v[0]])
     with pytest.raises(Exception):
         _ = v + short
 
@@ -73,9 +73,9 @@ def test_vec_broadcast_float():
 
 def test_vec_in_place_ops():
     _, _, v, _ = _make_vec_and_mat()
-    v += tax.Vec([v[0], v[1], v[2]])
+    v += tax.la.Vec([v[0], v[1], v[2]])
     np.testing.assert_allclose(v.value(), [2.0, 4.0, 4.0])
-    v -= tax.Vec([tax.constant(1.0, 3, 2)] * 3)
+    v -= tax.la.Vec([tax.constant(1.0, 3, 2)] * 3)
     np.testing.assert_allclose(v.value(), [1.0, 3.0, 3.0])
     v *= 2.0
     np.testing.assert_allclose(v.value(), [2.0, 6.0, 6.0])
@@ -94,7 +94,7 @@ def test_vec_numpy_array_arithmetic():
 
 def test_vec_dot_product_via_matmul():
     _, _, v, _ = _make_vec_and_mat()
-    w = tax.Vec([v[2], v[1], v[0]])
+    w = tax.la.Vec([v[2], v[1], v[0]])
     # values: v=[1,2,2], w=[2,2,1] -> dot = 1*2 + 2*2 + 2*1 = 8
     assert (v @ w).value() == pytest.approx(8.0)
 
@@ -102,7 +102,7 @@ def test_vec_dot_product_via_matmul():
 def test_vec_at_mat_product():
     _, _, _, m = _make_vec_and_mat()  # 2x2 mat
     x, y = tax.variables([1.0, 2.0], order=3)
-    v = tax.Vec([x, y])
+    v = tax.la.Vec([x, y])
     # v @ m -> [v0*m00 + v1*m10, v0*m01 + v1*m11]
     # values: [1*1 + 2*2, 1*2 + 2*3] = [5, 8]
     result = (v @ m).value()
@@ -128,7 +128,7 @@ def test_mat_unary_negation():
 
 def test_mat_shape_mismatch_raises():
     x, _, _, m = _make_vec_and_mat()
-    wide = tax.Mat([[x, x, x], [x, x, x]])
+    wide = tax.la.Mat([[x, x, x], [x, x, x]])
     with pytest.raises(Exception):
         _ = m + wide
 
@@ -171,7 +171,7 @@ def test_mat_numpy_array_arithmetic():
 def test_mat_at_mat_product():
     x, y, _, m = _make_vec_and_mat()  # 2x2
     # Build a 2x3 mat.
-    m2 = tax.Mat([[x, y, x * y], [y, x, x + y]])
+    m2 = tax.la.Mat([[x, y, x * y], [y, x, x + y]])
     p = m @ m2
     # Rows: m_row_0 = [x, y], m_row_1 = [x*y, x+y]
     # cols of m2: [x, y, x*y]^T = col0, [y, x, ...]
@@ -186,7 +186,7 @@ def test_mat_at_mat_product():
 
 def test_mat_at_vec_product():
     x, y, _, m = _make_vec_and_mat()
-    v = tax.Vec([x, y])
+    v = tax.la.Vec([x, y])
     r = m @ v
     # m=[[1,2],[2,3]], v=[1,2] -> [1*1+2*2, 2*1+3*2] = [5, 8]
     np.testing.assert_allclose(r.value(), [5, 8])
@@ -207,7 +207,7 @@ def test_mat_transpose():
 
 def test_mat_matmul_inner_dim_mismatch_raises():
     x, y, _, m = _make_vec_and_mat()
-    bad = tax.Mat([[x, x, x]])  # 1x3
+    bad = tax.la.Mat([[x, x, x]])  # 1x3
     with pytest.raises(Exception):
         _ = m @ bad  # 2x2 @ 1x3
 
@@ -271,7 +271,7 @@ def test_mat_row_col_out_of_range_raises():
 def test_vec_squared_norm_value_matches_sum_of_squares():
     import math
     x, y = tax.variables([3.0, 4.0], order=3)
-    v = tax.Vec([x, y, x * y])
+    v = tax.la.Vec([x, y, x * y])
     sq = v.squared_norm()
     # Returns a TaylorExpansion; its value should be 3² + 4² + 12² = 169.
     assert isinstance(sq, tax.TaylorExpansion)
@@ -281,12 +281,12 @@ def test_vec_squared_norm_value_matches_sum_of_squares():
 def test_vec_norm_value_matches_l2():
     import math
     x, y = tax.variables([3.0, 4.0], order=3)
-    v = tax.Vec([x, y])
+    v = tax.la.Vec([x, y])
     n = v.norm()
     assert isinstance(n, tax.TaylorExpansion)
     assert n.value() == pytest.approx(5.0)
     # 3D version: sqrt(3² + 4² + 12²) = sqrt(169) = 13.
-    v3 = tax.Vec([x, y, x * y])
+    v3 = tax.la.Vec([x, y, x * y])
     assert v3.norm().value() == pytest.approx(13.0)
 
 
@@ -295,9 +295,9 @@ def test_vec_norm_empty_raises():
     # The C++ ctor with an empty list yields an empty vector, so norm() should
     # raise on emptiness.
     with pytest.raises(Exception):
-        tax.Vec([]).norm()
+        tax.la.Vec([]).norm()
     with pytest.raises(Exception):
-        tax.Vec([]).squared_norm()
+        tax.la.Vec([]).squared_norm()
 
 
 # ---------------------------------------------------------------------------
@@ -309,7 +309,7 @@ def test_numpy_matrix_matmul_vec_returns_vec():
     _, _, v, _ = _make_vec_and_mat()
     R = np.array([[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
     out = R @ v
-    assert isinstance(out, tax.Vec)
+    assert isinstance(out, tax.la.Vec)
     # values: R @ [1, 2, 2]^T = [-2, 1, 2]
     np.testing.assert_allclose(out.value(), [-2.0, 1.0, 2.0])
 
@@ -317,7 +317,7 @@ def test_numpy_matrix_matmul_vec_returns_vec():
 def test_numpy_identity_matmul_vec_is_identity():
     _, _, v, _ = _make_vec_and_mat()
     out = np.eye(3) @ v
-    assert isinstance(out, tax.Vec)
+    assert isinstance(out, tax.la.Vec)
     np.testing.assert_allclose(out.value(), v.value())
 
 
@@ -325,7 +325,7 @@ def test_vec_matmul_numpy_2d():
     _, _, v, _ = _make_vec_and_mat()
     M = np.array([[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]])  # 3x2
     out = v @ M  # 1x3 @ 3x2 -> 1x2
-    assert isinstance(out, tax.Vec)
+    assert isinstance(out, tax.la.Vec)
     # values: [1, 2, 2] @ M = [1*1 + 2*0 + 2*1, 1*0 + 2*1 + 2*1] = [3, 4]
     np.testing.assert_allclose(out.value(), [3.0, 4.0])
 
@@ -346,7 +346,7 @@ def test_numpy_matmul_mat_returns_mat():
     _, _, _, m = _make_vec_and_mat()
     P = np.array([[1.0, 0.0], [0.0, 2.0]])
     out = P @ m
-    assert isinstance(out, tax.Mat)
+    assert isinstance(out, tax.la.Mat)
     # P @ m = [[1*1+0*2, 1*2+0*3], [0*1+2*2, 0*2+2*3]] = [[1,2],[4,6]]
     np.testing.assert_allclose(out.value(), [[1.0, 2.0], [4.0, 6.0]])
 
@@ -355,7 +355,7 @@ def test_mat_matmul_numpy_2d():
     _, _, _, m = _make_vec_and_mat()
     P = np.array([[1.0, 0.0, 1.0], [0.0, 1.0, 1.0]])
     out = m @ P  # 2x2 @ 2x3 -> 2x3
-    assert isinstance(out, tax.Mat)
+    assert isinstance(out, tax.la.Mat)
     assert out.shape == (2, 3)
 
 
@@ -363,7 +363,7 @@ def test_numpy_1d_matmul_mat_returns_vec():
     _, _, _, m = _make_vec_and_mat()
     row = np.array([1.0, 2.0])
     out = row @ m
-    assert isinstance(out, tax.Vec)
+    assert isinstance(out, tax.la.Vec)
     # row=[1,2] @ m=[[1,2],[2,3]] = [1*1+2*2, 1*2+2*3] = [5, 8]
     np.testing.assert_allclose(out.value(), [5.0, 8.0])
 
@@ -372,7 +372,7 @@ def test_mat_matmul_numpy_1d_returns_vec():
     _, _, _, m = _make_vec_and_mat()
     col = np.array([1.0, 2.0])
     out = m @ col
-    assert isinstance(out, tax.Vec)
+    assert isinstance(out, tax.la.Vec)
     # m @ col = [1*1+2*2, 2*1+3*2] = [5, 8]
     np.testing.assert_allclose(out.value(), [5.0, 8.0])
 
@@ -386,5 +386,5 @@ def test_numpy_matmul_vec_shape_mismatch_raises():
 def test_array_ufunc_set_to_none():
     """`__array_ufunc__ = None` makes numpy defer ufuncs to our reflected ops.
     Verify directly on the class objects."""
-    assert tax.Vec.__array_ufunc__ is None
-    assert tax.Mat.__array_ufunc__ is None
+    assert tax.la.Vec.__array_ufunc__ is None
+    assert tax.la.Mat.__array_ufunc__ is None

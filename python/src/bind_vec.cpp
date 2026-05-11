@@ -9,10 +9,8 @@
 namespace tax_py
 {
 
-void bind_vec( nb::module_& m, nb::class_< TeVec >& vec_cls,
-               nb::class_< TeMat >& mat_cls )
+void bind_vec( nb::class_< TeVec >& vec_cls, nb::class_< TeMat >& mat_cls )
 {
-    ( void )m;
     ( void )mat_cls;  // Used implicitly through TeMat overload resolution.
 
     vec_cls.def(

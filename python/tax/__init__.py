@@ -12,21 +12,15 @@ Math functions live under the :mod:`tax.math` submodule
 (:func:`gradient`, :func:`hessian`, :func:`jacobian`) live at the
 top level and return numpy arrays directly.
 
-Containers :class:`Vec` and
-:class:`Mat` wrap Eigen-backed collections of
-:class:`TaylorExpansion` and expose ``value``, ``eval``, ``derivative``,
-and (for vectors) ``jacobian`` returning numpy arrays.
-
-The :mod:`tax.la` submodule re-exports :class:`Vec` and :class:`Mat`
-together with free linear-algebra functions :func:`tax.la.norm`,
-:func:`tax.la.dot`, and :func:`tax.la.cross`.
+Linear-algebra containers and helpers live under :mod:`tax.la`:
+``tax.la.Vec``, ``tax.la.Mat``, ``tax.la.norm``, ``tax.la.dot``,
+``tax.la.cross``. The container types are not re-exposed at the top
+level — use ``tax.la.Vec`` / ``tax.la.Mat``.
 """
 
 from ._tax import (  # noqa: F401
-    # core types
+    # core type
     TaylorExpansion,
-    Vec,
-    Mat,
     # factories
     zero,
     one,
@@ -45,8 +39,6 @@ from ._tax import (  # noqa: F401
 
 __all__ = [
     "TaylorExpansion",
-    "Vec",
-    "Mat",
     "zero",
     "one",
     "constant",

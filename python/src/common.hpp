@@ -63,10 +63,10 @@ namespace tax_py
 // ---------------------------------------------------------------------------
 
 void bind_te( nb::module_& m, nb::class_< DynTE >& cls );
-void bind_vec( nb::module_& m, nb::class_< TeVec >& vec_cls, nb::class_< TeMat >& mat_cls );
-void bind_mat( nb::module_& m, nb::class_< TeVec >& vec_cls, nb::class_< TeMat >& mat_cls );
+void bind_vec( nb::class_< TeVec >& vec_cls, nb::class_< TeMat >& mat_cls );
+void bind_mat( nb::class_< TeVec >& vec_cls, nb::class_< TeMat >& mat_cls );
 void bind_math( nb::module_& m );
-void bind_la( nb::module_& m, nb::class_< TeVec >& vec_cls, nb::class_< TeMat >& mat_cls );
+void bind_la( nb::module_& la_mod );
 void bind_factories( nb::module_& m );
 
 }  // namespace tax_py
