@@ -298,3 +298,93 @@ def test_vec_norm_empty_raises():
         tax.Vec([]).norm()
     with pytest.raises(Exception):
         tax.Vec([]).squared_norm()
+
+
+# ---------------------------------------------------------------------------
+# numpy-on-the-left matmul: routes through __rmatmul__ instead of producing
+# a numpy object array.
+# ---------------------------------------------------------------------------
+
+def test_numpy_matrix_matmul_vec_returns_vec():
+    _, _, v, _ = _make_vec_and_mat()
+    R = np.array([[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
+    out = R @ v
+    assert isinstance(out, tax.Vec)
+    # values: R @ [1, 2, 2]^T = [-2, 1, 2]
+    np.testing.assert_allclose(out.value(), [-2.0, 1.0, 2.0])
+
+
+def test_numpy_identity_matmul_vec_is_identity():
+    _, _, v, _ = _make_vec_and_mat()
+    out = np.eye(3) @ v
+    assert isinstance(out, tax.Vec)
+    np.testing.assert_allclose(out.value(), v.value())
+
+
+def test_vec_matmul_numpy_2d():
+    _, _, v, _ = _make_vec_and_mat()
+    M = np.array([[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]])  # 3x2
+    out = v @ M  # 1x3 @ 3x2 -> 1x2
+    assert isinstance(out, tax.Vec)
+    # values: [1, 2, 2] @ M = [1*1 + 2*0 + 2*1, 1*0 + 2*1 + 2*1] = [3, 4]
+    np.testing.assert_allclose(out.value(), [3.0, 4.0])
+
+
+def test_vec_dot_numpy_1d():
+    _, _, v, _ = _make_vec_and_mat()
+    a = np.array([1.0, 2.0, 3.0])
+    out = v @ a
+    assert isinstance(out, tax.TaylorExpansion)
+    assert out.value() == pytest.approx(1.0 * 1 + 2.0 * 2 + 3.0 * 2)
+    # And reverse.
+    out2 = a @ v
+    assert isinstance(out2, tax.TaylorExpansion)
+    assert out2.value() == pytest.approx(1.0 * 1 + 2.0 * 2 + 3.0 * 2)
+
+
+def test_numpy_matmul_mat_returns_mat():
+    _, _, _, m = _make_vec_and_mat()
+    P = np.array([[1.0, 0.0], [0.0, 2.0]])
+    out = P @ m
+    assert isinstance(out, tax.Mat)
+    # P @ m = [[1*1+0*2, 1*2+0*3], [0*1+2*2, 0*2+2*3]] = [[1,2],[4,6]]
+    np.testing.assert_allclose(out.value(), [[1.0, 2.0], [4.0, 6.0]])
+
+
+def test_mat_matmul_numpy_2d():
+    _, _, _, m = _make_vec_and_mat()
+    P = np.array([[1.0, 0.0, 1.0], [0.0, 1.0, 1.0]])
+    out = m @ P  # 2x2 @ 2x3 -> 2x3
+    assert isinstance(out, tax.Mat)
+    assert out.shape == (2, 3)
+
+
+def test_numpy_1d_matmul_mat_returns_vec():
+    _, _, _, m = _make_vec_and_mat()
+    row = np.array([1.0, 2.0])
+    out = row @ m
+    assert isinstance(out, tax.Vec)
+    # row=[1,2] @ m=[[1,2],[2,3]] = [1*1+2*2, 1*2+2*3] = [5, 8]
+    np.testing.assert_allclose(out.value(), [5.0, 8.0])
+
+
+def test_mat_matmul_numpy_1d_returns_vec():
+    _, _, _, m = _make_vec_and_mat()
+    col = np.array([1.0, 2.0])
+    out = m @ col
+    assert isinstance(out, tax.Vec)
+    # m @ col = [1*1+2*2, 2*1+3*2] = [5, 8]
+    np.testing.assert_allclose(out.value(), [5.0, 8.0])
+
+
+def test_numpy_matmul_vec_shape_mismatch_raises():
+    _, _, v, _ = _make_vec_and_mat()
+    with pytest.raises(Exception):
+        np.eye(5) @ v
+
+
+def test_array_ufunc_set_to_none():
+    """`__array_ufunc__ = None` makes numpy defer ufuncs to our reflected ops.
+    Verify directly on the class objects."""
+    assert tax.Vec.__array_ufunc__ is None
+    assert tax.Mat.__array_ufunc__ is None

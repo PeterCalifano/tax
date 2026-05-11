@@ -543,6 +543,68 @@ when arithmetic / derivative queries fire.
         return out;
     } );
 
+    // ---- numpy array × Vec dispatch ----
+    // `vec @ np_1d` and `np_1d @ vec` both compute a dot product returning a
+    // TaylorExpansion. `vec @ np_2d` and `np_2d @ vec` route to matrix-vector
+    // products. nanobind's eigen plugin accepts numpy arrays here.
+    vec_cls.def( "__matmul__",
+                 []( const TeVec& a, const Eigen::Ref< const Eigen::VectorXd >& b ) {
+                     if ( a.size() != b.size() )
+                         throw std::invalid_argument( "Vec @ ndarray sizes must match" );
+                     if ( a.size() == 0 )
+                         throw std::invalid_argument( "Vec @ ndarray on empty operand" );
+                     DynTE out = a( 0 ) * b( 0 );
+                     for ( Eigen::Index i = 1; i < a.size(); ++i ) out += a( i ) * b( i );
+                     return out;
+                 } );
+    vec_cls.def( "__rmatmul__",
+                 []( const TeVec& a, const Eigen::Ref< const Eigen::VectorXd >& b ) {
+                     // np_1d @ vec — symmetric, same dot product.
+                     if ( a.size() != b.size() )
+                         throw std::invalid_argument( "ndarray @ Vec sizes must match" );
+                     if ( a.size() == 0 )
+                         throw std::invalid_argument( "ndarray @ Vec on empty operand" );
+                     DynTE out = b( 0 ) * a( 0 );
+                     for ( Eigen::Index i = 1; i < a.size(); ++i ) out += b( i ) * a( i );
+                     return out;
+                 } );
+    vec_cls.def( "__matmul__",
+                 []( const TeVec& v, const Eigen::Ref< const Eigen::MatrixXd >& M ) {
+                     // vec @ np_2d: row-vector times matrix -> Vec(M.cols()).
+                     if ( v.size() != M.rows() )
+                         throw std::invalid_argument( "Vec @ ndarray inner dim must match" );
+                     TeVec out( M.cols() );
+                     for ( Eigen::Index c = 0; c < M.cols(); ++c )
+                     {
+                         DynTE accum = v( 0 ) * M( 0, c );
+                         for ( Eigen::Index k = 1; k < v.size(); ++k )
+                             accum += v( k ) * M( k, c );
+                         out( c ) = accum;
+                     }
+                     return out;
+                 } );
+    vec_cls.def( "__rmatmul__",
+                 []( const TeVec& v, const Eigen::Ref< const Eigen::MatrixXd >& M ) {
+                     // np_2d @ vec: matrix-vector product -> Vec(M.rows()).
+                     if ( v.size() != M.cols() )
+                         throw std::invalid_argument( "ndarray @ Vec inner dim must match" );
+                     TeVec out( M.rows() );
+                     for ( Eigen::Index r = 0; r < M.rows(); ++r )
+                     {
+                         DynTE accum = v( 0 ) * M( r, 0 );
+                         for ( Eigen::Index k = 1; k < v.size(); ++k )
+                             accum += v( k ) * M( r, k );
+                         out( r ) = accum;
+                     }
+                     return out;
+                 } );
+
+    // Tell numpy not to handle Vec via its ufunc protocol — defer to the
+    // reflected `__rmatmul__` / `__radd__` / ... above. Without this, numpy
+    // would iterate the Vec, build an object-dtype array, and return one
+    // from `np.eye(N) @ vec`.
+    vec_cls.attr( "__array_ufunc__" ) = nb::none();
+
     vec_cls.def( "__repr__", []( const TeVec& v ) {
         std::ostringstream os;
         os << "Vec(len=" << v.size() << ")[";
@@ -852,6 +914,72 @@ share the same shape `(order, size)`.
     mat_cls.def_prop_ro(
         "T", []( const TeMat& a ) -> TeMat { return a.transpose(); },
         "Transpose. Returns a fresh Mat with shape (cols, rows)." );
+
+    // ---- numpy interop matmul ----
+    mat_cls.def( "__matmul__",
+                 []( const TeMat& a, const Eigen::Ref< const Eigen::MatrixXd >& B ) {
+                     // mat @ np_2d -> Mat(a.rows(), B.cols()).
+                     if ( a.cols() != B.rows() )
+                         throw std::invalid_argument( "Mat @ ndarray inner dim must match" );
+                     TeMat out( a.rows(), B.cols() );
+                     for ( Eigen::Index r = 0; r < a.rows(); ++r )
+                         for ( Eigen::Index c = 0; c < B.cols(); ++c )
+                         {
+                             DynTE accum = a( r, 0 ) * B( 0, c );
+                             for ( Eigen::Index k = 1; k < a.cols(); ++k )
+                                 accum += a( r, k ) * B( k, c );
+                             out( r, c ) = accum;
+                         }
+                     return out;
+                 } );
+    mat_cls.def( "__rmatmul__",
+                 []( const TeMat& a, const Eigen::Ref< const Eigen::MatrixXd >& B ) {
+                     // np_2d @ mat -> Mat(B.rows(), a.cols()).
+                     if ( B.cols() != a.rows() )
+                         throw std::invalid_argument( "ndarray @ Mat inner dim must match" );
+                     TeMat out( B.rows(), a.cols() );
+                     for ( Eigen::Index r = 0; r < B.rows(); ++r )
+                         for ( Eigen::Index c = 0; c < a.cols(); ++c )
+                         {
+                             DynTE accum = B( r, 0 ) * a( 0, c );
+                             for ( Eigen::Index k = 1; k < a.rows(); ++k )
+                                 accum += B( r, k ) * a( k, c );
+                             out( r, c ) = accum;
+                         }
+                     return out;
+                 } );
+    mat_cls.def( "__matmul__",
+                 []( const TeMat& a, const Eigen::Ref< const Eigen::VectorXd >& v ) {
+                     // mat @ np_1d -> Vec.
+                     if ( a.cols() != v.size() )
+                         throw std::invalid_argument( "Mat @ ndarray inner dim must match" );
+                     TeVec out( a.rows() );
+                     for ( Eigen::Index r = 0; r < a.rows(); ++r )
+                     {
+                         DynTE accum = a( r, 0 ) * v( 0 );
+                         for ( Eigen::Index k = 1; k < a.cols(); ++k ) accum += a( r, k ) * v( k );
+                         out( r ) = accum;
+                     }
+                     return out;
+                 } );
+    mat_cls.def( "__rmatmul__",
+                 []( const TeMat& a, const Eigen::Ref< const Eigen::VectorXd >& v ) {
+                     // np_1d @ mat (row-vector × matrix) -> Vec.
+                     if ( v.size() != a.rows() )
+                         throw std::invalid_argument( "ndarray @ Mat inner dim must match" );
+                     TeVec out( a.cols() );
+                     for ( Eigen::Index c = 0; c < a.cols(); ++c )
+                     {
+                         DynTE accum = v( 0 ) * a( 0, c );
+                         for ( Eigen::Index k = 1; k < v.size(); ++k )
+                             accum += v( k ) * a( k, c );
+                         out( c ) = accum;
+                     }
+                     return out;
+                 } );
+
+    // Same numpy-ufunc opt-out as for Vec — defer to reflected ops.
+    mat_cls.attr( "__array_ufunc__" ) = nb::none();
 
     mat_cls.def( "__repr__", []( const TeMat& m_ ) {
         std::ostringstream os;
