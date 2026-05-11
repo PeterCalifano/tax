@@ -17,7 +17,7 @@ class UnaryExpr
    public:
     using T = typename E::scalar_type;
     static constexpr int N = E::order_ct, M = E::size_ct;
-    using coeff_array = std::array< T, numMonomials( N, M ) >;
+    using coeff_array = Coeffs< T, N, M >;
 
     /// @brief Construct from operand.
     explicit constexpr UnaryExpr( const E& e ) noexcept : e_( e ) {}

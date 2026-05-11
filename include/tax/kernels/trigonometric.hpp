@@ -14,9 +14,9 @@ template < typename T, int N, int M >
  * @brief Coupled trigonometric series expansion of `sin(a)` and `cos(a)`.
  * @details Computes both outputs together to share recurrence work.
  */
-constexpr void seriesSinCos( std::array< T, numMonomials( N, M ) >& s,
-                             std::array< T, numMonomials( N, M ) >& c,
-                             const std::array< T, numMonomials( N, M ) >& a ) noexcept
+constexpr void seriesSinCos( Coeffs< T, N, M >& s,
+                             Coeffs< T, N, M >& c,
+                             const Coeffs< T, N, M >& a ) noexcept
 {
     using std::cos;
     using std::sin;
@@ -64,19 +64,19 @@ constexpr void seriesSinCos( std::array< T, numMonomials( N, M ) >& s,
 
 template < typename T, int N, int M >
 /// @brief Sine series wrapper around `seriesSinCos`.
-constexpr void seriesSin( std::array< T, numMonomials( N, M ) >& out,
-                          const std::array< T, numMonomials( N, M ) >& a ) noexcept
+constexpr void seriesSin( Coeffs< T, N, M >& out,
+                          const Coeffs< T, N, M >& a ) noexcept
 {
-    std::array< T, numMonomials( N, M ) > c{};
+    Coeffs< T, N, M > c{};
     seriesSinCos< T, N, M >( out, c, a );
 }
 
 template < typename T, int N, int M >
 /// @brief Cosine series wrapper around `seriesSinCos`.
-constexpr void seriesCos( std::array< T, numMonomials( N, M ) >& out,
-                          const std::array< T, numMonomials( N, M ) >& a ) noexcept
+constexpr void seriesCos( Coeffs< T, N, M >& out,
+                          const Coeffs< T, N, M >& a ) noexcept
 {
-    std::array< T, numMonomials( N, M ) > s{};
+    Coeffs< T, N, M > s{};
     seriesSinCos< T, N, M >( s, out, a );
 }
 
@@ -85,8 +85,8 @@ template < typename T, int N, int M >
  * @brief Tangent series solve from `sin(a)` and `cos(a)`.
  * @details Solves `cos(a) * out = sin(a)` degree by degree.
  */
-constexpr void seriesTan( std::array< T, numMonomials( N, M ) >& out,
-                          const std::array< T, numMonomials( N, M ) >& a ) noexcept
+constexpr void seriesTan( Coeffs< T, N, M >& out,
+                          const Coeffs< T, N, M >& a ) noexcept
 {
     constexpr auto S = numMonomials( N, M );
     std::array< T, S > s{}, c{};
@@ -119,9 +119,9 @@ constexpr void seriesTan( std::array< T, numMonomials( N, M ) >& out,
 }
 
 template < typename T, int N, int M >
-constexpr void seriesSinhCosh( std::array< T, numMonomials( N, M ) >& sh,
-                               std::array< T, numMonomials( N, M ) >& ch,
-                               const std::array< T, numMonomials( N, M ) >& a ) noexcept
+constexpr void seriesSinhCosh( Coeffs< T, N, M >& sh,
+                               Coeffs< T, N, M >& ch,
+                               const Coeffs< T, N, M >& a ) noexcept
 {
     using std::cosh;
     using std::sinh;
@@ -166,24 +166,24 @@ constexpr void seriesSinhCosh( std::array< T, numMonomials( N, M ) >& sh,
 }
 
 template < typename T, int N, int M >
-constexpr void seriesSinh( std::array< T, numMonomials( N, M ) >& out,
-                           const std::array< T, numMonomials( N, M ) >& a ) noexcept
+constexpr void seriesSinh( Coeffs< T, N, M >& out,
+                           const Coeffs< T, N, M >& a ) noexcept
 {
-    std::array< T, numMonomials( N, M ) > ch{};
+    Coeffs< T, N, M > ch{};
     seriesSinhCosh< T, N, M >( out, ch, a );
 }
 
 template < typename T, int N, int M >
-constexpr void seriesCosh( std::array< T, numMonomials( N, M ) >& out,
-                           const std::array< T, numMonomials( N, M ) >& a ) noexcept
+constexpr void seriesCosh( Coeffs< T, N, M >& out,
+                           const Coeffs< T, N, M >& a ) noexcept
 {
-    std::array< T, numMonomials( N, M ) > sh{};
+    Coeffs< T, N, M > sh{};
     seriesSinhCosh< T, N, M >( sh, out, a );
 }
 
 template < typename T, int N, int M >
-constexpr void seriesTanh( std::array< T, numMonomials( N, M ) >& out,
-                           const std::array< T, numMonomials( N, M ) >& a ) noexcept
+constexpr void seriesTanh( Coeffs< T, N, M >& out,
+                           const Coeffs< T, N, M >& a ) noexcept
 {
     constexpr auto S = numMonomials( N, M );
     std::array< T, S > sh{}, ch{};

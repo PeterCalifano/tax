@@ -19,7 +19,7 @@ class BinExpr : public tax::Expr< BinExpr< L, R, Op >, typename L::scalar_type, 
    public:
     using T = typename L::scalar_type;
     static constexpr int N = L::order_ct, M = L::size_ct;
-    using coeff_array = std::array< T, numMonomials( N, M ) >;
+    using coeff_array = Coeffs< T, N, M >;
 
     /// @brief Construct from left/right operands.
     constexpr BinExpr( const L& l, const R& r ) noexcept : l_( l ), r_( r ) {}

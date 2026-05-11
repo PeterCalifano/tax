@@ -17,7 +17,7 @@ class ScalarExpr
    public:
     using T = typename E::scalar_type;
     static constexpr int N = E::order_ct, M = E::size_ct;
-    using coeff_array = std::array< T, numMonomials( N, M ) >;
+    using coeff_array = Coeffs< T, N, M >;
 
     /// @brief Construct from operand and scalar value.
     constexpr ScalarExpr( const E& e, T s ) noexcept : e_( e ), s_( s ) {}

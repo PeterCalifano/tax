@@ -34,6 +34,18 @@ constexpr std::size_t numMonomials( std::size_t N, std::size_t M ) noexcept
     return binom( int( N + M ), int( M ) );
 }
 
+/**
+ * @brief Coefficient buffer type for the static `TaylorExpansionT<T, N, M>`.
+ * @tparam T Scalar type.
+ * @tparam N Truncation order (non-negative).
+ * @tparam M Number of variables (>= 1).
+ *
+ * Alias for `std::array<T, numMonomials(N, M)>`; saved typing across the
+ * kernel and expression-template layers.
+ */
+template < typename T, int N, int M >
+using Coeffs = std::array< T, numMonomials( N, M ) >;
+
 template < int M >
 /// @brief Total degree `|a| = sum_i a[i]` of a multi-index.
 constexpr int totalDegree( const tax::MultiIndex< M >& a ) noexcept

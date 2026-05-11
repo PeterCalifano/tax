@@ -10,9 +10,9 @@ template < typename T, int N, int M >
  * @brief Truncated multivariate Cauchy product `out = f * g`.
  * @details Output is truncated to total degree `N`.
  */
-constexpr void cauchyProduct( std::array< T, numMonomials( N, M ) >& out,
-                              const std::array< T, numMonomials( N, M ) >& f,
-                              const std::array< T, numMonomials( N, M ) >& g ) noexcept
+constexpr void cauchyProduct( Coeffs< T, N, M >& out,
+                              const Coeffs< T, N, M >& f,
+                              const Coeffs< T, N, M >& g ) noexcept
 {
     out = {};
 
@@ -39,8 +39,8 @@ template < typename T, int N, int M >
  *          doubling the off-diagonal contribution. Yields ~2x fewer multiplications than
  *          a general cauchyProduct call.
  */
-constexpr void cauchySelfProduct( std::array< T, numMonomials( N, M ) >& out,
-                                  const std::array< T, numMonomials( N, M ) >& f ) noexcept
+constexpr void cauchySelfProduct( Coeffs< T, N, M >& out,
+                                  const Coeffs< T, N, M >& f ) noexcept
 {
     out = {};
 
@@ -73,9 +73,9 @@ template < typename T, int N, int M >
  * @brief Truncated multivariate Cauchy accumulate `out += f * g`.
  * @details Contribution is truncated to total degree `N`.
  */
-constexpr void cauchyAccumulate( std::array< T, numMonomials( N, M ) >& out,
-                                 const std::array< T, numMonomials( N, M ) >& f,
-                                 const std::array< T, numMonomials( N, M ) >& g ) noexcept
+constexpr void cauchyAccumulate( Coeffs< T, N, M >& out,
+                                 const Coeffs< T, N, M >& f,
+                                 const Coeffs< T, N, M >& g ) noexcept
 {
     if constexpr ( M == 1 )
     {

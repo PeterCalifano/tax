@@ -33,9 +33,9 @@ struct OpMul
     static constexpr bool is_additive = false;
     static constexpr bool is_convolution = true;
     template < typename T >
-    static constexpr void apply( std::array< T, numMonomials( N, M ) >& o,
-                                 const std::array< T, numMonomials( N, M ) >& a,
-                                 const std::array< T, numMonomials( N, M ) >& b ) noexcept
+    static constexpr void apply( Coeffs< T, N, M >& o,
+                                 const Coeffs< T, N, M >& a,
+                                 const Coeffs< T, N, M >& b ) noexcept
     {
         cauchyProduct< T, N, M >( o, a, b );
     }
@@ -51,11 +51,11 @@ struct OpDiv
     static constexpr bool is_additive = false;
     static constexpr bool is_convolution = false;
     template < typename T >
-    static constexpr void apply( std::array< T, numMonomials( N, M ) >& o,
-                                 const std::array< T, numMonomials( N, M ) >& a,
-                                 const std::array< T, numMonomials( N, M ) >& b ) noexcept
+    static constexpr void apply( Coeffs< T, N, M >& o,
+                                 const Coeffs< T, N, M >& a,
+                                 const Coeffs< T, N, M >& b ) noexcept
     {
-        std::array< T, numMonomials( N, M ) > rec{};
+        Coeffs< T, N, M > rec{};
         seriesReciprocal< T, N, M >( rec, b );
         cauchyProduct< T, N, M >( o, a, rec );
     }

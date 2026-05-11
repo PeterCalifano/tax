@@ -17,8 +17,8 @@ template < typename T, int N, int M >
  * @brief Natural logarithm series `out = log(a)`.
  * @details Requires `a[0] > 0` for real-valued output.
  */
-constexpr void seriesLog( std::array< T, numMonomials( N, M ) >& out,
-                          const std::array< T, numMonomials( N, M ) >& a ) noexcept
+constexpr void seriesLog( Coeffs< T, N, M >& out,
+                          const Coeffs< T, N, M >& a ) noexcept
 {
     using std::log;
     out = {};
@@ -49,8 +49,8 @@ constexpr void seriesLog( std::array< T, numMonomials( N, M ) >& out,
 }
 
 template < typename T, int N, int M >
-constexpr void seriesExp( std::array< T, numMonomials( N, M ) >& out,
-                          const std::array< T, numMonomials( N, M ) >& a ) noexcept
+constexpr void seriesExp( Coeffs< T, N, M >& out,
+                          const Coeffs< T, N, M >& a ) noexcept
 {
     using std::exp;
     out = {};
@@ -80,8 +80,8 @@ constexpr void seriesExp( std::array< T, numMonomials( N, M ) >& out,
 }
 
 template < typename T, int N, int M >
-constexpr void seriesPow( std::array< T, numMonomials( N, M ) >& out,
-                          const std::array< T, numMonomials( N, M ) >& a, T c ) noexcept
+constexpr void seriesPow( Coeffs< T, N, M >& out,
+                          const Coeffs< T, N, M >& a, T c ) noexcept
 {
     using std::pow;
     out = {};
@@ -112,8 +112,8 @@ constexpr void seriesPow( std::array< T, numMonomials( N, M ) >& out,
 }
 
 template < typename T, int N, int M >
-constexpr void seriesIntPow( std::array< T, numMonomials( N, M ) >& out,
-                             const std::array< T, numMonomials( N, M ) >& a, int n ) noexcept
+constexpr void seriesIntPow( Coeffs< T, N, M >& out,
+                             const Coeffs< T, N, M >& a, int n ) noexcept
 {
     constexpr auto S = numMonomials( N, M );
 
@@ -164,8 +164,8 @@ constexpr void seriesIntPow( std::array< T, numMonomials( N, M ) >& out,
 }
 
 template < typename T, int N, int M >
-constexpr void seriesErf( std::array< T, numMonomials( N, M ) >& out,
-                          const std::array< T, numMonomials( N, M ) >& a ) noexcept
+constexpr void seriesErf( Coeffs< T, N, M >& out,
+                          const Coeffs< T, N, M >& a ) noexcept
 {
     using std::acos;
     using std::erf;
@@ -210,8 +210,8 @@ constexpr void seriesErf( std::array< T, numMonomials( N, M ) >& out,
 }
 
 template < typename T, int N, int M >
-constexpr void seriesAsin( std::array< T, numMonomials( N, M ) >& out,
-                           const std::array< T, numMonomials( N, M ) >& a ) noexcept
+constexpr void seriesAsin( Coeffs< T, N, M >& out,
+                           const Coeffs< T, N, M >& a ) noexcept
 {
     using std::asin;
     constexpr auto S = numMonomials( N, M );
@@ -252,8 +252,8 @@ constexpr void seriesAsin( std::array< T, numMonomials( N, M ) >& out,
 }
 
 template < typename T, int N, int M >
-constexpr void seriesAcos( std::array< T, numMonomials( N, M ) >& out,
-                           const std::array< T, numMonomials( N, M ) >& a ) noexcept
+constexpr void seriesAcos( Coeffs< T, N, M >& out,
+                           const Coeffs< T, N, M >& a ) noexcept
 {
     seriesAsin< T, N, M >( out, a );
     negateInPlace< T, numMonomials( N, M ) >( out );
@@ -262,8 +262,8 @@ constexpr void seriesAcos( std::array< T, numMonomials( N, M ) >& out,
 }
 
 template < typename T, int N, int M >
-constexpr void seriesAtan( std::array< T, numMonomials( N, M ) >& out,
-                           const std::array< T, numMonomials( N, M ) >& a ) noexcept
+constexpr void seriesAtan( Coeffs< T, N, M >& out,
+                           const Coeffs< T, N, M >& a ) noexcept
 {
     using std::atan;
     constexpr auto S = numMonomials( N, M );
@@ -301,9 +301,9 @@ constexpr void seriesAtan( std::array< T, numMonomials( N, M ) >& out,
 }
 
 template < typename T, int N, int M >
-constexpr void seriesAtan2( std::array< T, numMonomials( N, M ) >& out,
-                            const std::array< T, numMonomials( N, M ) >& y,
-                            const std::array< T, numMonomials( N, M ) >& x ) noexcept
+constexpr void seriesAtan2( Coeffs< T, N, M >& out,
+                            const Coeffs< T, N, M >& y,
+                            const Coeffs< T, N, M >& x ) noexcept
 {
     using std::atan2;
     constexpr auto S = numMonomials( N, M );
@@ -348,8 +348,8 @@ template < typename T, int N, int M >
  * @brief Inverse hyperbolic sine series `out = asinh(a)`.
  * @details Solves `sqrt(1 + a²) · out' = a'` degree by degree.
  */
-constexpr void seriesAsinh( std::array< T, numMonomials( N, M ) >& out,
-                            const std::array< T, numMonomials( N, M ) >& a ) noexcept
+constexpr void seriesAsinh( Coeffs< T, N, M >& out,
+                            const Coeffs< T, N, M >& a ) noexcept
 {
     using std::asinh;
     constexpr auto S = numMonomials( N, M );
@@ -394,8 +394,8 @@ template < typename T, int N, int M >
  * @brief Inverse hyperbolic cosine series `out = acosh(a)`.
  * @details Solves `sqrt(a² - 1) · out' = a'` degree by degree. Requires `a[0] > 1`.
  */
-constexpr void seriesAcosh( std::array< T, numMonomials( N, M ) >& out,
-                            const std::array< T, numMonomials( N, M ) >& a ) noexcept
+constexpr void seriesAcosh( Coeffs< T, N, M >& out,
+                            const Coeffs< T, N, M >& a ) noexcept
 {
     using std::acosh;
     constexpr auto S = numMonomials( N, M );
@@ -439,8 +439,8 @@ template < typename T, int N, int M >
  * @brief Inverse hyperbolic tangent series `out = atanh(a)`.
  * @details Solves `(1 - a²) · out' = a'` degree by degree. Requires `|a[0]| < 1`.
  */
-constexpr void seriesAtanh( std::array< T, numMonomials( N, M ) >& out,
-                            const std::array< T, numMonomials( N, M ) >& a ) noexcept
+constexpr void seriesAtanh( Coeffs< T, N, M >& out,
+                            const Coeffs< T, N, M >& a ) noexcept
 {
     using std::atanh;
     constexpr auto S = numMonomials( N, M );

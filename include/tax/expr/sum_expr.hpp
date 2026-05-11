@@ -24,7 +24,7 @@ class SumExpr
     using T = typename std::tuple_element_t< 0, std::tuple< Es... > >::scalar_type;
     static constexpr int N = std::tuple_element_t< 0, std::tuple< Es... > >::order_ct;
     static constexpr int M = std::tuple_element_t< 0, std::tuple< Es... > >::size_ct;
-    using coeff_array = std::array< T, numMonomials( N, M ) >;
+    using coeff_array = Coeffs< T, N, M >;
 
     /// @brief Construct from operand pack.
     explicit constexpr SumExpr( stored_t< Es >... es ) noexcept : ops_( es... ) {}

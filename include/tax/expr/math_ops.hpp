@@ -9,8 +9,8 @@ template < int N, int M >
 struct OpAbs
 {
     template < typename T >
-    static constexpr void apply( std::array< T, numMonomials( N, M ) >& out,
-                                 const std::array< T, numMonomials( N, M ) >& a ) noexcept
+    static constexpr void apply( Coeffs< T, N, M >& out,
+                                 const Coeffs< T, N, M >& a ) noexcept
     {
         seriesAbs< T, numMonomials( N, M ) >( out, a );
     }
@@ -24,8 +24,8 @@ template < int N, int M >
 struct OpSquare
 {
     template < typename T >
-    static constexpr void apply( std::array< T, numMonomials( N, M ) >& out,
-                                 const std::array< T, numMonomials( N, M ) >& a ) noexcept
+    static constexpr void apply( Coeffs< T, N, M >& out,
+                                 const Coeffs< T, N, M >& a ) noexcept
     {
         seriesSquare< T, N, M >( out, a );
     }
@@ -39,8 +39,8 @@ template < int N, int M >
 struct OpCube
 {
     template < typename T >
-    static constexpr void apply( std::array< T, numMonomials( N, M ) >& out,
-                                 const std::array< T, numMonomials( N, M ) >& a ) noexcept
+    static constexpr void apply( Coeffs< T, N, M >& out,
+                                 const Coeffs< T, N, M >& a ) noexcept
     {
         seriesCube< T, N, M >( out, a );
     }
@@ -54,8 +54,8 @@ template < int N, int M >
 struct OpSqrt
 {
     template < typename T >
-    static constexpr void apply( std::array< T, numMonomials( N, M ) >& out,
-                                 const std::array< T, numMonomials( N, M ) >& a ) noexcept
+    static constexpr void apply( Coeffs< T, N, M >& out,
+                                 const Coeffs< T, N, M >& a ) noexcept
     {
         seriesSqrt< T, N, M >( out, a );
     }
@@ -69,8 +69,8 @@ template < int N, int M >
 struct OpCbrt
 {
     template < typename T >
-    static constexpr void apply( std::array< T, numMonomials( N, M ) >& out,
-                                 const std::array< T, numMonomials( N, M ) >& a ) noexcept
+    static constexpr void apply( Coeffs< T, N, M >& out,
+                                 const Coeffs< T, N, M >& a ) noexcept
     {
         seriesCbrt< T, N, M >( out, a );
     }
@@ -84,8 +84,8 @@ template < int N, int M >
 struct OpReciprocal
 {
     template < typename T >
-    static constexpr void apply( std::array< T, numMonomials( N, M ) >& out,
-                                 const std::array< T, numMonomials( N, M ) >& a ) noexcept
+    static constexpr void apply( Coeffs< T, N, M >& out,
+                                 const Coeffs< T, N, M >& a ) noexcept
     {
         seriesReciprocal< T, N, M >( out, a );
     }
@@ -99,8 +99,8 @@ template < int N, int M >
 struct OpSin
 {
     template < typename T >
-    static constexpr void apply( std::array< T, numMonomials( N, M ) >& out,
-                                 const std::array< T, numMonomials( N, M ) >& a ) noexcept
+    static constexpr void apply( Coeffs< T, N, M >& out,
+                                 const Coeffs< T, N, M >& a ) noexcept
     {
         seriesSin< T, N, M >( out, a );
     }
@@ -114,8 +114,8 @@ template < int N, int M >
 struct OpCos
 {
     template < typename T >
-    static constexpr void apply( std::array< T, numMonomials( N, M ) >& out,
-                                 const std::array< T, numMonomials( N, M ) >& a ) noexcept
+    static constexpr void apply( Coeffs< T, N, M >& out,
+                                 const Coeffs< T, N, M >& a ) noexcept
     {
         seriesCos< T, N, M >( out, a );
     }
@@ -129,8 +129,8 @@ template < int N, int M >
 struct OpTan
 {
     template < typename T >
-    static constexpr void apply( std::array< T, numMonomials( N, M ) >& out,
-                                 const std::array< T, numMonomials( N, M ) >& a ) noexcept
+    static constexpr void apply( Coeffs< T, N, M >& out,
+                                 const Coeffs< T, N, M >& a ) noexcept
     {
         seriesTan< T, N, M >( out, a );
     }
@@ -140,8 +140,8 @@ template < int N, int M >
 struct OpErf
 {
     template < typename T >
-    static constexpr void apply( std::array< T, numMonomials( N, M ) >& out,
-                                 const std::array< T, numMonomials( N, M ) >& a ) noexcept
+    static constexpr void apply( Coeffs< T, N, M >& out,
+                                 const Coeffs< T, N, M >& a ) noexcept
     {
         seriesErf< T, N, M >( out, a );
     }
@@ -151,8 +151,8 @@ template < int N, int M >
 struct OpAsin
 {
     template < typename T >
-    static constexpr void apply( std::array< T, numMonomials( N, M ) >& out,
-                                 const std::array< T, numMonomials( N, M ) >& a ) noexcept
+    static constexpr void apply( Coeffs< T, N, M >& out,
+                                 const Coeffs< T, N, M >& a ) noexcept
     {
         seriesAsin< T, N, M >( out, a );
     }
@@ -162,8 +162,8 @@ template < int N, int M >
 struct OpAcos
 {
     template < typename T >
-    static constexpr void apply( std::array< T, numMonomials( N, M ) >& out,
-                                 const std::array< T, numMonomials( N, M ) >& a ) noexcept
+    static constexpr void apply( Coeffs< T, N, M >& out,
+                                 const Coeffs< T, N, M >& a ) noexcept
     {
         seriesAcos< T, N, M >( out, a );
     }
@@ -173,8 +173,8 @@ template < int N, int M >
 struct OpAtan
 {
     template < typename T >
-    static constexpr void apply( std::array< T, numMonomials( N, M ) >& out,
-                                 const std::array< T, numMonomials( N, M ) >& a ) noexcept
+    static constexpr void apply( Coeffs< T, N, M >& out,
+                                 const Coeffs< T, N, M >& a ) noexcept
     {
         seriesAtan< T, N, M >( out, a );
     }
@@ -184,9 +184,9 @@ template < int N, int M >
 struct OpAtan2
 {
     template < typename T >
-    static constexpr void apply( std::array< T, numMonomials( N, M ) >& out,
-                                 const std::array< T, numMonomials( N, M ) >& y,
-                                 const std::array< T, numMonomials( N, M ) >& x ) noexcept
+    static constexpr void apply( Coeffs< T, N, M >& out,
+                                 const Coeffs< T, N, M >& y,
+                                 const Coeffs< T, N, M >& x ) noexcept
     {
         seriesAtan2< T, N, M >( out, y, x );
     }
@@ -196,8 +196,8 @@ template < int N, int M >
 struct OpSinh
 {
     template < typename T >
-    static constexpr void apply( std::array< T, numMonomials( N, M ) >& out,
-                                 const std::array< T, numMonomials( N, M ) >& a ) noexcept
+    static constexpr void apply( Coeffs< T, N, M >& out,
+                                 const Coeffs< T, N, M >& a ) noexcept
     {
         seriesSinh< T, N, M >( out, a );
     }
@@ -207,8 +207,8 @@ template < int N, int M >
 struct OpCosh
 {
     template < typename T >
-    static constexpr void apply( std::array< T, numMonomials( N, M ) >& out,
-                                 const std::array< T, numMonomials( N, M ) >& a ) noexcept
+    static constexpr void apply( Coeffs< T, N, M >& out,
+                                 const Coeffs< T, N, M >& a ) noexcept
     {
         seriesCosh< T, N, M >( out, a );
     }
@@ -218,8 +218,8 @@ template < int N, int M >
 struct OpTanh
 {
     template < typename T >
-    static constexpr void apply( std::array< T, numMonomials( N, M ) >& out,
-                                 const std::array< T, numMonomials( N, M ) >& a ) noexcept
+    static constexpr void apply( Coeffs< T, N, M >& out,
+                                 const Coeffs< T, N, M >& a ) noexcept
     {
         seriesTanh< T, N, M >( out, a );
     }
@@ -229,8 +229,8 @@ template < int N, int M >
 struct OpAsinh
 {
     template < typename T >
-    static constexpr void apply( std::array< T, numMonomials( N, M ) >& out,
-                                 const std::array< T, numMonomials( N, M ) >& a ) noexcept
+    static constexpr void apply( Coeffs< T, N, M >& out,
+                                 const Coeffs< T, N, M >& a ) noexcept
     {
         seriesAsinh< T, N, M >( out, a );
     }
@@ -240,8 +240,8 @@ template < int N, int M >
 struct OpAcosh
 {
     template < typename T >
-    static constexpr void apply( std::array< T, numMonomials( N, M ) >& out,
-                                 const std::array< T, numMonomials( N, M ) >& a ) noexcept
+    static constexpr void apply( Coeffs< T, N, M >& out,
+                                 const Coeffs< T, N, M >& a ) noexcept
     {
         seriesAcosh< T, N, M >( out, a );
     }
@@ -251,8 +251,8 @@ template < int N, int M >
 struct OpAtanh
 {
     template < typename T >
-    static constexpr void apply( std::array< T, numMonomials( N, M ) >& out,
-                                 const std::array< T, numMonomials( N, M ) >& a ) noexcept
+    static constexpr void apply( Coeffs< T, N, M >& out,
+                                 const Coeffs< T, N, M >& a ) noexcept
     {
         seriesAtanh< T, N, M >( out, a );
     }
@@ -266,8 +266,8 @@ template < int N, int M >
 struct OpLog
 {
     template < typename T >
-    static constexpr void apply( std::array< T, numMonomials( N, M ) >& out,
-                                 const std::array< T, numMonomials( N, M ) >& a ) noexcept
+    static constexpr void apply( Coeffs< T, N, M >& out,
+                                 const Coeffs< T, N, M >& a ) noexcept
     {
         seriesLog< T, N, M >( out, a );
     }
@@ -281,8 +281,8 @@ template < int N, int M >
 struct OpLog10
 {
     template < typename T >
-    static constexpr void apply( std::array< T, numMonomials( N, M ) >& out,
-                                 const std::array< T, numMonomials( N, M ) >& a ) noexcept
+    static constexpr void apply( Coeffs< T, N, M >& out,
+                                 const Coeffs< T, N, M >& a ) noexcept
     {
         seriesLog< T, N, M >( out, a );
         using std::log;
@@ -299,8 +299,8 @@ template < int N, int M >
 struct OpExp
 {
     template < typename T >
-    static constexpr void apply( std::array< T, numMonomials( N, M ) >& out,
-                                 const std::array< T, numMonomials( N, M ) >& a ) noexcept
+    static constexpr void apply( Coeffs< T, N, M >& out,
+                                 const Coeffs< T, N, M >& a ) noexcept
     {
         seriesExp< T, N, M >( out, a );
     }
@@ -314,8 +314,8 @@ template < int N, int M >
 struct OpIPow
 {
     template < typename T >
-    static constexpr void apply( std::array< T, numMonomials( N, M ) >& out,
-                                 const std::array< T, numMonomials( N, M ) >& a, int n ) noexcept
+    static constexpr void apply( Coeffs< T, N, M >& out,
+                                 const Coeffs< T, N, M >& a, int n ) noexcept
     {
         seriesIntPow< T, N, M >( out, a, n );
     }
@@ -329,8 +329,8 @@ template < int N, int M >
 struct OpDPow
 {
     template < typename T >
-    static constexpr void apply( std::array< T, numMonomials( N, M ) >& out,
-                                 const std::array< T, numMonomials( N, M ) >& a, T c ) noexcept
+    static constexpr void apply( Coeffs< T, N, M >& out,
+                                 const Coeffs< T, N, M >& a, T c ) noexcept
     {
         seriesPow< T, N, M >( out, a, c );
     }
@@ -344,11 +344,11 @@ template < int N, int M >
 struct OpTPow
 {
     template < typename T >
-    static constexpr void apply( std::array< T, numMonomials( N, M ) >& out,
-                                 const std::array< T, numMonomials( N, M ) >& base,
-                                 const std::array< T, numMonomials( N, M ) >& exponent ) noexcept
+    static constexpr void apply( Coeffs< T, N, M >& out,
+                                 const Coeffs< T, N, M >& base,
+                                 const Coeffs< T, N, M >& exponent ) noexcept
     {
-        std::array< T, numMonomials( N, M ) > lg{}, prod{};
+        Coeffs< T, N, M > lg{}, prod{};
         seriesLog< T, N, M >( lg, base );
         cauchyProduct< T, N, M >( prod, exponent, lg );
         seriesExp< T, N, M >( out, prod );
@@ -359,9 +359,9 @@ template < int N, int M >
 struct OpHypot
 {
     template < typename T >
-    static constexpr void apply( std::array< T, numMonomials( N, M ) >& out,
-                                 const std::array< T, numMonomials( N, M ) >& x,
-                                 const std::array< T, numMonomials( N, M ) >& y ) noexcept
+    static constexpr void apply( Coeffs< T, N, M >& out,
+                                 const Coeffs< T, N, M >& x,
+                                 const Coeffs< T, N, M >& y ) noexcept
     {
         constexpr auto S = numMonomials( N, M );
         std::array< T, S > xsq{}, ysq{}, sum{};
@@ -381,10 +381,10 @@ template < int N, int M >
 struct OpFMA
 {
     template < typename T >
-    static constexpr void apply( std::array< T, numMonomials( N, M ) >& out,
-                                 const std::array< T, numMonomials( N, M ) >& x,
-                                 const std::array< T, numMonomials( N, M ) >& y,
-                                 const std::array< T, numMonomials( N, M ) >& z ) noexcept
+    static constexpr void apply( Coeffs< T, N, M >& out,
+                                 const Coeffs< T, N, M >& x,
+                                 const Coeffs< T, N, M >& y,
+                                 const Coeffs< T, N, M >& z ) noexcept
     {
         cauchyProduct< T, N, M >( out, x, y );
         addInPlace< T, numMonomials( N, M ) >( out, z );
@@ -395,10 +395,10 @@ template < int N, int M >
 struct OpHypot3
 {
     template < typename T >
-    static constexpr void apply( std::array< T, numMonomials( N, M ) >& out,
-                                 const std::array< T, numMonomials( N, M ) >& x,
-                                 const std::array< T, numMonomials( N, M ) >& y,
-                                 const std::array< T, numMonomials( N, M ) >& z ) noexcept
+    static constexpr void apply( Coeffs< T, N, M >& out,
+                                 const Coeffs< T, N, M >& x,
+                                 const Coeffs< T, N, M >& y,
+                                 const Coeffs< T, N, M >& z ) noexcept
     {
         constexpr auto S = numMonomials( N, M );
         std::array< T, S > xsq{}, ysq{}, zsq{}, sum{};

@@ -17,7 +17,7 @@ class FuncExpr : public tax::Expr< FuncExpr< E, Op >, typename E::scalar_type, E
    public:
     using T = typename E::scalar_type;
     static constexpr int N = E::order_ct, M = E::size_ct;
-    using coeff_array = std::array< T, numMonomials( N, M ) >;
+    using coeff_array = Coeffs< T, N, M >;
 
     /// @brief Construct from operand.
     explicit constexpr FuncExpr( const E& e ) noexcept : e_( e ) {}
@@ -51,7 +51,7 @@ class ParamFuncExpr
    public:
     using T = typename E::scalar_type;
     static constexpr int N = E::order_ct, M = E::size_ct;
-    using coeff_array = std::array< T, numMonomials( N, M ) >;
+    using coeff_array = Coeffs< T, N, M >;
 
     /// @brief Construct from operand and parameter.
     constexpr ParamFuncExpr( const E& e, P p ) noexcept : e_( e ), p_( p ) {}
@@ -89,7 +89,7 @@ class BinFuncExpr
    public:
     using T = typename L::scalar_type;
     static constexpr int N = L::order_ct, M = L::size_ct;
-    using coeff_array = std::array< T, numMonomials( N, M ) >;
+    using coeff_array = Coeffs< T, N, M >;
 
     /// @brief Construct from left/right operands.
     constexpr BinFuncExpr( const L& l, const R& r ) noexcept : l_( l ), r_( r ) {}
@@ -139,7 +139,7 @@ class TerFuncExpr
    public:
     using T = typename A::scalar_type;
     static constexpr int N = A::order_ct, M = A::size_ct;
-    using coeff_array = std::array< T, numMonomials( N, M ) >;
+    using coeff_array = Coeffs< T, N, M >;
 
     /// @brief Construct from three operands.
     constexpr TerFuncExpr( const A& a, const B& b, const C& c ) noexcept : a_( a ), b_( b ), c_( c )

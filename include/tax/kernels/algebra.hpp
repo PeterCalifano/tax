@@ -15,8 +15,8 @@ template < typename T, int N, int M >
  * @brief Reciprocal series solve `a * out = 1`.
  * @details Requires `a[0] != 0`.
  */
-constexpr void seriesReciprocal( std::array< T, numMonomials( N, M ) >& out,
-                                 const std::array< T, numMonomials( N, M ) >& a ) noexcept
+constexpr void seriesReciprocal( Coeffs< T, N, M >& out,
+                                 const Coeffs< T, N, M >& a ) noexcept
 {
     out = {};
     const T inv_a0 = T{ 1 } / a[0];
@@ -46,16 +46,16 @@ constexpr void seriesReciprocal( std::array< T, numMonomials( N, M ) >& out,
 
 template < typename T, int N, int M >
 /// @brief Square series `out = a^2`.
-constexpr void seriesSquare( std::array< T, numMonomials( N, M ) >& out,
-                             const std::array< T, numMonomials( N, M ) >& a ) noexcept
+constexpr void seriesSquare( Coeffs< T, N, M >& out,
+                             const Coeffs< T, N, M >& a ) noexcept
 {
     cauchySelfProduct< T, N, M >( out, a );
 }
 
 template < typename T, int N, int M >
 /// @brief Cube series `out = a^3`.
-constexpr void seriesCube( std::array< T, numMonomials( N, M ) >& out,
-                           const std::array< T, numMonomials( N, M ) >& a ) noexcept
+constexpr void seriesCube( Coeffs< T, N, M >& out,
+                           const Coeffs< T, N, M >& a ) noexcept
 {
     // Two Cauchy products: tmp = a^2 (via symmetric self-product), out = tmp * a.
     // O(N^2) for M=1 (vs the previous O(N^3) triple loop), O(S^2) for M>1.
@@ -70,8 +70,8 @@ template < typename T, int N, int M >
  * @brief Square-root series solve `out * out = a`.
  * @details Uses the principal branch from `sqrt(a[0])`.
  */
-constexpr void seriesSqrt( std::array< T, numMonomials( N, M ) >& out,
-                           const std::array< T, numMonomials( N, M ) >& a ) noexcept
+constexpr void seriesSqrt( Coeffs< T, N, M >& out,
+                           const Coeffs< T, N, M >& a ) noexcept
 {
     using std::sqrt;
     out = {};
@@ -123,8 +123,8 @@ template < typename T, int N, int M >
  *          Combining: rhs -= out[beta] * (out[0]*out[gamma] + sq[gamma])
  *          for each pair (beta,gamma) via forEachSubIndex(alpha, 1, d-1).
  */
-constexpr void seriesCbrt( std::array< T, numMonomials( N, M ) >& out,
-                           const std::array< T, numMonomials( N, M ) >& a ) noexcept
+constexpr void seriesCbrt( Coeffs< T, N, M >& out,
+                           const Coeffs< T, N, M >& a ) noexcept
 {
     using std::cbrt;
     constexpr auto S = numMonomials( N, M );
