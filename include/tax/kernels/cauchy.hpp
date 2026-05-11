@@ -99,7 +99,7 @@ constexpr void cauchyAccumulate( std::array< T, numMonomials( N, M ) >& out,
 
 /// @brief Runtime overload of `cauchyAccumulate`: `out += f * g` with runtime `(N, M)`.
 template < typename T >
-inline void cauchyAccumulateRT( T* out, const T* f, const T* g, std::size_t N,
+inline void cauchyAccumulate( T* out, const T* f, const T* g, std::size_t N,
                                 std::size_t M ) noexcept
 {
     if ( M == 1 )
@@ -121,17 +121,17 @@ inline void cauchyAccumulateRT( T* out, const T* f, const T* g, std::size_t N,
 
 /// @brief Runtime overload of `cauchyProduct`: `out = f * g` with runtime `(N, M)`.
 template < typename T >
-inline void cauchyProductRT( T* out, const T* f, const T* g, std::size_t N,
+inline void cauchyProduct( T* out, const T* f, const T* g, std::size_t N,
                              std::size_t M ) noexcept
 {
     const std::size_t S = numMonomials( N, M );
     for ( std::size_t i = 0; i < S; ++i ) out[i] = T{ 0 };
-    cauchyAccumulateRT( out, f, g, N, M );
+    cauchyAccumulate( out, f, g, N, M );
 }
 
 /// @brief Runtime overload of `cauchySelfProduct`: `out = f * f` exploiting symmetry.
 template < typename T >
-inline void cauchySelfProductRT( T* out, const T* f, std::size_t N, std::size_t M ) noexcept
+inline void cauchySelfProduct( T* out, const T* f, std::size_t N, std::size_t M ) noexcept
 {
     const std::size_t S = numMonomials( N, M );
     for ( std::size_t i = 0; i < S; ++i ) out[i] = T{ 0 };

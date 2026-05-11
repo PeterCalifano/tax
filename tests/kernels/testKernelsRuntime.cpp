@@ -62,7 +62,7 @@ TEST( KernelsRuntime, CauchyProduct_M1_N5 )
     ExpectRuntimeMatchesStatic_BinKernel< 5, 1 >(
         []( auto& o, const auto& f, const auto& g ) { cauchyProduct< double, 5, 1 >( o, f, g ); },
         []( double* o, const double* f, const double* g, std::size_t N, std::size_t M ) {
-            cauchyProductRT( o, f, g, N, M );
+            cauchyProduct( o, f, g, N, M );
         } );
 }
 
@@ -71,7 +71,7 @@ TEST( KernelsRuntime, CauchyProduct_M3_N4 )
     ExpectRuntimeMatchesStatic_BinKernel< 4, 3 >(
         []( auto& o, const auto& f, const auto& g ) { cauchyProduct< double, 4, 3 >( o, f, g ); },
         []( double* o, const double* f, const double* g, std::size_t N, std::size_t M ) {
-            cauchyProductRT( o, f, g, N, M );
+            cauchyProduct( o, f, g, N, M );
         } );
 }
 
@@ -83,7 +83,7 @@ TEST( KernelsRuntime, CauchySelfProduct_M2_N5 )
     cauchySelfProduct< double, 5, 2 >( out_static, f );
 
     std::vector< double > out_rt( numMonomials( 5, 2 ), 0.0 );
-    cauchySelfProductRT( out_rt.data(), f.data(), std::size_t( 5 ), std::size_t( 2 ) );
+    cauchySelfProduct( out_rt.data(), f.data(), std::size_t( 5 ), std::size_t( 2 ) );
 
     for ( std::size_t i = 0; i < out_static.size(); ++i )
         EXPECT_NEAR( out_rt[i], out_static[i], 1e-12 ) << "i=" << i;
@@ -98,7 +98,7 @@ TEST( KernelsRuntime, Reciprocal_M1_N6 )
     ExpectRuntimeMatchesStatic_UnKernel< 6, 1 >(
         []( auto& o, const auto& a ) { seriesReciprocal< double, 6, 1 >( o, a ); },
         []( double* o, const double* a, std::size_t N, std::size_t M ) {
-            seriesReciprocalRT( o, a, N, M );
+            seriesReciprocal( o, a, N, M );
         } );
 }
 
@@ -107,7 +107,7 @@ TEST( KernelsRuntime, Reciprocal_M3_N4 )
     ExpectRuntimeMatchesStatic_UnKernel< 4, 3 >(
         []( auto& o, const auto& a ) { seriesReciprocal< double, 4, 3 >( o, a ); },
         []( double* o, const double* a, std::size_t N, std::size_t M ) {
-            seriesReciprocalRT( o, a, N, M );
+            seriesReciprocal( o, a, N, M );
         } );
 }
 
@@ -116,7 +116,7 @@ TEST( KernelsRuntime, Sqrt_M1_N6 )
     ExpectRuntimeMatchesStatic_UnKernel< 6, 1 >(
         []( auto& o, const auto& a ) { seriesSqrt< double, 6, 1 >( o, a ); },
         []( double* o, const double* a, std::size_t N, std::size_t M ) {
-            seriesSqrtRT( o, a, N, M );
+            seriesSqrt( o, a, N, M );
         } );
 }
 
@@ -125,7 +125,7 @@ TEST( KernelsRuntime, Sqrt_M2_N5 )
     ExpectRuntimeMatchesStatic_UnKernel< 5, 2 >(
         []( auto& o, const auto& a ) { seriesSqrt< double, 5, 2 >( o, a ); },
         []( double* o, const double* a, std::size_t N, std::size_t M ) {
-            seriesSqrtRT( o, a, N, M );
+            seriesSqrt( o, a, N, M );
         } );
 }
 
@@ -138,7 +138,7 @@ TEST( KernelsRuntime, Exp_M1_N6 )
     ExpectRuntimeMatchesStatic_UnKernel< 6, 1 >(
         []( auto& o, const auto& a ) { seriesExp< double, 6, 1 >( o, a ); },
         []( double* o, const double* a, std::size_t N, std::size_t M ) {
-            seriesExpRT( o, a, N, M );
+            seriesExp( o, a, N, M );
         } );
 }
 
@@ -147,7 +147,7 @@ TEST( KernelsRuntime, Exp_M3_N4 )
     ExpectRuntimeMatchesStatic_UnKernel< 4, 3 >(
         []( auto& o, const auto& a ) { seriesExp< double, 4, 3 >( o, a ); },
         []( double* o, const double* a, std::size_t N, std::size_t M ) {
-            seriesExpRT( o, a, N, M );
+            seriesExp( o, a, N, M );
         } );
 }
 
@@ -156,7 +156,7 @@ TEST( KernelsRuntime, Log_M1_N6 )
     ExpectRuntimeMatchesStatic_UnKernel< 6, 1 >(
         []( auto& o, const auto& a ) { seriesLog< double, 6, 1 >( o, a ); },
         []( double* o, const double* a, std::size_t N, std::size_t M ) {
-            seriesLogRT( o, a, N, M );
+            seriesLog( o, a, N, M );
         } );
 }
 
@@ -165,7 +165,7 @@ TEST( KernelsRuntime, Log_M2_N5 )
     ExpectRuntimeMatchesStatic_UnKernel< 5, 2 >(
         []( auto& o, const auto& a ) { seriesLog< double, 5, 2 >( o, a ); },
         []( double* o, const double* a, std::size_t N, std::size_t M ) {
-            seriesLogRT( o, a, N, M );
+            seriesLog( o, a, N, M );
         } );
 }
 
@@ -177,7 +177,7 @@ TEST( KernelsRuntime, Pow_M1_N5 )
     seriesPow< double, 5, 1 >( out_static, a, 0.5 );
 
     std::vector< double > out_rt( numMonomials( 5, 1 ), 0.0 );
-    seriesPowRT( out_rt.data(), a.data(), 0.5, std::size_t( 5 ), std::size_t( 1 ) );
+    seriesPow( out_rt.data(), a.data(), 0.5, std::size_t( 5 ), std::size_t( 1 ) );
 
     for ( std::size_t i = 0; i < out_static.size(); ++i )
         EXPECT_NEAR( out_rt[i], out_static[i], 1e-12 ) << "i=" << i;
@@ -196,7 +196,7 @@ TEST( KernelsRuntime, SinCos_M1_N6 )
 
     std::vector< double > s_rt( numMonomials( 6, 1 ), 0.0 );
     std::vector< double > c_rt( numMonomials( 6, 1 ), 0.0 );
-    seriesSinCosRT( s_rt.data(), c_rt.data(), a.data(), std::size_t( 6 ), std::size_t( 1 ) );
+    seriesSinCos( s_rt.data(), c_rt.data(), a.data(), std::size_t( 6 ), std::size_t( 1 ) );
 
     for ( std::size_t i = 0; i < s_static.size(); ++i )
     {
@@ -214,7 +214,7 @@ TEST( KernelsRuntime, SinCos_M2_N5 )
 
     std::vector< double > s_rt( numMonomials( 5, 2 ), 0.0 );
     std::vector< double > c_rt( numMonomials( 5, 2 ), 0.0 );
-    seriesSinCosRT( s_rt.data(), c_rt.data(), a.data(), std::size_t( 5 ), std::size_t( 2 ) );
+    seriesSinCos( s_rt.data(), c_rt.data(), a.data(), std::size_t( 5 ), std::size_t( 2 ) );
 
     for ( std::size_t i = 0; i < s_static.size(); ++i )
     {

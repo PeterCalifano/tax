@@ -39,28 +39,28 @@ constexpr void scaleInPlace( std::array< T, S >& o, T s ) noexcept
 
 /// @brief Runtime overload of `addInPlace`. Caller owns `o.size() == r.size()`.
 template < typename T >
-inline void addInPlaceRT( T* o, const T* r, std::size_t S ) noexcept
+inline void addInPlace( T* o, const T* r, std::size_t S ) noexcept
 {
     for ( std::size_t i = 0; i < S; ++i ) o[i] += r[i];
 }
 
 /// @brief Runtime overload of `subInPlace`.
 template < typename T >
-inline void subInPlaceRT( T* o, const T* r, std::size_t S ) noexcept
+inline void subInPlace( T* o, const T* r, std::size_t S ) noexcept
 {
     for ( std::size_t i = 0; i < S; ++i ) o[i] -= r[i];
 }
 
 /// @brief Runtime overload of `negateInPlace`.
 template < typename T >
-inline void negateInPlaceRT( T* o, std::size_t S ) noexcept
+inline void negateInPlace( T* o, std::size_t S ) noexcept
 {
     for ( std::size_t i = 0; i < S; ++i ) o[i] = -o[i];
 }
 
 /// @brief Runtime overload of `scaleInPlace`.
 template < typename T >
-inline void scaleInPlaceRT( T* o, T s, std::size_t S ) noexcept
+inline void scaleInPlace( T* o, T s, std::size_t S ) noexcept
 {
     for ( std::size_t i = 0; i < S; ++i ) o[i] *= s;
 }
@@ -90,10 +90,10 @@ constexpr void seriesAbs( std::array< T, S >& out, const std::array< T, S >& a )
 
 /// @brief Runtime overload of `seriesAbs`. Requires `a[0] != 0`.
 template < typename T >
-inline void seriesAbsRT( T* out, const T* a, std::size_t S ) noexcept
+inline void seriesAbs( T* out, const T* a, std::size_t S ) noexcept
 {
     for ( std::size_t i = 0; i < S; ++i ) out[i] = a[i];
-    if ( detail::extractValue( a[0] ) < 0 ) negateInPlaceRT( out, S );
+    if ( detail::extractValue( a[0] ) < 0 ) negateInPlace( out, S );
 }
 
 }  // namespace tax::detail

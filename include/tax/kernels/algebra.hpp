@@ -194,7 +194,7 @@ constexpr void seriesCbrt( std::array< T, numMonomials( N, M ) >& out,
 
 /// @brief Runtime overload of `seriesReciprocal`: `a * out = 1` with runtime `(N, M)`.
 template < typename T >
-inline void seriesReciprocalRT( T* out, const T* a, std::size_t N, std::size_t M ) noexcept
+inline void seriesReciprocal( T* out, const T* a, std::size_t N, std::size_t M ) noexcept
 {
     const std::size_t S = numMonomials( N, M );
     for ( std::size_t i = 0; i < S; ++i ) out[i] = T{ 0 };
@@ -228,7 +228,7 @@ inline void seriesReciprocalRT( T* out, const T* a, std::size_t N, std::size_t M
 
 /// @brief Runtime overload of `seriesSqrt`.
 template < typename T >
-inline void seriesSqrtRT( T* out, const T* a, std::size_t N, std::size_t M ) noexcept
+inline void seriesSqrt( T* out, const T* a, std::size_t N, std::size_t M ) noexcept
 {
     using std::sqrt;
     const std::size_t S = numMonomials( N, M );
@@ -267,19 +267,19 @@ inline void seriesSqrtRT( T* out, const T* a, std::size_t N, std::size_t M ) noe
 
 /// @brief Runtime overload of `seriesSquare`: `out = a^2`.
 template < typename T >
-inline void seriesSquareRT( T* out, const T* a, std::size_t N, std::size_t M ) noexcept
+inline void seriesSquare( T* out, const T* a, std::size_t N, std::size_t M ) noexcept
 {
-    cauchySelfProductRT( out, a, N, M );
+    cauchySelfProduct( out, a, N, M );
 }
 
 /// @brief Runtime overload of `seriesCube`: `out = a^3` via two Cauchy products.
 template < typename T >
-inline void seriesCubeRT( T* out, const T* a, std::size_t N, std::size_t M )
+inline void seriesCube( T* out, const T* a, std::size_t N, std::size_t M )
 {
     const std::size_t S = numMonomials( N, M );
     std::vector< T > tmp( S, T{ 0 } );
-    cauchySelfProductRT( tmp.data(), a, N, M );
-    cauchyProductRT( out, tmp.data(), a, N, M );
+    cauchySelfProduct( tmp.data(), a, N, M );
+    cauchyProduct( out, tmp.data(), a, N, M );
 }
 
 /**
@@ -288,7 +288,7 @@ inline void seriesCubeRT( T* out, const T* a, std::size_t N, std::size_t M )
  *          one degree at a time).
  */
 template < typename T >
-inline void seriesCbrtRT( T* out, const T* a, std::size_t N, std::size_t M )
+inline void seriesCbrt( T* out, const T* a, std::size_t N, std::size_t M )
 {
     using std::cbrt;
     const std::size_t S = numMonomials( N, M );

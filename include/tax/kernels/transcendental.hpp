@@ -484,7 +484,7 @@ constexpr void seriesAtanh( std::array< T, numMonomials( N, M ) >& out,
 
 /// @brief Runtime overload of `seriesExp`.
 template < typename T >
-inline void seriesExpRT( T* out, const T* a, std::size_t N, std::size_t M ) noexcept
+inline void seriesExp( T* out, const T* a, std::size_t N, std::size_t M ) noexcept
 {
     using std::exp;
     const std::size_t S = numMonomials( N, M );
@@ -517,7 +517,7 @@ inline void seriesExpRT( T* out, const T* a, std::size_t N, std::size_t M ) noex
 
 /// @brief Runtime overload of `seriesLog`. Requires `a[0] > 0`.
 template < typename T >
-inline void seriesLogRT( T* out, const T* a, std::size_t N, std::size_t M ) noexcept
+inline void seriesLog( T* out, const T* a, std::size_t N, std::size_t M ) noexcept
 {
     using std::log;
     const std::size_t S = numMonomials( N, M );
@@ -551,7 +551,7 @@ inline void seriesLogRT( T* out, const T* a, std::size_t N, std::size_t M ) noex
 
 /// @brief Runtime overload of `seriesPow`: `out = a^c` for a real exponent.
 template < typename T >
-inline void seriesPowRT( T* out, const T* a, T c, std::size_t N, std::size_t M ) noexcept
+inline void seriesPow( T* out, const T* a, T c, std::size_t N, std::size_t M ) noexcept
 {
     using std::pow;
     const std::size_t S = numMonomials( N, M );
@@ -586,17 +586,17 @@ inline void seriesPowRT( T* out, const T* a, T c, std::size_t N, std::size_t M )
 
 /// @brief Runtime overload of `seriesAsin`. Requires |a[0]| < 1.
 template < typename T >
-inline void seriesAsinRT( T* out, const T* a, std::size_t N, std::size_t M )
+inline void seriesAsin( T* out, const T* a, std::size_t N, std::size_t M )
 {
     using std::asin;
     const std::size_t S = numMonomials( N, M );
 
     // h = sqrt(1 - a^2)
     std::vector< T > asq( S, T{ 0 } ), omf( S, T{ 0 } ), h( S, T{ 0 } );
-    cauchySelfProductRT( asq.data(), a, N, M );
+    cauchySelfProduct( asq.data(), a, N, M );
     omf[0] = T{ 1 };
-    subInPlaceRT( omf.data(), asq.data(), S );
-    seriesSqrtRT( h.data(), omf.data(), N, M );
+    subInPlace( omf.data(), asq.data(), S );
+    seriesSqrt( h.data(), omf.data(), N, M );
 
     for ( std::size_t i = 0; i < S; ++i ) out[i] = T{ 0 };
     out[0] = asin( a[0] );
@@ -628,25 +628,25 @@ inline void seriesAsinRT( T* out, const T* a, std::size_t N, std::size_t M )
 
 /// @brief Runtime overload of `seriesAcos`: acos(a) = pi/2 - asin(a).
 template < typename T >
-inline void seriesAcosRT( T* out, const T* a, std::size_t N, std::size_t M )
+inline void seriesAcos( T* out, const T* a, std::size_t N, std::size_t M )
 {
     using std::acos;
     const std::size_t S = numMonomials( N, M );
-    seriesAsinRT( out, a, N, M );
-    negateInPlaceRT( out, S );
+    seriesAsin( out, a, N, M );
+    negateInPlace( out, S );
     out[0] += acos( T{ -1 } ) / T{ 2 };  // pi/2
 }
 
 /// @brief Runtime overload of `seriesAtan`.
 template < typename T >
-inline void seriesAtanRT( T* out, const T* a, std::size_t N, std::size_t M )
+inline void seriesAtan( T* out, const T* a, std::size_t N, std::size_t M )
 {
     using std::atan;
     const std::size_t S = numMonomials( N, M );
 
     // h = 1 + a^2
     std::vector< T > h( S, T{ 0 } );
-    cauchySelfProductRT( h.data(), a, N, M );
+    cauchySelfProduct( h.data(), a, N, M );
     h[0] += T{ 1 };
 
     for ( std::size_t i = 0; i < S; ++i ) out[i] = T{ 0 };

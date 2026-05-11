@@ -220,7 +220,7 @@ constexpr void seriesTanh( std::array< T, numMonomials( N, M ) >& out,
 
 /// @brief Runtime overload of `seriesSinCos`: jointly compute `sin(a)` and `cos(a)`.
 template < typename T >
-inline void seriesSinCosRT( T* s, T* c, const T* a, std::size_t N, std::size_t M ) noexcept
+inline void seriesSinCos( T* s, T* c, const T* a, std::size_t N, std::size_t M ) noexcept
 {
     using std::cos;
     using std::sin;
@@ -266,31 +266,31 @@ inline void seriesSinCosRT( T* s, T* c, const T* a, std::size_t N, std::size_t M
     }
 }
 
-/// @brief Runtime sin: thin wrapper around `seriesSinCosRT`.
+/// @brief Runtime sin: thin wrapper around `seriesSinCos`.
 template < typename T >
-inline void seriesSinRT( T* out, const T* a, std::size_t N, std::size_t M )
+inline void seriesSin( T* out, const T* a, std::size_t N, std::size_t M )
 {
     const std::size_t S = numMonomials( N, M );
     std::vector< T > scratch( S, T{ 0 } );
-    seriesSinCosRT( out, scratch.data(), a, N, M );
+    seriesSinCos( out, scratch.data(), a, N, M );
 }
 
-/// @brief Runtime cos: thin wrapper around `seriesSinCosRT`.
+/// @brief Runtime cos: thin wrapper around `seriesSinCos`.
 template < typename T >
-inline void seriesCosRT( T* out, const T* a, std::size_t N, std::size_t M )
+inline void seriesCos( T* out, const T* a, std::size_t N, std::size_t M )
 {
     const std::size_t S = numMonomials( N, M );
     std::vector< T > scratch( S, T{ 0 } );
-    seriesSinCosRT( scratch.data(), out, a, N, M );
+    seriesSinCos( scratch.data(), out, a, N, M );
 }
 
 /// @brief Runtime overload of `seriesTan`: tan(a) via cos·out = sin.
 template < typename T >
-inline void seriesTanRT( T* out, const T* a, std::size_t N, std::size_t M )
+inline void seriesTan( T* out, const T* a, std::size_t N, std::size_t M )
 {
     const std::size_t S = numMonomials( N, M );
     std::vector< T > s( S, T{ 0 } ), c( S, T{ 0 } );
-    seriesSinCosRT( s.data(), c.data(), a, N, M );
+    seriesSinCos( s.data(), c.data(), a, N, M );
 
     for ( std::size_t i = 0; i < S; ++i ) out[i] = T{ 0 };
     const T inv_c0 = T{ 1 } / c[0];
@@ -321,7 +321,7 @@ inline void seriesTanRT( T* out, const T* a, std::size_t N, std::size_t M )
 
 /// @brief Runtime overload of `seriesSinhCosh`: joint sinh/cosh.
 template < typename T >
-inline void seriesSinhCoshRT( T* sh, T* ch, const T* a, std::size_t N, std::size_t M ) noexcept
+inline void seriesSinhCosh( T* sh, T* ch, const T* a, std::size_t N, std::size_t M ) noexcept
 {
     using std::cosh;
     using std::sinh;
@@ -368,28 +368,28 @@ inline void seriesSinhCoshRT( T* sh, T* ch, const T* a, std::size_t N, std::size
 }
 
 template < typename T >
-inline void seriesSinhRT( T* out, const T* a, std::size_t N, std::size_t M )
+inline void seriesSinh( T* out, const T* a, std::size_t N, std::size_t M )
 {
     const std::size_t S = numMonomials( N, M );
     std::vector< T > scratch( S, T{ 0 } );
-    seriesSinhCoshRT( out, scratch.data(), a, N, M );
+    seriesSinhCosh( out, scratch.data(), a, N, M );
 }
 
 template < typename T >
-inline void seriesCoshRT( T* out, const T* a, std::size_t N, std::size_t M )
+inline void seriesCosh( T* out, const T* a, std::size_t N, std::size_t M )
 {
     const std::size_t S = numMonomials( N, M );
     std::vector< T > scratch( S, T{ 0 } );
-    seriesSinhCoshRT( scratch.data(), out, a, N, M );
+    seriesSinhCosh( scratch.data(), out, a, N, M );
 }
 
 /// @brief Runtime overload of `seriesTanh`: tanh(a) via cosh·out = sinh.
 template < typename T >
-inline void seriesTanhRT( T* out, const T* a, std::size_t N, std::size_t M )
+inline void seriesTanh( T* out, const T* a, std::size_t N, std::size_t M )
 {
     const std::size_t S = numMonomials( N, M );
     std::vector< T > sh( S, T{ 0 } ), ch( S, T{ 0 } );
-    seriesSinhCoshRT( sh.data(), ch.data(), a, N, M );
+    seriesSinhCosh( sh.data(), ch.data(), a, N, M );
 
     for ( std::size_t i = 0; i < S; ++i ) out[i] = T{ 0 };
     const T inv_ch0 = T{ 1 } / ch[0];

@@ -153,20 +153,20 @@ class TaylorExpansionT< T, Dynamic, Dynamic > : public detail::ShapeBase< Dynami
     TaylorExpansionT& operator+=( const TaylorExpansionT& r )
     {
         assertSameShape( r );
-        detail::addInPlaceRT( c_.data(), r.c_.data(), c_.size() );
+        detail::addInPlace( c_.data(), r.c_.data(), c_.size() );
         return *this;
     }
     TaylorExpansionT& operator-=( const TaylorExpansionT& r )
     {
         assertSameShape( r );
-        detail::subInPlaceRT( c_.data(), r.c_.data(), c_.size() );
+        detail::subInPlace( c_.data(), r.c_.data(), c_.size() );
         return *this;
     }
     TaylorExpansionT& operator*=( const TaylorExpansionT& r )
     {
         assertSameShape( r );
         Data tmp( c_.size(), T{ 0 } );
-        detail::cauchyProductRT( tmp.data(), c_.data(), r.c_.data(), this->order(), this->size() );
+        detail::cauchyProduct( tmp.data(), c_.data(), r.c_.data(), this->order(), this->size() );
         c_.swap( tmp );
         return *this;
     }
@@ -174,9 +174,9 @@ class TaylorExpansionT< T, Dynamic, Dynamic > : public detail::ShapeBase< Dynami
     {
         assertSameShape( r );
         Data rec( c_.size(), T{ 0 } );
-        detail::seriesReciprocalRT( rec.data(), r.c_.data(), this->order(), this->size() );
+        detail::seriesReciprocal( rec.data(), r.c_.data(), this->order(), this->size() );
         Data prod( c_.size(), T{ 0 } );
-        detail::cauchyProductRT( prod.data(), c_.data(), rec.data(), this->order(), this->size() );
+        detail::cauchyProduct( prod.data(), c_.data(), rec.data(), this->order(), this->size() );
         c_.swap( prod );
         return *this;
     }
@@ -193,7 +193,7 @@ class TaylorExpansionT< T, Dynamic, Dynamic > : public detail::ShapeBase< Dynami
     }
     TaylorExpansionT& operator*=( T s ) noexcept
     {
-        detail::scaleInPlaceRT( c_.data(), s, c_.size() );
+        detail::scaleInPlace( c_.data(), s, c_.size() );
         return *this;
     }
     TaylorExpansionT& operator/=( T s ) noexcept { return *this *= ( T{ 1 } / s ); }
@@ -201,7 +201,7 @@ class TaylorExpansionT< T, Dynamic, Dynamic > : public detail::ShapeBase< Dynami
     [[nodiscard]] TaylorExpansionT operator-() const
     {
         TaylorExpansionT out( *this );
-        detail::negateInPlaceRT( out.c_.data(), out.c_.size() );
+        detail::negateInPlace( out.c_.data(), out.c_.size() );
         return out;
     }
 
@@ -318,7 +318,7 @@ template < typename T >
 namespace detail
 {
 template < typename T, typename K >
-[[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > applyUnaryRT(
+[[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > applyUnary(
     const TaylorExpansionT< T, Dynamic, Dynamic >& a, K&& kernel )
 {
     TaylorExpansionT< T, Dynamic, Dynamic > out( a.order(), a.size() );
@@ -331,8 +331,8 @@ template < typename T >
 [[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > sin(
     const TaylorExpansionT< T, Dynamic, Dynamic >& a )
 {
-    return detail::applyUnaryRT( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
-        detail::seriesSinRT( o, x, N, M );
+    return detail::applyUnary( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
+        detail::seriesSin( o, x, N, M );
     } );
 }
 
@@ -340,8 +340,8 @@ template < typename T >
 [[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > cos(
     const TaylorExpansionT< T, Dynamic, Dynamic >& a )
 {
-    return detail::applyUnaryRT( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
-        detail::seriesCosRT( o, x, N, M );
+    return detail::applyUnary( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
+        detail::seriesCos( o, x, N, M );
     } );
 }
 
@@ -349,8 +349,8 @@ template < typename T >
 [[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > exp(
     const TaylorExpansionT< T, Dynamic, Dynamic >& a )
 {
-    return detail::applyUnaryRT( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
-        detail::seriesExpRT( o, x, N, M );
+    return detail::applyUnary( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
+        detail::seriesExp( o, x, N, M );
     } );
 }
 
@@ -358,8 +358,8 @@ template < typename T >
 [[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > log(
     const TaylorExpansionT< T, Dynamic, Dynamic >& a )
 {
-    return detail::applyUnaryRT( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
-        detail::seriesLogRT( o, x, N, M );
+    return detail::applyUnary( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
+        detail::seriesLog( o, x, N, M );
     } );
 }
 
@@ -367,8 +367,8 @@ template < typename T >
 [[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > sqrt(
     const TaylorExpansionT< T, Dynamic, Dynamic >& a )
 {
-    return detail::applyUnaryRT( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
-        detail::seriesSqrtRT( o, x, N, M );
+    return detail::applyUnary( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
+        detail::seriesSqrt( o, x, N, M );
     } );
 }
 
@@ -376,8 +376,8 @@ template < typename T >
 [[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > square(
     const TaylorExpansionT< T, Dynamic, Dynamic >& a )
 {
-    return detail::applyUnaryRT( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
-        detail::seriesSquareRT( o, x, N, M );
+    return detail::applyUnary( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
+        detail::seriesSquare( o, x, N, M );
     } );
 }
 
@@ -386,7 +386,7 @@ template < typename T >
     const TaylorExpansionT< T, Dynamic, Dynamic >& a, T c )
 {
     TaylorExpansionT< T, Dynamic, Dynamic > out( a.order(), a.size() );
-    detail::seriesPowRT( out.coeffs().data(), a.coeffs().data(), c, a.order(), a.size() );
+    detail::seriesPow( out.coeffs().data(), a.coeffs().data(), c, a.order(), a.size() );
     return out;
 }
 
@@ -394,8 +394,8 @@ template < typename T >
 [[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > tan(
     const TaylorExpansionT< T, Dynamic, Dynamic >& a )
 {
-    return detail::applyUnaryRT( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
-        detail::seriesTanRT( o, x, N, M );
+    return detail::applyUnary( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
+        detail::seriesTan( o, x, N, M );
     } );
 }
 
@@ -403,8 +403,8 @@ template < typename T >
 [[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > sinh(
     const TaylorExpansionT< T, Dynamic, Dynamic >& a )
 {
-    return detail::applyUnaryRT( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
-        detail::seriesSinhRT( o, x, N, M );
+    return detail::applyUnary( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
+        detail::seriesSinh( o, x, N, M );
     } );
 }
 
@@ -412,8 +412,8 @@ template < typename T >
 [[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > cosh(
     const TaylorExpansionT< T, Dynamic, Dynamic >& a )
 {
-    return detail::applyUnaryRT( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
-        detail::seriesCoshRT( o, x, N, M );
+    return detail::applyUnary( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
+        detail::seriesCosh( o, x, N, M );
     } );
 }
 
@@ -421,8 +421,8 @@ template < typename T >
 [[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > tanh(
     const TaylorExpansionT< T, Dynamic, Dynamic >& a )
 {
-    return detail::applyUnaryRT( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
-        detail::seriesTanhRT( o, x, N, M );
+    return detail::applyUnary( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
+        detail::seriesTanh( o, x, N, M );
     } );
 }
 
@@ -430,8 +430,8 @@ template < typename T >
 [[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > asin(
     const TaylorExpansionT< T, Dynamic, Dynamic >& a )
 {
-    return detail::applyUnaryRT( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
-        detail::seriesAsinRT( o, x, N, M );
+    return detail::applyUnary( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
+        detail::seriesAsin( o, x, N, M );
     } );
 }
 
@@ -439,8 +439,8 @@ template < typename T >
 [[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > acos(
     const TaylorExpansionT< T, Dynamic, Dynamic >& a )
 {
-    return detail::applyUnaryRT( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
-        detail::seriesAcosRT( o, x, N, M );
+    return detail::applyUnary( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
+        detail::seriesAcos( o, x, N, M );
     } );
 }
 
@@ -448,8 +448,8 @@ template < typename T >
 [[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > atan(
     const TaylorExpansionT< T, Dynamic, Dynamic >& a )
 {
-    return detail::applyUnaryRT( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
-        detail::seriesAtanRT( o, x, N, M );
+    return detail::applyUnary( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
+        detail::seriesAtan( o, x, N, M );
     } );
 }
 
@@ -457,8 +457,8 @@ template < typename T >
 [[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > cube(
     const TaylorExpansionT< T, Dynamic, Dynamic >& a )
 {
-    return detail::applyUnaryRT( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
-        detail::seriesCubeRT( o, x, N, M );
+    return detail::applyUnary( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
+        detail::seriesCube( o, x, N, M );
     } );
 }
 
@@ -466,8 +466,8 @@ template < typename T >
 [[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > cbrt(
     const TaylorExpansionT< T, Dynamic, Dynamic >& a )
 {
-    return detail::applyUnaryRT( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
-        detail::seriesCbrtRT( o, x, N, M );
+    return detail::applyUnary( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
+        detail::seriesCbrt( o, x, N, M );
     } );
 }
 
@@ -476,7 +476,7 @@ template < typename T >
     const TaylorExpansionT< T, Dynamic, Dynamic >& a )
 {
     TaylorExpansionT< T, Dynamic, Dynamic > out( a.order(), a.size() );
-    detail::seriesAbsRT( out.coeffs().data(), a.coeffs().data(), a.coeffs().size() );
+    detail::seriesAbs( out.coeffs().data(), a.coeffs().data(), a.coeffs().size() );
     return out;
 }
 
