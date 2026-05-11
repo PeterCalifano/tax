@@ -48,6 +48,12 @@ tax/
 │   ├── testUtils.hpp     # Shared test helpers and macros
 │   └── CMakeLists.txt
 ├── benchmarks/           # Google Benchmark suite
+├── python/               # nanobind Python bindings (build with TAX_BUILD_PYTHON=ON)
+│   ├── CMakeLists.txt
+│   ├── src/tax_module.cpp   — nanobind bindings for DynTE
+│   ├── tax/__init__.py      — `import tax` wrapper
+│   └── tests/               — pytest suite
+├── pyproject.toml        # scikit-build-core wheel config (pip install .)
 ├── docs/                 # Markdown documentation
 ├── cmake/                # CMake package config template
 ├── tools/                # install_eigen.sh helper script
@@ -78,7 +84,30 @@ ctest --test-dir build --output-on-failure
 |--------|---------|-------------|
 | `TAX_BUILD_TEST` | `ON` | Build Google Test suite |
 | `TAX_BUILD_BENCHMARK` | `OFF` | Build Google Benchmark suite |
+| `TAX_BUILD_PYTHON` | `OFF` | Build the nanobind Python bindings (target `_tax`) |
 | `TAX_USE_DACE` | `OFF` | Enable DACE comparison (fetched automatically) |
+
+### With Python bindings
+
+```bash
+pip install nanobind pytest
+cmake -S . -B build -DTAX_BUILD_PYTHON=ON
+cmake --build build -j
+PYTHONPATH=$PWD/build/python python3 -c "
+    import tax
+    x, y = tax.variables([0.5, 0.3], order=4)
+    print(tax.sin(x * y) + tax.exp(x + y))
+"
+```
+
+Or install as a wheel via `pip install .` (uses `scikit-build-core` from
+`pyproject.toml`). The pytest suite is wired into ctest as the
+`python_bindings` target when both `TAX_BUILD_TEST` and `TAX_BUILD_PYTHON`
+are `ON`.
+
+The Python API mirrors `tax::DynTE<double>` — runtime order + runtime
+size, eager evaluation. Construction goes through module-level factories
+(`zero`, `one`, `constant`, `variable`, `variables`).
 
 ### With Benchmarks
 

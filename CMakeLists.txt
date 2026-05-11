@@ -8,6 +8,7 @@ project(tax VERSION 0.1.0 LANGUAGES CXX)
 option(TAX_BUILD_TEST "Build and enable unittests" ON)
 option(TAX_BUILD_BENCHMARK "Build benchmark suite (Google Benchmark)" OFF)
 option(TAX_BUILD_EXAMPLES "Build the examples/ programs" OFF)
+option(TAX_BUILD_PYTHON "Build the nanobind Python bindings" OFF)
 option(TAX_USE_OPENMP "Enable OpenMP parallelism in the ADS integrator" ON)
 option(TAX_USE_DACE "Enable DACE integration (fetches dacelib/dace@v2.1.0) for tests and benchmarks" OFF)
 
@@ -122,6 +123,10 @@ endif()
 
 if(TAX_BUILD_EXAMPLES)
     add_subdirectory(examples)
+endif()
+
+if(TAX_BUILD_PYTHON)
+    add_subdirectory(python)
 endif()
 
 # -------------------------------
