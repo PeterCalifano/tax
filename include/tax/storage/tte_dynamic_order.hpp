@@ -22,6 +22,7 @@
 
 #include <tax/kernels.hpp>
 #include <tax/storage/shape.hpp>
+#include <tax/utils/streaming.hpp>
 #include <tax/utils/combinatorics.hpp>
 #include <tax/utils/enumeration.hpp>
 #include <tax/utils/fwd.hpp>
@@ -693,13 +694,51 @@ template < typename T, int M >
 inline std::ostream& operator<<( std::ostream& os,
                                  const TaylorExpansionT< T, Dynamic, M >& a )
 {
-    os << "TaylorExpansionT<order=" << a.order() << ", size=" << M << ", coeffs=[";
-    for ( std::size_t i = 0; i < a.coeffs().size(); ++i )
+    bool write = false;
+    for ( int d = 0; d <= int( a.order() ); ++d )
     {
-        if ( i != 0 ) os << ", ";
-        os << a.coeffs()[i];
+        detail::forEachMonomial< M >(
+            d, [&]( const tax::MultiIndex< M >& alpha, std::size_t ai ) {
+                const T coeff = a.coeffs()[ai];
+                if ( coeff == T{} ) return;
+
+                const bool has_monomial = ( d > 0 );
+                if constexpr ( std::is_arithmetic_v< T > )
+                {
+                    const bool neg = coeff < T{};
+                    const T abs_coeff = neg ? -coeff : coeff;
+                    const bool print_coeff = !has_monomial || abs_coeff != T{ 1 };
+
+                    if ( write )
+                        os << ( neg ? " - " : " + " );
+                    else if ( neg )
+                        os << '-';
+
+                    if ( print_coeff ) os << abs_coeff;
+                    if ( has_monomial )
+                    {
+                        if ( print_coeff ) os << "·";
+                        detail::writeMonomial< M >( os, alpha );
+                    }
+                }
+                else
+                {
+                    if ( write ) os << " + ";
+                    os << coeff;
+                    if ( has_monomial )
+                    {
+                        os << '*';
+                        detail::writeMonomial< M >( os, alpha );
+                    }
+                }
+
+                write = true;
+            } );
     }
-    os << "])";
+
+    if ( !write ) os << T{};
+    os << " + ";
+    detail::writeTruncationRemainder< M >( os, int( a.order() ) + 1 );
     return os;
 }
 

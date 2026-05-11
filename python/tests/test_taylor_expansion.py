@@ -230,7 +230,22 @@ def test_norm_zero_p_raises():
 def test_repr_round_trips_basic_info():
     x = tax.variable(2.0, 0, 3, 2)
     r = repr(x)
+    # repr() carries the shape envelope plus the polynomial form:
+    #   "TaylorExpansion<order=3, size=2>(2 + dx₀ + O(||dx||⁴))"
     assert "TaylorExpansion" in r
     assert "order=3" in r
     assert "size=2" in r
-    assert "coeffs=[" in r
+    # The polynomial form includes the value, the variable, and a truncation
+    # remainder.
+    assert "dx" in r          # has a variable
+    assert "O(" in r          # has a truncation remainder
+
+
+def test_str_is_pretty_polynomial_form():
+    x = tax.variable(2.0, 0, 3, 1)
+    f = tax.math.sin(x) + 1.0  # has both a constant term and a sign change
+    s = str(f)
+    # Univariate => uses "dt" rather than "dx_i".
+    assert "dt" in s
+    # No envelope text in str() output, just the polynomial.
+    assert "TaylorExpansion" not in s

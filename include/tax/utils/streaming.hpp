@@ -3,6 +3,7 @@
 #include <tax/utils/fwd.hpp>
 #include <array>
 #include <ostream>
+#include <span>
 #include <string_view>
 
 namespace tax::detail
@@ -45,6 +46,48 @@ inline void writeMonomial( std::ostream& os, const MultiIndex< M >& alpha )
         }
         if ( pow > 1 ) writeMappedDigits( os, pow, superscript_digits );
         wrote_factor = true;
+    }
+}
+
+/// @brief Runtime-M overload of `writeMonomial` taking a span of exponents.
+/// @details `M = alpha.size()`. Uses `dt` when `M == 1` and `dx_i` otherwise.
+inline void writeMonomial( std::ostream& os, std::span< const int > alpha )
+{
+    const std::size_t M = alpha.size();
+    bool wrote_factor = false;
+    for ( std::size_t i = 0; i < M; ++i )
+    {
+        const int pow = alpha[i];
+        if ( pow == 0 ) continue;
+        if ( wrote_factor ) os << "·";
+        if ( M == 1 )
+        {
+            os << "dt";
+        }
+        else
+        {
+            os << "dx";
+            writeMappedDigits( os, int( i ), subscript_digits );
+        }
+        if ( pow > 1 ) writeMappedDigits( os, pow, superscript_digits );
+        wrote_factor = true;
+    }
+}
+
+/// @brief Runtime-M overload of `writeTruncationRemainder`.
+inline void writeTruncationRemainder( std::ostream& os, int order, std::size_t M )
+{
+    if ( M == 1 )
+    {
+        os << "O(dt";
+        writeMappedDigits( os, order, superscript_digits );
+        os << ')';
+    }
+    else
+    {
+        os << "O(||dx||";
+        writeMappedDigits( os, order, superscript_digits );
+        os << ')';
     }
 }
 

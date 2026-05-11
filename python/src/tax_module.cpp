@@ -49,17 +49,21 @@ namespace
     return DynTE::variables( std::span< const double >( x0.data(), x0.size() ), order );
 }
 
+// Pretty polynomial form via operator<<:
+//   1.5 + 2·dx₀ - 0.3·dx₀·dx₁ + 0.07·dx₁² + O(||dx||⁴)
+[[nodiscard]] std::string formatStr( const DynTE& t )
+{
+    std::ostringstream os;
+    os << t;
+    return os.str();
+}
+
+// Repr is the polynomial form wrapped with shape diagnostics.
 [[nodiscard]] std::string formatRepr( const DynTE& t )
 {
     std::ostringstream os;
-    os.precision( 17 );
-    os << "TaylorExpansion(order=" << t.order() << ", size=" << t.size() << ", coeffs=[";
-    for ( std::size_t i = 0; i < t.coeffs().size(); ++i )
-    {
-        if ( i != 0 ) os << ", ";
-        os << t.coeffs()[i];
-    }
-    os << "])";
+    os << "TaylorExpansion<order=" << t.order() << ", size=" << t.size() << ">("
+       << t << ")";
     return os.str();
 }
 
@@ -204,9 +208,12 @@ module-level factories `zero`, `one`, `constant`, `variable`, or
 
     cls.def( -nb::self );
 
-    // ---- repr ------------------------------------------------------------
+    // ---- repr / str ------------------------------------------------------
+    //  __repr__ wraps the polynomial in a "TaylorExpansion<order=..,size=..>"
+    //  envelope; __str__ is just the polynomial form (matching `print(te)`
+    //  output of `std::cout << te;` in C++).
     cls.def( "__repr__", &formatRepr );
-    cls.def( "__str__", &formatRepr );
+    cls.def( "__str__", &formatStr );
 
     // -----------------------------------------------------------------------
     // tax.Vec — Eigen::Matrix<DynTE, Dynamic, 1> wrapper.
