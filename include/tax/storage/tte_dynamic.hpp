@@ -148,6 +148,92 @@ class TaylorExpansionT< T, Dynamic, Dynamic > : public detail::ShapeBase< Dynami
         return coeff( std::span< const int >( buf.data(), buf.size() ) );
     }
 
+    // -- Numerical derivatives at the expansion point ------------------------
+
+    /// @brief Numerical partial derivative selected by `alpha` at the expansion point.
+    /// @details Returns `coeff(alpha) * prod_i alpha[i]!`.
+    [[nodiscard]] T derivative( std::span< const int > alpha ) const
+    {
+        assert( alpha.size() == this->size() );
+        return detail::derivativeAt( c_.data(), alpha );
+    }
+    [[nodiscard]] T derivative( std::initializer_list< int > alpha ) const
+    {
+        std::vector< int > buf( alpha );
+        return derivative( std::span< const int >( buf.data(), buf.size() ) );
+    }
+
+    /// @brief All partial derivatives in flat monomial order.
+    [[nodiscard]] Data derivatives() const
+    {
+        Data out( c_.size(), T{ 0 } );
+        detail::derivativesAll( out.data(), c_.data(), this->order(), this->size() );
+        return out;
+    }
+
+    // -- Symbolic differentiation / integration -------------------------------
+
+    /// @brief Partial derivative polynomial w.r.t. variable `var`.
+    [[nodiscard]] TaylorExpansionT deriv( std::size_t var ) const
+    {
+        if ( var >= this->size() )
+            throw std::out_of_range(
+                "tax::TaylorExpansionT::deriv(var): var must be in [0, size())" );
+        TaylorExpansionT out( this->order(), this->size() );
+        detail::derivCoeffs( out.c_.data(), c_.data(), var, this->order(), this->size() );
+        return out;
+    }
+
+    /// @brief Indefinite integral polynomial w.r.t. variable `var`.
+    [[nodiscard]] TaylorExpansionT integ( std::size_t var ) const
+    {
+        if ( var >= this->size() )
+            throw std::out_of_range(
+                "tax::TaylorExpansionT::integ(var): var must be in [0, size())" );
+        TaylorExpansionT out( this->order(), this->size() );
+        detail::integCoeffs( out.c_.data(), c_.data(), var, this->order(), this->size() );
+        return out;
+    }
+
+    // -- Polynomial evaluation at a displacement ------------------------------
+
+    /// @brief Evaluate the polynomial at the univariate displacement `dx`.
+    [[nodiscard]] T eval( T dx ) const noexcept
+    {
+        assert( this->size() == 1 && "eval(scalar) requires size() == 1" );
+        return detail::evalAtScalar( c_.data(), dx, this->order() );
+    }
+
+    /// @brief Evaluate the polynomial at the multivariate displacement `dx`.
+    [[nodiscard]] T eval( std::span< const T > dx ) const noexcept
+    {
+        assert( dx.size() == this->size() );
+        return detail::evalAt( c_.data(), dx, this->order(), this->size() );
+    }
+
+    // -- Coefficient norms ---------------------------------------------------
+
+    [[nodiscard]] T coeffsNormInf() const noexcept
+    {
+        return detail::coeffsNormInf( c_.data(), c_.size() );
+    }
+
+    [[nodiscard]] T coeffsNorm( unsigned int p ) const
+    {
+        if ( p == 0 )
+            throw std::invalid_argument(
+                "tax::TaylorExpansionT::coeffsNorm(p) requires p > 0; use coeffsNormInf()." );
+        return detail::coeffsNormP( c_.data(), c_.size(), p );
+    }
+
+    template < unsigned int P >
+    [[nodiscard]] T coeffsNorm() const noexcept
+    {
+        static_assert( P > 0,
+                       "coeffsNorm<P>() requires P > 0; use coeffsNormInf() for infinity norm" );
+        return detail::coeffsNormP( c_.data(), c_.size(), P );
+    }
+
     // -- In-place arithmetic -------------------------------------------------
 
     TaylorExpansionT& operator+=( const TaylorExpansionT& r )
