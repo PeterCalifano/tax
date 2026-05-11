@@ -62,8 +62,7 @@ namespace
 [[nodiscard]] std::string formatRepr( const DynTE& t )
 {
     std::ostringstream os;
-    os << "TaylorExpansion<order=" << t.order() << ", size=" << t.size() << ">("
-       << t << ")";
+    os << t ;
     return os.str();
 }
 
