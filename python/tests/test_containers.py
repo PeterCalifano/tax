@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
-"""Tests for the Eigen-backed container bindings — TaylorExpansionVector and
-TaylorExpansionMatrix."""
+"""Tests for the Eigen-backed container bindings — Vec and
+Mat."""
 
 import math
 
@@ -32,12 +32,12 @@ def test_math_functions_not_at_top_level():
 
 
 # ---------------------------------------------------------------------------
-# TaylorExpansionVector
+# Vec
 # ---------------------------------------------------------------------------
 
 def test_vector_construction_and_indexing():
     x, y = tax.variables([1.0, 2.0], order=3)
-    v = tax.TaylorExpansionVector([x, y, x * y])
+    v = tax.Vec([x, y, x * y])
     assert len(v) == 3
     assert v[0].value() == 1.0
     assert v[1].value() == 2.0
@@ -50,7 +50,7 @@ def test_vector_construction_and_indexing():
 
 def test_vector_index_out_of_range_raises():
     x, _ = tax.variables([1.0, 2.0], order=3)
-    v = tax.TaylorExpansionVector([x, x])
+    v = tax.Vec([x, x])
     with pytest.raises(Exception):
         _ = v[5]
     with pytest.raises(Exception):
@@ -59,7 +59,7 @@ def test_vector_index_out_of_range_raises():
 
 def test_vector_value_returns_numpy():
     x, y = tax.variables([0.5, 1.5], order=3)
-    v = tax.TaylorExpansionVector([x, y, x * y])
+    v = tax.Vec([x, y, x * y])
     out = v.value()
     assert isinstance(out, np.ndarray)
     np.testing.assert_allclose(out, [0.5, 1.5, 0.75])
@@ -67,7 +67,7 @@ def test_vector_value_returns_numpy():
 
 def test_vector_eval_at_displacement():
     x, y = tax.variables([1.0, 2.0], order=3)
-    v = tax.TaylorExpansionVector([x, y, x * y])
+    v = tax.Vec([x, y, x * y])
     out = v.eval([0.1, 0.2])
     assert isinstance(out, np.ndarray)
     # x: 1 + 0.1 = 1.1; y: 2 + 0.2 = 2.2; x*y truncated.
@@ -78,7 +78,7 @@ def test_vector_eval_at_displacement():
 
 def test_vector_derivative_per_component():
     x, y = tax.variables([1.0, 2.0], order=3)
-    v = tax.TaylorExpansionVector([x, y, x * y])
+    v = tax.Vec([x, y, x * y])
     # d/dx applied component-wise: [1, 0, y].
     d = v.derivative([1, 0])
     np.testing.assert_allclose(d, [1.0, 0.0, 2.0])
@@ -89,24 +89,24 @@ def test_vector_derivative_per_component():
 def test_vector_jacobian_matches_module_level():
     x, y = tax.variables([1.0, 2.0], order=3)
     fs = [x, y, x * y]
-    v = tax.TaylorExpansionVector(fs)
+    v = tax.Vec(fs)
     np.testing.assert_allclose(v.jacobian(), tax.jacobian(fs))
 
 
 def test_vector_repr_round_trips_basic_info():
     x, _ = tax.variables([1.0, 2.0], order=3)
-    v = tax.TaylorExpansionVector([x, x])
-    assert "TaylorExpansionVector" in repr(v)
+    v = tax.Vec([x, x])
+    assert "Vec" in repr(v)
     assert "len=2" in repr(v)
 
 
 # ---------------------------------------------------------------------------
-# TaylorExpansionMatrix
+# Mat
 # ---------------------------------------------------------------------------
 
 def test_matrix_construction_and_indexing():
     x, y = tax.variables([1.0, 2.0], order=3)
-    m = tax.TaylorExpansionMatrix([[x, y], [x * y, x + y]])
+    m = tax.Mat([[x, y], [x * y, x + y]])
     assert m.shape == (2, 2)
     assert m.rows == 2
     assert m.cols == 2
@@ -121,15 +121,15 @@ def test_matrix_construction_and_indexing():
 
 def test_matrix_empty_or_jagged_raises():
     with pytest.raises(Exception):
-        tax.TaylorExpansionMatrix([])
+        tax.Mat([])
     x, _ = tax.variables([1.0, 2.0], order=2)
     with pytest.raises(Exception):
-        tax.TaylorExpansionMatrix([[x], [x, x]])
+        tax.Mat([[x], [x, x]])
 
 
 def test_matrix_value_returns_2d_numpy():
     x, y = tax.variables([1.0, 2.0], order=3)
-    m = tax.TaylorExpansionMatrix([[x, y], [x * y, x + y]])
+    m = tax.Mat([[x, y], [x * y, x + y]])
     out = m.value()
     assert isinstance(out, np.ndarray)
     assert out.shape == (2, 2)
@@ -138,7 +138,7 @@ def test_matrix_value_returns_2d_numpy():
 
 def test_matrix_eval_at_displacement():
     x, y = tax.variables([1.0, 2.0], order=3)
-    m = tax.TaylorExpansionMatrix([[x, y], [x * y, x + y]])
+    m = tax.Mat([[x, y], [x * y, x + y]])
     out = m.eval([0.1, 0.2])
     assert isinstance(out, np.ndarray)
     assert out.shape == (2, 2)
@@ -149,7 +149,7 @@ def test_matrix_eval_at_displacement():
 
 def test_matrix_derivative_per_element():
     x, y = tax.variables([1.0, 2.0], order=3)
-    m = tax.TaylorExpansionMatrix([[x * y, y], [x, x + y]])
+    m = tax.Mat([[x * y, y], [x, x + y]])
     # d/dx: [[y, 0], [1, 1]] -> at expansion = [[2, 0], [1, 1]].
     np.testing.assert_allclose(m.derivative([1, 0]), [[2.0, 0.0], [1.0, 1.0]])
     # d/dy: [[x, 1], [0, 1]] -> at expansion = [[1, 1], [0, 1]].
@@ -158,7 +158,7 @@ def test_matrix_derivative_per_element():
 
 def test_matrix_repr_includes_shape():
     x, _ = tax.variables([1.0, 2.0], order=2)
-    m = tax.TaylorExpansionMatrix([[x, x], [x, x]])
+    m = tax.Mat([[x, x], [x, x]])
     r = repr(m)
-    assert "TaylorExpansionMatrix" in r
+    assert "Mat" in r
     assert "rows=2" in r and "cols=2" in r

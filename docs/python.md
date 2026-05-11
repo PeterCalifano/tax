@@ -89,7 +89,7 @@ powers handled via reciprocal).
 ## Eigen-backed containers
 
 For collections of `TaylorExpansion` objects, use the Eigen-backed
-wrappers `tax.TaylorExpansionVector` and `tax.TaylorExpansionMatrix`.
+wrappers `tax.Vec` and `tax.Mat`.
 They share the same `(order, size)` across all elements and expose
 common vectorised operations.
 
@@ -97,7 +97,7 @@ common vectorised operations.
 x, y = tax.variables([1.0, 2.0], order=3)
 
 # 1-D collection — vector-valued function.
-v = tax.TaylorExpansionVector([x, y, x * y])
+v = tax.Vec([x, y, x * y])
 
 len(v)              # 3
 v[2]                # TaylorExpansion (x * y)
@@ -107,7 +107,7 @@ v.derivative([1, 0])# d/dx of each component
 v.jacobian()        # numpy (3, 2) — same as tax.jacobian([x, y, x*y])
 
 # 2-D collection — matrix of polynomials.
-m = tax.TaylorExpansionMatrix([[x,    y    ],
+m = tax.Mat([[x,    y    ],
                                [x*y,  x + y]])
 m.shape             # (2, 2)
 m[0, 1]             # TaylorExpansion (y)

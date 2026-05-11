@@ -12,8 +12,8 @@ Math functions live under the :mod:`tax.math` submodule
 (:func:`gradient`, :func:`hessian`, :func:`jacobian`) live at the
 top level and return numpy arrays directly.
 
-Containers :class:`TaylorExpansionVector` and
-:class:`TaylorExpansionMatrix` wrap Eigen-backed collections of
+Containers :class:`Vec` and
+:class:`Mat` wrap Eigen-backed collections of
 :class:`TaylorExpansion` and expose ``value``, ``eval``, ``derivative``,
 and (for vectors) ``jacobian`` returning numpy arrays.
 """
@@ -21,8 +21,8 @@ and (for vectors) ``jacobian`` returning numpy arrays.
 from ._tax import (  # noqa: F401
     # core types
     TaylorExpansion,
-    TaylorExpansionVector,
-    TaylorExpansionMatrix,
+    Vec,
+    Mat,
     # factories
     zero,
     one,
@@ -40,8 +40,8 @@ from ._tax import (  # noqa: F401
 
 __all__ = [
     "TaylorExpansion",
-    "TaylorExpansionVector",
-    "TaylorExpansionMatrix",
+    "Vec",
+    "Mat",
     "zero",
     "one",
     "constant",

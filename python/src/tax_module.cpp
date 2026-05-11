@@ -209,7 +209,7 @@ module-level factories `zero`, `one`, `constant`, `variable`, or
     cls.def( "__str__", &formatRepr );
 
     // -----------------------------------------------------------------------
-    // tax.TaylorExpansionVector — Eigen::Matrix<DynTE, Dynamic, 1> wrapper.
+    // tax.Vec — Eigen::Matrix<DynTE, Dynamic, 1> wrapper.
     //
     // Useful when you want to operate on a vector-valued TaylorExpansion
     // function as a single object (e.g. for `value()` / `eval()` / `jacobian()`
@@ -217,7 +217,7 @@ module-level factories `zero`, `one`, `constant`, `variable`, or
     // -----------------------------------------------------------------------
     using TeVec = Eigen::Matrix< DynTE, Eigen::Dynamic, 1 >;
     auto vec_cls = nb::class_< TeVec >(
-        m, "TaylorExpansionVector",
+        m, "Vec",
         R"doc(Vector of `TaylorExpansion` objects — a 1-D collection.
 
 Backed by `Eigen::Matrix<DynTE, Dynamic, 1>`. All elements must share the
@@ -240,7 +240,7 @@ when arithmetic / derivative queries fire.
         "__getitem__",
         []( const TeVec& v, Eigen::Index i ) -> DynTE {
             if ( i < 0 || i >= v.size() )
-                throw std::out_of_range( "TaylorExpansionVector index" );
+                throw std::out_of_range( "Vec index" );
             return v( i );
         },
         nb::arg( "i" ) );
@@ -248,7 +248,7 @@ when arithmetic / derivative queries fire.
         "__setitem__",
         []( TeVec& v, Eigen::Index i, const DynTE& f ) {
             if ( i < 0 || i >= v.size() )
-                throw std::out_of_range( "TaylorExpansionVector index" );
+                throw std::out_of_range( "Vec index" );
             v( i ) = f;
         },
         nb::arg( "i" ), nb::arg( "f" ) );
@@ -285,16 +285,16 @@ when arithmetic / derivative queries fire.
 
     vec_cls.def( "__repr__", []( const TeVec& v ) {
         std::ostringstream os;
-        os << "TaylorExpansionVector(len=" << v.size() << ")";
+        os << "Vec(len=" << v.size() << ")";
         return os.str();
     } );
 
     // -----------------------------------------------------------------------
-    // tax.TaylorExpansionMatrix — Eigen::Matrix<DynTE, Dynamic, Dynamic>.
+    // tax.Mat — Eigen::Matrix<DynTE, Dynamic, Dynamic>.
     // -----------------------------------------------------------------------
     using TeMat = Eigen::Matrix< DynTE, Eigen::Dynamic, Eigen::Dynamic >;
     auto mat_cls = nb::class_< TeMat >(
-        m, "TaylorExpansionMatrix",
+        m, "Mat",
         R"doc(Matrix of `TaylorExpansion` objects — a 2-D collection.
 
 Backed by `Eigen::Matrix<DynTE, Dynamic, Dynamic>`. All elements must
@@ -305,13 +305,13 @@ share the same shape `(order, size)`.
         "__init__",
         []( TeMat* self, const std::vector< std::vector< DynTE > >& rows ) {
             if ( rows.empty() )
-                throw std::invalid_argument( "TaylorExpansionMatrix: empty rows" );
+                throw std::invalid_argument( "Mat: empty rows" );
             const Eigen::Index R = Eigen::Index( rows.size() );
             const Eigen::Index C = Eigen::Index( rows[0].size() );
             for ( const auto& row : rows )
                 if ( Eigen::Index( row.size() ) != C )
                     throw std::invalid_argument(
-                        "TaylorExpansionMatrix: rows must have equal length" );
+                        "Mat: rows must have equal length" );
             new ( self ) TeMat( R, C );
             for ( Eigen::Index r = 0; r < R; ++r )
                 for ( Eigen::Index c = 0; c < C; ++c )
@@ -331,7 +331,7 @@ share the same shape `(order, size)`.
         []( const TeMat& m_, std::pair< Eigen::Index, Eigen::Index > rc ) -> DynTE {
             const auto [r, c] = rc;
             if ( r < 0 || r >= m_.rows() || c < 0 || c >= m_.cols() )
-                throw std::out_of_range( "TaylorExpansionMatrix index" );
+                throw std::out_of_range( "Mat index" );
             return m_( r, c );
         },
         nb::arg( "rc" ) );
@@ -340,7 +340,7 @@ share the same shape `(order, size)`.
         []( TeMat& m_, std::pair< Eigen::Index, Eigen::Index > rc, const DynTE& f ) {
             const auto [r, c] = rc;
             if ( r < 0 || r >= m_.rows() || c < 0 || c >= m_.cols() )
-                throw std::out_of_range( "TaylorExpansionMatrix index" );
+                throw std::out_of_range( "Mat index" );
             m_( r, c ) = f;
         },
         nb::arg( "rc" ), nb::arg( "f" ) );
@@ -373,7 +373,7 @@ share the same shape `(order, size)`.
 
     mat_cls.def( "__repr__", []( const TeMat& m_ ) {
         std::ostringstream os;
-        os << "TaylorExpansionMatrix(rows=" << m_.rows() << ", cols=" << m_.cols() << ")";
+        os << "Mat(rows=" << m_.rows() << ", cols=" << m_.cols() << ")";
         return os.str();
     } );
 
