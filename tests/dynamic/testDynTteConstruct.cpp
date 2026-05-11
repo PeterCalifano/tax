@@ -16,7 +16,7 @@ TEST( DynTteConstruct, DefaultConstructIsZeroShape )
 {
     DynTE<> a;
     EXPECT_EQ( a.order(), 0u );
-    EXPECT_EQ( a.nvars(), 0u );
+    EXPECT_EQ( a.size(), 0u );
     EXPECT_EQ( a.coeffs().size(), 0u );  // numMonomials(0, 0) == 0 by our overload
 }
 
@@ -24,7 +24,7 @@ TEST( DynTteConstruct, ShapeCtor )
 {
     DynTE<> a( 5, 3 );
     EXPECT_EQ( a.order(), 5u );
-    EXPECT_EQ( a.nvars(), 3u );
+    EXPECT_EQ( a.size(), 3u );
     EXPECT_EQ( a.coeffsSize(), tax::detail::numMonomials( 5, 3 ) );
     EXPECT_EQ( a.coeffs().size(), tax::detail::numMonomials( 5, 3 ) );
     EXPECT_EQ( a.value(), 0.0 );
@@ -34,7 +34,7 @@ TEST( DynTteConstruct, ConstantFactory )
 {
     auto x = DynTE<>::constant( 3.5, 4, 2 );
     EXPECT_EQ( x.order(), 4u );
-    EXPECT_EQ( x.nvars(), 2u );
+    EXPECT_EQ( x.size(), 2u );
     EXPECT_EQ( x.value(), 3.5 );
     // All non-constant coefficients are zero.
     for ( std::size_t i = 1; i < x.coeffs().size(); ++i ) EXPECT_EQ( x.coeffs()[i], 0.0 );
@@ -50,7 +50,7 @@ TEST( DynTteConstruct, ZeroAndOneFactories )
 
 TEST( DynTteConstruct, VariableFactory_FirstCoord )
 {
-    auto x = DynTE<>::variable( 2.0, /*var_idx=*/0, /*order=*/3, /*nvars=*/3 );
+    auto x = DynTE<>::variable( 2.0, /*var_idx=*/0, /*order=*/3, /*size=*/3 );
     EXPECT_EQ( x.value(), 2.0 );
     // First-degree e_0 coefficient is at flat index 1 in the graded-lex layout.
     EXPECT_EQ( x.coeffs()[1], 1.0 );  // e_0 coefficient
@@ -72,6 +72,6 @@ TEST( DynTteConstruct, VariablesVector )
     {
         EXPECT_EQ( vars[i].value(), x0[i] );
         EXPECT_EQ( vars[i].order(), 2u );
-        EXPECT_EQ( vars[i].nvars(), 3u );
+        EXPECT_EQ( vars[i].size(), 3u );
     }
 }

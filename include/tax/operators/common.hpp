@@ -11,13 +11,13 @@ namespace tax
  * @details Disallows mixing TTE objects with incompatible truncation spaces.
  */
 template < typename L, typename R >
-concept CompatibleTTE = ( L::order_ct == R::order_ct ) && ( L::vars_ct == R::vars_ct ) &&
+concept CompatibleTTE = ( L::order_ct == R::order_ct ) && ( L::size_ct == R::size_ct ) &&
                        std::is_same_v< typename L::scalar_type, typename R::scalar_type >;
 
 /**
  * @brief Helper alias for the TTE expression base type of a concrete expression `E`.
  */
 template < typename E >
-using ExprBase = Expr< E, typename E::scalar_type, E::order_ct, E::vars_ct >;
+using ExprBase = Expr< E, typename E::scalar_type, E::order_ct, E::size_ct >;
 
 }  // namespace tax

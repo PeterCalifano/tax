@@ -11,14 +11,14 @@ template < typename L, typename R >
     requires CompatibleTTE< L, R >
 [[nodiscard]] constexpr auto atan2( const ExprBase< L >& y, const ExprBase< R >& x ) noexcept
 {
-    return detail::BinFuncExpr< L, R, detail::OpAtan2< L::order_ct, L::vars_ct > >{ y.self(), x.self() };
+    return detail::BinFuncExpr< L, R, detail::OpAtan2< L::order_ct, L::size_ct > >{ y.self(), x.self() };
 }
 
 template < typename L, typename R >
     requires CompatibleTTE< L, R >
 [[nodiscard]] constexpr auto hypot( const ExprBase< L >& x, const ExprBase< R >& y ) noexcept
 {
-    return detail::BinFuncExpr< L, R, detail::OpHypot< L::order_ct, L::vars_ct > >{ x.self(), y.self() };
+    return detail::BinFuncExpr< L, R, detail::OpHypot< L::order_ct, L::size_ct > >{ x.self(), y.self() };
 }
 
 template < typename A, typename B, typename C >
@@ -26,20 +26,20 @@ template < typename A, typename B, typename C >
 [[nodiscard]] constexpr auto hypot( const ExprBase< A >& x, const ExprBase< B >& y,
                                     const ExprBase< C >& z ) noexcept
 {
-    return detail::TerFuncExpr< A, B, C, detail::OpHypot3< A::order_ct, A::vars_ct > >{
+    return detail::TerFuncExpr< A, B, C, detail::OpHypot3< A::order_ct, A::size_ct > >{
         x.self(), y.self(), z.self() };
 }
 
 template < typename E >
 [[nodiscard]] constexpr auto ipow( const ExprBase< E >& e, int n ) noexcept
 {
-    return detail::ParamFuncExpr< E, detail::OpIPow< E::order_ct, E::vars_ct >, int >{ e.self(), n };
+    return detail::ParamFuncExpr< E, detail::OpIPow< E::order_ct, E::size_ct >, int >{ e.self(), n };
 }
 
 template < typename E >
 [[nodiscard]] constexpr auto dpow( const ExprBase< E >& e, typename E::scalar_type c ) noexcept
 {
-    return detail::ParamFuncExpr< E, detail::OpDPow< E::order_ct, E::vars_ct >,
+    return detail::ParamFuncExpr< E, detail::OpDPow< E::order_ct, E::size_ct >,
                                   typename E::scalar_type >{ e.self(), c };
 }
 
@@ -47,7 +47,7 @@ template < typename L, typename R >
     requires CompatibleTTE< L, R >
 [[nodiscard]] constexpr auto tpow( const ExprBase< L >& l, const ExprBase< R >& r ) noexcept
 {
-    return detail::BinFuncExpr< L, R, detail::OpTPow< L::order_ct, L::vars_ct > >{ l.self(), r.self() };
+    return detail::BinFuncExpr< L, R, detail::OpTPow< L::order_ct, L::size_ct > >{ l.self(), r.self() };
 }
 
 // -- pow overloads dispatching to ipow / dpow / tpow -------------------------

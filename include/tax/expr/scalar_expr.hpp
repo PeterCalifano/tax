@@ -12,11 +12,11 @@ namespace tax::detail
  */
 template < typename E, typename Op >
 class ScalarExpr
-    : public tax::Expr< ScalarExpr< E, Op >, typename E::scalar_type, E::order_ct, E::vars_ct >
+    : public tax::Expr< ScalarExpr< E, Op >, typename E::scalar_type, E::order_ct, E::size_ct >
 {
    public:
     using T = typename E::scalar_type;
-    static constexpr int N = E::order_ct, M = E::vars_ct;
+    static constexpr int N = E::order_ct, M = E::size_ct;
     using coeff_array = std::array< T, numMonomials( N, M ) >;
 
     /// @brief Construct from operand and scalar value.

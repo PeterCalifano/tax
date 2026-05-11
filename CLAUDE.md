@@ -154,11 +154,11 @@ auto x = tax::TE<3>::variable(x0);            // x = x0 + 1*dx
 // Static, multivariate (structured bindings)
 auto [x, y] = tax::TEn<3, 2>::variables(x0, y0);
 
-// Dynamic, runtime order/nvars
+// Dynamic, runtime order/size
 auto z = tax::DynTE<>::variable(/*x0=*/2.0,
                                 /*var_idx=*/0,
                                 /*order=*/5,
-                                /*nvars=*/3);
+                                /*size=*/3);
 
 // Vector of dynamic coordinate variables
 std::array<double, 3> x0{1.0, 2.0, 3.0};

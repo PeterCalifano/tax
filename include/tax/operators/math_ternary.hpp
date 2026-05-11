@@ -14,7 +14,7 @@ template < typename A, typename B, typename C >
 [[nodiscard]] constexpr auto fma( const ExprBase< A >& x, const ExprBase< B >& y,
                                   const ExprBase< C >& z ) noexcept
 {
-    return detail::TerFuncExpr< A, B, C, detail::OpFMA< A::order_ct, A::vars_ct > >{ x.self(), y.self(),
+    return detail::TerFuncExpr< A, B, C, detail::OpFMA< A::order_ct, A::size_ct > >{ x.self(), y.self(),
                                                                                 z.self() };
 }
 

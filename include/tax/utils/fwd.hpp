@@ -15,7 +15,7 @@ concept Scalar = std::floating_point< T >;
  * @brief Sentinel marking a Taylor-shape dimension as resolved at runtime.
  *
  * Modelled on `Eigen::Dynamic` (= -1). When `TaylorExpansionT`'s order
- * or nvars template parameter is `tax::Dynamic`, that dimension is carried
+ * or size template parameter is `tax::Dynamic`, that dimension is carried
  * as a runtime member rather than as a compile-time constant.
  */
 inline constexpr int Dynamic = -1;

@@ -33,7 +33,7 @@ using tax::DynTE;
 auto x = DynTE<>::variable(/*x0=*/2.0,
                            /*var_idx=*/0,
                            /*order=*/5,
-                           /*nvars=*/3);
+                           /*size=*/3);
 
 // 2. Build a vector of `M` independent coordinate variables.
 std::array<double, 3> x0{1.0, 2.0, 3.0};
@@ -60,7 +60,7 @@ const auto& all = f.coeffs();      // const ref to the std::vector buffer
 ## Compatibility
 
 - **Cross-shape operations runtime-assert** that both operands have the same
-  `(order, nvars)`. Mixing two `DynTE`s of different shapes triggers an
+  `(order, size)`. Mixing two `DynTE`s of different shapes triggers an
   `assert` (defined as a contract; build with `-DNDEBUG` to skip).
 - **Mixing static and dynamic operands directly is not supported** in this
   release — the dynamic specialisation only operates on other dynamic
@@ -78,4 +78,4 @@ const auto& all = f.coeffs();      // const ref to the std::vector buffer
   Anywhere you know the shape at compile time.
 - **Dynamic `DynTE<T>`**: any time the shape is not known until runtime.
   Most relevant for nanobind / Python bindings, where you want a single
-  `tax.TaylorExpansion(order, nvars)` constructor.
+  `tax.TaylorExpansion(order, size)` constructor.

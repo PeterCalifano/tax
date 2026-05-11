@@ -80,18 +80,18 @@ TEST( ShapeBaseEbo, TteSizeofMatchesUnderlyingArray_TEn104 )
 }
 
 // =============================================================================
-// Static order() / nvars() / coeffsSize() accessors are constexpr.
+// Static order() / size() / coeffsSize() accessors are constexpr.
 // =============================================================================
 
 TEST( ShapeBaseEbo, StaticAccessorsAreConstexpr )
 {
     constexpr tax::TE< 5 > x{};
     static_assert( x.order() == 5 );
-    static_assert( x.nvars() == 1 );
+    static_assert( x.size() == 1 );
     static_assert( x.coeffsSize() == 6 );
 
     constexpr tax::TEn< 3, 2 > y{};
     static_assert( y.order() == 3 );
-    static_assert( y.nvars() == 2 );
+    static_assert( y.size() == 2 );
     static_assert( y.coeffsSize() == tax::detail::numMonomials( 3, 2 ) );
 }

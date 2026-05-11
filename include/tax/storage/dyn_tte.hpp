@@ -1,7 +1,7 @@
 #pragma once
 
 // Fully-dynamic partial specialisation of `tax::TaylorExpansionT<T, N, M>`:
-// runtime order, runtime nvars, `std::vector<T>` coefficient storage.
+// runtime order, runtime size, `std::vector<T>` coefficient storage.
 //
 // The static template (in `tax/tte.hpp`) keeps every existing optimisation:
 // stack-resident `std::array`, expression-template fusion, zero allocation.
@@ -43,53 +43,53 @@ class TaylorExpansionT< T, Dynamic, Dynamic > : public detail::ShapeBase< Dynami
     using Data = std::vector< T >;
 
     static constexpr int order_ct = Dynamic;
-    static constexpr int vars_ct = Dynamic;
+    static constexpr int size_ct = Dynamic;
 
     using ShapeBaseT = detail::ShapeBase< Dynamic, Dynamic >;
     using ShapeBaseT::coeffsSize;
-    using ShapeBaseT::nvars;
+    using ShapeBaseT::size;
     using ShapeBaseT::order;
 
     // -- Constructors --------------------------------------------------------
 
-    /// @brief Construct an empty (order=0, nvars=0) expansion.
+    /// @brief Construct an empty (order=0, size=0) expansion.
     TaylorExpansionT() noexcept = default;
 
     /// @brief Construct zero polynomial of given shape.
-    TaylorExpansionT( std::size_t order_v, std::size_t nvars_v )
-        : ShapeBaseT( order_v, nvars_v ), c_( detail::numMonomials( order_v, nvars_v ), T{ 0 } )
+    TaylorExpansionT( std::size_t order_v, std::size_t size_v )
+        : ShapeBaseT( order_v, size_v ), c_( detail::numMonomials( order_v, size_v ), T{ 0 } )
     {
-        assert( nvars_v >= 1 && "TaylorExpansionT requires nvars >= 1" );
+        assert( size_v >= 1 && "TaylorExpansionT requires size >= 1" );
     }
 
-    /// @brief Construct from explicit (order, nvars, coefficient vector). Vector size must match.
-    TaylorExpansionT( std::size_t order_v, std::size_t nvars_v, Data c )
-        : ShapeBaseT( order_v, nvars_v ), c_( std::move( c ) )
+    /// @brief Construct from explicit (order, size, coefficient vector). Vector size must match.
+    TaylorExpansionT( std::size_t order_v, std::size_t size_v, Data c )
+        : ShapeBaseT( order_v, size_v ), c_( std::move( c ) )
     {
-        assert( nvars_v >= 1 );
-        assert( c_.size() == detail::numMonomials( order_v, nvars_v ) );
+        assert( size_v >= 1 );
+        assert( c_.size() == detail::numMonomials( order_v, size_v ) );
     }
 
     // -- Factories -----------------------------------------------------------
 
     /// @brief Zero polynomial.
-    [[nodiscard]] static TaylorExpansionT zero( std::size_t order_v, std::size_t nvars_v )
+    [[nodiscard]] static TaylorExpansionT zero( std::size_t order_v, std::size_t size_v )
     {
-        return TaylorExpansionT( order_v, nvars_v );
+        return TaylorExpansionT( order_v, size_v );
     }
 
     /// @brief Constant polynomial equal to `c`.
-    [[nodiscard]] static TaylorExpansionT constant( T c, std::size_t order_v, std::size_t nvars_v )
+    [[nodiscard]] static TaylorExpansionT constant( T c, std::size_t order_v, std::size_t size_v )
     {
-        TaylorExpansionT out( order_v, nvars_v );
+        TaylorExpansionT out( order_v, size_v );
         out.c_[0] = c;
         return out;
     }
 
     /// @brief Polynomial with value `1`.
-    [[nodiscard]] static TaylorExpansionT one( std::size_t order_v, std::size_t nvars_v )
+    [[nodiscard]] static TaylorExpansionT one( std::size_t order_v, std::size_t size_v )
     {
-        return constant( T{ 1 }, order_v, nvars_v );
+        return constant( T{ 1 }, order_v, size_v );
     }
 
     /**
@@ -97,32 +97,32 @@ class TaylorExpansionT< T, Dynamic, Dynamic > : public detail::ShapeBase< Dynami
      * @details Constant term is `x0`; the `e_{var_idx}` coefficient is `1`.
      */
     [[nodiscard]] static TaylorExpansionT variable( T x0, std::size_t var_idx, std::size_t order_v,
-                                                    std::size_t nvars_v )
+                                                    std::size_t size_v )
     {
-        if ( var_idx >= nvars_v )
-            throw std::out_of_range( "tax::TaylorExpansionT::variable: var_idx >= nvars" );
-        TaylorExpansionT out( order_v, nvars_v );
+        if ( var_idx >= size_v )
+            throw std::out_of_range( "tax::TaylorExpansionT::variable: var_idx >= size" );
+        TaylorExpansionT out( order_v, size_v );
         out.c_[0] = x0;
         if ( order_v >= 1 )
         {
-            std::vector< int > ei( nvars_v, 0 );
+            std::vector< int > ei( size_v, 0 );
             ei[var_idx] = 1;
             const std::size_t fi =
-                detail::flatIndex( std::span< const int >( ei.data(), nvars_v ) );
+                detail::flatIndex( std::span< const int >( ei.data(), size_v ) );
             out.c_[fi] = T{ 1 };
         }
         return out;
     }
 
-    /// @brief Build all `nvars_v` coordinate variables at expansion point `x0`.
+    /// @brief Build all `size_v` coordinate variables at expansion point `x0`.
     [[nodiscard]] static std::vector< TaylorExpansionT > variables( std::span< const T > x0,
                                                                     std::size_t order_v )
     {
-        const std::size_t nvars_v = x0.size();
+        const std::size_t size_v = x0.size();
         std::vector< TaylorExpansionT > out;
-        out.reserve( nvars_v );
-        for ( std::size_t i = 0; i < nvars_v; ++i )
-            out.push_back( variable( x0[i], i, order_v, nvars_v ) );
+        out.reserve( size_v );
+        for ( std::size_t i = 0; i < size_v; ++i )
+            out.push_back( variable( x0[i], i, order_v, size_v ) );
         return out;
     }
 
@@ -134,10 +134,10 @@ class TaylorExpansionT< T, Dynamic, Dynamic > : public detail::ShapeBase< Dynami
     [[nodiscard]] T operator[]( std::size_t i ) const noexcept { return c_[i]; }
     [[nodiscard]] T& operator[]( std::size_t i ) noexcept { return c_[i]; }
 
-    /// @brief Coefficient at multi-index `alpha` (size must equal `nvars()`).
+    /// @brief Coefficient at multi-index `alpha` (size must equal `size()`).
     [[nodiscard]] T coeff( std::span< const int > alpha ) const
     {
-        assert( alpha.size() == this->nvars() );
+        assert( alpha.size() == this->size() );
         return c_[detail::flatIndex( alpha )];
     }
 
@@ -166,7 +166,7 @@ class TaylorExpansionT< T, Dynamic, Dynamic > : public detail::ShapeBase< Dynami
     {
         assertSameShape( r );
         Data tmp( c_.size(), T{ 0 } );
-        detail::cauchyProductRT( tmp.data(), c_.data(), r.c_.data(), this->order(), this->nvars() );
+        detail::cauchyProductRT( tmp.data(), c_.data(), r.c_.data(), this->order(), this->size() );
         c_.swap( tmp );
         return *this;
     }
@@ -174,9 +174,9 @@ class TaylorExpansionT< T, Dynamic, Dynamic > : public detail::ShapeBase< Dynami
     {
         assertSameShape( r );
         Data rec( c_.size(), T{ 0 } );
-        detail::seriesReciprocalRT( rec.data(), r.c_.data(), this->order(), this->nvars() );
+        detail::seriesReciprocalRT( rec.data(), r.c_.data(), this->order(), this->size() );
         Data prod( c_.size(), T{ 0 } );
-        detail::cauchyProductRT( prod.data(), c_.data(), rec.data(), this->order(), this->nvars() );
+        detail::cauchyProductRT( prod.data(), c_.data(), rec.data(), this->order(), this->size() );
         c_.swap( prod );
         return *this;
     }
@@ -209,14 +209,14 @@ class TaylorExpansionT< T, Dynamic, Dynamic > : public detail::ShapeBase< Dynami
     void assertSameShape( const TaylorExpansionT& r ) const
     {
         assert( this->order() == r.order() && "TaylorExpansionT: order mismatch" );
-        assert( this->nvars() == r.nvars() && "TaylorExpansionT: nvars mismatch" );
+        assert( this->size() == r.size() && "TaylorExpansionT: size mismatch" );
         ( void )r;
     }
 
     Data c_;
 };
 
-/// @brief Fully-dynamic TaylorExpansionT alias (runtime order and nvars).
+/// @brief Fully-dynamic TaylorExpansionT alias (runtime order and size).
 template < typename T = double >
 using DynTE = TaylorExpansionT< T, Dynamic, Dynamic >;
 
@@ -321,8 +321,8 @@ template < typename T, typename K >
 [[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > applyUnaryRT(
     const TaylorExpansionT< T, Dynamic, Dynamic >& a, K&& kernel )
 {
-    TaylorExpansionT< T, Dynamic, Dynamic > out( a.order(), a.nvars() );
-    kernel( out.coeffs().data(), a.coeffs().data(), a.order(), a.nvars() );
+    TaylorExpansionT< T, Dynamic, Dynamic > out( a.order(), a.size() );
+    kernel( out.coeffs().data(), a.coeffs().data(), a.order(), a.size() );
     return out;
 }
 }  // namespace detail
@@ -385,8 +385,8 @@ template < typename T >
 [[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > pow(
     const TaylorExpansionT< T, Dynamic, Dynamic >& a, T c )
 {
-    TaylorExpansionT< T, Dynamic, Dynamic > out( a.order(), a.nvars() );
-    detail::seriesPowRT( out.coeffs().data(), a.coeffs().data(), c, a.order(), a.nvars() );
+    TaylorExpansionT< T, Dynamic, Dynamic > out( a.order(), a.size() );
+    detail::seriesPowRT( out.coeffs().data(), a.coeffs().data(), c, a.order(), a.size() );
     return out;
 }
 
@@ -397,7 +397,7 @@ template < typename T >
 template < typename T >
 inline std::ostream& operator<<( std::ostream& os, const TaylorExpansionT< T, Dynamic, Dynamic >& a )
 {
-    os << "DynTE(order=" << a.order() << ", nvars=" << a.nvars() << ", coeffs=[";
+    os << "DynTE(order=" << a.order() << ", size=" << a.size() << ", coeffs=[";
     for ( std::size_t i = 0; i < a.coeffs().size(); ++i )
     {
         if ( i != 0 ) os << ", ";

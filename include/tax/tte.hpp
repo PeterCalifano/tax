@@ -34,7 +34,7 @@ class TaylorExpansionT : public detail::ShapeBase< N, M >,
 
     using ShapeBaseT = detail::ShapeBase< N, M >;
     using ShapeBaseT::coeffsSize;
-    using ShapeBaseT::nvars;
+    using ShapeBaseT::size;
     using ShapeBaseT::order;
 
     /// @brief Number of stored coefficients.

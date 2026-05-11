@@ -50,16 +50,16 @@ struct OrderHolder< Dynamic >
 
 /**
  * @brief Empty-base helper carrying a compile-time number of variables.
- * @tparam M Compile-time nvars (must be `>= 1` or `tax::Dynamic`).
+ * @tparam M Compile-time size (must be `>= 1` or `tax::Dynamic`).
  */
 template < int M >
 struct VarsHolder
 {
     static_assert( M == Dynamic || M >= 1, "Number of variables must be >= 1 or tax::Dynamic" );
 
-    static constexpr bool vars_static = true;
+    static constexpr bool size_static = true;
 
-    [[nodiscard]] static constexpr std::size_t nvars() noexcept { return std::size_t( M ); }
+    [[nodiscard]] static constexpr std::size_t size() noexcept { return std::size_t( M ); }
 
    protected:
     constexpr VarsHolder() noexcept = default;
@@ -69,20 +69,20 @@ struct VarsHolder
 template <>
 struct VarsHolder< Dynamic >
 {
-    static constexpr bool vars_static = false;
+    static constexpr bool size_static = false;
 
-    [[nodiscard]] constexpr std::size_t nvars() const noexcept { return nvars_; }
+    [[nodiscard]] constexpr std::size_t size() const noexcept { return size_; }
 
    protected:
-    constexpr VarsHolder() noexcept : nvars_{ 0 } {}
-    constexpr explicit VarsHolder( std::size_t v ) noexcept : nvars_{ v } {}
+    constexpr VarsHolder() noexcept : size_{ 0 } {}
+    constexpr explicit VarsHolder( std::size_t v ) noexcept : size_{ v } {}
 
-    std::size_t nvars_;
+    std::size_t size_;
 };
 
 /**
  * @brief Shape base for `TaylorExpansionT<T, N, M>` combining the order and
- *        nvars holders via private multiple inheritance.
+ *        size holders via private multiple inheritance.
  *
  * Any dimension that is `tax::Dynamic` is stored as a runtime member; any
  * dimension that is a non-negative integer is returned as a `constexpr`
@@ -95,9 +95,9 @@ template < int N, int M >
 struct ShapeBase : private OrderHolder< N >, private VarsHolder< M >
 {
     using OrderHolder< N >::order;
-    using VarsHolder< M >::nvars;
+    using VarsHolder< M >::size;
 
-    /// @brief Both order and nvars are compile-time constants.
+    /// @brief Both order and size are compile-time constants.
     static constexpr bool fully_static = ( N != Dynamic ) && ( M != Dynamic );
     /// @brief Either dimension is `tax::Dynamic`.
     static constexpr bool any_dynamic = !fully_static;
@@ -107,7 +107,7 @@ struct ShapeBase : private OrderHolder< N >, private VarsHolder< M >
     /// @brief Default-construct: zero-size on dynamic dimensions.
     constexpr ShapeBase() noexcept = default;
 
-    /// @brief Construct with explicit `(order, nvars)`; ignored on static dimensions.
+    /// @brief Construct with explicit `(order, size)`; ignored on static dimensions.
     constexpr ShapeBase( std::size_t o, std::size_t v ) noexcept
         : OrderHolder< N >( o ), VarsHolder< M >( v )
     {
@@ -116,7 +116,7 @@ struct ShapeBase : private OrderHolder< N >, private VarsHolder< M >
     /// @brief Number of stored coefficients for the current shape.
     [[nodiscard]] constexpr std::size_t coeffsSize() const noexcept
     {
-        return numMonomials( this->order(), this->nvars() );
+        return numMonomials( this->order(), this->size() );
     }
 };
 
