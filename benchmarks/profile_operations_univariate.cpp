@@ -1,203 +1,76 @@
 // SPDX-License-Identifier: BSD-3-Clause
 //
-// Per-operation profiling driver — univariate.  Walks the full arithmetic +
-// math surface against a static univariate TaylorExpansion `TE<10>` and
-// prints one row per op with per-call timing.
-//
-// Plain `int main()` — no Google Benchmark dependency — so the binary plays
-// nicely with `perf`, `callgrind`, `vtune`, etc.:
+// Profiling driver — univariate arithmetic + math surface against a static
+// `TE<10>`.  Intentionally minimal: no timing, no row helpers, no Google
+// Benchmark — `perf` / `callgrind` / `vtune` does the measuring.
 //
 //   perf record -g --call-graph dwarf -- \
 //       ./build/benchmarks/profile_operations_univariate 200000
 //   perf report
 //
-// CLI arg:
-//   argv[1]   iterations per op   (default 100000)
+// argv[1]   iterations (default 100000)
 
-#include <chrono>
-#include <cmath>
 #include <cstdio>
 #include <cstdlib>
-#include <string>
 
 #include <tax/tax.hpp>
-
-using clock_t_ = std::chrono::steady_clock;
-
-namespace
-{
-
-constexpr int kN = 10;  ///< Univariate truncation order.
-
-using Te = tax::TE< kN >;
-
-// volatile sink so the compiler can't dead-code-eliminate the result of
-// each op.  We touch the constant term so the operation must materialise.
-volatile double g_sink = 0.0;
-
-template < typename Fn >
-[[gnu::noinline]] double time_op( int iters, const Te& a, const Te& b, Fn&& op )
-{
-    const auto t0 = clock_t_::now();
-    for ( int i = 0; i < iters; ++i )
-    {
-        Te y = op( a, b );
-        g_sink += y[0];
-    }
-    const auto t1 = clock_t_::now();
-    const auto ns = std::chrono::duration_cast< std::chrono::nanoseconds >( t1 - t0 ).count();
-    return double( ns ) / double( iters ) / 1000.0;  // μs per call
-}
-
-template < typename Fn >
-[[gnu::noinline]] double time_unary( int iters, const Te& a, Fn&& op )
-{
-    const auto t0 = clock_t_::now();
-    for ( int i = 0; i < iters; ++i )
-    {
-        Te y = op( a );
-        g_sink += y[0];
-    }
-    const auto t1 = clock_t_::now();
-    const auto ns = std::chrono::duration_cast< std::chrono::nanoseconds >( t1 - t0 ).count();
-    return double( ns ) / double( iters ) / 1000.0;
-}
-
-template < typename F >
-void row_unary( const char* name, int iters, const Te& x, F f )
-{
-    const double t = time_unary( iters, x, f );
-    std::printf( "  %-22s  %10.4f\n", name, t );
-}
-
-template < typename F >
-void row_binary( const char* name, int iters, const Te& a, const Te& b, F f )
-{
-    const double t = time_op( iters, a, b, f );
-    std::printf( "  %-22s  %10.4f\n", name, t );
-}
-
-}  // namespace
 
 int main( int argc, char** argv )
 {
     int iters = 100000;
-    if ( argc >= 2 )
-        try
-        {
-            const int n = std::stoi( argv[1] );
-            if ( n > 0 ) iters = n;
-        }
-        catch ( ... )
-        {
-        }
+    if ( argc >= 2 ) iters = std::atoi( argv[1] );
+    if ( iters <= 0 ) iters = 100000;
 
-    // Operands — chosen so every function in the set is well-defined at the
-    // expansion point (|x| < 1 for asin/atanh, x > 0 for log/sqrt, etc.).
+    using Te = tax::TE< 10 >;
+
     const auto x = Te::variable( 0.4 );
     const auto y = Te::variable( 0.6 );
+    const auto x_pos = Te::variable( 2.0 );   // for log/sqrt/acosh/...
+    const auto x_abs = Te::variable( 0.7 );   // for abs (need a[0] != 0)
 
-    std::printf( "profile_operations_univariate: TE<%d, 1>  iters=%d  "
-                 "(per-call time, microseconds)\n\n",
-                 kN, iters );
-    std::printf( "  %-22s  %10s\n", "operation", "time" );
-    std::printf( "  %s\n", "----------------------------------" );
+    volatile double sink = 0.0;
 
-    // ---- Arithmetic between two TEs --------------------------------------
-    row_binary( "TE + TE", iters, x, y,
-                []( const Te& a, const Te& b ) { return Te{ a + b }; } );
-    row_binary( "TE - TE", iters, x, y,
-                []( const Te& a, const Te& b ) { return Te{ a - b }; } );
-    row_binary( "TE * TE", iters, x, y,
-                []( const Te& a, const Te& b ) { return Te{ a * b }; } );
-    row_binary( "TE / TE", iters, x, y,
-                []( const Te& a, const Te& b ) { return Te{ a / ( b + 1.0 ) }; } );
-
-    // ---- TE ⊕ scalar -----------------------------------------------------
-    row_unary( "TE + double", iters, x,
-               []( const Te& a ) { return Te{ a + 1.5 }; } );
-    row_unary( "TE * double", iters, x,
-               []( const Te& a ) { return Te{ a * 2.0 }; } );
-    row_unary( "-TE (unary minus)", iters, x,
-               []( const Te& a ) { return Te{ -a }; } );
-
-    // ---- Trig ------------------------------------------------------------
-    row_unary( "sin", iters, x,
-               []( const Te& a ) { return Te{ tax::sin( a ) }; } );
-    row_unary( "cos", iters, x,
-               []( const Te& a ) { return Te{ tax::cos( a ) }; } );
-    row_unary( "tan", iters, x,
-               []( const Te& a ) { return Te{ tax::tan( a ) }; } );
-
-    // ---- Hyperbolic ------------------------------------------------------
-    row_unary( "sinh", iters, x,
-               []( const Te& a ) { return Te{ tax::sinh( a ) }; } );
-    row_unary( "cosh", iters, x,
-               []( const Te& a ) { return Te{ tax::cosh( a ) }; } );
-    row_unary( "tanh", iters, x,
-               []( const Te& a ) { return Te{ tax::tanh( a ) }; } );
-
-    // ---- Inverse trig (operands chosen so |a[0]| < 1) --------------------
-    row_unary( "asin", iters, x,
-               []( const Te& a ) { return Te{ tax::asin( a ) }; } );
-    row_unary( "acos", iters, x,
-               []( const Te& a ) { return Te{ tax::acos( a ) }; } );
-    row_unary( "atan", iters, x,
-               []( const Te& a ) { return Te{ tax::atan( a ) }; } );
-
-    // ---- Inverse hyperbolic ---------------------------------------------
-    row_unary( "asinh", iters, x,
-               []( const Te& a ) { return Te{ tax::asinh( a ) }; } );
+    for ( int i = 0; i < iters; ++i )
     {
-        // acosh: requires a[0] > 1; bump operand.
-        const auto x2 = Te::variable( 2.0 );
-        row_unary( "acosh (a[0]=2)", iters, x2,
-                   []( const Te& a ) { return Te{ tax::acosh( a ) }; } );
-    }
-    row_unary( "atanh", iters, x,
-               []( const Te& a ) { return Te{ tax::atanh( a ) }; } );
+        sink += Te{ x + y }.value();
+        sink += Te{ x - y }.value();
+        sink += Te{ x * y }.value();
+        sink += Te{ x / ( y + 1.0 ) }.value();
 
-    // ---- exp / log -------------------------------------------------------
-    row_unary( "exp", iters, x,
-               []( const Te& a ) { return Te{ tax::exp( a ) }; } );
-    {
-        const auto x_pos = Te::variable( 2.0 );
-        row_unary( "log (a[0]=2)", iters, x_pos,
-                   []( const Te& a ) { return Te{ tax::log( a ) }; } );
-        row_unary( "log10 (a[0]=2)", iters, x_pos,
-                   []( const Te& a ) { return Te{ tax::log10( a ) }; } );
-        row_unary( "sqrt (a[0]=2)", iters, x_pos,
-                   []( const Te& a ) { return Te{ tax::sqrt( a ) }; } );
-        row_unary( "cbrt (a[0]=2)", iters, x_pos,
-                   []( const Te& a ) { return Te{ tax::cbrt( a ) }; } );
+        sink += Te{ x + 1.5 }.value();
+        sink += Te{ x * 2.0 }.value();
+        sink += Te{ -x }.value();
 
-        row_unary( "pow(., 0.5)", iters, x_pos,
-                   []( const Te& a ) { return Te{ tax::pow( a, 0.5 ) }; } );
-        row_unary( "pow(., 5) int", iters, x_pos,
-                   []( const Te& a ) { return Te{ tax::pow( a, 5 ) }; } );
+        sink += Te{ tax::sin( x ) }.value();
+        sink += Te{ tax::cos( x ) }.value();
+        sink += Te{ tax::tan( x ) }.value();
+        sink += Te{ tax::sinh( x ) }.value();
+        sink += Te{ tax::cosh( x ) }.value();
+        sink += Te{ tax::tanh( x ) }.value();
+        sink += Te{ tax::asin( x ) }.value();
+        sink += Te{ tax::acos( x ) }.value();
+        sink += Te{ tax::atan( x ) }.value();
+        sink += Te{ tax::asinh( x ) }.value();
+        sink += Te{ tax::acosh( x_pos ) }.value();
+        sink += Te{ tax::atanh( x ) }.value();
+
+        sink += Te{ tax::exp( x ) }.value();
+        sink += Te{ tax::log( x_pos ) }.value();
+        sink += Te{ tax::log10( x_pos ) }.value();
+        sink += Te{ tax::sqrt( x_pos ) }.value();
+        sink += Te{ tax::cbrt( x_pos ) }.value();
+        sink += Te{ tax::pow( x_pos, 0.5 ) }.value();
+        sink += Te{ tax::pow( x_pos, 5 ) }.value();
+
+        sink += Te{ tax::square( x ) }.value();
+        sink += Te{ tax::cube( x ) }.value();
+        sink += Te{ tax::abs( x_abs ) }.value();
+        sink += Te{ tax::erf( x ) }.value();
+
+        sink += Te{ tax::atan2( x, y + 1.0 ) }.value();
+        sink += Te{ tax::hypot( x, y ) }.value();
     }
 
-    // ---- Squares / cubes / abs / erf -----------------------------------
-    row_unary( "square", iters, x,
-               []( const Te& a ) { return Te{ tax::square( a ) }; } );
-    row_unary( "cube", iters, x,
-               []( const Te& a ) { return Te{ tax::cube( a ) }; } );
-    {
-        // abs requires a[0] != 0.
-        const auto x_pos = Te::variable( 0.7 );
-        row_unary( "abs (a[0]=0.7)", iters, x_pos,
-                   []( const Te& a ) { return Te{ tax::abs( a ) }; } );
-    }
-    row_unary( "erf", iters, x,
-               []( const Te& a ) { return Te{ tax::erf( a ) }; } );
-
-    // ---- Two-argument math ----------------------------------------------
-    row_binary(
-        "atan2(y, x)", iters, x, y,
-        []( const Te& yy, const Te& xx ) { return Te{ tax::atan2( yy, xx + 1.0 ) }; } );
-    row_binary( "hypot(x, y)", iters, x, y,
-                []( const Te& a, const Te& b ) { return Te{ tax::hypot( a, b ) }; } );
-
-    std::printf( "\nsink=%g\n", ( double )g_sink );
+    std::printf( "profile_operations_univariate: iters=%d sink=%g\n", iters, ( double )sink );
     return 0;
 }
