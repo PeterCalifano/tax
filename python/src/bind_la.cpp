@@ -146,6 +146,21 @@ void bind_la( nb::module_& la_mod )
         return v( k );
     } );
 
+    la_mod.def(
+        "normalize",
+        []( const TeVec& v ) {
+            if ( v.size() == 0 )
+                throw std::invalid_argument( "normalize: empty vector" );
+            DynTE acc = tax::square( v( 0 ) );
+            for ( Eigen::Index i = 1; i < v.size(); ++i ) acc += tax::square( v( i ) );
+            const DynTE inv_n = tax::pow( tax::sqrt( acc ), -1 );
+            TeVec out( v.size() );
+            for ( Eigen::Index i = 0; i < v.size(); ++i ) out( i ) = v( i ) * inv_n;
+            return out;
+        },
+        nb::arg( "v" ),
+        "Return `v / norm(v)` as a fresh Vec." );
+
     // -----------------------------------------------------------------------
     // Mat-side free reductions to mirror the method API.
     // -----------------------------------------------------------------------

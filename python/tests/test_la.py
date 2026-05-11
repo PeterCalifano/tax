@@ -155,3 +155,36 @@ def test_cauchy_schwarz_holds_at_expansion_point():
     lhs = tax.la.norm(v).value() * tax.la.norm(w).value()
     rhs = abs(tax.la.dot(v, w).value())
     assert lhs + 1e-12 >= rhs
+
+
+# ---------------------------------------------------------------------------
+# normalize — method and free function
+# ---------------------------------------------------------------------------
+
+def test_vec_normalize_returns_unit_vector():
+    _, _, _, v, _ = _make_vecs()  # value (3, 4, 0)
+    u = v.normalize()
+    assert isinstance(u, tax.la.Vec)
+    # u.value() should be the unit-direction at the expansion point.
+    np.testing.assert_allclose(u.value(), [0.6, 0.8, 0.0])
+    # ||u|| = 1 to floating-point tolerance.
+    assert u.norm().value() == pytest.approx(1.0, abs=1e-12)
+
+
+def test_la_normalize_matches_method():
+    _, _, _, v, _ = _make_vecs()
+    np.testing.assert_allclose(v.normalize().value(), tax.la.normalize(v).value())
+
+
+def test_vec_normalize_is_idempotent():
+    _, _, _, v, _ = _make_vecs()
+    u = v.normalize()
+    uu = u.normalize()
+    np.testing.assert_allclose(uu.value(), u.value(), atol=1e-12)
+
+
+def test_vec_normalize_empty_raises():
+    with pytest.raises(Exception):
+        tax.la.Vec([]).normalize()
+    with pytest.raises(Exception):
+        tax.la.normalize(tax.la.Vec([]))

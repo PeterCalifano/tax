@@ -106,6 +106,22 @@ void bind_vec( nb::class_< TeVec >& vec_cls, nb::class_< TeMat >& mat_cls )
         "Euclidean (2-)norm `sqrt(Σ v[i]²)`. Returns a TaylorExpansion.\n"
         "Requires the value of the squared norm at the expansion point to be > 0." );
 
+    vec_cls.def(
+        "normalize",
+        []( const TeVec& v ) {
+            if ( v.size() == 0 )
+                throw std::invalid_argument( "Vec.normalize on empty vector" );
+            DynTE acc = tax::square( v( 0 ) );
+            for ( Eigen::Index i = 1; i < v.size(); ++i ) acc += tax::square( v( i ) );
+            const DynTE inv_n = tax::pow( tax::sqrt( acc ), -1 );  // 1 / ||v||
+            TeVec out( v.size() );
+            for ( Eigen::Index i = 0; i < v.size(); ++i ) out( i ) = v( i ) * inv_n;
+            return out;
+        },
+        "Return `v / v.norm()` as a fresh Vec. The norm is computed as a "
+        "TaylorExpansion, so the returned vector retains the full Taylor "
+        "structure of the unit-direction map." );
+
     // -----------------------------------------------------------------------
     // Vec arithmetic: element-wise +/-/*//, broadcasting against a scalar
     // (TaylorExpansion or float), and numpy 1-D arrays of floats. Matrix-
