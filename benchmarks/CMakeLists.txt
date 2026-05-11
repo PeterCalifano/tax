@@ -53,6 +53,9 @@ endif()
 add_executable(bench_dynamic_vs_static dynamic_vs_static.cpp)
 target_link_libraries(bench_dynamic_vs_static PRIVATE tax benchmark::benchmark)
 
+add_executable(bench_multivariate multivariate.cpp)
+target_link_libraries(bench_multivariate PRIVATE tax benchmark::benchmark)
+
 # -----------------------------------------------------------------------------
 # Profiling drivers — vanilla `int main()` programs intended to be run under
 # perf / callgrind / vtune / etc.  No Google Benchmark dependency so they
