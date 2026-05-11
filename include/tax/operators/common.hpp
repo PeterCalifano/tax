@@ -1,6 +1,6 @@
 #pragma once
 
-#include <tax/tte.hpp>
+#include <tax/storage/tte_static.hpp>
 #include <type_traits>
 
 namespace tax

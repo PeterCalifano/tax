@@ -3,7 +3,7 @@
 // Fully-dynamic partial specialisation of `tax::TaylorExpansionT<T, N, M>`:
 // runtime order, runtime size, `std::vector<T>` coefficient storage.
 //
-// The static template (in `tax/tte.hpp`) keeps every existing optimisation:
+// The static template (in `tax/storage/tte_static.hpp`) keeps every existing optimisation:
 // stack-resident `std::array`, expression-template fusion, zero allocation.
 // This file adds an eager-evaluation alternative for runtime-resolved shapes
 // (Python bindings, REPLs, exploratory work). Both share the kernel layer.

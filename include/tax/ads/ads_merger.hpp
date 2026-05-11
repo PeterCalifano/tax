@@ -3,7 +3,7 @@
 #include <tax/ads/ads_tree.hpp>
 #include <tax/ads/low_order_ads_runner.hpp>
 #include <tax/ads/nonlinearity_index.hpp>
-#include <tax/tte.hpp>
+#include <tax/storage/tte_static.hpp>
 
 #include <utility>
 

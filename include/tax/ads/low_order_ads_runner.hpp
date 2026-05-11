@@ -2,7 +2,7 @@
 
 #include <tax/ads/ads_tree.hpp>
 #include <tax/ads/nonlinearity_index.hpp>
-#include <tax/tte.hpp>
+#include <tax/storage/tte_static.hpp>
 #include <tax/utils/combinatorics.hpp>
 
 #include <array>

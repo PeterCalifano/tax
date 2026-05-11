@@ -17,7 +17,6 @@
 tax/
 ├── include/tax/          # Header-only library (the entire library lives here)
 │   ├── tax.hpp           # Umbrella header — users include only this
-│   ├── tte.hpp           # Core TruncatedTaylorExpansionT<T,N,M> class
 │   ├── ads.hpp           # Facade: includes all ads/
 │   ├── kernels.hpp       # Facade: includes all kernels/
 │   ├── operators.hpp     # Facade: includes all operators/
@@ -25,10 +24,15 @@ tax/
 │   ├── ads/              # Automatic Domain Splitting (ADS)
 │   ├── expr/             # Expression template nodes (lazy evaluation)
 │   ├── kernels/          # Series computation kernels (recurrence relations,
-│   │                       static + runtime-shape `*RT` overloads)
+│   │                       static + runtime-shape overloads)
 │   ├── ode/              # Taylor ODE integrator
 │   ├── operators/        # Free-function operators and math functions
-│   ├── storage/          # ShapeBase EBO + fully-dynamic TTE specialisation
+│   ├── storage/          # ShapeBase EBO + TaylorExpansionT static and dynamic
+│   │                       specialisations:
+│   │                         shape.hpp                 — EBO holders
+│   │                         tte_static.hpp            — primary template (static N, M)
+│   │                         tte_dynamic.hpp           — <T, Dynamic, Dynamic>
+│   │                         tte_dynamic_order.hpp     — <T, Dynamic, M>
 │   ├── utils/            # Type traits, combinatorics, enumeration
 │   └── eigen/            # Eigen3 integration helpers
 ├── tests/                # Google Test suite (~33 test executables, 523 tests)

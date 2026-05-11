@@ -14,7 +14,7 @@
 #include <tax/ads/box.hpp>
 #include <tax/ads/nonlinearity_index.hpp>
 #include <tax/ode/da_integrator.hpp>
-#include <tax/tte.hpp>
+#include <tax/storage/tte_static.hpp>
 
 namespace tax::ode
 {

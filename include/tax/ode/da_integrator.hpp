@@ -11,7 +11,7 @@
 #include <tax/ads/box.hpp>
 #include <tax/ode/integrator.hpp>  // IntegratorConfig + detail::validate
 #include <tax/ode/step.hpp>
-#include <tax/tte.hpp>
+#include <tax/storage/tte_static.hpp>
 
 namespace tax::ode
 {

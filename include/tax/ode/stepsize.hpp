@@ -3,7 +3,7 @@
 #include <cmath>
 #include <limits>
 
-#include <tax/tte.hpp>
+#include <tax/storage/tte_static.hpp>
 #include <tax/eigen/num_traits.hpp>
 
 namespace tax::ode

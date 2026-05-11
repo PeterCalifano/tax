@@ -7,7 +7,7 @@
 #include <stdexcept>
 #include <vector>
 
-#include <tax/tte.hpp>
+#include <tax/storage/tte_static.hpp>
 #include <tax/eigen/eval.hpp>
 
 namespace tax::ode

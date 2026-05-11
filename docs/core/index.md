@@ -9,7 +9,7 @@ The central type, `TaylorExpansionT<T, N, M>`, stores \(\binom{N+M}{M}\) Taylor 
 | Header | Contents |
 |--------|----------|
 | `tax/tax.hpp` | Umbrella header -- the only include users need |
-| `tax/tte.hpp` | Core `TaylorExpansionT<T, N, M>` class with constructors, variable factories, coefficient/derivative access, evaluation, differentiation, integration, norms, and in-place operators |
+| `tax/storage/tte_static.hpp` | Core `TaylorExpansionT<T, N, M>` class with constructors, variable factories, coefficient/derivative access, evaluation, differentiation, integration, norms, and in-place operators |
 | `tax/operators.hpp` | Facade that pulls in all free-function operators and math functions |
 | `tax/kernels.hpp` | Facade that pulls in all series computation kernels (recurrence relations) |
 | `tax/expr/` | Expression template nodes: `Expr<>` CRTP base, binary/unary/sum/product expressions, arithmetic and function call nodes |
