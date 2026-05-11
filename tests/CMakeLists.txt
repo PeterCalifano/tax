@@ -27,6 +27,7 @@ set(TEST_SOURCES
     foundation/testShapeBaseEbo.cpp
     kernels/testKernels.cpp
     kernels/testKernelsRuntime.cpp
+    kernels/testCauchyStencil.cpp
     core/testTTE.cpp
     core/testNested.cpp
     core/testCompose.cpp
