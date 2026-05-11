@@ -439,6 +439,88 @@ void bind_vec( nb::class_< TeVec >& vec_cls, nb::class_< TeMat >& mat_cls )
         nb::arg( "other" ),
         "3-D cross product against a 1-D numpy float array of length 3." );
 
+    // -----------------------------------------------------------------------
+    // Reductions (numpy-style). `sum` / `mean` / `prod` return a fresh
+    // TaylorExpansion preserving the full Taylor structure. `min` / `max`
+    // pick an element by comparing its `.value()` (constant term) — the
+    // returned element is the full TaylorExpansion, not just its value.
+    // -----------------------------------------------------------------------
+    vec_cls.def(
+        "sum",
+        []( const TeVec& v ) {
+            if ( v.size() == 0 ) throw std::invalid_argument( "Vec.sum: empty vector" );
+            DynTE acc = v( 0 );
+            for ( Eigen::Index i = 1; i < v.size(); ++i ) acc += v( i );
+            return acc;
+        },
+        "Sum of every element: `Σ v[i]` as a TaylorExpansion." );
+
+    vec_cls.def(
+        "mean",
+        []( const TeVec& v ) {
+            if ( v.size() == 0 ) throw std::invalid_argument( "Vec.mean: empty vector" );
+            DynTE acc = v( 0 );
+            for ( Eigen::Index i = 1; i < v.size(); ++i ) acc += v( i );
+            acc *= 1.0 / double( v.size() );
+            return acc;
+        },
+        "Arithmetic mean: `(Σ v[i]) / len(v)`." );
+
+    vec_cls.def(
+        "prod",
+        []( const TeVec& v ) {
+            if ( v.size() == 0 ) throw std::invalid_argument( "Vec.prod: empty vector" );
+            DynTE acc = v( 0 );
+            for ( Eigen::Index i = 1; i < v.size(); ++i ) acc = acc * v( i );
+            return acc;
+        },
+        "Product of every element: `Π v[i]`. Beware: each step is a Cauchy "
+        "product, so the cost grows with vector length." );
+
+    auto argmin_impl = []( const TeVec& v ) -> Eigen::Index {
+        if ( v.size() == 0 ) throw std::invalid_argument( "Vec.argmin: empty vector" );
+        Eigen::Index k = 0;
+        double best = v( 0 ).value();
+        for ( Eigen::Index i = 1; i < v.size(); ++i )
+        {
+            const double cur = v( i ).value();
+            if ( cur < best )
+            {
+                best = cur;
+                k = i;
+            }
+        }
+        return k;
+    };
+    auto argmax_impl = []( const TeVec& v ) -> Eigen::Index {
+        if ( v.size() == 0 ) throw std::invalid_argument( "Vec.argmax: empty vector" );
+        Eigen::Index k = 0;
+        double best = v( 0 ).value();
+        for ( Eigen::Index i = 1; i < v.size(); ++i )
+        {
+            const double cur = v( i ).value();
+            if ( cur > best )
+            {
+                best = cur;
+                k = i;
+            }
+        }
+        return k;
+    };
+
+    vec_cls.def( "argmin", argmin_impl,
+                 "Index of the element with the smallest `.value()`." );
+    vec_cls.def( "argmax", argmax_impl,
+                 "Index of the element with the largest `.value()`." );
+    vec_cls.def(
+        "min",
+        [=]( const TeVec& v ) { return v( argmin_impl( v ) ); },
+        "Element with the smallest `.value()` (returned as a TaylorExpansion)." );
+    vec_cls.def(
+        "max",
+        [=]( const TeVec& v ) { return v( argmax_impl( v ) ); },
+        "Element with the largest `.value()` (returned as a TaylorExpansion)." );
+
     vec_cls.def( "__repr__", []( const TeVec& v ) {
         std::ostringstream os;
         os << "Vec(len=" << v.size() << ")[";

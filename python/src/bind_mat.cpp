@@ -113,6 +113,85 @@ void bind_mat( nb::class_< TeVec >& vec_cls, nb::class_< TeMat >& mat_cls )
         },
         nb::arg( "c" ), "Return column `c` as a Vec." );
 
+    // ---- reductions ----
+    mat_cls.def(
+        "sum",
+        []( const TeMat& a ) {
+            if ( a.size() == 0 ) throw std::invalid_argument( "Mat.sum: empty matrix" );
+            DynTE acc = a( 0, 0 );
+            bool first = true;
+            for ( Eigen::Index r = 0; r < a.rows(); ++r )
+                for ( Eigen::Index c = 0; c < a.cols(); ++c )
+                {
+                    if ( first )
+                    {
+                        first = false;
+                        continue;
+                    }
+                    acc += a( r, c );
+                }
+            return acc;
+        },
+        "Sum of every element: `Σ a(r,c)` as a TaylorExpansion." );
+
+    mat_cls.def(
+        "trace",
+        []( const TeMat& a ) {
+            if ( a.rows() != a.cols() )
+                throw std::invalid_argument( "Mat.trace: matrix must be square" );
+            if ( a.rows() == 0 ) throw std::invalid_argument( "Mat.trace: empty matrix" );
+            DynTE acc = a( 0, 0 );
+            for ( Eigen::Index i = 1; i < a.rows(); ++i ) acc += a( i, i );
+            return acc;
+        },
+        "Sum of the diagonal entries (square matrices only)." );
+
+    mat_cls.def(
+        "diagonal",
+        []( const TeMat& a ) {
+            const Eigen::Index n = std::min( a.rows(), a.cols() );
+            TeVec out( n );
+            for ( Eigen::Index i = 0; i < n; ++i ) out( i ) = a( i, i );
+            return out;
+        },
+        "Main diagonal as a Vec (length `min(rows, cols)`)." );
+
+    mat_cls.def(
+        "row_sums",
+        []( const TeMat& a ) {
+            if ( a.cols() == 0 )
+                throw std::invalid_argument( "Mat.row_sums: zero-column matrix" );
+            TeVec out( a.rows() );
+            for ( Eigen::Index r = 0; r < a.rows(); ++r )
+            {
+                DynTE acc = a( r, 0 );
+                for ( Eigen::Index c = 1; c < a.cols(); ++c ) acc += a( r, c );
+                out( r ) = acc;
+            }
+            return out;
+        },
+        "Per-row sums as a Vec of length `rows`." );
+
+    mat_cls.def(
+        "col_sums",
+        []( const TeMat& a ) {
+            if ( a.rows() == 0 )
+                throw std::invalid_argument( "Mat.col_sums: zero-row matrix" );
+            TeVec out( a.cols() );
+            for ( Eigen::Index c = 0; c < a.cols(); ++c )
+            {
+                DynTE acc = a( 0, c );
+                for ( Eigen::Index r = 1; r < a.rows(); ++r ) acc += a( r, c );
+                out( c ) = acc;
+            }
+            return out;
+        },
+        "Per-column sums as a Vec of length `cols`." );
+
+    mat_cls.def_prop_ro(
+        "is_square", []( const TeMat& a ) { return a.rows() == a.cols(); },
+        "True iff `rows == cols`." );
+
     // -----------------------------------------------------------------------
     // Mat arithmetic: element-wise +/-/*//, broadcasting against a scalar
     // (TaylorExpansion or float), and numpy 2-D arrays of floats.

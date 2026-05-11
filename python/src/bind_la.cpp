@@ -92,6 +92,150 @@ void bind_la( nb::module_& la_mod )
         },
         nb::arg( "a" ), nb::arg( "b" ),
         "3-D cross product against a 1-D numpy float array of length 3." );
+
+    // -----------------------------------------------------------------------
+    // Reductions exposed as free functions (Vec methods are the same code).
+    // -----------------------------------------------------------------------
+    la_mod.def( "sum", []( const TeVec& v ) {
+        if ( v.size() == 0 ) throw std::invalid_argument( "sum: empty vector" );
+        DynTE acc = v( 0 );
+        for ( Eigen::Index i = 1; i < v.size(); ++i ) acc += v( i );
+        return acc;
+    } );
+    la_mod.def( "mean", []( const TeVec& v ) {
+        if ( v.size() == 0 ) throw std::invalid_argument( "mean: empty vector" );
+        DynTE acc = v( 0 );
+        for ( Eigen::Index i = 1; i < v.size(); ++i ) acc += v( i );
+        acc *= 1.0 / double( v.size() );
+        return acc;
+    } );
+    la_mod.def( "prod", []( const TeVec& v ) {
+        if ( v.size() == 0 ) throw std::invalid_argument( "prod: empty vector" );
+        DynTE acc = v( 0 );
+        for ( Eigen::Index i = 1; i < v.size(); ++i ) acc = acc * v( i );
+        return acc;
+    } );
+    la_mod.def( "min", []( const TeVec& v ) {
+        if ( v.size() == 0 ) throw std::invalid_argument( "min: empty vector" );
+        Eigen::Index k = 0;
+        double best = v( 0 ).value();
+        for ( Eigen::Index i = 1; i < v.size(); ++i )
+        {
+            const double cur = v( i ).value();
+            if ( cur < best )
+            {
+                best = cur;
+                k = i;
+            }
+        }
+        return v( k );
+    } );
+    la_mod.def( "max", []( const TeVec& v ) {
+        if ( v.size() == 0 ) throw std::invalid_argument( "max: empty vector" );
+        Eigen::Index k = 0;
+        double best = v( 0 ).value();
+        for ( Eigen::Index i = 1; i < v.size(); ++i )
+        {
+            const double cur = v( i ).value();
+            if ( cur > best )
+            {
+                best = cur;
+                k = i;
+            }
+        }
+        return v( k );
+    } );
+
+    // -----------------------------------------------------------------------
+    // Mat-side free reductions to mirror the method API.
+    // -----------------------------------------------------------------------
+    la_mod.def( "sum", []( const TeMat& a ) {
+        if ( a.size() == 0 ) throw std::invalid_argument( "sum: empty matrix" );
+        DynTE acc = a( 0, 0 );
+        bool first = true;
+        for ( Eigen::Index r = 0; r < a.rows(); ++r )
+            for ( Eigen::Index c = 0; c < a.cols(); ++c )
+            {
+                if ( first )
+                {
+                    first = false;
+                    continue;
+                }
+                acc += a( r, c );
+            }
+        return acc;
+    } );
+    la_mod.def( "trace", []( const TeMat& a ) {
+        if ( a.rows() != a.cols() )
+            throw std::invalid_argument( "trace: matrix must be square" );
+        if ( a.rows() == 0 ) throw std::invalid_argument( "trace: empty matrix" );
+        DynTE acc = a( 0, 0 );
+        for ( Eigen::Index i = 1; i < a.rows(); ++i ) acc += a( i, i );
+        return acc;
+    } );
+    la_mod.def( "diagonal", []( const TeMat& a ) {
+        const Eigen::Index n = std::min( a.rows(), a.cols() );
+        TeVec out{ n };
+        for ( Eigen::Index i = 0; i < n; ++i ) out( i ) = a( i, i );
+        return out;
+    } );
+
+    // -----------------------------------------------------------------------
+    // Vec / Mat factories. `zeros` is overloaded (n -> Vec, rows/cols -> Mat).
+    // -----------------------------------------------------------------------
+    la_mod.def(
+        "zeros",
+        []( std::size_t n, std::size_t order, std::size_t size ) {
+            TeVec out{ Eigen::Index( n ) };
+            for ( Eigen::Index i = 0; i < out.size(); ++i )
+                out( i ) = DynTE::zero( order, size );
+            return out;
+        },
+        nb::arg( "n" ), nb::arg( "order" ), nb::arg( "size" ),
+        "Build a Vec of `n` zero TaylorExpansions of shape (order, size)." );
+    la_mod.def(
+        "zeros",
+        []( std::size_t rows, std::size_t cols, std::size_t order, std::size_t size ) {
+            TeMat out{ Eigen::Index( rows ), Eigen::Index( cols ) };
+            for ( Eigen::Index r = 0; r < out.rows(); ++r )
+                for ( Eigen::Index c = 0; c < out.cols(); ++c )
+                    out( r, c ) = DynTE::zero( order, size );
+            return out;
+        },
+        nb::arg( "rows" ), nb::arg( "cols" ), nb::arg( "order" ), nb::arg( "size" ),
+        "Build a Mat of zero TaylorExpansions with the given shape." );
+
+    la_mod.def(
+        "identity",
+        []( std::size_t n, std::size_t order, std::size_t size ) {
+            const Eigen::Index N = Eigen::Index( n );
+            TeMat out{ N, N };
+            const DynTE zero_te = DynTE::zero( order, size );
+            const DynTE one_te = DynTE::one( order, size );
+            for ( Eigen::Index r = 0; r < out.rows(); ++r )
+                for ( Eigen::Index c = 0; c < out.cols(); ++c )
+                    out( r, c ) = ( r == c ) ? one_te : zero_te;
+            return out;
+        },
+        nb::arg( "n" ), nb::arg( "order" ), nb::arg( "size" ),
+        "Build an n × n identity Mat (ones on the diagonal, zeros elsewhere)." );
+
+    la_mod.def(
+        "diag",
+        []( const TeVec& d ) {
+            if ( d.size() == 0 )
+                throw std::invalid_argument( "diag: empty diagonal vector" );
+            const std::size_t order = d( 0 ).order();
+            const std::size_t size = d( 0 ).size();
+            const DynTE zero_te = DynTE::zero( order, size );
+            TeMat out{ d.size(), d.size() };
+            for ( Eigen::Index r = 0; r < out.rows(); ++r )
+                for ( Eigen::Index c = 0; c < out.cols(); ++c )
+                    out( r, c ) = ( r == c ) ? d( r ) : zero_te;
+            return out;
+        },
+        nb::arg( "d" ),
+        "Diagonal Mat with `d` on the main diagonal (size inferred from `d.size()`)." );
 }
 
 }  // namespace tax_py
