@@ -74,8 +74,13 @@ add_executable(profile_ads_integration profile_ads_integration.cpp)
 target_link_libraries(profile_ads_integration PRIVATE tax)
 target_compile_options(profile_ads_integration PRIVATE -fno-omit-frame-pointer -g)
 
-# Per-op timing across the full arithmetic + math surface (univariate +
-# multivariate).
-add_executable(profile_operations profile_operations.cpp)
-target_link_libraries(profile_operations PRIVATE tax)
-target_compile_options(profile_operations PRIVATE -fno-omit-frame-pointer -g)
+# Per-op timing across the full arithmetic + math surface — separate
+# binaries for univariate and multivariate so each profile run lands on a
+# single shape without cross-talk in the call graph.
+add_executable(profile_operations_univariate profile_operations_univariate.cpp)
+target_link_libraries(profile_operations_univariate PRIVATE tax)
+target_compile_options(profile_operations_univariate PRIVATE -fno-omit-frame-pointer -g)
+
+add_executable(profile_operations_multivariate profile_operations_multivariate.cpp)
+target_link_libraries(profile_operations_multivariate PRIVATE tax)
+target_compile_options(profile_operations_multivariate PRIVATE -fno-omit-frame-pointer -g)
