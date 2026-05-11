@@ -291,7 +291,13 @@ when arithmetic / derivative queries fire.
 
     vec_cls.def( "__repr__", []( const TeVec& v ) {
         std::ostringstream os;
-        os << "Vec(len=" << v.size() << ")";
+        os << "Vec(len=" << v.size() << ")[";
+        for ( Eigen::Index i = 0; i < v.size(); ++i )
+        {
+            os << "\n  " << i << ": " << v( i );
+            if ( i + 1 < v.size() ) os << ',';
+        }
+        os << ( v.size() > 0 ? "\n]" : "]" );
         return os.str();
     } );
 
@@ -379,7 +385,20 @@ share the same shape `(order, size)`.
 
     mat_cls.def( "__repr__", []( const TeMat& m_ ) {
         std::ostringstream os;
-        os << "Mat(rows=" << m_.rows() << ", cols=" << m_.cols() << ")";
+        os << "Mat(rows=" << m_.rows() << ", cols=" << m_.cols() << ", raveled)[";
+        const Eigen::Index R = m_.rows();
+        const Eigen::Index C = m_.cols();
+        bool first = true;
+        for ( Eigen::Index r = 0; r < R; ++r )
+        {
+            for ( Eigen::Index c = 0; c < C; ++c )
+            {
+                if ( !first ) os << ',';
+                os << "\n  (" << r << ',' << c << "): " << m_( r, c );
+                first = false;
+            }
+        }
+        os << ( R * C > 0 ? "\n]" : "]" );
         return os.str();
     } );
 

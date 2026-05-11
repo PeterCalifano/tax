@@ -100,6 +100,16 @@ def test_vector_repr_round_trips_basic_info():
     assert "len=2" in repr(v)
 
 
+def test_vector_repr_ravels_polynomial_form():
+    x, y = tax.variables([1.0, 2.0], order=3)
+    r = repr(tax.Vec([x, y]))
+    # Each element appears on its own line with an index label and the
+    # polynomial form (dx, truncation remainder, etc.).
+    assert "0:" in r and "1:" in r
+    assert "dx" in r          # has a variable
+    assert "O(" in r          # truncation remainder
+
+
 # ---------------------------------------------------------------------------
 # Mat
 # ---------------------------------------------------------------------------
@@ -162,3 +172,13 @@ def test_matrix_repr_includes_shape():
     r = repr(m)
     assert "Mat" in r
     assert "rows=2" in r and "cols=2" in r
+
+
+def test_matrix_repr_ravels_polynomial_form():
+    x, y = tax.variables([1.0, 2.0], order=3)
+    r = repr(tax.Mat([[x, y], [x * y, x + y]]))
+    # Every cell is listed as (row,col): <polynomial>.
+    for label in ("(0,0):", "(0,1):", "(1,0):", "(1,1):"):
+        assert label in r
+    assert "dx" in r
+    assert "O(" in r
