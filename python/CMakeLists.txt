@@ -41,6 +41,12 @@ find_package(nanobind CONFIG REQUIRED)
 nanobind_add_module(
     _tax
     src/tax_module.cpp
+    src/bind_te.cpp
+    src/bind_vec.cpp
+    src/bind_mat.cpp
+    src/bind_math.cpp
+    src/bind_la.cpp
+    src/bind_factories.cpp
 )
 
 target_link_libraries(
