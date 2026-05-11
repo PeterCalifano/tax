@@ -1,5 +1,6 @@
 #pragma once
 
+#include <tax/kernels/cauchy_stencil.hpp>
 #include <tax/utils/enumeration.hpp>
 
 namespace tax::detail
@@ -22,12 +23,13 @@ constexpr void cauchyProduct( Coeffs< T, N, M >& out,
             for ( int k = 0; k <= d; ++k ) out[d] += f[k] * g[d - k];
     } else
     {
-        for ( int d = 0; d <= N; ++d )
+        using S = CauchyStencil< N, M >;
+        for ( std::size_t k = 0; k < S::NC; ++k )
         {
-            forEachMonomial< M >( d, [&]( const auto& alpha, std::size_t ai ) {
-                forEachSubIndex< M >( alpha,
-                                      [&]( auto bi, auto gi ) { out[ai] += f[bi] * g[gi]; } );
-            } );
+            T acc{ 0 };
+            for ( std::size_t j = S::offsets[k]; j < S::offsets[k + 1]; ++j )
+                acc += f[S::col_a[j]] * g[S::col_b[j]];
+            out[k] = acc;
         }
     }
 }
@@ -54,16 +56,16 @@ constexpr void cauchySelfProduct( Coeffs< T, N, M >& out,
         }
     } else
     {
-        for ( int d = 0; d <= N; ++d )
+        using S = CauchySymStencil< N, M >;
+        for ( std::size_t k = 0; k < S::NC; ++k )
         {
-            forEachMonomial< M >( d, [&]( const auto& alpha, std::size_t ai ) {
-                forEachSubIndex< M >( alpha, [&]( auto bi, auto gi ) {
-                    if ( bi < gi )
-                        out[ai] += T{ 2 } * f[bi] * f[gi];
-                    else if ( bi == gi )
-                        out[ai] += f[bi] * f[bi];
-                } );
-            } );
+            T acc{ 0 };
+            for ( std::size_t j = S::offsets[k]; j < S::offsets[k + 1]; ++j )
+            {
+                const T fab = f[S::col_a[j]] * f[S::col_b[j]];
+                acc += S::is_diag[j] ? fab : T{ 2 } * fab;
+            }
+            out[k] = acc;
         }
     }
 }
@@ -83,12 +85,13 @@ constexpr void cauchyAccumulate( Coeffs< T, N, M >& out,
             for ( int k = 0; k <= d; ++k ) out[d] += f[k] * g[d - k];
     } else
     {
-        for ( int d = 0; d <= N; ++d )
+        using S = CauchyStencil< N, M >;
+        for ( std::size_t k = 0; k < S::NC; ++k )
         {
-            forEachMonomial< M >( d, [&]( const auto& alpha, std::size_t ai ) {
-                forEachSubIndex< M >( alpha,
-                                      [&]( auto bi, auto gi ) { out[ai] += f[bi] * g[gi]; } );
-            } );
+            T acc{ 0 };
+            for ( std::size_t j = S::offsets[k]; j < S::offsets[k + 1]; ++j )
+                acc += f[S::col_a[j]] * g[S::col_b[j]];
+            out[k] += acc;
         }
     }
 }
