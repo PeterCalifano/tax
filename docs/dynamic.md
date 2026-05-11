@@ -79,3 +79,28 @@ const auto& all = f.coeffs();      // const ref to the std::vector buffer
 - **Dynamic `DynTE<T>`**: any time the shape is not known until runtime.
   Most relevant for nanobind / Python bindings, where you want a single
   `tax.TaylorExpansion(order, size)` constructor.
+
+## Performance comparison
+
+Run `bench_dynamic_vs_static` (in `benchmarks/`) on the same workload through
+both APIs. g++ 13, `-O3 -DNDEBUG`, μs/op:
+
+| Workload | Static | Dynamic | Slowdown |
+|---|---|---|---|
+| `sin(x)`, N=10, M=1 | 0.060 | 0.118 | 1.97× |
+| `sin(x)`, N=40, M=1 | 0.890 | 0.898 | 1.01× |
+| `sin(x)·exp(x) + log(x+1)`, N=10, M=1 | 0.255 | 0.415 | 1.62× |
+| `sin(x)·exp(x) + log(x+1)`, N=40, M=1 | 2.89 | 3.04 | 1.05× |
+| `x·y`, N=5, M=2 | 0.467 | 3.10 | 6.62× |
+| `x·y`, N=5, M=4 | 16.75 | 61.42 | 3.67× |
+| `sin(x·y) + exp(x+y)`, N=5, M=2 | 1.75 | 10.01 | 5.72× |
+| `sin(x·y) + exp(x+y)`, N=5, M=4 | 140.12 | 281.11 | 2.01× |
+
+Dynamic mode pays a fixed per-operation cost (heap allocation for intermediates,
+runtime dispatch, no ET fusion) that **amortises away as the per-call work
+grows**. The slowdown ranges from ~1× for large univariate composites to ~7×
+for very small multivariate operations.
+
+Rule of thumb: use static for inner loops that run many iterations on small
+shapes; use dynamic when the shape is unknown until runtime or when you call
+the operation a small number of times.

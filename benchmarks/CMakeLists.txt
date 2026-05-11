@@ -49,3 +49,6 @@ if(TAX_USE_DACE)
     target_compile_definitions(bench_univariate PRIVATE TAX_BENCH_HAVE_DACE=1)
     target_link_libraries(bench_univariate PRIVATE ${_dace_target})
 endif()
+
+add_executable(bench_dynamic_vs_static dynamic_vs_static.cpp)
+target_link_libraries(bench_dynamic_vs_static PRIVATE tax benchmark::benchmark)
