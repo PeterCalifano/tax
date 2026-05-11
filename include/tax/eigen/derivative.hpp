@@ -82,6 +82,27 @@ template < typename Derived, std::size_t M >
 }
 
 /**
+ * @brief Runtime-shape overload of `derivative(matrix, alpha)` taking a span.
+ * @details Use this when the element type is a dynamic-shape `TaylorExpansionT`
+ *          and the multi-index size is not known at compile time. The static-
+ *          shape callers should keep using the `std::array<int, M>` overload.
+ */
+template < typename Derived >
+[[nodiscard]] auto derivative( const Eigen::DenseBase< Derived >& t,
+                               std::span< const int > alpha )
+    requires( detail::is_tte_v< typename Derived::Scalar > &&
+              detail::expansion_traits< typename Derived::Scalar >::vars == Dynamic )
+{
+    using TTE = typename Derived::Scalar;
+    using T = typename detail::expansion_traits< TTE >::scalar_type;
+    using Out = detail::rebind_matrix_t< Derived, T >;
+    Out out( t.rows(), t.cols() );
+    for ( Eigen::Index i = 0; i < t.size(); ++i )
+        out.coeffRef( i ) = t.derived().coeff( i ).derivative( alpha );
+    return out;
+}
+
+/**
  * @brief Extract the k-th time derivative from each univariate TTE matrix/vector element.
  * @param k Derivative order (0 = value, 1 = first derivative, ...).
  * @returns Eigen matrix/vector with same shape and scalar type `T`.
@@ -121,14 +142,24 @@ template < int... Alpha, typename Derived >
     return out;
 }
 
+// =============================================================================
+// gradient / jacobian / hessian
+//
+// Each comes in two flavours:
+//   - static or dynamic-order with compile-time M: returns a fixed-size Eigen
+//     matrix (Matrix<T, M, 1>, Matrix<T, K, M>, Matrix<T, M, M>);
+//   - fully-dynamic TTE: returns a runtime-sized Eigen matrix
+//     (VectorX<T>, MatrixX<T>).
+// =============================================================================
+
 /**
  * @brief Compute the gradient of a scalar TTE at its expansion point.
  * @returns Eigen column vector `[df/dx_0, ..., df/dx_{M-1}]`.
  */
 template < typename T, int N, int M >
+    requires( M >= 1 )
 [[nodiscard]] auto gradient( const TaylorExpansionT< T, N, M >& f )
 {
-    static_assert( N >= 1, "gradient requires TTE order >= 1" );
     Eigen::Matrix< T, M, 1 > g;
     for ( int i = 0; i < M; ++i )
     {
@@ -140,13 +171,77 @@ template < typename T, int N, int M >
 }
 
 /**
+ * @brief Fully-dynamic-shape overload: returns a runtime-sized gradient vector.
+ */
+template < typename T >
+[[nodiscard]] auto gradient( const TaylorExpansionT< T, Dynamic, Dynamic >& f )
+{
+    const std::size_t Mv = f.size();
+    Eigen::Matrix< T, Eigen::Dynamic, 1 > g{ Eigen::Index( Mv ) };
+    std::vector< int > alpha( Mv, 0 );
+    for ( std::size_t i = 0; i < Mv; ++i )
+    {
+        alpha[i] = 1;
+        g( Eigen::Index( i ) ) =
+            f.derivative( std::span< const int >( alpha.data(), Mv ) );
+        alpha[i] = 0;
+    }
+    return g;
+}
+
+/**
+ * @brief Compute the Hessian matrix of a scalar TTE at its expansion point.
+ * @returns `Matrix<T, M, M>` (compile-time size) or `MatrixX<T>` (dynamic size).
+ */
+template < typename T, int N, int M >
+    requires( M >= 1 )
+[[nodiscard]] auto hessian( const TaylorExpansionT< T, N, M >& f )
+{
+    Eigen::Matrix< T, M, M > H;
+    for ( int i = 0; i < M; ++i )
+    {
+        for ( int j = 0; j < M; ++j )
+        {
+            MultiIndex< M > alpha{};
+            alpha[i] += 1;
+            alpha[j] += 1;
+            H( i, j ) = f.derivative( alpha );
+        }
+    }
+    return H;
+}
+
+template < typename T >
+[[nodiscard]] auto hessian( const TaylorExpansionT< T, Dynamic, Dynamic >& f )
+{
+    const std::size_t Mv = f.size();
+    Eigen::Matrix< T, Eigen::Dynamic, Eigen::Dynamic > H{ Eigen::Index( Mv ),
+                                                          Eigen::Index( Mv ) };
+    std::vector< int > alpha( Mv, 0 );
+    for ( std::size_t i = 0; i < Mv; ++i )
+    {
+        for ( std::size_t j = 0; j < Mv; ++j )
+        {
+            alpha[i] += 1;
+            alpha[j] += 1;
+            H( Eigen::Index( i ), Eigen::Index( j ) ) =
+                f.derivative( std::span< const int >( alpha.data(), Mv ) );
+            alpha[i] -= 1;
+            alpha[j] -= 1;
+        }
+    }
+    return H;
+}
+
+/**
  * @brief Compute the Jacobian matrix of a vector-valued TTE function at its expansion point.
  * @param vec Eigen vector/matrix of TTE elements (treated as a flat list of `K` components).
  * @returns Eigen matrix of shape `(K, M)` where `J(i,j) = df_i / dx_j`.
  */
 template < typename Derived >
+    requires( detail::is_tte_v< typename Derived::Scalar > &&
+              detail::expansion_traits< typename Derived::Scalar >::vars >= 1 )
 [[nodiscard]] auto jacobian( const Eigen::DenseBase< Derived >& vec )
-    requires( detail::is_tte_v< typename Derived::Scalar > )
 {
     using TTE = typename Derived::Scalar;
     using T = typename detail::expansion_traits< TTE >::scalar_type;
@@ -161,6 +256,36 @@ template < typename Derived >
             MultiIndex< M > alpha{};
             alpha[j] = 1;
             out( r, j ) = vec.derived().coeff( r ).derivative( alpha );
+        }
+    }
+    return out;
+}
+
+/**
+ * @brief Fully-dynamic-shape Jacobian: the runtime variable count is read from
+ *        the first element. All entries must share the same shape.
+ */
+template < typename Derived >
+    requires( detail::is_tte_v< typename Derived::Scalar > &&
+              detail::expansion_traits< typename Derived::Scalar >::vars == Dynamic )
+[[nodiscard]] auto jacobian( const Eigen::DenseBase< Derived >& vec )
+{
+    using TTE = typename Derived::Scalar;
+    using T = typename detail::expansion_traits< TTE >::scalar_type;
+    assert( vec.size() > 0 && "jacobian on empty vector" );
+    const std::size_t Mv = vec.derived().coeff( 0 ).size();
+
+    Eigen::Matrix< T, Eigen::Dynamic, Eigen::Dynamic > out{ vec.size(),
+                                                            Eigen::Index( Mv ) };
+    std::vector< int > alpha( Mv, 0 );
+    for ( Eigen::Index r = 0; r < vec.size(); ++r )
+    {
+        for ( std::size_t j = 0; j < Mv; ++j )
+        {
+            alpha[j] = 1;
+            out( r, Eigen::Index( j ) ) = vec.derived().coeff( r ).derivative(
+                std::span< const int >( alpha.data(), Mv ) );
+            alpha[j] = 0;
         }
     }
     return out;
@@ -227,11 +352,14 @@ template < int... Alpha, typename T, int N, int M, int Rank >
  * - `K == 1`: returns gradient as `Eigen::Matrix<T, M, 1>`.
  * - `K == 2`: returns Hessian as `Eigen::Matrix<T, M, M>`.
  * - `K >= 3`: returns `Eigen::Tensor<T, K, Eigen::RowMajor>`.
+ *
+ * Compile-time M only. Use the free `gradient` / `hessian` functions for
+ * dynamic-shape TTE (these handle both static and dynamic `M`).
  */
 template < int K, typename T, int N, int M >
+    requires( M > 1 && N != Dynamic )
 [[nodiscard]] auto derivative( const TaylorExpansionT< T, N, M >& f )
 {
-    static_assert( M > 1, "Eigen derivative objects are only provided for multivariate TTE (M > 1)" );
     static_assert( K >= 0, "Derivative order K must be non-negative" );
     static_assert( K <= N, "Tensor order K exceeds TTE truncation order N" );
 

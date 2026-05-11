@@ -39,10 +39,14 @@ template < typename T, int N, int M, typename Derived >
  * @param dx Displacement: scalar `T` (univariate), `Input` (multivariate),
  *           or Eigen vector (multivariate, converted internally).
  * @returns Eigen matrix/vector of same shape with scalar type `T`.
+ *
+ * Static-and-mixed-size form: the TTE element has a `::Input` typedef
+ * (`std::array<T, M>`). For fully-dynamic TTE use the span-based overload.
  */
 template < typename Derived, typename Dx >
 [[nodiscard]] auto eval( const Eigen::DenseBase< Derived >& f, const Dx& dx )
-    requires( detail::is_tte_v< typename Derived::Scalar > )
+    requires( detail::is_tte_v< typename Derived::Scalar > &&
+              detail::expansion_traits< typename Derived::Scalar >::vars != Dynamic )
 {
     using TTE = typename Derived::Scalar;
     using T = typename detail::expansion_traits< TTE >::scalar_type;
@@ -61,6 +65,31 @@ template < typename Derived, typename Dx >
         for ( Eigen::Index i = 0; i < f.size(); ++i )
             out.coeffRef( i ) = f.derived().coeff( i ).eval( dx );
     }
+    return out;
+}
+
+/**
+ * @brief Fully-dynamic-shape Eigen evaluation: dx is an Eigen vector with
+ *        runtime size equal to the TTE size().
+ */
+template < typename Derived, typename DxDerived >
+[[nodiscard]] auto eval( const Eigen::DenseBase< Derived >& f,
+                         const Eigen::DenseBase< DxDerived >& dx )
+    requires( detail::is_tte_v< typename Derived::Scalar > &&
+              detail::expansion_traits< typename Derived::Scalar >::vars == Dynamic )
+{
+    using TTE = typename Derived::Scalar;
+    using T = typename detail::expansion_traits< TTE >::scalar_type;
+    using Out = detail::rebind_matrix_t< Derived, T >;
+    Out out( f.rows(), f.cols() );
+
+    const Eigen::Index Mv = dx.size();
+    std::vector< T > p;
+    p.resize( std::size_t( Mv ) );
+    for ( Eigen::Index i = 0; i < Mv; ++i ) p[std::size_t( i )] = static_cast< T >( dx( i ) );
+    const std::span< const T > pspan( p.data(), p.size() );
+    for ( Eigen::Index i = 0; i < f.size(); ++i )
+        out.coeffRef( i ) = f.derived().coeff( i ).eval( pspan );
     return out;
 }
 

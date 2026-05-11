@@ -49,6 +49,7 @@ set(TEST_SOURCES
     eigen/testDerivative.cpp
     eigen/testTypes.cpp
     eigen/testInvertMap.cpp
+    eigen/testDynamicEigen.cpp
     ads/testAdsTree.cpp
     ads/testAdsGaussian.cpp
     ads/testNonlinearityIndex.cpp
