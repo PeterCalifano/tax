@@ -210,3 +210,91 @@ def test_mat_matmul_inner_dim_mismatch_raises():
     bad = tax.Mat([[x, x, x]])  # 1x3
     with pytest.raises(Exception):
         _ = m @ bad  # 2x2 @ 1x3
+
+
+# ---------------------------------------------------------------------------
+# Eigen-style slicing
+# ---------------------------------------------------------------------------
+
+def test_vec_segment_returns_fresh_vec():
+    _, _, v, _ = _make_vec_and_mat()
+    seg = v.segment(0, 2)
+    np.testing.assert_allclose(seg.value(), [1.0, 2.0])
+    # Returned vector is independent — mutating it doesn't disturb the source.
+    seg[0] = tax.constant(99.0, 3, 2)
+    assert v[0].value() == 1.0
+
+
+def test_vec_segment_out_of_range_raises():
+    _, _, v, _ = _make_vec_and_mat()
+    with pytest.raises(Exception):
+        v.segment(0, 100)
+    with pytest.raises(Exception):
+        v.segment(-1, 1)
+
+
+def test_mat_block_returns_fresh_mat():
+    _, _, _, m = _make_vec_and_mat()
+    b = m.block(0, 0, 1, 2)
+    assert b.shape == (1, 2)
+    np.testing.assert_allclose(b.value(), [[1.0, 2.0]])
+
+
+def test_mat_block_out_of_range_raises():
+    _, _, _, m = _make_vec_and_mat()
+    with pytest.raises(Exception):
+        m.block(0, 0, 100, 1)
+    with pytest.raises(Exception):
+        m.block(-1, 0, 1, 1)
+
+
+def test_mat_row_and_col_return_vec():
+    _, _, _, m = _make_vec_and_mat()
+    r = m.row(0)
+    c = m.col(1)
+    np.testing.assert_allclose(r.value(), [1.0, 2.0])
+    np.testing.assert_allclose(c.value(), [2.0, 3.0])
+
+
+def test_mat_row_col_out_of_range_raises():
+    _, _, _, m = _make_vec_and_mat()
+    with pytest.raises(Exception):
+        m.row(99)
+    with pytest.raises(Exception):
+        m.col(-1)
+
+
+# ---------------------------------------------------------------------------
+# Vec norms
+# ---------------------------------------------------------------------------
+
+def test_vec_squared_norm_value_matches_sum_of_squares():
+    import math
+    x, y = tax.variables([3.0, 4.0], order=3)
+    v = tax.Vec([x, y, x * y])
+    sq = v.squared_norm()
+    # Returns a TaylorExpansion; its value should be 3² + 4² + 12² = 169.
+    assert isinstance(sq, tax.TaylorExpansion)
+    assert sq.value() == pytest.approx(3.0 * 3 + 4.0 * 4 + 12.0 * 12)
+
+
+def test_vec_norm_value_matches_l2():
+    import math
+    x, y = tax.variables([3.0, 4.0], order=3)
+    v = tax.Vec([x, y])
+    n = v.norm()
+    assert isinstance(n, tax.TaylorExpansion)
+    assert n.value() == pytest.approx(5.0)
+    # 3D version: sqrt(3² + 4² + 12²) = sqrt(169) = 13.
+    v3 = tax.Vec([x, y, x * y])
+    assert v3.norm().value() == pytest.approx(13.0)
+
+
+def test_vec_norm_empty_raises():
+    # Build an explicitly empty vec via list — construct then bypass via Vec().
+    # The C++ ctor with an empty list yields an empty vector, so norm() should
+    # raise on emptiness.
+    with pytest.raises(Exception):
+        tax.Vec([]).norm()
+    with pytest.raises(Exception):
+        tax.Vec([]).squared_norm()

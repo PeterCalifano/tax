@@ -295,6 +295,41 @@ when arithmetic / derivative queries fire.
         []( const TeVec& v ) { return tax::jacobian( v ).eval(); },
         "Jacobian matrix J(r, j) = d v[r] / dx_j as a numpy 2-D array." );
 
+    // ---- slicing (segment) ----
+    vec_cls.def(
+        "segment",
+        []( const TeVec& v, Eigen::Index start, Eigen::Index length ) {
+            if ( start < 0 || length < 0 || start + length > v.size() )
+                throw std::out_of_range( "Vec.segment: start/length out of range" );
+            return TeVec( v.segment( start, length ) );
+        },
+        nb::arg( "start" ), nb::arg( "length" ),
+        "Return a fresh Vec containing `length` consecutive elements starting at `start`." );
+
+    // ---- norms (treating the Vec as a TE-valued tuple) ----
+    vec_cls.def(
+        "squared_norm",
+        []( const TeVec& v ) {
+            if ( v.size() == 0 )
+                throw std::invalid_argument( "Vec.squared_norm on empty vector" );
+            DynTE acc = tax::square( v( 0 ) );
+            for ( Eigen::Index i = 1; i < v.size(); ++i ) acc += tax::square( v( i ) );
+            return acc;
+        },
+        "Sum of squares of every element: `Σ v[i]²`. Returns a TaylorExpansion." );
+
+    vec_cls.def(
+        "norm",
+        []( const TeVec& v ) {
+            if ( v.size() == 0 )
+                throw std::invalid_argument( "Vec.norm on empty vector" );
+            DynTE acc = tax::square( v( 0 ) );
+            for ( Eigen::Index i = 1; i < v.size(); ++i ) acc += tax::square( v( i ) );
+            return tax::sqrt( acc );
+        },
+        "Euclidean (2-)norm `sqrt(Σ v[i]²)`. Returns a TaylorExpansion.\n"
+        "Requires the value of the squared norm at the expansion point to be > 0." );
+
     // -----------------------------------------------------------------------
     // Vec arithmetic: element-wise +/-/*//, broadcasting against a scalar
     // (TaylorExpansion or float), and numpy 1-D arrays of floats. Matrix-
@@ -600,6 +635,36 @@ share the same shape `(order, size)`.
         },
         nb::arg( "alpha" ),
         "Per-element numerical partial derivative at the expansion point." );
+
+    // ---- slicing (block / row / col) ----
+    mat_cls.def(
+        "block",
+        []( const TeMat& m_, Eigen::Index r0, Eigen::Index c0, Eigen::Index rows,
+            Eigen::Index cols ) {
+            if ( r0 < 0 || c0 < 0 || rows < 0 || cols < 0 || r0 + rows > m_.rows()
+                 || c0 + cols > m_.cols() )
+                throw std::out_of_range( "Mat.block: indices out of range" );
+            return TeMat( m_.block( r0, c0, rows, cols ) );
+        },
+        nb::arg( "row" ), nb::arg( "col" ), nb::arg( "rows" ), nb::arg( "cols" ),
+        "Return a fresh Mat containing a `(rows × cols)` sub-block starting at "
+        "`(row, col)`." );
+
+    mat_cls.def(
+        "row",
+        []( const TeMat& m_, Eigen::Index r ) {
+            if ( r < 0 || r >= m_.rows() ) throw std::out_of_range( "Mat.row index" );
+            return TeVec( m_.row( r ).transpose() );
+        },
+        nb::arg( "r" ), "Return row `r` as a Vec." );
+
+    mat_cls.def(
+        "col",
+        []( const TeMat& m_, Eigen::Index c ) {
+            if ( c < 0 || c >= m_.cols() ) throw std::out_of_range( "Mat.col index" );
+            return TeVec( m_.col( c ) );
+        },
+        nb::arg( "c" ), "Return column `c` as a Vec." );
 
     // -----------------------------------------------------------------------
     // Mat arithmetic: element-wise +/-/*//, broadcasting against a scalar
