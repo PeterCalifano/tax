@@ -16,6 +16,10 @@ Containers :class:`Vec` and
 :class:`Mat` wrap Eigen-backed collections of
 :class:`TaylorExpansion` and expose ``value``, ``eval``, ``derivative``,
 and (for vectors) ``jacobian`` returning numpy arrays.
+
+The :mod:`tax.la` submodule re-exports :class:`Vec` and :class:`Mat`
+together with free linear-algebra functions :func:`tax.la.norm`,
+:func:`tax.la.dot`, and :func:`tax.la.cross`.
 """
 
 from ._tax import (  # noqa: F401
@@ -34,8 +38,9 @@ from ._tax import (  # noqa: F401
     gradient,
     hessian,
     jacobian,
-    # math submodule
+    # submodules
     math,
+    la,
 )
 
 __all__ = [
@@ -52,4 +57,5 @@ __all__ = [
     "hessian",
     "jacobian",
     "math",
+    "la",
 ]
