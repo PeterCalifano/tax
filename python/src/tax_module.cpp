@@ -215,13 +215,19 @@ module-level factories `zero`, `one`, `constant`, `variable`, or
     cls.def( "__str__", &formatStr );
 
     // -----------------------------------------------------------------------
+    // Container aliases — hoisted so Vec's `__matmul__` can reference Mat
+    // before its class is declared.
+    // -----------------------------------------------------------------------
+    using TeVec = Eigen::Matrix< DynTE, Eigen::Dynamic, 1 >;
+    using TeMat = Eigen::Matrix< DynTE, Eigen::Dynamic, Eigen::Dynamic >;
+
+    // -----------------------------------------------------------------------
     // tax.Vec — Eigen::Matrix<DynTE, Dynamic, 1> wrapper.
     //
     // Useful when you want to operate on a vector-valued TaylorExpansion
     // function as a single object (e.g. for `value()` / `eval()` / `jacobian()`
     // queries). Backed by Eigen so the existing C++ helpers work directly.
     // -----------------------------------------------------------------------
-    using TeVec = Eigen::Matrix< DynTE, Eigen::Dynamic, 1 >;
     auto vec_cls = nb::class_< TeVec >(
         m, "Vec",
         R"doc(Vector of `TaylorExpansion` objects — a 1-D collection.
@@ -289,6 +295,219 @@ when arithmetic / derivative queries fire.
         []( const TeVec& v ) { return tax::jacobian( v ).eval(); },
         "Jacobian matrix J(r, j) = d v[r] / dx_j as a numpy 2-D array." );
 
+    // -----------------------------------------------------------------------
+    // Vec arithmetic: element-wise +/-/*//, broadcasting against a scalar
+    // (TaylorExpansion or float), and numpy 1-D arrays of floats. Matrix-
+    // multiplication `@` is exposed via `__matmul__`:
+    //   vec @ vec  -> TaylorExpansion (dot product)
+    //   vec @ mat  -> vec (row-vector times matrix)
+    // -----------------------------------------------------------------------
+
+    // ---- in-place ----
+    vec_cls.def( "__iadd__",
+                 []( TeVec& a, const TeVec& b ) -> TeVec& {
+                     if ( a.size() != b.size() )
+                         throw std::invalid_argument( "Vec sizes must match" );
+                     for ( Eigen::Index i = 0; i < a.size(); ++i ) a( i ) += b( i );
+                     return a;
+                 },
+                 nb::rv_policy::reference );
+    vec_cls.def( "__isub__",
+                 []( TeVec& a, const TeVec& b ) -> TeVec& {
+                     if ( a.size() != b.size() )
+                         throw std::invalid_argument( "Vec sizes must match" );
+                     for ( Eigen::Index i = 0; i < a.size(); ++i ) a( i ) -= b( i );
+                     return a;
+                 },
+                 nb::rv_policy::reference );
+    vec_cls.def( "__imul__",
+                 []( TeVec& a, double s ) -> TeVec& {
+                     for ( Eigen::Index i = 0; i < a.size(); ++i ) a( i ) *= s;
+                     return a;
+                 },
+                 nb::rv_policy::reference );
+    vec_cls.def( "__itruediv__",
+                 []( TeVec& a, double s ) -> TeVec& {
+                     for ( Eigen::Index i = 0; i < a.size(); ++i ) a( i ) /= s;
+                     return a;
+                 },
+                 nb::rv_policy::reference );
+
+    // ---- Vec ↔ Vec ----
+    vec_cls.def( "__add__", []( const TeVec& a, const TeVec& b ) {
+        if ( a.size() != b.size() )
+            throw std::invalid_argument( "Vec sizes must match" );
+        TeVec out( a.size() );
+        for ( Eigen::Index i = 0; i < a.size(); ++i ) out( i ) = a( i ) + b( i );
+        return out;
+    } );
+    vec_cls.def( "__sub__", []( const TeVec& a, const TeVec& b ) {
+        if ( a.size() != b.size() )
+            throw std::invalid_argument( "Vec sizes must match" );
+        TeVec out( a.size() );
+        for ( Eigen::Index i = 0; i < a.size(); ++i ) out( i ) = a( i ) - b( i );
+        return out;
+    } );
+    vec_cls.def( "__mul__", []( const TeVec& a, const TeVec& b ) {
+        if ( a.size() != b.size() )
+            throw std::invalid_argument( "Vec sizes must match" );
+        TeVec out( a.size() );
+        for ( Eigen::Index i = 0; i < a.size(); ++i ) out( i ) = a( i ) * b( i );
+        return out;
+    } );
+    vec_cls.def( "__truediv__", []( const TeVec& a, const TeVec& b ) {
+        if ( a.size() != b.size() )
+            throw std::invalid_argument( "Vec sizes must match" );
+        TeVec out( a.size() );
+        for ( Eigen::Index i = 0; i < a.size(); ++i ) out( i ) = a( i ) / b( i );
+        return out;
+    } );
+
+    // ---- Vec ↔ TaylorExpansion (broadcast) ----
+    vec_cls.def( "__add__", []( const TeVec& a, const DynTE& s ) {
+        TeVec out( a.size() );
+        for ( Eigen::Index i = 0; i < a.size(); ++i ) out( i ) = a( i ) + s;
+        return out;
+    } );
+    vec_cls.def( "__radd__",
+                 []( const TeVec& a, const DynTE& s ) {
+                     TeVec out( a.size() );
+                     for ( Eigen::Index i = 0; i < a.size(); ++i ) out( i ) = s + a( i );
+                     return out;
+                 } );
+    vec_cls.def( "__sub__", []( const TeVec& a, const DynTE& s ) {
+        TeVec out( a.size() );
+        for ( Eigen::Index i = 0; i < a.size(); ++i ) out( i ) = a( i ) - s;
+        return out;
+    } );
+    vec_cls.def( "__rsub__",
+                 []( const TeVec& a, const DynTE& s ) {
+                     TeVec out( a.size() );
+                     for ( Eigen::Index i = 0; i < a.size(); ++i ) out( i ) = s - a( i );
+                     return out;
+                 } );
+    vec_cls.def( "__mul__", []( const TeVec& a, const DynTE& s ) {
+        TeVec out( a.size() );
+        for ( Eigen::Index i = 0; i < a.size(); ++i ) out( i ) = a( i ) * s;
+        return out;
+    } );
+    vec_cls.def( "__rmul__",
+                 []( const TeVec& a, const DynTE& s ) {
+                     TeVec out( a.size() );
+                     for ( Eigen::Index i = 0; i < a.size(); ++i ) out( i ) = s * a( i );
+                     return out;
+                 } );
+    vec_cls.def( "__truediv__", []( const TeVec& a, const DynTE& s ) {
+        TeVec out( a.size() );
+        for ( Eigen::Index i = 0; i < a.size(); ++i ) out( i ) = a( i ) / s;
+        return out;
+    } );
+
+    // ---- Vec ↔ float (broadcast) ----
+    vec_cls.def( "__add__", []( const TeVec& a, double s ) {
+        TeVec out( a.size() );
+        for ( Eigen::Index i = 0; i < a.size(); ++i ) out( i ) = a( i ) + s;
+        return out;
+    } );
+    vec_cls.def( "__radd__",
+                 []( const TeVec& a, double s ) {
+                     TeVec out( a.size() );
+                     for ( Eigen::Index i = 0; i < a.size(); ++i ) out( i ) = s + a( i );
+                     return out;
+                 } );
+    vec_cls.def( "__sub__", []( const TeVec& a, double s ) {
+        TeVec out( a.size() );
+        for ( Eigen::Index i = 0; i < a.size(); ++i ) out( i ) = a( i ) - s;
+        return out;
+    } );
+    vec_cls.def( "__rsub__",
+                 []( const TeVec& a, double s ) {
+                     TeVec out( a.size() );
+                     for ( Eigen::Index i = 0; i < a.size(); ++i ) out( i ) = s - a( i );
+                     return out;
+                 } );
+    vec_cls.def( "__mul__", []( const TeVec& a, double s ) {
+        TeVec out( a.size() );
+        for ( Eigen::Index i = 0; i < a.size(); ++i ) out( i ) = a( i ) * s;
+        return out;
+    } );
+    vec_cls.def( "__rmul__",
+                 []( const TeVec& a, double s ) {
+                     TeVec out( a.size() );
+                     for ( Eigen::Index i = 0; i < a.size(); ++i ) out( i ) = s * a( i );
+                     return out;
+                 } );
+    vec_cls.def( "__truediv__", []( const TeVec& a, double s ) {
+        TeVec out( a.size() );
+        for ( Eigen::Index i = 0; i < a.size(); ++i ) out( i ) = a( i ) / s;
+        return out;
+    } );
+
+    // ---- Vec ↔ numpy 1-D float array (per-element scalar adds) ----
+    vec_cls.def( "__add__", []( const TeVec& a, const std::vector< double >& v ) {
+        if ( Eigen::Index( v.size() ) != a.size() )
+            throw std::invalid_argument( "Vec / 1-D array sizes must match" );
+        TeVec out( a.size() );
+        for ( Eigen::Index i = 0; i < a.size(); ++i ) out( i ) = a( i ) + v[std::size_t( i )];
+        return out;
+    } );
+    vec_cls.def( "__sub__", []( const TeVec& a, const std::vector< double >& v ) {
+        if ( Eigen::Index( v.size() ) != a.size() )
+            throw std::invalid_argument( "Vec / 1-D array sizes must match" );
+        TeVec out( a.size() );
+        for ( Eigen::Index i = 0; i < a.size(); ++i ) out( i ) = a( i ) - v[std::size_t( i )];
+        return out;
+    } );
+    vec_cls.def( "__mul__", []( const TeVec& a, const std::vector< double >& v ) {
+        if ( Eigen::Index( v.size() ) != a.size() )
+            throw std::invalid_argument( "Vec / 1-D array sizes must match" );
+        TeVec out( a.size() );
+        for ( Eigen::Index i = 0; i < a.size(); ++i ) out( i ) = a( i ) * v[std::size_t( i )];
+        return out;
+    } );
+    vec_cls.def( "__truediv__",
+                 []( const TeVec& a, const std::vector< double >& v ) {
+                     if ( Eigen::Index( v.size() ) != a.size() )
+                         throw std::invalid_argument( "Vec / 1-D array sizes must match" );
+                     TeVec out( a.size() );
+                     for ( Eigen::Index i = 0; i < a.size(); ++i )
+                         out( i ) = a( i ) / v[std::size_t( i )];
+                     return out;
+                 } );
+
+    // ---- unary negation ----
+    vec_cls.def( "__neg__", []( const TeVec& a ) {
+        TeVec out( a.size() );
+        for ( Eigen::Index i = 0; i < a.size(); ++i ) out( i ) = -a( i );
+        return out;
+    } );
+
+    // ---- dot product via @ ----
+    vec_cls.def( "__matmul__", []( const TeVec& a, const TeVec& b ) {
+        if ( a.size() != b.size() )
+            throw std::invalid_argument( "Vec @ Vec sizes must match" );
+        if ( a.size() == 0 ) throw std::invalid_argument( "Vec @ Vec on empty vectors" );
+        DynTE out = a( 0 ) * b( 0 );
+        for ( Eigen::Index i = 1; i < a.size(); ++i ) out += a( i ) * b( i );
+        return out;
+    } );
+
+    // ---- row-vector × matrix product (vec @ mat -> vec) ----
+    vec_cls.def( "__matmul__", []( const TeVec& v, const TeMat& m_ ) {
+        if ( v.size() != m_.rows() )
+            throw std::invalid_argument( "Vec @ Mat inner dimension must match" );
+        if ( v.size() == 0 || m_.cols() == 0 )
+            throw std::invalid_argument( "Vec @ Mat on empty operand" );
+        TeVec out( m_.cols() );
+        for ( Eigen::Index c = 0; c < m_.cols(); ++c )
+        {
+            DynTE accum = v( 0 ) * m_( 0, c );
+            for ( Eigen::Index k = 1; k < v.size(); ++k ) accum += v( k ) * m_( k, c );
+            out( c ) = accum;
+        }
+        return out;
+    } );
+
     vec_cls.def( "__repr__", []( const TeVec& v ) {
         std::ostringstream os;
         os << "Vec(len=" << v.size() << ")[";
@@ -304,7 +523,6 @@ when arithmetic / derivative queries fire.
     // -----------------------------------------------------------------------
     // tax.Mat — Eigen::Matrix<DynTE, Dynamic, Dynamic>.
     // -----------------------------------------------------------------------
-    using TeMat = Eigen::Matrix< DynTE, Eigen::Dynamic, Eigen::Dynamic >;
     auto mat_cls = nb::class_< TeMat >(
         m, "Mat",
         R"doc(Matrix of `TaylorExpansion` objects — a 2-D collection.
@@ -382,6 +600,193 @@ share the same shape `(order, size)`.
         },
         nb::arg( "alpha" ),
         "Per-element numerical partial derivative at the expansion point." );
+
+    // -----------------------------------------------------------------------
+    // Mat arithmetic: element-wise +/-/*//, broadcasting against a scalar
+    // (TaylorExpansion or float), and numpy 2-D arrays of floats.
+    //   mat @ mat -> mat (matrix product)
+    //   mat @ vec -> vec (matrix–vector product)
+    //   mat.T     -> transpose
+    // -----------------------------------------------------------------------
+
+    // ---- in-place ----
+    mat_cls.def( "__iadd__",
+                 []( TeMat& a, const TeMat& b ) -> TeMat& {
+                     if ( a.rows() != b.rows() || a.cols() != b.cols() )
+                         throw std::invalid_argument( "Mat shapes must match" );
+                     for ( Eigen::Index r = 0; r < a.rows(); ++r )
+                         for ( Eigen::Index c = 0; c < a.cols(); ++c ) a( r, c ) += b( r, c );
+                     return a;
+                 },
+                 nb::rv_policy::reference );
+    mat_cls.def( "__isub__",
+                 []( TeMat& a, const TeMat& b ) -> TeMat& {
+                     if ( a.rows() != b.rows() || a.cols() != b.cols() )
+                         throw std::invalid_argument( "Mat shapes must match" );
+                     for ( Eigen::Index r = 0; r < a.rows(); ++r )
+                         for ( Eigen::Index c = 0; c < a.cols(); ++c ) a( r, c ) -= b( r, c );
+                     return a;
+                 },
+                 nb::rv_policy::reference );
+    mat_cls.def( "__imul__",
+                 []( TeMat& a, double s ) -> TeMat& {
+                     for ( Eigen::Index r = 0; r < a.rows(); ++r )
+                         for ( Eigen::Index c = 0; c < a.cols(); ++c ) a( r, c ) *= s;
+                     return a;
+                 },
+                 nb::rv_policy::reference );
+
+    // ---- Mat ↔ Mat (element-wise) ----
+    auto mat_binop = []( const TeMat& a, const TeMat& b, auto op ) {
+        if ( a.rows() != b.rows() || a.cols() != b.cols() )
+            throw std::invalid_argument( "Mat shapes must match" );
+        TeMat out( a.rows(), a.cols() );
+        for ( Eigen::Index r = 0; r < a.rows(); ++r )
+            for ( Eigen::Index c = 0; c < a.cols(); ++c ) out( r, c ) = op( a( r, c ), b( r, c ) );
+        return out;
+    };
+    mat_cls.def( "__add__", [=]( const TeMat& a, const TeMat& b ) {
+        return mat_binop( a, b, []( const DynTE& x, const DynTE& y ) { return x + y; } );
+    } );
+    mat_cls.def( "__sub__", [=]( const TeMat& a, const TeMat& b ) {
+        return mat_binop( a, b, []( const DynTE& x, const DynTE& y ) { return x - y; } );
+    } );
+    mat_cls.def( "__mul__", [=]( const TeMat& a, const TeMat& b ) {
+        return mat_binop( a, b, []( const DynTE& x, const DynTE& y ) { return x * y; } );
+    } );
+    mat_cls.def( "__truediv__", [=]( const TeMat& a, const TeMat& b ) {
+        return mat_binop( a, b, []( const DynTE& x, const DynTE& y ) { return x / y; } );
+    } );
+
+    // ---- Mat ↔ TaylorExpansion (broadcast) ----
+    auto mat_scalar_te_op = []( const TeMat& a, const DynTE& s, auto op ) {
+        TeMat out( a.rows(), a.cols() );
+        for ( Eigen::Index r = 0; r < a.rows(); ++r )
+            for ( Eigen::Index c = 0; c < a.cols(); ++c ) out( r, c ) = op( a( r, c ), s );
+        return out;
+    };
+    mat_cls.def( "__add__", [=]( const TeMat& a, const DynTE& s ) {
+        return mat_scalar_te_op( a, s, []( const DynTE& x, const DynTE& y ) { return x + y; } );
+    } );
+    mat_cls.def( "__radd__", [=]( const TeMat& a, const DynTE& s ) {
+        return mat_scalar_te_op( a, s, []( const DynTE& x, const DynTE& y ) { return y + x; } );
+    } );
+    mat_cls.def( "__sub__", [=]( const TeMat& a, const DynTE& s ) {
+        return mat_scalar_te_op( a, s, []( const DynTE& x, const DynTE& y ) { return x - y; } );
+    } );
+    mat_cls.def( "__rsub__", [=]( const TeMat& a, const DynTE& s ) {
+        return mat_scalar_te_op( a, s, []( const DynTE& x, const DynTE& y ) { return y - x; } );
+    } );
+    mat_cls.def( "__mul__", [=]( const TeMat& a, const DynTE& s ) {
+        return mat_scalar_te_op( a, s, []( const DynTE& x, const DynTE& y ) { return x * y; } );
+    } );
+    mat_cls.def( "__rmul__", [=]( const TeMat& a, const DynTE& s ) {
+        return mat_scalar_te_op( a, s, []( const DynTE& x, const DynTE& y ) { return y * x; } );
+    } );
+    mat_cls.def( "__truediv__", [=]( const TeMat& a, const DynTE& s ) {
+        return mat_scalar_te_op( a, s, []( const DynTE& x, const DynTE& y ) { return x / y; } );
+    } );
+
+    // ---- Mat ↔ float (broadcast) ----
+    auto mat_scalar_d_op = []( const TeMat& a, double s, auto op ) {
+        TeMat out( a.rows(), a.cols() );
+        for ( Eigen::Index r = 0; r < a.rows(); ++r )
+            for ( Eigen::Index c = 0; c < a.cols(); ++c ) out( r, c ) = op( a( r, c ), s );
+        return out;
+    };
+    mat_cls.def( "__add__", [=]( const TeMat& a, double s ) {
+        return mat_scalar_d_op( a, s, []( const DynTE& x, double y ) { return x + y; } );
+    } );
+    mat_cls.def( "__radd__", [=]( const TeMat& a, double s ) {
+        return mat_scalar_d_op( a, s, []( const DynTE& x, double y ) { return y + x; } );
+    } );
+    mat_cls.def( "__sub__", [=]( const TeMat& a, double s ) {
+        return mat_scalar_d_op( a, s, []( const DynTE& x, double y ) { return x - y; } );
+    } );
+    mat_cls.def( "__rsub__", [=]( const TeMat& a, double s ) {
+        return mat_scalar_d_op( a, s, []( const DynTE& x, double y ) { return y - x; } );
+    } );
+    mat_cls.def( "__mul__", [=]( const TeMat& a, double s ) {
+        return mat_scalar_d_op( a, s, []( const DynTE& x, double y ) { return x * y; } );
+    } );
+    mat_cls.def( "__rmul__", [=]( const TeMat& a, double s ) {
+        return mat_scalar_d_op( a, s, []( const DynTE& x, double y ) { return y * x; } );
+    } );
+    mat_cls.def( "__truediv__", [=]( const TeMat& a, double s ) {
+        return mat_scalar_d_op( a, s, []( const DynTE& x, double y ) { return x / y; } );
+    } );
+
+    // ---- Mat ↔ numpy 2-D float array (per-element scalar adds) ----
+    auto mat_numpy_op = []( const TeMat& a, const Eigen::Ref< const Eigen::MatrixXd >& B,
+                            auto op ) {
+        if ( a.rows() != B.rows() || a.cols() != B.cols() )
+            throw std::invalid_argument( "Mat / 2-D array shapes must match" );
+        TeMat out( a.rows(), a.cols() );
+        for ( Eigen::Index r = 0; r < a.rows(); ++r )
+            for ( Eigen::Index c = 0; c < a.cols(); ++c )
+                out( r, c ) = op( a( r, c ), B( r, c ) );
+        return out;
+    };
+    mat_cls.def( "__add__", [=]( const TeMat& a, const Eigen::Ref< const Eigen::MatrixXd >& B ) {
+        return mat_numpy_op( a, B, []( const DynTE& x, double y ) { return x + y; } );
+    } );
+    mat_cls.def( "__sub__", [=]( const TeMat& a, const Eigen::Ref< const Eigen::MatrixXd >& B ) {
+        return mat_numpy_op( a, B, []( const DynTE& x, double y ) { return x - y; } );
+    } );
+    mat_cls.def( "__mul__", [=]( const TeMat& a, const Eigen::Ref< const Eigen::MatrixXd >& B ) {
+        return mat_numpy_op( a, B, []( const DynTE& x, double y ) { return x * y; } );
+    } );
+    mat_cls.def( "__truediv__",
+                 [=]( const TeMat& a, const Eigen::Ref< const Eigen::MatrixXd >& B ) {
+                     return mat_numpy_op( a, B,
+                                          []( const DynTE& x, double y ) { return x / y; } );
+                 } );
+
+    // ---- unary negation ----
+    mat_cls.def( "__neg__", []( const TeMat& a ) {
+        TeMat out( a.rows(), a.cols() );
+        for ( Eigen::Index r = 0; r < a.rows(); ++r )
+            for ( Eigen::Index c = 0; c < a.cols(); ++c ) out( r, c ) = -a( r, c );
+        return out;
+    } );
+
+    // ---- matrix product (mat @ mat) ----
+    mat_cls.def( "__matmul__", []( const TeMat& a, const TeMat& b ) {
+        if ( a.cols() != b.rows() )
+            throw std::invalid_argument( "Mat @ Mat inner dimensions must match" );
+        if ( a.rows() == 0 || b.cols() == 0 )
+            throw std::invalid_argument( "Mat @ Mat on empty matrix" );
+        TeMat out( a.rows(), b.cols() );
+        for ( Eigen::Index r = 0; r < a.rows(); ++r )
+            for ( Eigen::Index c = 0; c < b.cols(); ++c )
+            {
+                DynTE accum = a( r, 0 ) * b( 0, c );
+                for ( Eigen::Index k = 1; k < a.cols(); ++k ) accum += a( r, k ) * b( k, c );
+                out( r, c ) = accum;
+            }
+        return out;
+    } );
+
+    // ---- matrix–vector product (mat @ vec) ----
+    mat_cls.def( "__matmul__", []( const TeMat& a, const TeVec& v ) {
+        if ( a.cols() != v.size() )
+            throw std::invalid_argument( "Mat @ Vec inner dimension must match" );
+        if ( a.rows() == 0 || v.size() == 0 )
+            throw std::invalid_argument( "Mat @ Vec on empty operand" );
+        TeVec out( a.rows() );
+        for ( Eigen::Index r = 0; r < a.rows(); ++r )
+        {
+            DynTE accum = a( r, 0 ) * v( 0 );
+            for ( Eigen::Index k = 1; k < a.cols(); ++k ) accum += a( r, k ) * v( k );
+            out( r ) = accum;
+        }
+        return out;
+    } );
+
+    // ---- transpose ----
+    mat_cls.def_prop_ro(
+        "T", []( const TeMat& a ) -> TeMat { return a.transpose(); },
+        "Transpose. Returns a fresh Mat with shape (cols, rows)." );
 
     mat_cls.def( "__repr__", []( const TeMat& m_ ) {
         std::ostringstream os;
