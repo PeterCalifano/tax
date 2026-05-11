@@ -52,3 +52,24 @@ endif()
 
 add_executable(bench_dynamic_vs_static dynamic_vs_static.cpp)
 target_link_libraries(bench_dynamic_vs_static PRIVATE tax benchmark::benchmark)
+
+# -----------------------------------------------------------------------------
+# Profiling drivers — vanilla `int main()` programs intended to be run under
+# perf / callgrind / vtune / etc.  No Google Benchmark dependency so they
+# present a clean call graph dominated by the library code.
+#
+# Each program runs the same workload many times and prints one summary line.
+# Usage:
+#   perf record -g --call-graph dwarf \
+#       ./build/benchmarks/profile_da_integration 100
+#   perf report
+# -----------------------------------------------------------------------------
+add_executable(profile_da_integration profile_da_integration.cpp)
+target_link_libraries(profile_da_integration PRIVATE tax)
+# Frame pointers and debug info make perf call graphs vastly more readable;
+# do not strip release symbols in this profiling build.
+target_compile_options(profile_da_integration PRIVATE -fno-omit-frame-pointer -g)
+
+add_executable(profile_ads_integration profile_ads_integration.cpp)
+target_link_libraries(profile_ads_integration PRIVATE tax)
+target_compile_options(profile_ads_integration PRIVATE -fno-omit-frame-pointer -g)
