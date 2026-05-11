@@ -677,4 +677,269 @@ inline void seriesAtan( T* out, const T* a, std::size_t N, std::size_t M )
     }
 }
 
+/// @brief Runtime overload of `seriesAsinh`. Solves `sqrt(1+a^2) * out' = a'`.
+template < typename T >
+inline void seriesAsinh( T* out, const T* a, std::size_t N, std::size_t M )
+{
+    using std::asinh;
+    const std::size_t S = numMonomials( N, M );
+
+    // h = sqrt(1 + a^2)
+    std::vector< T > asq( S, T{ 0 } ), opf( S, T{ 0 } ), h( S, T{ 0 } );
+    cauchySelfProduct( asq.data(), a, N, M );
+    opf[0] = T{ 1 };
+    addInPlace( opf.data(), asq.data(), S );
+    seriesSqrt( h.data(), opf.data(), N, M );
+
+    for ( std::size_t i = 0; i < S; ++i ) out[i] = T{ 0 };
+    out[0] = asinh( a[0] );
+    const T inv_h0 = T{ 1 } / h[0];
+
+    if ( M == 1 )
+    {
+        for ( std::size_t d = 1; d <= N; ++d )
+        {
+            T rhs = T{ 0 };
+            for ( std::size_t k = 1; k < d; ++k ) rhs += T( k ) * h[d - k] * out[k];
+            out[d] = ( a[d] - rhs / T( d ) ) * inv_h0;
+        }
+    }
+    else
+    {
+        for ( int d = 1; d <= int( N ); ++d )
+        {
+            forEachMonomial( int( M ), d, [&]( std::span< const int > alpha, std::size_t ai ) {
+                T rhs = T{ 0 };
+                forEachSubIndex( alpha, 1, d - 1, [&]( std::size_t bi, std::size_t gi, int db ) {
+                    rhs += T( d - db ) * h[bi] * out[gi];
+                } );
+                out[ai] = ( a[ai] - rhs / T( d ) ) * inv_h0;
+            } );
+        }
+    }
+}
+
+/// @brief Runtime overload of `seriesAcosh`. Requires `a[0] > 1`.
+template < typename T >
+inline void seriesAcosh( T* out, const T* a, std::size_t N, std::size_t M )
+{
+    using std::acosh;
+    const std::size_t S = numMonomials( N, M );
+
+    // h = sqrt(a^2 - 1)
+    std::vector< T > asq( S, T{ 0 } ), amf( S, T{ 0 } ), h( S, T{ 0 } );
+    cauchySelfProduct( asq.data(), a, N, M );
+    for ( std::size_t i = 0; i < S; ++i ) amf[i] = asq[i];
+    amf[0] -= T{ 1 };
+    seriesSqrt( h.data(), amf.data(), N, M );
+
+    for ( std::size_t i = 0; i < S; ++i ) out[i] = T{ 0 };
+    out[0] = acosh( a[0] );
+    const T inv_h0 = T{ 1 } / h[0];
+
+    if ( M == 1 )
+    {
+        for ( std::size_t d = 1; d <= N; ++d )
+        {
+            T rhs = T{ 0 };
+            for ( std::size_t k = 1; k < d; ++k ) rhs += T( k ) * h[d - k] * out[k];
+            out[d] = ( a[d] - rhs / T( d ) ) * inv_h0;
+        }
+    }
+    else
+    {
+        for ( int d = 1; d <= int( N ); ++d )
+        {
+            forEachMonomial( int( M ), d, [&]( std::span< const int > alpha, std::size_t ai ) {
+                T rhs = T{ 0 };
+                forEachSubIndex( alpha, 1, d - 1, [&]( std::size_t bi, std::size_t gi, int db ) {
+                    rhs += T( d - db ) * h[bi] * out[gi];
+                } );
+                out[ai] = ( a[ai] - rhs / T( d ) ) * inv_h0;
+            } );
+        }
+    }
+}
+
+/// @brief Runtime overload of `seriesAtanh`. Requires `|a[0]| < 1`.
+template < typename T >
+inline void seriesAtanh( T* out, const T* a, std::size_t N, std::size_t M )
+{
+    using std::atanh;
+    const std::size_t S = numMonomials( N, M );
+
+    // h = 1 - a^2
+    std::vector< T > h( S, T{ 0 } );
+    cauchySelfProduct( h.data(), a, N, M );
+    negateInPlace( h.data(), S );
+    h[0] += T{ 1 };
+
+    for ( std::size_t i = 0; i < S; ++i ) out[i] = T{ 0 };
+    out[0] = atanh( a[0] );
+    const T inv_h0 = T{ 1 } / h[0];
+
+    if ( M == 1 )
+    {
+        for ( std::size_t d = 1; d <= N; ++d )
+        {
+            T rhs = T{ 0 };
+            for ( std::size_t k = 1; k < d; ++k ) rhs += T( k ) * h[d - k] * out[k];
+            out[d] = ( a[d] - rhs / T( d ) ) * inv_h0;
+        }
+    }
+    else
+    {
+        for ( int d = 1; d <= int( N ); ++d )
+        {
+            forEachMonomial( int( M ), d, [&]( std::span< const int > alpha, std::size_t ai ) {
+                T rhs = T{ 0 };
+                forEachSubIndex( alpha, 1, d - 1, [&]( std::size_t bi, std::size_t gi, int db ) {
+                    rhs += T( d - db ) * h[bi] * out[gi];
+                } );
+                out[ai] = ( a[ai] - rhs / T( d ) ) * inv_h0;
+            } );
+        }
+    }
+}
+
+/// @brief Runtime overload of `seriesErf`.
+template < typename T >
+inline void seriesErf( T* out, const T* a, std::size_t N, std::size_t M )
+{
+    using std::acos;
+    using std::erf;
+    using std::sqrt;
+    const std::size_t S = numMonomials( N, M );
+    const T two_over_sqrtpi = T{ 2 } / sqrt( acos( T{ -1 } ) );
+
+    // h = (2/sqrt(pi)) * exp(-a^2)
+    std::vector< T > asq( S, T{ 0 } ), neg_asq( S, T{ 0 } ), e( S, T{ 0 } ), h( S, T{ 0 } );
+    cauchySelfProduct( asq.data(), a, N, M );
+    for ( std::size_t i = 0; i < S; ++i ) neg_asq[i] = asq[i];
+    negateInPlace( neg_asq.data(), S );
+    seriesExp( e.data(), neg_asq.data(), N, M );
+    for ( std::size_t i = 0; i < S; ++i ) h[i] = e[i];
+    scaleInPlace( h.data(), two_over_sqrtpi, S );
+
+    for ( std::size_t i = 0; i < S; ++i ) out[i] = T{ 0 };
+    out[0] = erf( a[0] );
+
+    if ( M == 1 )
+    {
+        for ( std::size_t d = 1; d <= N; ++d )
+        {
+            T rhs = T{ 0 };
+            for ( std::size_t k = 0; k < d; ++k ) rhs += T( d - k ) * a[d - k] * h[k];
+            out[d] = rhs / T( d );
+        }
+    }
+    else
+    {
+        for ( int d = 1; d <= int( N ); ++d )
+        {
+            forEachMonomial( int( M ), d, [&]( std::span< const int > alpha, std::size_t ai ) {
+                T rhs = T{ 0 };
+                forEachSubIndex( alpha, 1, d, [&]( std::size_t bi, std::size_t gi, int db ) {
+                    rhs += T( db ) * a[bi] * h[gi];
+                } );
+                out[ai] = rhs / T( d );
+            } );
+        }
+    }
+}
+
+/// @brief Runtime overload of `seriesAtan2`.
+template < typename T >
+inline void seriesAtan2( T* out, const T* y, const T* x, std::size_t N, std::size_t M )
+{
+    using std::atan2;
+    const std::size_t S = numMonomials( N, M );
+
+    // h = x^2 + y^2
+    std::vector< T > h( S, T{ 0 } ), ysq( S, T{ 0 } );
+    cauchySelfProduct( h.data(), x, N, M );
+    cauchySelfProduct( ysq.data(), y, N, M );
+    addInPlace( h.data(), ysq.data(), S );
+
+    for ( std::size_t i = 0; i < S; ++i ) out[i] = T{ 0 };
+    out[0] = atan2( y[0], x[0] );
+    const T inv_h0 = T{ 1 } / h[0];
+
+    if ( M == 1 )
+    {
+        for ( std::size_t d = 1; d <= N; ++d )
+        {
+            T rhs = T( d ) * ( x[0] * y[d] - y[0] * x[d] );
+            for ( std::size_t k = 1; k < d; ++k )
+                rhs += T( k ) * ( x[d - k] * y[k] - y[d - k] * x[k] - h[d - k] * out[k] );
+            out[d] = rhs * inv_h0 / T( d );
+        }
+    }
+    else
+    {
+        for ( int d = 1; d <= int( N ); ++d )
+        {
+            forEachMonomial( int( M ), d, [&]( std::span< const int > alpha, std::size_t ai ) {
+                T rhs = T{ 0 };
+                forEachSubIndex( alpha, 1, d - 1, [&]( std::size_t bi, std::size_t gi, int db ) {
+                    rhs += T( d - db ) * ( x[bi] * y[gi] - y[bi] * x[gi] - h[bi] * out[gi] );
+                } );
+                out[ai] = ( ( x[0] * y[ai] - y[0] * x[ai] ) + rhs / T( d ) ) * inv_h0;
+            } );
+        }
+    }
+}
+
+/// @brief Runtime overload of `seriesIntPow`: integer power via binary exponentiation.
+template < typename T >
+inline void seriesIntPow( T* out, const T* a, int n, std::size_t N, std::size_t M )
+{
+    const std::size_t S = numMonomials( N, M );
+
+    if ( n == 0 )
+    {
+        for ( std::size_t i = 0; i < S; ++i ) out[i] = T{ 0 };
+        out[0] = T{ 1 };
+        return;
+    }
+    if ( n == 1 )
+    {
+        for ( std::size_t i = 0; i < S; ++i ) out[i] = a[i];
+        return;
+    }
+    if ( n == -1 )
+    {
+        seriesReciprocal( out, a, N, M );
+        return;
+    }
+    if ( n < 0 )
+    {
+        std::vector< T > rec( S, T{ 0 } );
+        seriesReciprocal( rec.data(), a, N, M );
+        seriesIntPow( out, rec.data(), -n, N, M );
+        return;
+    }
+    // n >= 2: binary exponentiation.
+    std::vector< T > base( a, a + S );
+    for ( std::size_t i = 0; i < S; ++i ) out[i] = T{ 0 };
+    out[0] = T{ 1 };
+    int e = n;
+    while ( e > 0 )
+    {
+        if ( e & 1 )
+        {
+            std::vector< T > tmp( S, T{ 0 } );
+            cauchyProduct( tmp.data(), out, base.data(), N, M );
+            for ( std::size_t i = 0; i < S; ++i ) out[i] = tmp[i];
+        }
+        e >>= 1;
+        if ( e > 0 )
+        {
+            std::vector< T > tmp( S, T{ 0 } );
+            cauchyProduct( tmp.data(), base.data(), base.data(), N, M );
+            base.swap( tmp );
+        }
+    }
+}
+
 }  // namespace tax::detail

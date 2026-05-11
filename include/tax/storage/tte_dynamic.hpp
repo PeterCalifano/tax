@@ -490,6 +490,82 @@ template < typename T >
     return out;
 }
 
+template < typename T >
+[[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > asinh(
+    const TaylorExpansionT< T, Dynamic, Dynamic >& a )
+{
+    return detail::applyUnary( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
+        detail::seriesAsinh( o, x, N, M );
+    } );
+}
+
+template < typename T >
+[[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > acosh(
+    const TaylorExpansionT< T, Dynamic, Dynamic >& a )
+{
+    return detail::applyUnary( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
+        detail::seriesAcosh( o, x, N, M );
+    } );
+}
+
+template < typename T >
+[[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > atanh(
+    const TaylorExpansionT< T, Dynamic, Dynamic >& a )
+{
+    return detail::applyUnary( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
+        detail::seriesAtanh( o, x, N, M );
+    } );
+}
+
+template < typename T >
+[[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > erf(
+    const TaylorExpansionT< T, Dynamic, Dynamic >& a )
+{
+    return detail::applyUnary( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
+        detail::seriesErf( o, x, N, M );
+    } );
+}
+
+/// @brief Integer power: `a^n`. Negative `n` is supported via reciprocal.
+template < int n, typename T >
+[[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > pow(
+    const TaylorExpansionT< T, Dynamic, Dynamic >& a )
+{
+    TaylorExpansionT< T, Dynamic, Dynamic > out( a.order(), a.size() );
+    detail::seriesIntPow( out.coeffs().data(), a.coeffs().data(), n, a.order(), a.size() );
+    return out;
+}
+
+template < typename T >
+[[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > pow(
+    const TaylorExpansionT< T, Dynamic, Dynamic >& a, int n )
+{
+    TaylorExpansionT< T, Dynamic, Dynamic > out( a.order(), a.size() );
+    detail::seriesIntPow( out.coeffs().data(), a.coeffs().data(), n, a.order(), a.size() );
+    return out;
+}
+
+template < typename T >
+[[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > atan2(
+    const TaylorExpansionT< T, Dynamic, Dynamic >& y,
+    const TaylorExpansionT< T, Dynamic, Dynamic >& x )
+{
+    assert( y.order() == x.order() && y.size() == x.size() );
+    TaylorExpansionT< T, Dynamic, Dynamic > out( y.order(), y.size() );
+    detail::seriesAtan2( out.coeffs().data(), y.coeffs().data(), x.coeffs().data(), y.order(),
+                        y.size() );
+    return out;
+}
+
+/// @brief `hypot(x, y) = sqrt(x^2 + y^2)`. Composed from existing kernels.
+template < typename T >
+[[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > hypot(
+    const TaylorExpansionT< T, Dynamic, Dynamic >& x,
+    const TaylorExpansionT< T, Dynamic, Dynamic >& y )
+{
+    return tax::sqrt( tax::square( x ) + tax::square( y ) );
+}
+
 // =============================================================================
 // Streaming
 // =============================================================================

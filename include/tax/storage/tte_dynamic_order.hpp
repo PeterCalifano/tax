@@ -382,6 +382,12 @@ TAX_DEFINE_DYN_ORDER_UNARY( Cbrt )
 TAX_DEFINE_DYN_ORDER_UNARY( Square )
 TAX_DEFINE_DYN_ORDER_UNARY( Cube )
 
+// Inverse hyperbolic + erf
+TAX_DEFINE_DYN_ORDER_UNARY( Asinh )
+TAX_DEFINE_DYN_ORDER_UNARY( Acosh )
+TAX_DEFINE_DYN_ORDER_UNARY( Atanh )
+TAX_DEFINE_DYN_ORDER_UNARY( Erf )
+
 #undef TAX_DEFINE_DYN_ORDER_UNARY
 
 // Lowercase aliases matching the std math conventions.
@@ -502,6 +508,74 @@ template < typename T, int M >
     auto out = tax::log( a );
     out *= T{ 1 } / log( T{ 10 } );
     return out;
+}
+
+// Lowercase aliases for the inverse-hyperbolic + erf set.
+template < typename T, int M >
+[[nodiscard]] inline TaylorExpansionT< T, Dynamic, M > asinh(
+    const TaylorExpansionT< T, Dynamic, M >& a )
+{
+    return Asinh( a );
+}
+template < typename T, int M >
+[[nodiscard]] inline TaylorExpansionT< T, Dynamic, M > acosh(
+    const TaylorExpansionT< T, Dynamic, M >& a )
+{
+    return Acosh( a );
+}
+template < typename T, int M >
+[[nodiscard]] inline TaylorExpansionT< T, Dynamic, M > atanh(
+    const TaylorExpansionT< T, Dynamic, M >& a )
+{
+    return Atanh( a );
+}
+template < typename T, int M >
+[[nodiscard]] inline TaylorExpansionT< T, Dynamic, M > erf(
+    const TaylorExpansionT< T, Dynamic, M >& a )
+{
+    return Erf( a );
+}
+
+/// @brief Integer power: `a^n` via binary exponentiation.
+template < int n, typename T, int M >
+[[nodiscard]] inline TaylorExpansionT< T, Dynamic, M > pow(
+    const TaylorExpansionT< T, Dynamic, M >& a )
+{
+    TaylorExpansionT< T, Dynamic, M > out( a.order() );
+    detail::seriesIntPow( out.coeffs().data(), a.coeffs().data(), n, a.order(),
+                          std::size_t( M ) );
+    return out;
+}
+
+template < typename T, int M >
+[[nodiscard]] inline TaylorExpansionT< T, Dynamic, M > pow(
+    const TaylorExpansionT< T, Dynamic, M >& a, int n )
+{
+    TaylorExpansionT< T, Dynamic, M > out( a.order() );
+    detail::seriesIntPow( out.coeffs().data(), a.coeffs().data(), n, a.order(),
+                          std::size_t( M ) );
+    return out;
+}
+
+template < typename T, int M >
+[[nodiscard]] inline TaylorExpansionT< T, Dynamic, M > atan2(
+    const TaylorExpansionT< T, Dynamic, M >& y,
+    const TaylorExpansionT< T, Dynamic, M >& x )
+{
+    assert( y.order() == x.order() );
+    TaylorExpansionT< T, Dynamic, M > out( y.order() );
+    detail::seriesAtan2( out.coeffs().data(), y.coeffs().data(), x.coeffs().data(), y.order(),
+                        std::size_t( M ) );
+    return out;
+}
+
+/// @brief `hypot(x, y) = sqrt(x^2 + y^2)`. Composed from existing kernels.
+template < typename T, int M >
+[[nodiscard]] inline TaylorExpansionT< T, Dynamic, M > hypot(
+    const TaylorExpansionT< T, Dynamic, M >& x,
+    const TaylorExpansionT< T, Dynamic, M >& y )
+{
+    return tax::sqrt( tax::square( x ) + tax::square( y ) );
 }
 
 // =============================================================================
