@@ -62,6 +62,7 @@ set(TEST_SOURCES
     dynamic/testDynTteConstruct.cpp
     dynamic/testDynTteArithmetic.cpp
     dynamic/testDynTteExtendedMath.cpp
+    dynamic/testDynOrderTte.cpp
 )
 
 include(GoogleTest)

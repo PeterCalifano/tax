@@ -5,12 +5,16 @@ design: the order `N` and the number of variables `M` are both signed `int`
 template parameters that accept either a compile-time non-negative integer or
 the sentinel `tax::Dynamic` (= -1).
 
-## Two configurations
+## Three configurations
 
 | Configuration | Storage | Evaluation | Use case |
 |---|---|---|---|
 | Both `N >= 0` and `M >= 1` | stack `std::array<T, S>` | expression-template fusion | hot paths (ODE, ADS, performance code) |
+| `N == Dynamic`, `M >= 1` | heap `std::vector<T>` | eager (operator by operator) | **M fixed by the problem (e.g. 6-D state), order chosen at runtime** |
 | `N == Dynamic` and `M == Dynamic` | heap `std::vector<T>` | eager (operator by operator) | Python bindings, REPL, runtime composition |
+
+The mixed `<T, N, Dynamic>` case (static order, dynamic size) is not currently
+specialised — open a follow-up if you need it.
 
 The two configurations share the kernel layer:
 - Static kernels: `cauchyProduct<T, N, M>(std::array<...>&, ...)` etc.,
@@ -28,6 +32,12 @@ within `1e-12` across every test we run.
 
 // Default alias — `TaylorExpansionT<double, Dynamic, Dynamic>`
 using tax::DynTE;
+
+// Mixed-dynamism alias — runtime order, compile-time size.
+// `DynOrderTE<M, T>` = `TaylorExpansionT<T, Dynamic, M>`. Storage is still
+// `std::vector<T>` (size depends on runtime order), but the variable index
+// remains a compile-time concept and `variables()` returns a static array.
+using tax::DynOrderTE;
 
 // 1. Build a single coordinate variable.
 auto x = DynTE<>::variable(/*x0=*/2.0,
@@ -55,6 +65,32 @@ auto h = tax::pow(vars[2], 0.5);
 double v = f.value();              // constant term
 double c = f.coeff({0, 1, 0});     // coefficient at exponent (0, 1, 0)
 const auto& all = f.coeffs();      // const ref to the std::vector buffer
+```
+
+## Quick reference (dynamic order, static size)
+
+```cpp
+#include <tax/tax.hpp>
+
+// 3-D state, truncation order chosen at runtime.
+using TE3 = tax::DynOrderTE<3>;  // = TaylorExpansionT<double, Dynamic, 3>
+
+// All `M` coordinate variables — structured binding works because the
+// returned std::array has compile-time size M.
+std::array<double, 3> x0{1.0, 2.0, 3.0};
+auto [x, y, z] = TE3::variables(x0, /*order=*/5);
+
+// Same arithmetic + math API as the fully-dynamic case.
+auto f = tax::sin(x * y) + tax::exp(z);
+auto g = tax::pow(x + y, 0.5);
+
+// `size()` is a constexpr method returning M (3); `order()` returns 5
+// (the runtime-chosen truncation).
+static_assert(decltype(f)::size_ct == 3);
+static_assert(decltype(f)::order_ct == tax::Dynamic);
+
+// Compile-time variable index also works since M is static.
+auto x_other = TE3::variable<0>(x0, /*order=*/7);
 ```
 
 ## Compatibility
