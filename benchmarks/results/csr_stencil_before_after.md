@@ -1,47 +1,84 @@
-# CauchyStencil — before/after Google Benchmark comparison
+# Cauchy kernel optimisations — before/after Google Benchmark comparison
 
-Comparison of the static multivariate Cauchy path before and after the
-precomputed `CauchyStencil<N, M>` / `CauchySymStencil<N, M>` swap.
+Comparison of the static Cauchy path before and after two stacked
+optimisations:
+
+1. **Multivariate (M ≥ 2)**: precomputed `CauchyStencil<N, M>` /
+   `CauchySymStencil<N, M>` CSR tables.
+2. **Univariate (M = 1)**: compile-time-unrolled FMA chain parameterised
+   by `std::index_sequence`.
 
 | | |
 |---|---|
 | Before | `claude/refactor-taylor-series-XtMUw` @ `6091823` |
-| After  | `claude/cauchy-csr-stencil` @ `3de4993` |
+| After  | `claude/cauchy-csr-stencil` @ `02fbcb2` |
 | Binaries | `bench_univariate`, `bench_multivariate` (Google Benchmark) |
 | CPU | Intel(R) Xeon(R) @ 2.80 GHz |
 | OS | Linux 6.18.5 x86_64 |
 | Build | `-DCMAKE_BUILD_TYPE=Release -DTAX_BUILD_BENCHMARK=ON` |
 | Method | `--benchmark_repetitions=3 --benchmark_min_time=0.3s --benchmark_report_aggregates_only`; medians reported. |
 
-## Univariate (control — no stencil involvement)
+## Univariate — production paths
 
-The M = 1 fast paths in `cauchyProduct` / `cauchyAccumulate` /
-`cauchySelfProduct` are untouched by this commit, so the univariate
-suite is a regression check: numbers should land within run-to-run
-noise of the baseline.
+The M = 1 fast paths now go through the unrolled FMA chain. Pure
+multiplications (`Tax/Mul`, `Tax/Square`) see the largest wins; the
+transcendental kernels (`Sin`, `Exp`, `Log`, `Sqrt`, `Pow`) use
+weighted scalar recurrences that don't go through `cauchyProduct`, so
+they're a control band — flat ±2 % is the expected outcome. `IPow`
+goes via `seriesIntPow` which *does* internally call `cauchyProduct`
+in a binary-exponentiation chain, hence its visible speed-up.
 
 | benchmark | before (ns) | after (ns) | speed-up |
 |---|---:|---:|---:|
-| `Tax/Sin/N10`  |    62.4 |    62.3 | 1.00x |
-| `Tax/Sin/N20`  |   245.5 |   243.3 | 1.01x |
-| `Tax/Sin/N40`  |   906.3 |   898.5 | 1.01x |
-| `Tax/Exp/N10`  |    63.4 |    64.3 | 0.99x |
-| `Tax/Exp/N20`  |   207.5 |   209.4 | 0.99x |
-| `Tax/Exp/N40`  |   744.6 |   743.5 | 1.00x |
-| `Tax/Log/N10`  |    60.4 |    61.0 | 0.99x |
-| `Tax/Log/N20`  |   232.2 |   232.3 | 1.00x |
-| `Tax/Log/N40`  |   766.1 |   768.7 | 1.00x |
-| `Tax/Sqrt/N10` |    82.6 |    82.5 | 1.00x |
-| `Tax/Sqrt/N20` |   267.6 |   267.9 | 1.00x |
-| `Tax/Sqrt/N40` |   811.9 |   810.9 | 1.00x |
-| `Tax/IPow/N10` |   161.8 |   161.7 | 1.00x |
-| `Tax/IPow/N20` |   455.8 |   460.1 | 0.99x |
-| `Tax/IPow/N40` | 2,013.3 | 2,027.7 | 0.99x |
-| `Tax/Pow/N10`  |   109.1 |   108.3 | 1.01x |
-| `Tax/Pow/N20`  |   321.9 |   318.1 | 1.01x |
-| `Tax/Pow/N40`  | 1,074.5 | 1,063.6 | 1.01x |
+| `Tax/Mul/N5`     |     6.0 |     5.7 | 1.05x |
+| `Tax/Mul/N10`    |    38.3 |    21.1 | 1.82x |
+| `Tax/Mul/N20`    |   116.9 |    97.5 | 1.20x |
+| `Tax/Mul/N40`    |   501.3 |   445.3 | 1.13x |
+| `Tax/Square/N5`  |     3.6 |     3.3 | 1.11x |
+| `Tax/Square/N10` |    34.3 |    10.3 | 3.34x |
+| `Tax/Square/N20` |    76.5 |    38.7 | 1.98x |
+| `Tax/Square/N40` |   242.0 |   177.0 | 1.37x |
+| `Tax/Sin/N10`    |    62.3 |    63.1 | 0.99x |
+| `Tax/Sin/N20`    |   249.3 |   253.0 | 0.99x |
+| `Tax/Sin/N40`    |   907.5 |   914.8 | 0.99x |
+| `Tax/Exp/N10`    |    64.7 |    64.4 | 1.00x |
+| `Tax/Exp/N20`    |   212.4 |   210.8 | 1.01x |
+| `Tax/Exp/N40`    |   754.8 |   741.1 | 1.02x |
+| `Tax/Log/N10`    |    59.5 |    59.9 | 0.99x |
+| `Tax/Log/N20`    |   231.7 |   218.6 | 1.06x |
+| `Tax/Log/N40`    |   765.8 |   748.6 | 1.02x |
+| `Tax/Sqrt/N10`   |    82.3 |    82.8 | 0.99x |
+| `Tax/Sqrt/N20`   |   267.5 |   267.1 | 1.00x |
+| `Tax/Sqrt/N40`   |   811.9 |   811.4 | 1.00x |
+| `Tax/IPow/N10`   |   170.3 |    91.4 | 1.86x |
+| `Tax/IPow/N20`   |   438.5 |   392.4 | 1.12x |
+| `Tax/IPow/N40`   | 2,007.9 | 1,800.9 | 1.11x |
+| `Tax/Pow/N10`    |   110.2 |   107.5 | 1.02x |
+| `Tax/Pow/N20`    |   321.9 |   314.1 | 1.02x |
+| `Tax/Pow/N40`    | 1,076.5 | 1,082.3 | 0.99x |
 
-All entries are within ±1 % — flat, as expected.
+### Univariate kernel three-way: Loop vs. Unroll vs. Reverse-buffer
+
+Direct microbench of three implementations of the same M = 1 Cauchy
+recurrence operating on `std::array<double, N+1>` operands. Numbers
+captured from the AFTER build; bench-side variants are identical
+across branches.
+
+| op | N | Loop (ns) | Unroll (ns) | Reverse (ns) | Unroll/Loop | Reverse/Loop |
+|---|---:|---:|---:|---:|---:|---:|
+| Mul    |  5 |   7.7 |   6.8 |  21.1 | 1.14x | 0.36x |
+| Mul    | 10 |  35.2 |  23.8 |  34.9 | 1.48x | 1.01x |
+| Mul    | 20 | 136.8 |  96.9 | 112.7 | 1.41x | 1.21x |
+| Mul    | 40 | 547.7 | 440.3 | 464.1 | 1.24x | 1.18x |
+| Square |  5 |   5.1 |   5.1 |  12.6 | 1.00x | 0.40x |
+| Square | 10 |  31.2 |  15.6 |  26.2 | 2.00x | 1.19x |
+| Square | 20 |  69.6 |  55.7 |  65.2 | 1.25x | 1.07x |
+| Square | 40 | 302.7 | 226.8 | 230.3 | 1.33x | 1.31x |
+
+**Unroll wins everywhere.** Reverse-buffer pays an O(N) reversal cost
+that dominates at small N (0.36–0.40× at N = 5) and never matches
+Unroll at larger N. The three variants are kept in `univariate.cpp`
+so the comparison can be reproduced.
 
 ## Multivariate (stencil-driven)
 
