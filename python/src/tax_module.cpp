@@ -12,12 +12,14 @@
 // `constant`, `variable`, `variables`). Arithmetic operators and math
 // functions evaluate eagerly into a fresh `TaylorExpansion` on every call.
 
+#include <nanobind/eigen/dense.h>
 #include <nanobind/nanobind.h>
 #include <nanobind/operators.h>
 #include <nanobind/stl/array.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
 
+#include <Eigen/Core>
 #include <span>
 #include <sstream>
 #include <stdexcept>
@@ -108,9 +110,12 @@ module-level factories `zero`, `one`, `constant`, `variable`, or
     cls.def(
         "coeffs",
         []( const DynTE& t ) {
-            return std::vector< double >( t.coeffs().begin(), t.coeffs().end() );
+            const auto& cs = t.coeffs();
+            Eigen::VectorXd out( Eigen::Index( cs.size() ) );
+            for ( std::size_t i = 0; i < cs.size(); ++i ) out( Eigen::Index( i ) ) = cs[i];
+            return out;
         },
-        "Return a copy of the coefficient vector (graded-lex order)." );
+        "Return the coefficient vector as a 1D numpy array (graded-lex order)." );
 
     // ---- evaluation ------------------------------------------------------
     cls.def(
@@ -159,9 +164,11 @@ module-level factories `zero`, `one`, `constant`, `variable`, or
         "derivatives",
         []( const DynTE& t ) {
             auto v = t.derivatives();
-            return std::vector< double >( v.begin(), v.end() );
+            Eigen::VectorXd out( Eigen::Index( v.size() ) );
+            for ( std::size_t i = 0; i < v.size(); ++i ) out( Eigen::Index( i ) ) = v[i];
+            return out;
         },
-        "All partial derivatives in graded-lex order (each c_i scaled by alpha!)." );
+        "All partial derivatives in graded-lex order (numpy array, each c_i * alpha!)." );
 
     // ---- coefficient norms ------------------------------------------------
     cls.def(
@@ -232,6 +239,21 @@ module-level factories `zero`, `one`, `constant`, `variable`, or
     m.def( "variables", &makeVariables, nb::arg( "x0" ), nb::arg( "order" ),
            "Return all `len(x0)` coordinate variables at the given expansion point." );
 
+    m.def(
+        "from_coeffs",
+        []( const Eigen::Ref< const Eigen::VectorXd >& coeffs, std::size_t order,
+            std::size_t size ) {
+            const std::size_t expected = tax::detail::numMonomials( order, size );
+            if ( static_cast< std::size_t >( coeffs.size() ) != expected )
+                throw std::invalid_argument(
+                    "from_coeffs: coeffs.size() must equal numMonomials(order, size)" );
+            std::vector< double > data( std::size_t( coeffs.size() ) );
+            for ( Eigen::Index i = 0; i < coeffs.size(); ++i ) data[std::size_t( i )] = coeffs( i );
+            return DynTE( order, size, std::move( data ) );
+        },
+        nb::arg( "coeffs" ), nb::arg( "order" ), nb::arg( "size" ),
+        "Construct a TaylorExpansion directly from a numpy coefficient array." );
+
     // -----------------------------------------------------------------------
     // Module-level math functions.
     // -----------------------------------------------------------------------
@@ -285,4 +307,45 @@ module-level factories `zero`, `one`, `constant`, `variable`, or
         []( const DynTE& x, const DynTE& y ) { return tax::hypot( x, y ); },
         nb::arg( "x" ), nb::arg( "y" ),
         "sqrt(x*x + y*y), computed via the existing kernels." );
+
+    // -----------------------------------------------------------------------
+    // Numerical gradient / hessian / jacobian — return numpy arrays directly
+    // via nanobind's Eigen ↔ numpy bridge.
+    // -----------------------------------------------------------------------
+    m.def(
+        "gradient",
+        []( const DynTE& f ) { return tax::gradient( f ); },
+        nb::arg( "f" ),
+        "Gradient vector [df/dx_0, ..., df/dx_{M-1}] at the expansion point." );
+
+    m.def(
+        "hessian",
+        []( const DynTE& f ) { return tax::hessian( f ); },
+        nb::arg( "f" ),
+        "Hessian matrix H(i,j) = d^2 f / (dx_i dx_j) at the expansion point." );
+
+    m.def(
+        "jacobian",
+        []( const std::vector< DynTE >& vec ) {
+            if ( vec.empty() )
+                throw std::invalid_argument( "jacobian: empty list" );
+            const Eigen::Index K = Eigen::Index( vec.size() );
+            const std::size_t M = vec[0].size();
+            Eigen::MatrixXd out( K, Eigen::Index( M ) );
+            std::vector< int > alpha( M, 0 );
+            for ( Eigen::Index r = 0; r < K; ++r )
+            {
+                for ( std::size_t j = 0; j < M; ++j )
+                {
+                    alpha[j] = 1;
+                    out( r, Eigen::Index( j ) ) =
+                        vec[std::size_t( r )].derivative(
+                            std::span< const int >( alpha.data(), M ) );
+                    alpha[j] = 0;
+                }
+            }
+            return out;
+        },
+        nb::arg( "fs" ),
+        "Jacobian matrix J(r, j) = df_r / dx_j for a list of TaylorExpansion components." );
 }

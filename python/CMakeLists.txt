@@ -39,17 +39,23 @@ install(TARGETS _tax LIBRARY DESTINATION tax)
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/tax/__init__.py"
                "${CMAKE_BINARY_DIR}/python/tax/__init__.py" COPYONLY)
 
-# Hook the Python tests into ctest if pytest is available.
+# Hook the Python tests into ctest. Use `${Python_EXECUTABLE} -m pytest` so
+# the runner uses the same interpreter the extension was built against (which
+# has nanobind and any test deps like numpy installed).
 if(TAX_BUILD_TEST)
-    find_program(PYTEST_EXECUTABLE NAMES pytest)
-    if(PYTEST_EXECUTABLE)
+    execute_process(
+        COMMAND "${Python_EXECUTABLE}" -c "import pytest"
+        RESULT_VARIABLE _has_pytest
+        OUTPUT_QUIET ERROR_QUIET)
+    if(_has_pytest EQUAL 0)
         add_test(
             NAME python_bindings
-            COMMAND ${PYTEST_EXECUTABLE} -q
+            COMMAND "${Python_EXECUTABLE}" -m pytest -q
                     "${CMAKE_CURRENT_SOURCE_DIR}/tests")
         set_tests_properties(python_bindings PROPERTIES
             ENVIRONMENT "PYTHONPATH=${CMAKE_BINARY_DIR}/python")
     else()
-        message(STATUS "pytest not found; skipping python_bindings ctest target.")
+        message(STATUS "pytest not available in ${Python_EXECUTABLE}; "
+                       "skipping python_bindings ctest target.")
     endif()
 endif()

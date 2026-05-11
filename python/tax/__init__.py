@@ -21,6 +21,11 @@ from ._tax import (  # noqa: F401
     constant,
     variable,
     variables,
+    from_coeffs,
+    # numerical derivative helpers (return numpy arrays)
+    gradient,
+    hessian,
+    jacobian,
     # trig + hyperbolic
     sin,
     cos,
@@ -58,6 +63,10 @@ __all__ = [
     "constant",
     "variable",
     "variables",
+    "from_coeffs",
+    "gradient",
+    "hessian",
+    "jacobian",
     "sin",
     "cos",
     "tan",
