@@ -584,4 +584,97 @@ inline void seriesPowRT( T* out, const T* a, T c, std::size_t N, std::size_t M )
     }
 }
 
+/// @brief Runtime overload of `seriesAsin`. Requires |a[0]| < 1.
+template < typename T >
+inline void seriesAsinRT( T* out, const T* a, std::size_t N, std::size_t M )
+{
+    using std::asin;
+    const std::size_t S = numMonomials( N, M );
+
+    // h = sqrt(1 - a^2)
+    std::vector< T > asq( S, T{ 0 } ), omf( S, T{ 0 } ), h( S, T{ 0 } );
+    cauchySelfProductRT( asq.data(), a, N, M );
+    omf[0] = T{ 1 };
+    subInPlaceRT( omf.data(), asq.data(), S );
+    seriesSqrtRT( h.data(), omf.data(), N, M );
+
+    for ( std::size_t i = 0; i < S; ++i ) out[i] = T{ 0 };
+    out[0] = asin( a[0] );
+    const T inv_h0 = T{ 1 } / h[0];
+
+    if ( M == 1 )
+    {
+        for ( std::size_t d = 1; d <= N; ++d )
+        {
+            T rhs = T{ 0 };
+            for ( std::size_t k = 1; k < d; ++k ) rhs += T( k ) * h[d - k] * out[k];
+            out[d] = ( a[d] - rhs / T( d ) ) * inv_h0;
+        }
+    }
+    else
+    {
+        for ( int d = 1; d <= int( N ); ++d )
+        {
+            forEachMonomial( int( M ), d, [&]( std::span< const int > alpha, std::size_t ai ) {
+                T rhs = T{ 0 };
+                forEachSubIndex( alpha, 1, d - 1, [&]( std::size_t bi, std::size_t gi, int db ) {
+                    rhs += T( d - db ) * h[bi] * out[gi];
+                } );
+                out[ai] = ( a[ai] - rhs / T( d ) ) * inv_h0;
+            } );
+        }
+    }
+}
+
+/// @brief Runtime overload of `seriesAcos`: acos(a) = pi/2 - asin(a).
+template < typename T >
+inline void seriesAcosRT( T* out, const T* a, std::size_t N, std::size_t M )
+{
+    using std::acos;
+    const std::size_t S = numMonomials( N, M );
+    seriesAsinRT( out, a, N, M );
+    negateInPlaceRT( out, S );
+    out[0] += acos( T{ -1 } ) / T{ 2 };  // pi/2
+}
+
+/// @brief Runtime overload of `seriesAtan`.
+template < typename T >
+inline void seriesAtanRT( T* out, const T* a, std::size_t N, std::size_t M )
+{
+    using std::atan;
+    const std::size_t S = numMonomials( N, M );
+
+    // h = 1 + a^2
+    std::vector< T > h( S, T{ 0 } );
+    cauchySelfProductRT( h.data(), a, N, M );
+    h[0] += T{ 1 };
+
+    for ( std::size_t i = 0; i < S; ++i ) out[i] = T{ 0 };
+    out[0] = atan( a[0] );
+    const T inv_h0 = T{ 1 } / h[0];
+
+    if ( M == 1 )
+    {
+        for ( std::size_t d = 1; d <= N; ++d )
+        {
+            T rhs = T{ 0 };
+            for ( std::size_t k = 1; k < d; ++k ) rhs += T( k ) * h[d - k] * out[k];
+            out[d] = ( a[d] - rhs / T( d ) ) * inv_h0;
+        }
+    }
+    else
+    {
+        for ( int d = 1; d <= int( N ); ++d )
+        {
+            forEachMonomial( int( M ), d, [&]( std::span< const int > alpha, std::size_t ai ) {
+                T rhs = T{ 0 };
+                forEachSubIndex( alpha, 1, d - 1, [&]( std::size_t bi, std::size_t gi, int db ) {
+                    rhs += T( d - db ) * h[bi] * out[gi];
+                } );
+                out[ai] = ( a[ai] - rhs / T( d ) ) * inv_h0;
+            } );
+        }
+    }
+}
+
 }  // namespace tax::detail

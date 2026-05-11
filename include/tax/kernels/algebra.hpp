@@ -272,4 +272,72 @@ inline void seriesSquareRT( T* out, const T* a, std::size_t N, std::size_t M ) n
     cauchySelfProductRT( out, a, N, M );
 }
 
+/// @brief Runtime overload of `seriesCube`: `out = a^3` via two Cauchy products.
+template < typename T >
+inline void seriesCubeRT( T* out, const T* a, std::size_t N, std::size_t M )
+{
+    const std::size_t S = numMonomials( N, M );
+    std::vector< T > tmp( S, T{ 0 } );
+    cauchySelfProductRT( tmp.data(), a, N, M );
+    cauchyProductRT( out, tmp.data(), a, N, M );
+}
+
+/**
+ * @brief Runtime overload of `seriesCbrt`: solve out^3 = a using incremental sq tracking.
+ * @details Mirrors the static-template version's recurrence (sq = out^2 maintained
+ *          one degree at a time).
+ */
+template < typename T >
+inline void seriesCbrtRT( T* out, const T* a, std::size_t N, std::size_t M )
+{
+    using std::cbrt;
+    const std::size_t S = numMonomials( N, M );
+
+    for ( std::size_t i = 0; i < S; ++i ) out[i] = T{ 0 };
+    out[0] = cbrt( a[0] );
+    const T inv3g0sq = T{ 1 } / ( T{ 3 } * out[0] * out[0] );
+
+    std::vector< T > sq( S, T{ 0 } );
+    sq[0] = out[0] * out[0];
+
+    if ( M == 1 )
+    {
+        for ( std::size_t d = 1; d <= N; ++d )
+        {
+            T sq_d_partial = T{ 0 };
+            for ( std::size_t k = 1; k + k < d; ++k ) sq_d_partial += T{ 2 } * out[k] * out[d - k];
+            if ( d % 2 == 0 ) sq_d_partial += out[d / 2] * out[d / 2];
+
+            T rhs = out[0] * sq_d_partial;
+            for ( std::size_t j = 1; j < d; ++j ) rhs += out[j] * sq[d - j];
+
+            out[d] = ( a[d] - rhs ) * inv3g0sq;
+            sq[d] = T{ 2 } * out[0] * out[d] + sq_d_partial;
+        }
+    }
+    else
+    {
+        for ( int d = 1; d <= int( N ); ++d )
+        {
+            forEachMonomial( int( M ), d, [&]( std::span< const int > alpha, std::size_t ai ) {
+                T rhs = a[ai];
+                forEachSubIndex( alpha, 1, d - 1, [&]( std::size_t bi, std::size_t gi, int ) {
+                    rhs -= out[bi] * ( out[0] * out[gi] + sq[gi] );
+                } );
+                out[ai] = rhs * inv3g0sq;
+            } );
+            forEachMonomial( int( M ), d, [&]( std::span< const int > alpha, std::size_t ai ) {
+                T val = T{ 0 };
+                forEachSubIndex( alpha, [&]( std::size_t bi, std::size_t gi ) {
+                    if ( bi < gi )
+                        val += T{ 2 } * out[bi] * out[gi];
+                    else if ( bi == gi )
+                        val += out[bi] * out[bi];
+                } );
+                sq[ai] = val;
+            } );
+        }
+    }
+}
+
 }  // namespace tax::detail

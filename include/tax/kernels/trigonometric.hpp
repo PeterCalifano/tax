@@ -284,4 +284,138 @@ inline void seriesCosRT( T* out, const T* a, std::size_t N, std::size_t M )
     seriesSinCosRT( scratch.data(), out, a, N, M );
 }
 
+/// @brief Runtime overload of `seriesTan`: tan(a) via cos·out = sin.
+template < typename T >
+inline void seriesTanRT( T* out, const T* a, std::size_t N, std::size_t M )
+{
+    const std::size_t S = numMonomials( N, M );
+    std::vector< T > s( S, T{ 0 } ), c( S, T{ 0 } );
+    seriesSinCosRT( s.data(), c.data(), a, N, M );
+
+    for ( std::size_t i = 0; i < S; ++i ) out[i] = T{ 0 };
+    const T inv_c0 = T{ 1 } / c[0];
+
+    if ( M == 1 )
+    {
+        for ( std::size_t d = 0; d <= N; ++d )
+        {
+            T rhs = s[d];
+            for ( std::size_t k = 1; k <= d; ++k ) rhs -= c[k] * out[d - k];
+            out[d] = rhs * inv_c0;
+        }
+    }
+    else
+    {
+        for ( int d = 0; d <= int( N ); ++d )
+        {
+            forEachMonomial( int( M ), d, [&]( std::span< const int > alpha, std::size_t ai ) {
+                T rhs = s[ai];
+                forEachSubIndex( alpha, 1, d, [&]( std::size_t bi, std::size_t gi, int ) {
+                    rhs -= c[bi] * out[gi];
+                } );
+                out[ai] = rhs * inv_c0;
+            } );
+        }
+    }
+}
+
+/// @brief Runtime overload of `seriesSinhCosh`: joint sinh/cosh.
+template < typename T >
+inline void seriesSinhCoshRT( T* sh, T* ch, const T* a, std::size_t N, std::size_t M ) noexcept
+{
+    using std::cosh;
+    using std::sinh;
+    const std::size_t S = numMonomials( N, M );
+    for ( std::size_t i = 0; i < S; ++i ) sh[i] = T{ 0 };
+    for ( std::size_t i = 0; i < S; ++i ) ch[i] = T{ 0 };
+    sh[0] = sinh( a[0] );
+    ch[0] = cosh( a[0] );
+
+    if ( M == 1 )
+    {
+        for ( std::size_t d = 1; d <= N; ++d )
+        {
+            T sr = T{ 0 }, cr = T{ 0 };
+            for ( std::size_t k = 0; k < d; ++k )
+            {
+                const T w = T( d - k ) * a[d - k];
+                sr += w * ch[k];
+                cr += w * sh[k];
+            }
+            const T inv_d = T{ 1 } / T( d );
+            sh[d] = sr * inv_d;
+            ch[d] = cr * inv_d;
+        }
+    }
+    else
+    {
+        for ( int d = 1; d <= int( N ); ++d )
+        {
+            forEachMonomial( int( M ), d, [&]( std::span< const int > alpha, std::size_t ai ) {
+                T sh_rhs = T{ 0 };
+                T ch_rhs = T{ 0 };
+                forEachSubIndex( alpha, 0, d - 1, [&]( std::size_t bi, std::size_t gi, int db ) {
+                    const T fg = T( d - db ) * a[gi];
+                    sh_rhs += fg * ch[bi];
+                    ch_rhs += fg * sh[bi];
+                } );
+                const T inv_d = T{ 1 } / T( d );
+                sh[ai] = sh_rhs * inv_d;
+                ch[ai] = ch_rhs * inv_d;
+            } );
+        }
+    }
+}
+
+template < typename T >
+inline void seriesSinhRT( T* out, const T* a, std::size_t N, std::size_t M )
+{
+    const std::size_t S = numMonomials( N, M );
+    std::vector< T > scratch( S, T{ 0 } );
+    seriesSinhCoshRT( out, scratch.data(), a, N, M );
+}
+
+template < typename T >
+inline void seriesCoshRT( T* out, const T* a, std::size_t N, std::size_t M )
+{
+    const std::size_t S = numMonomials( N, M );
+    std::vector< T > scratch( S, T{ 0 } );
+    seriesSinhCoshRT( scratch.data(), out, a, N, M );
+}
+
+/// @brief Runtime overload of `seriesTanh`: tanh(a) via cosh·out = sinh.
+template < typename T >
+inline void seriesTanhRT( T* out, const T* a, std::size_t N, std::size_t M )
+{
+    const std::size_t S = numMonomials( N, M );
+    std::vector< T > sh( S, T{ 0 } ), ch( S, T{ 0 } );
+    seriesSinhCoshRT( sh.data(), ch.data(), a, N, M );
+
+    for ( std::size_t i = 0; i < S; ++i ) out[i] = T{ 0 };
+    const T inv_ch0 = T{ 1 } / ch[0];
+
+    if ( M == 1 )
+    {
+        for ( std::size_t d = 0; d <= N; ++d )
+        {
+            T rhs = sh[d];
+            for ( std::size_t k = 1; k <= d; ++k ) rhs -= ch[k] * out[d - k];
+            out[d] = rhs * inv_ch0;
+        }
+    }
+    else
+    {
+        for ( int d = 0; d <= int( N ); ++d )
+        {
+            forEachMonomial( int( M ), d, [&]( std::span< const int > alpha, std::size_t ai ) {
+                T rhs = sh[ai];
+                forEachSubIndex( alpha, 1, d, [&]( std::size_t bi, std::size_t gi, int ) {
+                    rhs -= ch[bi] * out[gi];
+                } );
+                out[ai] = rhs * inv_ch0;
+            } );
+        }
+    }
+}
+
 }  // namespace tax::detail

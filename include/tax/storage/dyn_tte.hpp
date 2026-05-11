@@ -390,6 +390,106 @@ template < typename T >
     return out;
 }
 
+template < typename T >
+[[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > tan(
+    const TaylorExpansionT< T, Dynamic, Dynamic >& a )
+{
+    return detail::applyUnaryRT( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
+        detail::seriesTanRT( o, x, N, M );
+    } );
+}
+
+template < typename T >
+[[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > sinh(
+    const TaylorExpansionT< T, Dynamic, Dynamic >& a )
+{
+    return detail::applyUnaryRT( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
+        detail::seriesSinhRT( o, x, N, M );
+    } );
+}
+
+template < typename T >
+[[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > cosh(
+    const TaylorExpansionT< T, Dynamic, Dynamic >& a )
+{
+    return detail::applyUnaryRT( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
+        detail::seriesCoshRT( o, x, N, M );
+    } );
+}
+
+template < typename T >
+[[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > tanh(
+    const TaylorExpansionT< T, Dynamic, Dynamic >& a )
+{
+    return detail::applyUnaryRT( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
+        detail::seriesTanhRT( o, x, N, M );
+    } );
+}
+
+template < typename T >
+[[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > asin(
+    const TaylorExpansionT< T, Dynamic, Dynamic >& a )
+{
+    return detail::applyUnaryRT( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
+        detail::seriesAsinRT( o, x, N, M );
+    } );
+}
+
+template < typename T >
+[[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > acos(
+    const TaylorExpansionT< T, Dynamic, Dynamic >& a )
+{
+    return detail::applyUnaryRT( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
+        detail::seriesAcosRT( o, x, N, M );
+    } );
+}
+
+template < typename T >
+[[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > atan(
+    const TaylorExpansionT< T, Dynamic, Dynamic >& a )
+{
+    return detail::applyUnaryRT( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
+        detail::seriesAtanRT( o, x, N, M );
+    } );
+}
+
+template < typename T >
+[[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > cube(
+    const TaylorExpansionT< T, Dynamic, Dynamic >& a )
+{
+    return detail::applyUnaryRT( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
+        detail::seriesCubeRT( o, x, N, M );
+    } );
+}
+
+template < typename T >
+[[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > cbrt(
+    const TaylorExpansionT< T, Dynamic, Dynamic >& a )
+{
+    return detail::applyUnaryRT( a, []( T* o, const T* x, std::size_t N, std::size_t M ) {
+        detail::seriesCbrtRT( o, x, N, M );
+    } );
+}
+
+template < typename T >
+[[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > abs(
+    const TaylorExpansionT< T, Dynamic, Dynamic >& a )
+{
+    TaylorExpansionT< T, Dynamic, Dynamic > out( a.order(), a.size() );
+    detail::seriesAbsRT( out.coeffs().data(), a.coeffs().data(), a.coeffs().size() );
+    return out;
+}
+
+template < typename T >
+[[nodiscard]] inline TaylorExpansionT< T, Dynamic, Dynamic > log10(
+    const TaylorExpansionT< T, Dynamic, Dynamic >& a )
+{
+    using std::log;
+    auto out = tax::log( a );
+    out *= T{ 1 } / log( T{ 10 } );
+    return out;
+}
+
 // =============================================================================
 // Streaming
 // =============================================================================

@@ -88,4 +88,12 @@ constexpr void seriesAbs( std::array< T, S >& out, const std::array< T, S >& a )
     if ( detail::extractValue( a[0] ) < 0 ) negateInPlace< T, S >( out );
 }
 
+/// @brief Runtime overload of `seriesAbs`. Requires `a[0] != 0`.
+template < typename T >
+inline void seriesAbsRT( T* out, const T* a, std::size_t S ) noexcept
+{
+    for ( std::size_t i = 0; i < S; ++i ) out[i] = a[i];
+    if ( detail::extractValue( a[0] ) < 0 ) negateInPlaceRT( out, S );
+}
+
 }  // namespace tax::detail
