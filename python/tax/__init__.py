@@ -3,18 +3,26 @@
 
 The :class:`TaylorExpansion` type has runtime-fixed order and number of
 variables; instances are constructed via the module-level factories
-:func:`zero`, :func:`one`, :func:`constant`, :func:`variable`, and
-:func:`variables`. The class itself is not directly constructible from
-Python.
+:func:`zero`, :func:`one`, :func:`constant`, :func:`variable`,
+:func:`variables`, and :func:`from_coeffs`. The class itself is not
+directly constructible from Python.
 
-Arithmetic operators (``+``, ``-``, ``*``, ``/``) and the math functions
-listed below evaluate eagerly into a fresh :class:`TaylorExpansion` —
-Python expressions cannot meaningfully own lazy expression-template
-temporaries across statements, so every call materialises the result.
+Math functions live under the :mod:`tax.math` submodule
+(``tax.math.sin``, ``tax.math.exp``, ...). Numerical derivative helpers
+(:func:`gradient`, :func:`hessian`, :func:`jacobian`) live at the
+top level and return numpy arrays directly.
+
+Containers :class:`TaylorExpansionVector` and
+:class:`TaylorExpansionMatrix` wrap Eigen-backed collections of
+:class:`TaylorExpansion` and expose ``value``, ``eval``, ``derivative``,
+and (for vectors) ``jacobian`` returning numpy arrays.
 """
 
 from ._tax import (  # noqa: F401
+    # core types
     TaylorExpansion,
+    TaylorExpansionVector,
+    TaylorExpansionMatrix,
     # factories
     zero,
     one,
@@ -26,38 +34,14 @@ from ._tax import (  # noqa: F401
     gradient,
     hessian,
     jacobian,
-    # trig + hyperbolic
-    sin,
-    cos,
-    tan,
-    sinh,
-    cosh,
-    tanh,
-    # inverse trig + hyperbolic
-    asin,
-    acos,
-    atan,
-    asinh,
-    acosh,
-    atanh,
-    atan2,
-    # exp / log
-    exp,
-    log,
-    log10,
-    # roots, powers
-    sqrt,
-    cbrt,
-    square,
-    cube,
-    pow,
-    hypot,
-    abs,
-    erf,
+    # math submodule
+    math,
 )
 
 __all__ = [
     "TaylorExpansion",
+    "TaylorExpansionVector",
+    "TaylorExpansionMatrix",
     "zero",
     "one",
     "constant",
@@ -67,28 +51,5 @@ __all__ = [
     "gradient",
     "hessian",
     "jacobian",
-    "sin",
-    "cos",
-    "tan",
-    "sinh",
-    "cosh",
-    "tanh",
-    "asin",
-    "acos",
-    "atan",
-    "asinh",
-    "acosh",
-    "atanh",
-    "atan2",
-    "exp",
-    "log",
-    "log10",
-    "sqrt",
-    "cbrt",
-    "square",
-    "cube",
-    "pow",
-    "hypot",
-    "abs",
-    "erf",
+    "math",
 ]

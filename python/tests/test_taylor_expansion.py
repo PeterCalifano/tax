@@ -92,26 +92,26 @@ def test_in_place_arithmetic():
 @pytest.mark.parametrize(
     "fn, ref, x0",
     [
-        (tax.sin, math.sin, 0.5),
-        (tax.cos, math.cos, 0.5),
-        (tax.tan, math.tan, 0.5),
-        (tax.sinh, math.sinh, 0.5),
-        (tax.cosh, math.cosh, 0.5),
-        (tax.tanh, math.tanh, 0.5),
-        (tax.asin, math.asin, 0.4),
-        (tax.acos, math.acos, 0.4),
-        (tax.atan, math.atan, 0.6),
-        (tax.asinh, math.asinh, 0.4),
-        (tax.acosh, math.acosh, 2.0),
-        (tax.atanh, math.atanh, 0.3),
-        (tax.exp, math.exp, 0.5),
-        (tax.log, math.log, 2.0),
-        (tax.log10, math.log10, 5.0),
-        (tax.sqrt, math.sqrt, 3.0),
-        (tax.cbrt, lambda x: x ** (1.0 / 3.0), 2.0),
-        (tax.square, lambda x: x * x, 0.7),
-        (tax.cube, lambda x: x ** 3, 0.7),
-        (tax.erf, math.erf, 0.4),
+        (tax.math.sin, math.sin, 0.5),
+        (tax.math.cos, math.cos, 0.5),
+        (tax.math.tan, math.tan, 0.5),
+        (tax.math.sinh, math.sinh, 0.5),
+        (tax.math.cosh, math.cosh, 0.5),
+        (tax.math.tanh, math.tanh, 0.5),
+        (tax.math.asin, math.asin, 0.4),
+        (tax.math.acos, math.acos, 0.4),
+        (tax.math.atan, math.atan, 0.6),
+        (tax.math.asinh, math.asinh, 0.4),
+        (tax.math.acosh, math.acosh, 2.0),
+        (tax.math.atanh, math.atanh, 0.3),
+        (tax.math.exp, math.exp, 0.5),
+        (tax.math.log, math.log, 2.0),
+        (tax.math.log10, math.log10, 5.0),
+        (tax.math.sqrt, math.sqrt, 3.0),
+        (tax.math.cbrt, lambda x: x ** (1.0 / 3.0), 2.0),
+        (tax.math.square, lambda x: x * x, 0.7),
+        (tax.math.cube, lambda x: x ** 3, 0.7),
+        (tax.math.erf, math.erf, 0.4),
     ],
 )
 def test_unary_math_value_matches_reference(fn, ref, x0):
@@ -121,16 +121,16 @@ def test_unary_math_value_matches_reference(fn, ref, x0):
 
 def test_pow_real_and_int():
     x = tax.variable(2.0, 0, 5, 1)
-    assert tax.pow(x, 0.5).value() == pytest.approx(math.sqrt(2.0))
-    assert tax.pow(x, 3).value() == pytest.approx(8.0)
+    assert tax.math.pow(x, 0.5).value() == pytest.approx(math.sqrt(2.0))
+    assert tax.math.pow(x, 3).value() == pytest.approx(8.0)
     # Negative integer powers (binary exponentiation through reciprocal).
-    assert tax.pow(x, -2).value() == pytest.approx(0.25)
+    assert tax.math.pow(x, -2).value() == pytest.approx(0.25)
 
 
 def test_atan2_and_hypot():
     x, y = tax.variables([3.0, 4.0], order=4)
-    assert tax.atan2(y, x).value() == pytest.approx(math.atan2(4.0, 3.0))
-    assert tax.hypot(x, y).value() == pytest.approx(5.0)
+    assert tax.math.atan2(y, x).value() == pytest.approx(math.atan2(4.0, 3.0))
+    assert tax.math.hypot(x, y).value() == pytest.approx(5.0)
 
 
 # ---------------------------------------------------------------------------
@@ -139,7 +139,7 @@ def test_atan2_and_hypot():
 
 def test_eval_univariate():
     x = tax.variable(2.0, 0, 5, 1)
-    f = tax.exp(x)
+    f = tax.math.exp(x)
     # Order-5 truncation of exp(2 + dx) at dx = 0.1.
     ref = sum(math.exp(2.0) * (0.1 ** k) / math.factorial(k) for k in range(6))
     assert f.at(0.1) == pytest.approx(ref, rel=1e-12)
@@ -147,7 +147,7 @@ def test_eval_univariate():
 
 def test_eval_multivariate():
     x, y = tax.variables([0.5, 0.3], order=4)
-    f = tax.sin(x * y)
+    f = tax.math.sin(x * y)
     # Evaluate at (dx, dy) = (0.05, -0.02).
     v = f.at([0.05, -0.02])
     # Compare to direct sin((0.5 + 0.05) * (0.3 - 0.02)) up to order-4 truncation —
@@ -161,7 +161,7 @@ def test_eval_multivariate():
 
 def test_deriv_and_integ_roundtrip_univariate():
     x = tax.variable(0.3, 0, 5, 1)
-    f = tax.sin(x)
+    f = tax.math.sin(x)
     df = f.deriv(0)
     # d/dx sin(x) at x=0.3 is cos(0.3).
     assert df.value() == pytest.approx(math.cos(0.3))
@@ -184,14 +184,14 @@ def test_deriv_out_of_range_raises():
 
 def test_derivative_multi_index():
     x, y = tax.variables([0.5, 0.3], order=4)
-    f = tax.exp(x + y)
+    f = tax.math.exp(x + y)
     # d^2 exp(x+y) / (dx dy) at expansion = exp(x0 + y0).
     assert f.derivative([1, 1]) == pytest.approx(math.exp(0.5 + 0.3))
 
 
 def test_derivatives_all_returns_full_buffer():
     x = tax.variable(0.5, 0, 3, 1)
-    f = tax.exp(x)
+    f = tax.math.exp(x)
     derivs = f.derivatives()
     # f.coeffs[k] * k! for univariate.
     coeffs = f.coeffs()
@@ -205,7 +205,7 @@ def test_derivatives_all_returns_full_buffer():
 
 def test_norms_match_manual():
     x = tax.variable(0.3, 0, 5, 1)
-    f = tax.sin(x)
+    f = tax.math.sin(x)
     cs = f.coeffs()
 
     expected_l1 = sum(abs(c) for c in cs)

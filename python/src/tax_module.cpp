@@ -16,6 +16,7 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/operators.h>
 #include <nanobind/stl/array.h>
+#include <nanobind/stl/pair.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
 
@@ -208,6 +209,175 @@ module-level factories `zero`, `one`, `constant`, `variable`, or
     cls.def( "__str__", &formatRepr );
 
     // -----------------------------------------------------------------------
+    // tax.TaylorExpansionVector — Eigen::Matrix<DynTE, Dynamic, 1> wrapper.
+    //
+    // Useful when you want to operate on a vector-valued TaylorExpansion
+    // function as a single object (e.g. for `value()` / `eval()` / `jacobian()`
+    // queries). Backed by Eigen so the existing C++ helpers work directly.
+    // -----------------------------------------------------------------------
+    using TeVec = Eigen::Matrix< DynTE, Eigen::Dynamic, 1 >;
+    auto vec_cls = nb::class_< TeVec >(
+        m, "TaylorExpansionVector",
+        R"doc(Vector of `TaylorExpansion` objects — a 1-D collection.
+
+Backed by `Eigen::Matrix<DynTE, Dynamic, 1>`. All elements must share the
+same shape `(order, size)`; this is asserted by the underlying kernels
+when arithmetic / derivative queries fire.
+)doc" );
+
+    vec_cls.def(
+        "__init__",
+        []( TeVec* self, const std::vector< DynTE >& fs ) {
+            new ( self ) TeVec( Eigen::Index( fs.size() ) );
+            for ( std::size_t i = 0; i < fs.size(); ++i )
+                ( *self )( Eigen::Index( i ) ) = fs[i];
+        },
+        nb::arg( "fs" ),
+        "Build from a list of TaylorExpansion components." );
+
+    vec_cls.def( "__len__", []( const TeVec& v ) { return std::size_t( v.size() ); } );
+    vec_cls.def(
+        "__getitem__",
+        []( const TeVec& v, Eigen::Index i ) -> DynTE {
+            if ( i < 0 || i >= v.size() )
+                throw std::out_of_range( "TaylorExpansionVector index" );
+            return v( i );
+        },
+        nb::arg( "i" ) );
+    vec_cls.def(
+        "__setitem__",
+        []( TeVec& v, Eigen::Index i, const DynTE& f ) {
+            if ( i < 0 || i >= v.size() )
+                throw std::out_of_range( "TaylorExpansionVector index" );
+            v( i ) = f;
+        },
+        nb::arg( "i" ), nb::arg( "f" ) );
+
+    vec_cls.def(
+        "value",
+        []( const TeVec& v ) { return tax::value( v ).eval(); },
+        "Constant terms as a 1-D numpy array of shape (len,)." );
+
+    vec_cls.def(
+        "eval",
+        []( const TeVec& v, const std::vector< double >& dx ) {
+            Eigen::Map< const Eigen::VectorXd > edx( dx.data(),
+                                                     Eigen::Index( dx.size() ) );
+            return tax::eval( v, edx ).eval();
+        },
+        nb::arg( "dx" ),
+        "Evaluate every component at the displacement `dx` (list or 1-D numpy "
+        "array); numpy 1-D output." );
+
+    vec_cls.def(
+        "derivative",
+        []( const TeVec& v, const std::vector< int >& alpha ) {
+            return tax::derivative( v, std::span< const int >( alpha.data(), alpha.size() ) )
+                .eval();
+        },
+        nb::arg( "alpha" ),
+        "Per-component numerical partial derivative at the expansion point." );
+
+    vec_cls.def(
+        "jacobian",
+        []( const TeVec& v ) { return tax::jacobian( v ).eval(); },
+        "Jacobian matrix J(r, j) = d v[r] / dx_j as a numpy 2-D array." );
+
+    vec_cls.def( "__repr__", []( const TeVec& v ) {
+        std::ostringstream os;
+        os << "TaylorExpansionVector(len=" << v.size() << ")";
+        return os.str();
+    } );
+
+    // -----------------------------------------------------------------------
+    // tax.TaylorExpansionMatrix — Eigen::Matrix<DynTE, Dynamic, Dynamic>.
+    // -----------------------------------------------------------------------
+    using TeMat = Eigen::Matrix< DynTE, Eigen::Dynamic, Eigen::Dynamic >;
+    auto mat_cls = nb::class_< TeMat >(
+        m, "TaylorExpansionMatrix",
+        R"doc(Matrix of `TaylorExpansion` objects — a 2-D collection.
+
+Backed by `Eigen::Matrix<DynTE, Dynamic, Dynamic>`. All elements must
+share the same shape `(order, size)`.
+)doc" );
+
+    mat_cls.def(
+        "__init__",
+        []( TeMat* self, const std::vector< std::vector< DynTE > >& rows ) {
+            if ( rows.empty() )
+                throw std::invalid_argument( "TaylorExpansionMatrix: empty rows" );
+            const Eigen::Index R = Eigen::Index( rows.size() );
+            const Eigen::Index C = Eigen::Index( rows[0].size() );
+            for ( const auto& row : rows )
+                if ( Eigen::Index( row.size() ) != C )
+                    throw std::invalid_argument(
+                        "TaylorExpansionMatrix: rows must have equal length" );
+            new ( self ) TeMat( R, C );
+            for ( Eigen::Index r = 0; r < R; ++r )
+                for ( Eigen::Index c = 0; c < C; ++c )
+                    ( *self )( r, c ) = rows[std::size_t( r )][std::size_t( c )];
+        },
+        nb::arg( "rows" ),
+        "Build from a list-of-lists of TaylorExpansion components." );
+
+    mat_cls.def_prop_ro( "rows", []( const TeMat& m_ ) { return std::size_t( m_.rows() ); } );
+    mat_cls.def_prop_ro( "cols", []( const TeMat& m_ ) { return std::size_t( m_.cols() ); } );
+    mat_cls.def_prop_ro( "shape", []( const TeMat& m_ ) {
+        return std::pair< std::size_t, std::size_t >( m_.rows(), m_.cols() );
+    } );
+
+    mat_cls.def(
+        "__getitem__",
+        []( const TeMat& m_, std::pair< Eigen::Index, Eigen::Index > rc ) -> DynTE {
+            const auto [r, c] = rc;
+            if ( r < 0 || r >= m_.rows() || c < 0 || c >= m_.cols() )
+                throw std::out_of_range( "TaylorExpansionMatrix index" );
+            return m_( r, c );
+        },
+        nb::arg( "rc" ) );
+    mat_cls.def(
+        "__setitem__",
+        []( TeMat& m_, std::pair< Eigen::Index, Eigen::Index > rc, const DynTE& f ) {
+            const auto [r, c] = rc;
+            if ( r < 0 || r >= m_.rows() || c < 0 || c >= m_.cols() )
+                throw std::out_of_range( "TaylorExpansionMatrix index" );
+            m_( r, c ) = f;
+        },
+        nb::arg( "rc" ), nb::arg( "f" ) );
+
+    mat_cls.def(
+        "value",
+        []( const TeMat& m_ ) { return tax::value( m_ ).eval(); },
+        "Constant terms as a 2-D numpy array of shape (rows, cols)." );
+
+    mat_cls.def(
+        "eval",
+        []( const TeMat& m_, const std::vector< double >& dx ) {
+            Eigen::Map< const Eigen::VectorXd > edx( dx.data(),
+                                                     Eigen::Index( dx.size() ) );
+            return tax::eval( m_, edx ).eval();
+        },
+        nb::arg( "dx" ),
+        "Evaluate every element at the displacement `dx` (list or 1-D numpy "
+        "array); numpy 2-D output." );
+
+    mat_cls.def(
+        "derivative",
+        []( const TeMat& m_, const std::vector< int >& alpha ) {
+            return tax::derivative( m_,
+                                   std::span< const int >( alpha.data(), alpha.size() ) )
+                .eval();
+        },
+        nb::arg( "alpha" ),
+        "Per-element numerical partial derivative at the expansion point." );
+
+    mat_cls.def( "__repr__", []( const TeMat& m_ ) {
+        std::ostringstream os;
+        os << "TaylorExpansionMatrix(rows=" << m_.rows() << ", cols=" << m_.cols() << ")";
+        return os.str();
+    } );
+
+    // -----------------------------------------------------------------------
     // Module-level factories.
     // -----------------------------------------------------------------------
     m.def(
@@ -255,11 +425,15 @@ module-level factories `zero`, `one`, `constant`, `variable`, or
         "Construct a TaylorExpansion directly from a numpy coefficient array." );
 
     // -----------------------------------------------------------------------
-    // Module-level math functions.
+    // Math functions live under the `tax.math` submodule.
     // -----------------------------------------------------------------------
+    nb::module_ math_mod = m.def_submodule(
+        "math", "Math functions on `TaylorExpansion`. All eager — each call "
+                "materialises a fresh `TaylorExpansion`." );
+
 #define TAX_BIND_UNARY( name )                                                \
-    m.def( #name,                                                             \
-           []( const DynTE& a ) { return tax::name( a ); }, nb::arg( "a" ) )
+    math_mod.def( #name,                                                      \
+                  []( const DynTE& a ) { return tax::name( a ); }, nb::arg( "a" ) )
 
     TAX_BIND_UNARY( sin );
     TAX_BIND_UNARY( cos );
@@ -285,24 +459,24 @@ module-level factories `zero`, `one`, `constant`, `variable`, or
 
 #undef TAX_BIND_UNARY
 
-    m.def(
+    math_mod.def(
         "pow",
         []( const DynTE& a, double c ) { return tax::pow( a, c ); },
         nb::arg( "a" ), nb::arg( "c" ),
         "Real-exponent power: `a ** c`." );
-    m.def(
+    math_mod.def(
         "pow",
         []( const DynTE& a, int n ) { return tax::pow( a, n ); },
         nb::arg( "a" ), nb::arg( "n" ),
         "Integer-exponent power via binary exponentiation; negative `n` allowed." );
 
-    m.def(
+    math_mod.def(
         "atan2",
         []( const DynTE& y, const DynTE& x ) { return tax::atan2( y, x ); },
         nb::arg( "y" ), nb::arg( "x" ),
         "atan2(y, x) — see `numpy.arctan2`." );
 
-    m.def(
+    math_mod.def(
         "hypot",
         []( const DynTE& x, const DynTE& y ) { return tax::hypot( x, y ); },
         nb::arg( "x" ), nb::arg( "y" ),

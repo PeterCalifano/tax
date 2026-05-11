@@ -56,6 +56,21 @@ target_compile_features(
 )
 
 #
+# Stage the extension alongside `__init__.py` in the build tree so the
+# package is importable as `tax` directly from `${CMAKE_BINARY_DIR}/python`
+# (used by the ctest entry below; the `pip install .` path uses the
+# install() rules below).
+#
+set_target_properties(_tax PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/python/tax"
+)
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/tax/__init__.py"
+    "${CMAKE_BINARY_DIR}/python/tax/__init__.py"
+    COPYONLY
+)
+
+#
 # Helpful diagnostics.
 #
 message(STATUS "Python executable : ${Python_EXECUTABLE}")
@@ -106,13 +121,14 @@ if(TAX_BUILD_TEST)
         )
 
         #
-        # Allow tests to import from the build tree.
+        # Tests import from the staged build tree (which has both
+        # `__init__.py` and the compiled `_tax.so` next to each other).
         #
         set_tests_properties(
             python_bindings
             PROPERTIES
             ENVIRONMENT
-                "PYTHONPATH=${CMAKE_CURRENT_SOURCE_DIR}"
+                "PYTHONPATH=${CMAKE_BINARY_DIR}/python"
         )
 
     else()

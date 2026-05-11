@@ -65,9 +65,16 @@ f.coeffs_norm(2)
 
 ## Available math functions
 
+Math functions live under **`tax.math`** (not the top level):
+
+```python
+y = tax.math.sin(x)
+z = tax.math.atan2(y, x)
+```
+
 | Family | Functions |
 |---|---|
-| trig | `sin`, `cos`, `tan` |
+| trig | `tax.math.sin`, `cos`, `tan` |
 | hyperbolic | `sinh`, `cosh`, `tanh` |
 | inverse trig | `asin`, `acos`, `atan`, `atan2(y, x)` |
 | inverse hyperbolic | `asinh`, `acosh`, `atanh` |
@@ -78,6 +85,41 @@ f.coeffs_norm(2)
 `pow` is overloaded: a real `c` calls the real-exponent kernel, an
 `int n` calls the integer-power kernel (binary exponentiation, negative
 powers handled via reciprocal).
+
+## Eigen-backed containers
+
+For collections of `TaylorExpansion` objects, use the Eigen-backed
+wrappers `tax.TaylorExpansionVector` and `tax.TaylorExpansionMatrix`.
+They share the same `(order, size)` across all elements and expose
+common vectorised operations.
+
+```python
+x, y = tax.variables([1.0, 2.0], order=3)
+
+# 1-D collection — vector-valued function.
+v = tax.TaylorExpansionVector([x, y, x * y])
+
+len(v)              # 3
+v[2]                # TaylorExpansion (x * y)
+v.value()           # numpy array of constant terms, shape (3,)
+v.eval([0.1, 0.2])  # evaluate every component, shape (3,)
+v.derivative([1, 0])# d/dx of each component
+v.jacobian()        # numpy (3, 2) — same as tax.jacobian([x, y, x*y])
+
+# 2-D collection — matrix of polynomials.
+m = tax.TaylorExpansionMatrix([[x,    y    ],
+                               [x*y,  x + y]])
+m.shape             # (2, 2)
+m[0, 1]             # TaylorExpansion (y)
+m.value()           # numpy (2, 2)
+m.eval([0.1, 0.2])  # numpy (2, 2)
+m.derivative([0, 1])# numpy (2, 2)
+```
+
+Backed by `Eigen::Matrix<DynTE, Dynamic, 1>` and
+`Eigen::Matrix<DynTE, Dynamic, Dynamic>` respectively; all the
+operations call the existing C++ Eigen helpers (`tax::value`,
+`tax::eval`, `tax::derivative`, `tax::jacobian`).
 
 ## Factories
 

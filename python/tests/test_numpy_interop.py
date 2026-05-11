@@ -22,7 +22,7 @@ import tax
 
 def test_coeffs_returns_numpy_ndarray():
     x = tax.variable(0.3, 0, 5, 1)
-    f = tax.sin(x)
+    f = tax.math.sin(x)
     c = f.coeffs()
     assert isinstance(c, np.ndarray)
     assert c.dtype == np.float64
@@ -32,7 +32,7 @@ def test_coeffs_returns_numpy_ndarray():
 
 def test_derivatives_returns_numpy_ndarray():
     x = tax.variable(0.5, 0, 4, 1)
-    f = tax.exp(x)
+    f = tax.math.exp(x)
     d = f.derivatives()
     assert isinstance(d, np.ndarray)
     assert d.dtype == np.float64
@@ -57,7 +57,7 @@ def test_variables_accepts_numpy_array():
 
 def test_at_accepts_numpy_array():
     x, y = tax.variables([0.5, 0.3], order=4)
-    f = tax.sin(x * y)
+    f = tax.math.sin(x * y)
     dx = np.array([0.05, -0.02])
     v_np = f.at(dx)
     v_list = f.at([0.05, -0.02])
@@ -66,7 +66,7 @@ def test_at_accepts_numpy_array():
 
 def test_derivative_accepts_numpy_array():
     x, y = tax.variables([0.5, 0.3], order=4)
-    f = tax.exp(x + y)
+    f = tax.math.exp(x + y)
     alpha = np.array([1, 1], dtype=np.int32)
     # Both numpy int and list should work.
     assert f.derivative(alpha) == pytest.approx(f.derivative([1, 1]))
@@ -85,7 +85,7 @@ def test_coeff_accepts_numpy_array():
 
 def test_from_coeffs_round_trip():
     x = tax.variable(1.5, 0, 4, 1)
-    f = tax.sin(x)
+    f = tax.math.sin(x)
     cs = f.coeffs()
     g = tax.from_coeffs(cs, order=4, size=1)
     np.testing.assert_allclose(g.coeffs(), cs)
@@ -104,7 +104,7 @@ def test_from_coeffs_wrong_length_raises():
 
 def test_gradient_returns_numpy_vector():
     x, y, z = tax.variables([0.5, 0.3, 0.2], order=4)
-    f = tax.sin(x * y) + tax.exp(z)
+    f = tax.math.sin(x * y) + tax.math.exp(z)
     g = tax.gradient(f)
     assert isinstance(g, np.ndarray)
     assert g.shape == (3,)
@@ -114,7 +114,7 @@ def test_gradient_returns_numpy_vector():
 
 def test_hessian_returns_numpy_matrix():
     x, y = tax.variables([0.5, 0.3], order=4)
-    f = tax.exp(x + y)
+    f = tax.math.exp(x + y)
     H = tax.hessian(f)
     assert isinstance(H, np.ndarray)
     assert H.shape == (2, 2)
@@ -144,7 +144,7 @@ def test_jacobian_empty_raises():
 
 def test_workflow_numpy_slice_and_rebuild():
     x, y = tax.variables([0.5, 0.3], order=4)
-    f = tax.sin(x * y) + tax.exp(x + y)
+    f = tax.math.sin(x * y) + tax.math.exp(x + y)
     cs = f.coeffs()                      # numpy array
 
     # Manipulate via numpy and rebuild.
