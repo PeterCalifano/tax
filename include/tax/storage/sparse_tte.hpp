@@ -232,6 +232,189 @@ class SparseTaylorExpansionT
         val_.push_back( value );
     }
 
+    // -- Arithmetic -----------------------------------------------------------
+
+    /// @brief Sparse + sparse (two-pointer merge over sorted indices).
+    [[nodiscard]] friend SparseTaylorExpansionT operator+( const SparseTaylorExpansionT& a,
+                                                            const SparseTaylorExpansionT& b )
+    {
+        SparseTaylorExpansionT out;
+        out.reserve( a.idx_.size() + b.idx_.size() );
+        std::size_t i = 0;
+        std::size_t j = 0;
+        while ( i < a.idx_.size() && j < b.idx_.size() )
+        {
+            const auto ia = a.idx_[i];
+            const auto ib = b.idx_[j];
+            if ( ia < ib )
+            {
+                out.idx_.push_back( ia );
+                out.val_.push_back( a.val_[i] );
+                ++i;
+            } else if ( ib < ia )
+            {
+                out.idx_.push_back( ib );
+                out.val_.push_back( b.val_[j] );
+                ++j;
+            } else
+            {
+                const T sum = a.val_[i] + b.val_[j];
+                if ( sum != T{ 0 } )
+                {
+                    out.idx_.push_back( ia );
+                    out.val_.push_back( sum );
+                }
+                ++i;
+                ++j;
+            }
+        }
+        for ( ; i < a.idx_.size(); ++i )
+        {
+            out.idx_.push_back( a.idx_[i] );
+            out.val_.push_back( a.val_[i] );
+        }
+        for ( ; j < b.idx_.size(); ++j )
+        {
+            out.idx_.push_back( b.idx_[j] );
+            out.val_.push_back( b.val_[j] );
+        }
+        return out;
+    }
+
+    /// @brief Sparse - sparse (two-pointer merge over sorted indices).
+    [[nodiscard]] friend SparseTaylorExpansionT operator-( const SparseTaylorExpansionT& a,
+                                                            const SparseTaylorExpansionT& b )
+    {
+        SparseTaylorExpansionT out;
+        out.reserve( a.idx_.size() + b.idx_.size() );
+        std::size_t i = 0;
+        std::size_t j = 0;
+        while ( i < a.idx_.size() && j < b.idx_.size() )
+        {
+            const auto ia = a.idx_[i];
+            const auto ib = b.idx_[j];
+            if ( ia < ib )
+            {
+                out.idx_.push_back( ia );
+                out.val_.push_back( a.val_[i] );
+                ++i;
+            } else if ( ib < ia )
+            {
+                out.idx_.push_back( ib );
+                out.val_.push_back( -b.val_[j] );
+                ++j;
+            } else
+            {
+                const T diff = a.val_[i] - b.val_[j];
+                if ( diff != T{ 0 } )
+                {
+                    out.idx_.push_back( ia );
+                    out.val_.push_back( diff );
+                }
+                ++i;
+                ++j;
+            }
+        }
+        for ( ; i < a.idx_.size(); ++i )
+        {
+            out.idx_.push_back( a.idx_[i] );
+            out.val_.push_back( a.val_[i] );
+        }
+        for ( ; j < b.idx_.size(); ++j )
+        {
+            out.idx_.push_back( b.idx_[j] );
+            out.val_.push_back( -b.val_[j] );
+        }
+        return out;
+    }
+
+    /// @brief Unary negation.
+    [[nodiscard]] friend SparseTaylorExpansionT operator-( const SparseTaylorExpansionT& a )
+    {
+        SparseTaylorExpansionT out;
+        out.reserve( a.idx_.size() );
+        for ( std::size_t k = 0; k < a.val_.size(); ++k )
+        {
+            out.idx_.push_back( a.idx_[k] );
+            out.val_.push_back( -a.val_[k] );
+        }
+        return out;
+    }
+
+    /// @brief Scalar multiplication (drops to zero if `s == 0`).
+    [[nodiscard]] friend SparseTaylorExpansionT operator*( const SparseTaylorExpansionT& a, T s )
+    {
+        if ( s == T{ 0 } ) return SparseTaylorExpansionT{};
+        SparseTaylorExpansionT out;
+        out.reserve( a.idx_.size() );
+        for ( std::size_t k = 0; k < a.val_.size(); ++k )
+        {
+            out.idx_.push_back( a.idx_[k] );
+            out.val_.push_back( a.val_[k] * s );
+        }
+        return out;
+    }
+
+    [[nodiscard]] friend SparseTaylorExpansionT operator*( T s, const SparseTaylorExpansionT& a )
+    {
+        return a * s;
+    }
+
+    /// @brief Scalar division (delegates to scalar multiplication by `1/s`).
+    [[nodiscard]] friend SparseTaylorExpansionT operator/( const SparseTaylorExpansionT& a, T s )
+    {
+        return a * ( T{ 1 } / s );
+    }
+
+    /// @brief Add a scalar to the constant term.
+    [[nodiscard]] friend SparseTaylorExpansionT operator+( const SparseTaylorExpansionT& a, T s )
+    {
+        if ( s == T{ 0 } ) return a;
+        SparseTaylorExpansionT out;
+        out.reserve( a.idx_.size() + 1 );
+        if ( a.idx_.empty() || a.idx_.front() != 0 )
+        {
+            out.idx_.push_back( 0 );
+            out.val_.push_back( s );
+            for ( std::size_t k = 0; k < a.val_.size(); ++k )
+            {
+                out.idx_.push_back( a.idx_[k] );
+                out.val_.push_back( a.val_[k] );
+            }
+        } else
+        {
+            const T sum = a.val_.front() + s;
+            if ( sum != T{ 0 } )
+            {
+                out.idx_.push_back( 0 );
+                out.val_.push_back( sum );
+            }
+            for ( std::size_t k = 1; k < a.val_.size(); ++k )
+            {
+                out.idx_.push_back( a.idx_[k] );
+                out.val_.push_back( a.val_[k] );
+            }
+        }
+        return out;
+    }
+
+    [[nodiscard]] friend SparseTaylorExpansionT operator+( T s, const SparseTaylorExpansionT& a )
+    {
+        return a + s;
+    }
+
+    /// @brief Subtract a scalar from the constant term.
+    [[nodiscard]] friend SparseTaylorExpansionT operator-( const SparseTaylorExpansionT& a, T s )
+    {
+        return a + ( -s );
+    }
+
+    /// @brief Scalar minus polynomial.
+    [[nodiscard]] friend SparseTaylorExpansionT operator-( T s, const SparseTaylorExpansionT& a )
+    {
+        return ( -a ) + s;
+    }
+
    private:
     std::vector< std::uint16_t > idx_;
     std::vector< T > val_;
