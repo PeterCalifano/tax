@@ -167,6 +167,40 @@ one-position offset gives the same kind of speed-up.
 | `MV/Sqrt/N5_M4`       | 20,983.1 |   623.4 | 33.66x |
 | `MV/Sqrt/N6_M3`       |  7,903.2 |   513.4 | 15.40x |
 
+## Compile-time and binary-size cost
+
+The optimisations land in `.rodata` (constexpr stencils) and in
+template-instantiated inline FMA chains, so compile time and binary
+size scale with the *number of shapes a translation unit actually
+instantiates*.  Two clean rebuilds at `-O3 -DNDEBUG -j1` with the new
+`TAX_USE_UNROLL` / `TAX_USE_STENCIL` toggles, measuring two
+representative consumers:
+
+| Consumer | TAX_USE_*=OFF | TAX_USE_*=ON | Δ time | Δ size | Δ .rodata |
+|---|---:|---:|---:|---:|---:|
+| `bench_vs_dace`<sup>1</sup> | 9.7 s, 782 KiB | 232 s, 2.04 MiB | **+24×** | **+1.27 MiB** | **+1.13 MiB** |
+| `testKernels`<sup>2</sup>   | 5.3 s, 641 KiB | 5.4 s, 641 KiB | +1 % | +64 B | ≈ 0 |
+
+<sup>1</sup> Instantiates every operator at `(N=8, M=6)` — the worst
+case in the codebase.  `numMonomials(8, 6) = 3003` output rows,
+~126 K pair entries in `CauchyWeightStencil<8, 6>::db`.
+The `.rodata` growth is entirely the new stencil tables;
+`bench_vs_dace` had to bump `-fconstexpr-ops-limit` to compile the
+ON build at all.
+
+<sup>2</sup> A typical kernel test — small static shapes (`N ≤ 5`,
+`M ≤ 4`) — where the stencil tables are kilobytes-not-megabytes and
+the unrolled FMA chains stay in `i$`.
+
+So the cost is **paid only by code that uses heavy multivariate
+shapes** (M = 6, N ≥ 6 or so).  Hot ODE / ADS configurations like
+`(N=12, M=4)` or `(N=4, M=4)` are well inside the cheap regime — they
+add a few hundred kilobytes of `.rodata` and a few seconds of compile
+time and return 10–40× kernel speed-ups in exchange.  Set
+`-DTAX_USE_UNROLL=OFF -DTAX_USE_STENCIL=OFF` to fall back to the
+original loop / `forEachMonomial` + `forEachSubIndex` walks when those
+trade-offs aren't acceptable (e.g. very tight binary-size budgets).
+
 ## Takeaways
 
 - Pure multivariate Cauchy ops (`Mul`, `Square`, `Cube`, `IPow5`) are
