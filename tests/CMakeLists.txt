@@ -23,6 +23,7 @@ endif()
 set(TEST_SOURCES
     foundation/testCombinatorics.cpp
     foundation/testCombinatoricsDynamic.cpp
+    foundation/testDegreeOf.cpp
     foundation/testEnumeration.cpp
     foundation/testShapeBaseEbo.cpp
     kernels/testKernels.cpp
