@@ -253,6 +253,19 @@ void BM_Tax_Square( benchmark::State& state )
     }
 }
 
+template < int N >
+void BM_Tax_Reciprocal( benchmark::State& state )
+{
+    auto x = tax::TE< N >::variable( 2.0 );  // a[0]=2 != 0
+    for ( auto _ : state )
+    {
+        benchmark::DoNotOptimize( x );
+        tax::TE< N > z = 1.0 / x;
+        benchmark::DoNotOptimize( z );
+        benchmark::ClobberMemory();
+    }
+}
+
 #ifdef TAX_BENCH_HAVE_DACE
 template < int N >
 void BM_Dace_Sin( benchmark::State& state )
@@ -330,6 +343,11 @@ void registerBenchmarks()
     reg( "Tax/Square/N10", &BM_Tax_Square< 10 > );
     reg( "Tax/Square/N20", &BM_Tax_Square< 20 > );
     reg( "Tax/Square/N40", &BM_Tax_Square< 40 > );
+
+    reg( "Tax/Reciprocal/N5",  &BM_Tax_Reciprocal< 5 > );
+    reg( "Tax/Reciprocal/N10", &BM_Tax_Reciprocal< 10 > );
+    reg( "Tax/Reciprocal/N20", &BM_Tax_Reciprocal< 20 > );
+    reg( "Tax/Reciprocal/N40", &BM_Tax_Reciprocal< 40 > );
 
     // --- Raw univariate Cauchy kernels (Loop vs Unroll vs Reverse). ---------
     auto regKernel = [&]( const char* name, auto fn ) {

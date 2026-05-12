@@ -134,6 +134,36 @@ void BM_MV_Erf( benchmark::State& s )
     }
 }
 
+template < int N, int M >
+void BM_MV_Reciprocal( benchmark::State& s )
+{
+    // Shift so the constant coefficient is positive and nonzero (operand
+    // built from makeVars has a[0]=0.1; bump to 1.1 to keep things sane).
+    auto vars = makeVars< N, M >();
+    auto x = std::get< 0 >( vars ) + 1.0;
+    for ( auto _ : s )
+    {
+        benchmark::DoNotOptimize( x );
+        tax::TEn< N, M > z = 1.0 / x;
+        benchmark::DoNotOptimize( z );
+        benchmark::ClobberMemory();
+    }
+}
+
+template < int N, int M >
+void BM_MV_Sqrt( benchmark::State& s )
+{
+    auto vars = makeVars< N, M >();
+    auto x = std::get< 0 >( vars ) + 1.0;  // a[0] = 1.1 > 0
+    for ( auto _ : s )
+    {
+        benchmark::DoNotOptimize( x );
+        tax::TEn< N, M > z = tax::sqrt( x );
+        benchmark::DoNotOptimize( z );
+        benchmark::ClobberMemory();
+    }
+}
+
 #define TAX_REG_SHAPE( N, M )                                                  \
     do                                                                         \
     {                                                                          \
@@ -148,6 +178,8 @@ void BM_MV_Erf( benchmark::State& s )
         reg( "MV/Atan/N" #N "_M" #M, &BM_MV_Atan< N, M > );                    \
         reg( "MV/Atan2/N" #N "_M" #M, &BM_MV_Atan2< N, M > );                  \
         reg( "MV/Erf/N" #N "_M" #M, &BM_MV_Erf< N, M > );                      \
+        reg( "MV/Reciprocal/N" #N "_M" #M, &BM_MV_Reciprocal< N, M > );        \
+        reg( "MV/Sqrt/N" #N "_M" #M, &BM_MV_Sqrt< N, M > );                    \
     } while ( 0 )
 
 void registerBenchmarks()

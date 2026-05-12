@@ -1,17 +1,20 @@
 # Cauchy kernel optimisations — before/after Google Benchmark comparison
 
-Comparison of the static Cauchy path before and after two stacked
-optimisations:
+Stacked optimisations of the static Cauchy and reciprocal/sqrt paths:
 
-1. **Multivariate (M ≥ 2)**: precomputed `CauchyStencil<N, M>` /
-   `CauchySymStencil<N, M>` CSR tables.
-2. **Univariate (M = 1)**: compile-time-unrolled FMA chain parameterised
-   by `std::index_sequence`.
+1. **Multivariate (M ≥ 2) — Cauchy / Self-Cauchy**: precomputed
+   `CauchyStencil<N, M>` / `CauchySymStencil<N, M>` CSR tables.
+2. **Univariate (M = 1) — Cauchy / Self-Cauchy**: compile-time-unrolled
+   FMA chain parameterised by `std::index_sequence`.
+3. **Reciprocal & Sqrt (forward substitutions)**: same stencils reused,
+   with the `(beta=0, gamma=alpha)` endpoint skipped per row (it encodes
+   the LHS term moved out of the recurrence). M = 1 uses analogous
+   compile-time-unrolled forward substitutions.
 
 | | |
 |---|---|
 | Before | `claude/refactor-taylor-series-XtMUw` @ `6091823` |
-| After  | `claude/cauchy-csr-stencil` @ `02fbcb2` |
+| After  | `claude/cauchy-csr-stencil` @ `795ec7c` |
 | Binaries | `bench_univariate`, `bench_multivariate` (Google Benchmark) |
 | CPU | Intel(R) Xeon(R) @ 2.80 GHz |
 | OS | Linux 6.18.5 x86_64 |
@@ -130,12 +133,51 @@ through `cauchyProduct` / `cauchySelfProduct`:
 | `MV/Atan2/N6_M3`   |  33,445.1 |   7,183.1 |  4.66x |
 | `MV/Erf/N6_M3`     |  32,336.4 |  20,133.8 |  1.61x |
 
+## Reciprocal & Sqrt (forward substitutions)
+
+`seriesReciprocal` and `seriesSqrt` are forward substitutions, not flat
+dot products — each row depends on previously computed rows in the same
+output. We can't remove that dependency, but the **per-row sub-index
+sum** has the same shape as the Cauchy stencil minus the
+`(beta=0, gamma=alpha)` endpoint. Reusing the existing stencil with a
+one-position offset gives the same kind of speed-up.
+
+### Univariate
+
+| benchmark | before (ns) | after (ns) | speed-up |
+|---|---:|---:|---:|
+| `Tax/Reciprocal/N5`  |    54.5 |     8.2 | 6.65x |
+| `Tax/Reciprocal/N10` |   148.3 |    26.3 | 5.63x |
+| `Tax/Reciprocal/N20` |   411.4 |   107.7 | 3.82x |
+| `Tax/Reciprocal/N40` | 1,121.1 |   310.8 | 3.61x |
+| `Tax/Sqrt/N10`       |    89.7 |    24.8 | 3.62x |
+| `Tax/Sqrt/N20`       |   284.1 |    84.3 | 3.37x |
+| `Tax/Sqrt/N40`       |   747.0 |   293.2 | 2.55x |
+
+### Multivariate
+
+| benchmark | before (ns) | after (ns) | speed-up |
+|---|---:|---:|---:|
+| `MV/Reciprocal/N5_M3` |  4,089.8 |   420.5 |  9.73x |
+| `MV/Reciprocal/N4_M4` |  8,664.7 |   376.8 | 23.00x |
+| `MV/Reciprocal/N5_M4` | 24,446.0 | 1,081.2 | 22.61x |
+| `MV/Reciprocal/N6_M3` |  8,972.6 |   654.4 | 13.71x |
+| `MV/Sqrt/N5_M3`       |  4,009.6 |   244.4 | 16.41x |
+| `MV/Sqrt/N4_M4`       |  6,056.6 |   307.6 | 19.69x |
+| `MV/Sqrt/N5_M4`       | 20,983.1 |   623.4 | 33.66x |
+| `MV/Sqrt/N6_M3`       |  7,903.2 |   513.4 | 15.40x |
+
 ## Takeaways
 
 - Pure multivariate Cauchy ops (`Mul`, `Square`, `Cube`, `IPow5`) are
   **10–47× faster**. The wider the shape (N=5, M=4), the bigger the win —
   the stencil amortises the multi-index walk that previously dominated
   every call.
+- Reciprocal and sqrt forward substitutions go **9–34× faster
+  multivariate**, **2.5–6.7× faster univariate**. The cross-row
+  dependency is unchanged; the win comes entirely from removing the
+  per-call multi-index regeneration and giving the compiler a constant
+  trip count for unrolling.
 - Transcendentals that internally use `cauchySelfProduct` (`asin`,
   `atan`, `atan2`, `erf`) inherit a smaller but still significant
   **1.4–10× speed-up**. The remaining cost is the weighted scalar
