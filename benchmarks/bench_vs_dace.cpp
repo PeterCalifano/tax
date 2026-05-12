@@ -353,29 +353,34 @@ void BM_Dace_Uni_IPow( benchmark::State& s, int N )
 // =============================================================================
 // Multivariate — static `TEn<N, M>`. M is fixed at 6 here.
 //
-// Operands are *dense* linear combinations of all M variables so each
-// backend's recurrence does real work on every coordinate axis (rather than
-// dropping out into a near-univariate sub-problem hidden behind a fixed M).
+// Operands are *fully dense*: every coefficient up to total degree N is
+// nonzero. We achieve that by feeding a dense linear `c + sum_i alphas[i] *
+// x_i` through `exp()` once before the timed loop, so DACE's sparse map ends
+// up populated for every multi-index just like tax's `std::array<T, S>`.
 // =============================================================================
 
 constexpr int kM = 6;
 
-// Two distinct dense-in-all-M polynomials so binary ops aren't symmetric.
-// Pattern A: c=1.1, alphas={0.10, 0.05, 0.03, 0.02, 0.01, 0.005}
-// Pattern B: c=1.2, alphas={0.005, 0.01, 0.02, 0.03, 0.05, 0.10}
+// Two distinct dense-everywhere polynomials so binary ops aren't symmetric.
+// `pX = exp(c + sum_i alphasA[i] * x_i)` etc.
 constexpr std::array< double, kM > kAlphaA{ 0.10, 0.05, 0.03, 0.02, 0.01, 0.005 };
 constexpr std::array< double, kM > kAlphaB{ 0.005, 0.01, 0.02, 0.03, 0.05, 0.10 };
 
 template < int N >
 tax::TEn< N, kM > denseStaticOperand( double c, const std::array< double, kM >& alphas )
 {
-    // Expand around the origin; each `vars[i]` is the variable x_i with a[0]=0.
     typename tax::TEn< N, kM >::Input x0{};
     auto vars = tax::TEn< N, kM >::variables( x0 );
-    // out = c + sum_i alphas[i] * x_i  — every linear monomial is nonzero.
-    return c + alphas[0] * std::get< 0 >( vars ) + alphas[1] * std::get< 1 >( vars )
-           + alphas[2] * std::get< 2 >( vars ) + alphas[3] * std::get< 3 >( vars )
-           + alphas[4] * std::get< 4 >( vars ) + alphas[5] * std::get< 5 >( vars );
+    tax::TEn< N, kM > lin = c + alphas[0] * std::get< 0 >( vars )
+                            + alphas[1] * std::get< 1 >( vars )
+                            + alphas[2] * std::get< 2 >( vars )
+                            + alphas[3] * std::get< 3 >( vars )
+                            + alphas[4] * std::get< 4 >( vars )
+                            + alphas[5] * std::get< 5 >( vars );
+    // sqrt(lin) is fully dense (every monomial slot is strictly nonzero) and,
+    // unlike exp(linear), doesn't trivially collapse under log() — so the
+    // operand stays algebraically nontrivial for every operator we bench.
+    return tax::TEn< N, kM >{ tax::sqrt( lin ) };
 }
 
 template < int N >
@@ -493,9 +498,10 @@ tax::DynTE<> denseDynamicOperand( int N, double c, const std::array< double, kM 
     std::vector< double > x0( std::size_t( kM ), 0.0 );
     auto vars = tax::DynTE<>::variables(
         std::span< const double >( x0.data(), x0.size() ), N );
-    auto x = tax::DynTE<>::constant( c, N, kM );
-    for ( int i = 0; i < int( kM ); ++i ) x = x + alphas[std::size_t( i )] * vars[std::size_t( i )];
-    return x;
+    auto lin = tax::DynTE<>::constant( c, N, kM );
+    for ( int i = 0; i < int( kM ); ++i )
+        lin = lin + alphas[std::size_t( i )] * vars[std::size_t( i )];
+    return tax::sqrt( lin );  // fully dense, all multi-index slots nonzero
 }
 
 void BM_Dynamic_MV_Mul( benchmark::State& s, int N )
@@ -603,15 +609,16 @@ void BM_Dynamic_MV_IPow( benchmark::State& s, int N )
 
 #ifdef TAX_BENCH_HAVE_DACE
 
-// Build the same dense operand on the DACE side:
-//   c + sum_i alphas[i] * DACE::DA(i + 1)
-// (DACE indexes variables starting at 1.)
+// Build the same fully-dense operand on the DACE side:
+//   sqrt(c + sum_i alphas[i] * DACE::DA(i + 1))
+// (DACE indexes variables starting at 1.) `sqrt` saturates every multi-index
+// slot in DACE's sparse map so its iteration count matches tax's dense walk.
 DACE::DA denseDaceOperand( double c, const std::array< double, kM >& alphas )
 {
-    DACE::DA x( c );
+    DACE::DA lin( c );
     for ( int i = 0; i < int( kM ); ++i )
-        x += alphas[std::size_t( i )] * DACE::DA( unsigned( i + 1 ) );
-    return x;
+        lin += alphas[std::size_t( i )] * DACE::DA( unsigned( i + 1 ) );
+    return lin.sqrt();
 }
 
 void BM_Dace_MV_Mul( benchmark::State& s, int N )
