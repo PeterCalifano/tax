@@ -238,6 +238,95 @@ walks over heap-allocated `std::vector<int>` alpha/beta buffers, with
 no stencil amortisation. Use `TEn<N, M>` for high-M static work; the
 dynamic path remains a Python/REPL convenience.
 
+## Sparse-operand multivariate (M = 6, two-term linear input)
+
+The dense-operand grid above measures the case where every monomial slot
+is nonzero — fair to both backends but blind to the workload that
+*motivates* sparse storage in DACE. In the original 2-sparse run (a
+2-term linear operand `c + alpha*x_var` in M = 6 variables) DACE was
+beating tax-dense by **up to ~1500×** on `Mul` / `IPow` because its
+sparse map walked just the two nonzero entries while tax's
+`cauchyProduct` walked every multi-index pair in the full
+`numMonomials(N, M)` shape.
+
+`tax::SparseTaylorExpansionT<T, N, M>` (alias `STEn<N, M>`) is the
+sibling sparse-storage type added in this branch.  It stores only the
+nonzero monomials as two parallel sorted vectors and runs `Cauchy*` /
+`SelfProduct` / `IntPow` over the nonzero entries directly, truncating
+each `(beta, gamma)` pair against `DegreeOf<N, M>` in O(1).
+
+The `SparseOp/MV/...` benchmarks register three backends on the same
+2-term input:
+
+```cpp
+constexpr double kSparseC_A = 1.1, kSparseAlpha_A = 0.7;
+constexpr int    kSparseVar_A = 0;
+//  pX = 1.1 + 0.7 * x_0   (constant + one linear term, all other slots zero)
+//  pY = 1.2 + 0.5 * x_1
+```
+
+| Track                              | Storage              | Iteration                                |
+|------------------------------------|----------------------|------------------------------------------|
+| `SparseOp/StaticDense/MV/...`      | `tax::TEn<N, M>`     | dense `cauchyProduct`, full stencil walk |
+| `SparseOp/Sparse/MV/...`           | `tax::STEn<N, M>`    | `sparseCauchyProduct`, only nnz·nnz pairs |
+| `SparseOp/Dace/MV/...`             | `DACE::DA`           | sparse map, only live monomials          |
+
+Run the bench (DACE-enabled build) to populate the cells; the table
+below is for the (N, M) grid:
+
+### Mul (sparse-operand)
+
+| N | StaticDense (ns) | Sparse (ns) | DACE (ns) | Sparse vs StaticDense | Sparse vs DACE |
+|---:|---:|---:|---:|---:|---:|
+| 2 | _tbd_ | _tbd_ | _tbd_ | _tbd_ | _tbd_ |
+| 4 | _tbd_ | _tbd_ | _tbd_ | _tbd_ | _tbd_ |
+| 6 | _tbd_ | _tbd_ | _tbd_ | _tbd_ | _tbd_ |
+| 8 | _tbd_ | _tbd_ | _tbd_ | _tbd_ | _tbd_ |
+
+### Square (sparse-operand)
+
+| N | StaticDense (ns) | Sparse (ns) | DACE (ns) | Sparse vs StaticDense | Sparse vs DACE |
+|---:|---:|---:|---:|---:|---:|
+| 2 | _tbd_ | _tbd_ | _tbd_ | _tbd_ | _tbd_ |
+| 4 | _tbd_ | _tbd_ | _tbd_ | _tbd_ | _tbd_ |
+| 6 | _tbd_ | _tbd_ | _tbd_ | _tbd_ | _tbd_ |
+| 8 | _tbd_ | _tbd_ | _tbd_ | _tbd_ | _tbd_ |
+
+### IPow (a^5, sparse-operand)
+
+| N | StaticDense (ns) | Sparse (ns) | DACE (ns) | Sparse vs StaticDense | Sparse vs DACE |
+|---:|---:|---:|---:|---:|---:|
+| 2 | _tbd_ | _tbd_ | _tbd_ | _tbd_ | _tbd_ |
+| 4 | _tbd_ | _tbd_ | _tbd_ | _tbd_ | _tbd_ |
+| 6 | _tbd_ | _tbd_ | _tbd_ | _tbd_ | _tbd_ |
+| 8 | _tbd_ | _tbd_ | _tbd_ | _tbd_ | _tbd_ |
+
+Expected outcome (kernel-complexity reasoning, to be confirmed by
+re-running `bench_vs_dace` and pasting the numbers in):
+
+- **`Sparse` vs `StaticDense`** should grow rapidly with N at fixed M:
+  the dense path's work scales as `numMonomials(N, M)^2 / 2` (the
+  stencil pair count) while the sparse path stays at `O(nnz_a * nnz_b)`
+  ≈ `O(4)` for two 2-sparse operands. At `(N=8, M=6)` the dense path
+  walks ~3003·3003 ≈ 9 M pairs; the sparse path walks 4. Several
+  orders of magnitude.
+- **`Sparse` vs `DACE`** should be a near tie at the headline case —
+  both backends iterate the same handful of nonzero pairs.
+- **Trade-off**: when operands are dense (the original `Static/MV/...`
+  rows above), `Sparse` is slower than `StaticDense` because
+  `flatIndexSum<N, M>` (round-trip through `unflatIndex` + `flatIndex`)
+  costs more per pair than the dense stencil's precomputed direct
+  index lookup. **Use sparse when you know the operand has nnz ≪
+  numMonomials(N, M).**
+
+### Caveat
+
+The headline `(N=8, M=6)` cell takes minutes to compile because of
+the existing `CauchyStencil<8, 6>` consteval evaluation in the dense
+benchmark path (the bench passes `-fconstexpr-ops-limit=2e9`). The
+sparse path itself has no consteval cost beyond the small
+`DegreeOf<N, M>` lookup table.
+
 ## Choosing a backend
 
 | Workload                                                    | Best backend |
@@ -245,13 +334,17 @@ dynamic path remains a Python/REPL convenience.
 | Univariate transcendentals (sqrt/exp/log/sin/...) any N     | **tax static** |
 | Univariate multiplicative (`Mul` / `IPow`) at N ≤ 10        | **tax static** |
 | Univariate multiplicative at N ≥ 20                         | DACE |
-| Multivariate (any M, any N) — *dense* coefficients          | **tax static** |
-| Multivariate — *very sparse* operands (few nonzero monomials in a big shape) | DACE (its sparse map walks only the nonzero monomials) |
+| Multivariate (any M, any N) — *dense* coefficients          | **tax static** (`TEn<N, M>`) |
+| Multivariate — *very sparse* operands (few nonzero monomials in a big shape) | **tax sparse** (`STEn<N, M>`) — eager-evaluated sparse storage; walks only the nonzero monomials |
 | Runtime-shape / Python REPL / mixed shapes                  | tax dynamic (correctness) or DACE (perf) |
 
 The fork in the multivariate row is the key one: if your real workload
 is dense — typical ODE flow polynomials, ADS leaves, anything that's
-been propagated for a few steps — use tax. If it's structurally sparse
-(e.g. expanding around a single perturbation axis in a higher-D state
-space and never multiplying by other axes), DACE's sparse storage
-walks only the live monomials and wins.
+been propagated for a few steps — use tax static. If it's structurally
+sparse (e.g. expanding around a single perturbation axis in a higher-D
+state space and never multiplying by other axes), use `tax::STEn<N, M>`
+or DACE — both walk only the live monomials. Mixed sparse↔dense
+arithmetic on the tax side requires explicit conversion via
+`STEn::toDense()` or the converting constructor — there is no implicit
+densification, so the cliff between the two backends is visible at the
+call site.
