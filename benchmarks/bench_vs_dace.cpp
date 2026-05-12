@@ -730,6 +730,180 @@ void BM_Dace_MV_IPow( benchmark::State& s, int N )
 #endif  // TAX_BENCH_HAVE_DACE
 
 // =============================================================================
+// Multivariate — *sparse-operand* workload.
+//
+// Operand is a 2-term linear polynomial `c + alpha * x_var` in `kM = 6`
+// variables. This is the worst-case shape for tax's dense storage
+// (almost all monomial slots are zero, yet `cauchyProduct` walks the full
+// stencil) and the natural shape for DACE's sparse map. With the new
+// sparse mode, tax can iterate just the two nonzero entries per operand
+// and match DACE's iteration count.
+// =============================================================================
+
+constexpr double kSparseC_A = 1.1;
+constexpr double kSparseC_B = 1.2;
+constexpr double kSparseAlpha_A = 0.7;
+constexpr double kSparseAlpha_B = 0.5;
+constexpr int kSparseVar_A = 0;
+constexpr int kSparseVar_B = 1;
+
+// ---- tax static dense (full numMonomials(N, M) slots, two of them nonzero) ----
+
+template < int N >
+tax::TEn< N, kM > sparseLinearDenseOperand( double c, int var, double alpha )
+{
+    tax::TEn< N, kM > out;
+    out[0] = c;
+    tax::MultiIndex< kM > ei{};
+    ei[std::size_t( var )] = 1;
+    out[tax::detail::flatIndex< kM >( ei )] = alpha;
+    return out;
+}
+
+template < int N >
+void BM_SparseOp_StaticDense_MV_Mul( benchmark::State& s )
+{
+    auto x = sparseLinearDenseOperand< N >( kSparseC_A, kSparseVar_A, kSparseAlpha_A );
+    auto y = sparseLinearDenseOperand< N >( kSparseC_B, kSparseVar_B, kSparseAlpha_B );
+    for ( auto _ : s )
+    {
+        benchmark::DoNotOptimize( x );
+        benchmark::DoNotOptimize( y );
+        tax::TEn< N, kM > z = x * y;
+        benchmark::DoNotOptimize( z );
+        benchmark::ClobberMemory();
+    }
+}
+
+template < int N >
+void BM_SparseOp_StaticDense_MV_Square( benchmark::State& s )
+{
+    auto x = sparseLinearDenseOperand< N >( kSparseC_A, kSparseVar_A, kSparseAlpha_A );
+    for ( auto _ : s )
+    {
+        benchmark::DoNotOptimize( x );
+        tax::TEn< N, kM > z = x * x;
+        benchmark::DoNotOptimize( z );
+        benchmark::ClobberMemory();
+    }
+}
+
+template < int N >
+void BM_SparseOp_StaticDense_MV_IPow( benchmark::State& s )
+{
+    auto x = sparseLinearDenseOperand< N >( kSparseC_A, kSparseVar_A, kSparseAlpha_A );
+    for ( auto _ : s )
+    {
+        benchmark::DoNotOptimize( x );
+        tax::TEn< N, kM > z = tax::pow( x, 5 );
+        benchmark::DoNotOptimize( z );
+        benchmark::ClobberMemory();
+    }
+}
+
+// ---- tax sparse (`SparseTaylorExpansionT`, only the two nonzero slots stored) ----
+
+template < int N >
+tax::STEn< N, kM > sparseLinearSparseOperand( double c, int var, double alpha )
+{
+    typename tax::STEn< N, kM >::Input x0{};
+    return ( tax::STEn< N, kM >::variable( x0, var ) * alpha ) + c;
+}
+
+template < int N >
+void BM_SparseOp_Sparse_MV_Mul( benchmark::State& s )
+{
+    auto x = sparseLinearSparseOperand< N >( kSparseC_A, kSparseVar_A, kSparseAlpha_A );
+    auto y = sparseLinearSparseOperand< N >( kSparseC_B, kSparseVar_B, kSparseAlpha_B );
+    for ( auto _ : s )
+    {
+        benchmark::DoNotOptimize( x );
+        benchmark::DoNotOptimize( y );
+        tax::STEn< N, kM > z = x * y;
+        benchmark::DoNotOptimize( z );
+        benchmark::ClobberMemory();
+    }
+}
+
+template < int N >
+void BM_SparseOp_Sparse_MV_Square( benchmark::State& s )
+{
+    auto x = sparseLinearSparseOperand< N >( kSparseC_A, kSparseVar_A, kSparseAlpha_A );
+    for ( auto _ : s )
+    {
+        benchmark::DoNotOptimize( x );
+        tax::STEn< N, kM > z = tax::detail::sparseCauchySelfProduct< double, N, kM >( x );
+        benchmark::DoNotOptimize( z );
+        benchmark::ClobberMemory();
+    }
+}
+
+template < int N >
+void BM_SparseOp_Sparse_MV_IPow( benchmark::State& s )
+{
+    auto x = sparseLinearSparseOperand< N >( kSparseC_A, kSparseVar_A, kSparseAlpha_A );
+    for ( auto _ : s )
+    {
+        benchmark::DoNotOptimize( x );
+        tax::STEn< N, kM > z = tax::ipow( x, 5 );
+        benchmark::DoNotOptimize( z );
+        benchmark::ClobberMemory();
+    }
+}
+
+#ifdef TAX_BENCH_HAVE_DACE
+
+// ---- DACE (sparse map, naturally just two nonzero terms) ----
+
+DACE::DA sparseLinearDaceOperand( double c, int var, double alpha )
+{
+    return DACE::DA( c ) + alpha * DACE::DA( unsigned( var + 1 ) );
+}
+
+void BM_SparseOp_Dace_MV_Mul( benchmark::State& s, int N )
+{
+    DACE::DA::init( unsigned( N ), unsigned( kM ) );
+    DACE::DA x = sparseLinearDaceOperand( kSparseC_A, kSparseVar_A, kSparseAlpha_A );
+    DACE::DA y = sparseLinearDaceOperand( kSparseC_B, kSparseVar_B, kSparseAlpha_B );
+    for ( auto _ : s )
+    {
+        benchmark::DoNotOptimize( x );
+        benchmark::DoNotOptimize( y );
+        DACE::DA z = x * y;
+        benchmark::DoNotOptimize( z );
+        benchmark::ClobberMemory();
+    }
+}
+
+void BM_SparseOp_Dace_MV_Square( benchmark::State& s, int N )
+{
+    DACE::DA::init( unsigned( N ), unsigned( kM ) );
+    DACE::DA x = sparseLinearDaceOperand( kSparseC_A, kSparseVar_A, kSparseAlpha_A );
+    for ( auto _ : s )
+    {
+        benchmark::DoNotOptimize( x );
+        DACE::DA z = x * x;
+        benchmark::DoNotOptimize( z );
+        benchmark::ClobberMemory();
+    }
+}
+
+void BM_SparseOp_Dace_MV_IPow( benchmark::State& s, int N )
+{
+    DACE::DA::init( unsigned( N ), unsigned( kM ) );
+    DACE::DA x = sparseLinearDaceOperand( kSparseC_A, kSparseVar_A, kSparseAlpha_A );
+    for ( auto _ : s )
+    {
+        benchmark::DoNotOptimize( x );
+        DACE::DA z = x.pow( 5 );
+        benchmark::DoNotOptimize( z );
+        benchmark::ClobberMemory();
+    }
+}
+
+#endif  // TAX_BENCH_HAVE_DACE
+
+// =============================================================================
 // Registration
 // =============================================================================
 
@@ -880,6 +1054,50 @@ void registerBenchmarks()
         regDaceMv( "Sin",        &BM_Dace_MV_Sin,        n );
         regDaceMv( "Pow",        &BM_Dace_MV_Pow,        n );
         regDaceMv( "IPow",       &BM_Dace_MV_IPow,       n );
+    }
+#endif
+
+    // ---- Multivariate sparse-operand workload (tax static dense) ----
+    TAX_REG( "SparseOp/StaticDense/MV/Mul/N2_M6",    &BM_SparseOp_StaticDense_MV_Mul< 2 > );
+    TAX_REG( "SparseOp/StaticDense/MV/Mul/N4_M6",    &BM_SparseOp_StaticDense_MV_Mul< 4 > );
+    TAX_REG( "SparseOp/StaticDense/MV/Mul/N6_M6",    &BM_SparseOp_StaticDense_MV_Mul< 6 > );
+    TAX_REG( "SparseOp/StaticDense/MV/Mul/N8_M6",    &BM_SparseOp_StaticDense_MV_Mul< 8 > );
+    TAX_REG( "SparseOp/StaticDense/MV/Square/N2_M6", &BM_SparseOp_StaticDense_MV_Square< 2 > );
+    TAX_REG( "SparseOp/StaticDense/MV/Square/N4_M6", &BM_SparseOp_StaticDense_MV_Square< 4 > );
+    TAX_REG( "SparseOp/StaticDense/MV/Square/N6_M6", &BM_SparseOp_StaticDense_MV_Square< 6 > );
+    TAX_REG( "SparseOp/StaticDense/MV/Square/N8_M6", &BM_SparseOp_StaticDense_MV_Square< 8 > );
+    TAX_REG( "SparseOp/StaticDense/MV/IPow/N2_M6",   &BM_SparseOp_StaticDense_MV_IPow< 2 > );
+    TAX_REG( "SparseOp/StaticDense/MV/IPow/N4_M6",   &BM_SparseOp_StaticDense_MV_IPow< 4 > );
+    TAX_REG( "SparseOp/StaticDense/MV/IPow/N6_M6",   &BM_SparseOp_StaticDense_MV_IPow< 6 > );
+    TAX_REG( "SparseOp/StaticDense/MV/IPow/N8_M6",   &BM_SparseOp_StaticDense_MV_IPow< 8 > );
+
+    // ---- Multivariate sparse-operand workload (tax sparse) ----
+    TAX_REG( "SparseOp/Sparse/MV/Mul/N2_M6",    &BM_SparseOp_Sparse_MV_Mul< 2 > );
+    TAX_REG( "SparseOp/Sparse/MV/Mul/N4_M6",    &BM_SparseOp_Sparse_MV_Mul< 4 > );
+    TAX_REG( "SparseOp/Sparse/MV/Mul/N6_M6",    &BM_SparseOp_Sparse_MV_Mul< 6 > );
+    TAX_REG( "SparseOp/Sparse/MV/Mul/N8_M6",    &BM_SparseOp_Sparse_MV_Mul< 8 > );
+    TAX_REG( "SparseOp/Sparse/MV/Square/N2_M6", &BM_SparseOp_Sparse_MV_Square< 2 > );
+    TAX_REG( "SparseOp/Sparse/MV/Square/N4_M6", &BM_SparseOp_Sparse_MV_Square< 4 > );
+    TAX_REG( "SparseOp/Sparse/MV/Square/N6_M6", &BM_SparseOp_Sparse_MV_Square< 6 > );
+    TAX_REG( "SparseOp/Sparse/MV/Square/N8_M6", &BM_SparseOp_Sparse_MV_Square< 8 > );
+    TAX_REG( "SparseOp/Sparse/MV/IPow/N2_M6",   &BM_SparseOp_Sparse_MV_IPow< 2 > );
+    TAX_REG( "SparseOp/Sparse/MV/IPow/N4_M6",   &BM_SparseOp_Sparse_MV_IPow< 4 > );
+    TAX_REG( "SparseOp/Sparse/MV/IPow/N6_M6",   &BM_SparseOp_Sparse_MV_IPow< 6 > );
+    TAX_REG( "SparseOp/Sparse/MV/IPow/N8_M6",   &BM_SparseOp_Sparse_MV_IPow< 8 > );
+
+#ifdef TAX_BENCH_HAVE_DACE
+    // ---- Multivariate sparse-operand workload (DACE) ----
+    auto regSparseOpDaceMv = []( const char* op, auto fn, int N ) {
+        const std::string name =
+            std::string( "SparseOp/Dace/MV/" ) + op + "/N" + std::to_string( N ) + "_M6";
+        benchmark::RegisterBenchmark( name.c_str(), [fn, N]( benchmark::State& s ) { fn( s, N ); } )
+            ->Unit( benchmark::kNanosecond );
+    };
+    for ( int n : { 2, 4, 6, 8 } )
+    {
+        regSparseOpDaceMv( "Mul",    &BM_SparseOp_Dace_MV_Mul,    n );
+        regSparseOpDaceMv( "Square", &BM_SparseOp_Dace_MV_Square, n );
+        regSparseOpDaceMv( "IPow",   &BM_SparseOp_Dace_MV_IPow,   n );
     }
 #endif
 }
