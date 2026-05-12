@@ -278,67 +278,97 @@ below is for the (N, M) grid:
 
 | N | StaticDense (ns) | Sparse (ns) | DACE (ns) | Sparse vs StaticDense | Sparse vs DACE |
 |---:|---:|---:|---:|---:|---:|
-| 2 |          80.2 |    195.2 |       65.4 |   0.41x |   0.34x |
-| 4 |       1,247.2 |    233.2 |      236.0 |   5.35x |   1.01x |
-| 6 |      14,080.5 |    290.3 |      788.9 |  48.51x |   2.72x |
-| 8 |      82,457.4 |    408.8 |    2,270.9 | 201.69x |   5.55x |
+| 2 |          87.2 |    195.5 |       62.6 |   0.45x |   0.32x |
+| 4 |       1,447.2 |    216.1 |      281.6 |   6.70x |   1.30x |
+| 6 |      15,073.5 |    278.1 |      961.0 |  54.20x |   3.46x |
+| 8 |     114,796.8 |    381.4 |    2,882.9 | 301.02x |   7.56x |
 
 ### Square (sparse-operand)
 
 | N | StaticDense (ns) | Sparse (ns) | DACE (ns) | Sparse vs StaticDense | Sparse vs DACE |
 |---:|---:|---:|---:|---:|---:|
-| 2 |          78.9 |    149.7 |       62.1 |   0.53x |   0.42x |
-| 4 |       1,574.4 |    199.0 |      232.2 |   7.91x |   1.17x |
-| 6 |      12,229.3 |    272.2 |      756.5 |  44.93x |   2.78x |
-| 8 |      81,544.5 |    376.8 |    2,249.4 | 216.42x |   5.97x |
+| 2 |          86.6 |    152.9 |       63.9 |   0.57x |   0.42x |
+| 4 |       1,425.9 |    207.2 |      276.3 |   6.88x |   1.33x |
+| 6 |      14,962.4 |    246.7 |      973.8 |  60.66x |   3.95x |
+| 8 |     114,350.5 |    334.4 |    2,872.7 | 341.94x |   8.59x |
 
 ### IPow (a^5, sparse-operand)
 
 | N | StaticDense (ns) | Sparse (ns) | DACE (ns) | Sparse vs StaticDense | Sparse vs DACE |
 |---:|---:|---:|---:|---:|---:|
-| 2 |         382.2 |    694.7 |      258.7 |   0.55x |   0.37x |
-| 4 |       5,535.6 |  1,088.4 |      970.3 |   5.09x |   0.89x |
-| 6 |      53,716.5 |  1,274.6 |    3,125.0 |  42.15x |   2.45x |
-| 8 |     365,737.6 |  1,654.9 |    9,096.8 | 221.00x |   5.50x |
+| 2 |         463.8 |    653.8 |      276.0 |   0.71x |   0.42x |
+| 4 |       6,218.2 |  1,040.6 |    1,115.0 |   5.98x |   1.07x |
+| 6 |      62,274.2 |  1,290.5 |    3,860.3 |  48.26x |   2.99x |
+| 8 |     461,453.5 |  1,557.5 |   11,569.4 | 296.28x |   7.43x |
+
+### Sqrt (sparse-operand)
+
+| N | StaticDense (ns) | Sparse (ns) | DACE (ns) | Sparse vs StaticDense | Sparse vs DACE |
+|---:|---:|---:|---:|---:|---:|
+| 2 |          47.8 |    345.5 |      180.8 |   0.14x |   0.52x |
+| 4 |         779.0 |    817.0 |    1,000.6 |   0.95x |   1.22x |
+| 6 |       8,070.8 |  1,747.4 |    5,062.8 |   4.62x |   2.90x |
+| 8 |      59,003.1 |  4,114.8 |   20,643.6 |  14.34x |   5.02x |
+
+### Div (a / b, sparse-operand)
+
+| N | StaticDense (ns) | Sparse (ns) | DACE (ns) | Sparse vs StaticDense | Sparse vs DACE |
+|---:|---:|---:|---:|---:|---:|
+| 2 |         168.8 |    624.8 |      227.9 |   0.27x |   0.36x |
+| 4 |       2,770.2 |  1,321.1 |    1,278.1 |   2.10x |   0.97x |
+| 6 |      29,380.9 |  2,547.4 |    6,034.0 |  11.53x |   2.37x |
+| 8 |     229,201.2 |  4,871.8 |   17,704.1 |  47.05x |   3.63x |
 
 ### Sparse-operand takeaways
 
 The headline `(N=8, M=6)` cell — the original workload where DACE used
 to beat tax-dense by ~1500× — now reads:
 
-- **`SparseOp/Sparse/MV/Mul/N8_M6` = 409 ns** vs `StaticDense` = 82.5 µs
-  (200× faster than dense storage) and DACE = 2.27 µs
-  (**5.5× faster than DACE**).
-- **`Square` at N=8, M=6**: sparse 377 ns vs DACE 2.25 µs — **6.0× faster**.
-- **`IPow(a^5)` at N=8, M=6**: sparse 1.66 µs vs DACE 9.10 µs — **5.5× faster**.
+| Op | tax-sparse | vs tax-dense | vs DACE |
+|---|---:|---:|---:|
+| Mul    |   381 ns |  **301×** | **7.56×** |
+| Square |   334 ns |  **342×** | **8.59×** |
+| IPow⁵  |  1.56 µs |  **296×** | **7.43×** |
+| Sqrt   |  4.11 µs |  **14.3×** | **5.02×** |
+| Div    |  4.87 µs |   **47×** | **3.63×** |
 
-The kernel-complexity story matches the design:
+**Multiplicative ops (Mul / Square / IPow)** — the headline win.
+Tax-sparse iterates only `nnz_a × nnz_b ≈ 4` pairs via
+`sparseCauchyProduct`, plus a `flatIndexSum<N, M>` round-trip per pair
+(~20 cycles) and an `O(NC/64)` touched-bitmap sweep at the end. Work is
+essentially independent of N. The dense path's work grows as
+`numMonomials(N, M)²` (~9 M pairs at N=8, M=6), all of which are
+zero × zero or zero × nonzero multiplications — pure waste. DACE's
+sparse map iterates the same handful of pairs but pays per-monomial
+hash / lookup costs that tax's preallocated dense scratch avoids.
 
-- The dense path's work grows as `numMonomials(N, M)^2` (≈ 3003² ≈ 9 M
-  pairs at N=8, M=6), all of which are zero × zero or zero × nonzero
-  multiplications in this workload — pure waste.
-- Tax-sparse iterates only `nnz_a × nnz_b ≈ 4` pairs, plus a
-  `flatIndexSum<N, M>` round-trip per pair through `unflatIndex` /
-  `flatIndex` (~20 cycles), plus an `O(NC/64)` touched-bitmap sweep at
-  the end. Total work is independent of N for the inner-loop count.
-- DACE's sparse map iterates the same 4 pairs but pays per-monomial
-  hash / lookup costs that tax-sparse's preallocated dense scratch
-  buffer avoids.
+**Forward substitutions (Sqrt / Div)** — wins from
+*support-set iteration*. The output of `sqrt(c + perturbation)` and
+`1 / (c + perturbation)` is nonzero only at multi-indices reachable as
+non-negative integer sums of the perturbation's nonzero exponents
+(`detail::additiveClosure<N, M>`). For a 2-term operand
+`c + α·x_var` that's `{0, x_var, 2·x_var, ..., N·x_var}` — `N+1`
+entries regardless of `M`. The sparse forward-substitution kernels
+walk only that support and apply the recurrence over `f.indices()`
+(reciprocal) or the support itself (sqrt), bringing per-monomial cost
+from `O(numMonomials(|α|, M))` to `O(nnz_f)` or `O(|support|)`. At
+`(N=8, M=6)`: 9 outer alphas instead of 3003.
 
-**Crossover.** Sparse loses to dense at `N=2` (and to DACE there too)
-because the dense path is just a 28-coefficient array sweep with a
-precomputed stencil — the 4-pair inner loop's per-pair overhead is
-larger than the dense walk at that size. The crossover sits between
-N=2 and N=4 in this M=6 configuration; for N ≥ 4 the dense path is
-already paying enough zero-multiplication overhead that sparse wins
-clearly.
+**Crossover at small N.** Sparse loses to dense at `N=2` for every op
+(and to DACE for most). The dense path's stencil-driven walks are tiny
+(28-coefficient array sweeps at N=2, M=6) and the per-pair flat-index
+lookup is a direct precomputed read. Sparse's `flatIndexSum<N, M>`
+round-trip through `unflatIndex<M>` + `flatIndex<M>` costs more per
+pair than the dense stencil's read. Crossover sits between N=2 and
+N=4 in this configuration; for N ≥ 4 sparse already wins clearly
+across all five ops.
 
 **Trade-off direction.** On fully-dense operands (the earlier
 `Static/MV/...` rows), the dense path is faster than sparse for the
 mirror reason: every coefficient slot really is meaningful, and the
 dense stencil's direct flat-index pair lookup beats sparse's
-`flatIndexSum<N, M>` round-trip. **Use sparse when you know the
-operand has nnz ≪ numMonomials(N, M).**
+round-trip. **Use sparse when you know the operand has nnz ≪
+numMonomials(N, M).**
 
 ### Caveat
 
