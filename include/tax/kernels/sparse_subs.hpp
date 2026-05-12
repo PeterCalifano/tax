@@ -11,24 +11,73 @@
 #include <tax/storage/sparse_tte.hpp>
 #include <tax/utils/combinatorics.hpp>
 #include <tax/utils/degree_of.hpp>
-#include <tax/utils/enumeration.hpp>
 
 namespace tax::detail
 {
 
 /**
+ * @brief Additive closure of seed multi-indices under multi-index addition,
+ *        truncated to total degree `N`. Always includes `0` at the front.
+ * @param seeds Flat indices of the perturbation (must be `> 0`).
+ * @return Sorted (graded-lex) list of every flat index reachable as a
+ *         non-negative integer combination of `seeds` with total degree `<= N`.
+ *
+ * Used by the sparse forward-substitution kernels to enumerate the
+ * support of the output without paying for the full
+ * `numMonomials(N, M)` shape. For a 2-sparse operand `c + α·x_var`,
+ * the closure is `{0, x_var, 2·x_var, ..., N·x_var}` — `N+1` entries
+ * regardless of the ambient `M`.
+ */
+template < int N, int M >
+[[nodiscard]] inline std::vector< std::uint16_t >
+additiveClosure( const std::vector< std::uint16_t >& seeds )
+{
+    constexpr std::size_t NC = numMonomials( N, M );
+    std::vector< bool > seen( NC, false );
+    seen[0] = true;
+    std::vector< std::uint16_t > frontier{ 0 };
+    while ( !frontier.empty() )
+    {
+        std::vector< std::uint16_t > next;
+        for ( std::uint16_t a : frontier )
+        {
+            const auto alpha = unflatIndex< M >( a );
+            for ( std::uint16_t s : seeds )
+            {
+                const auto beta = unflatIndex< M >( s );
+                MultiIndex< M > sum_idx{};
+                int deg = 0;
+                for ( int i = 0; i < M; ++i )
+                {
+                    sum_idx[i] = alpha[i] + beta[i];
+                    deg += sum_idx[i];
+                }
+                if ( deg > N ) continue;
+                const std::size_t flat = flatIndex< M >( sum_idx );
+                if ( !seen[flat] )
+                {
+                    seen[flat] = true;
+                    next.push_back( std::uint16_t( flat ) );
+                }
+            }
+        }
+        frontier = std::move( next );
+    }
+    std::vector< std::uint16_t > result;
+    result.reserve( NC );
+    for ( std::size_t k = 0; k < NC; ++k )
+        if ( seen[k] ) result.push_back( std::uint16_t( k ) );
+    return result;
+}
+
+/**
  * @brief Sparse reciprocal forward substitution `out = 1 / f`.
  *
- * Inner-loop work is `O(nnz_f)` per output monomial (rather than the
- * dense `O(numMonomials(|α|, M))`): for each output multi-index α we
- * accumulate `f[β] * out[α-β]` only for β values that are actually
- * nonzero in `f`. The truncated graded-lex layout of `f.indices()` lets
- * us break out of the inner loop as soon as `degree(β) > degree(α)`.
- *
- * Output is generally fully dense — the Taylor series of
- * `1 / (c + perturbation)` populates every monomial slot — so the
- * result is stored densely during the recurrence and re-emitted as
- * sparse at the end (dropping exact zeros, if any).
+ * Iterates only the support set of `out` (the additive closure of `f`'s
+ * nonzero perturbation indices). Per-monomial inner loop walks
+ * `f.indices()` directly. Total work is `O(|support| · nnz_f)`. For a
+ * 2-sparse operand at `(N=8, M=6)` that's ~9·2 = 18 inner iterations
+ * instead of the dense `O(NC²)` ≈ 9 M pair walks.
  */
 template < typename T, int N, int M >
 [[nodiscard]] SparseTaylorExpansionT< T, N, M >
@@ -36,7 +85,6 @@ sparseSeriesReciprocal( const SparseTaylorExpansionT< T, N, M >& f )
 {
     constexpr std::size_t NC = numMonomials( N, M );
 
-    // Read f[0] (must be nonzero) and the rest of f's nonzero entries.
     const auto fi = f.indices();
     const auto fv = f.values();
     if ( fi.empty() || fi.front() != 0 || fv.front() == T{ 0 } )
@@ -44,65 +92,62 @@ sparseSeriesReciprocal( const SparseTaylorExpansionT< T, N, M >& f )
             "sparseSeriesReciprocal: constant term must be nonzero" );
     const T inv_f0 = T{ 1 } / fv.front();
 
+    // Seeds: f's nonzero perturbation indices (flat > 0).
+    std::vector< std::uint16_t > seeds;
+    seeds.reserve( fi.size() );
+    for ( std::size_t k = 1; k < fi.size(); ++k ) seeds.push_back( fi[k] );
+
+    // Support of out (sorted graded-lex, includes 0 at front).
+    const auto support = additiveClosure< N, M >( seeds );
+
+    // Dense out scratch — O(1) lookup of out[γ] in the inner update.
     std::vector< T > out( NC, T{ 0 } );
     out[0] = inv_f0;
 
-    using Deg = DegreeOf< N, M >;
-
-    for ( int d = 1; d <= N; ++d )
+    // Walk support[1..end]; for each α apply the recurrence
+    //   out[α] = -inv_f0 * sum_{β in f.indices(), β > 0, β <= α} f[β] * out[α-β].
+    for ( std::size_t k = 1; k < support.size(); ++k )
     {
-        forEachMonomial< M >( d, [&]( const auto& alpha, std::size_t ai ) {
-            T acc{ 0 };
-            // Iterate only nonzero entries of f at flat index > 0.
-            // f.indices() is sorted by flat index = graded-lex; break once
-            // degree(β) > d (β couldn't be a sub-index of α).
-            for ( std::size_t k = 1; k < fi.size(); ++k )
+        const std::size_t ai = support[k];
+        const auto alpha = unflatIndex< M >( ai );
+        T acc{ 0 };
+        for ( std::size_t j = 1; j < fi.size(); ++j )
+        {
+            const auto beta = unflatIndex< M >( fi[j] );
+            MultiIndex< M > gamma{};
+            bool valid = true;
+            for ( int i = 0; i < M; ++i )
             {
-                const std::size_t bi = fi[k];
-                const int db = int( Deg::value[bi] );
-                if ( db > d ) break;
-                // β <= α componentwise?
-                const auto beta = unflatIndex< M >( bi );
-                MultiIndex< M > gamma{};
-                bool valid = true;
-                for ( int i = 0; i < M; ++i )
+                if ( beta[i] > alpha[i] )
                 {
-                    if ( beta[i] > alpha[i] )
-                    {
-                        valid = false;
-                        break;
-                    }
-                    gamma[i] = alpha[i] - beta[i];
+                    valid = false;
+                    break;
                 }
-                if ( !valid ) continue;
-                const std::size_t gi = flatIndex< M >( gamma );
-                acc += fv[k] * out[gi];
+                gamma[i] = alpha[i] - beta[i];
             }
-            out[ai] = -inv_f0 * acc;
-        } );
+            if ( !valid ) continue;
+            const std::size_t gi = flatIndex< M >( gamma );
+            acc += fv[j] * out[gi];
+        }
+        out[ai] = -inv_f0 * acc;
     }
 
     SparseTaylorExpansionT< T, N, M > result;
-    result.reserve( NC );
-    for ( std::size_t k = 0; k < NC; ++k )
-        if ( out[k] != T{ 0 } ) result.emplaceBack( std::uint16_t( k ), out[k] );
+    result.reserve( support.size() );
+    for ( std::uint16_t k : support )
+        if ( out[k] != T{ 0 } ) result.emplaceBack( k, out[k] );
     return result;
 }
 
 /**
- * @brief Sparse square root forward substitution `out = sqrt(f)`.
+ * @brief Sparse square-root forward substitution `out = sqrt(f)`.
  *
- * The dense Cauchy convolution `2*out[0]*out[α] + sum_{β+γ=α, β,γ>0}
- * out[β]*out[γ] = f[α]` has an inner sum over OUTPUT sub-indices. We
- * maintain a sorted `out_idx` of currently-nonzero output entries and
- * iterate β over that list — when the operand only perturbs along a
- * subset of variables (e.g. `sqrt(c + α·x_var)` densifies only along
- * `x_var`), `|out_idx|` stays much smaller than `numMonomials(N, M)`
- * and the work per α scales with the operand's variable footprint
- * instead of the full shape.
- *
- * For a fully-dense operand the output densifies completely and the
- * loop degenerates to dense cost — same recurrence, no win or loss.
+ * Same support-set trick as `sparseSeriesReciprocal`: the output of
+ * `sqrt(c + perturbation)` is nonzero exactly on the additive closure
+ * of `perturbation`'s nonzero indices, truncated to degree `N`. The
+ * inner convolution `out[β] * out[α-β]` walks `support[1..k-1]` for β
+ * and uses a dense scratch for `out[γ]` lookup. Total work scales with
+ * `|support|²` rather than `numMonomials(N, M)²`.
  */
 template < typename T, int N, int M >
 [[nodiscard]] SparseTaylorExpansionT< T, N, M >
@@ -119,55 +164,51 @@ sparseSeriesSqrt( const SparseTaylorExpansionT< T, N, M >& f )
     const T sqrt_f0 = std::sqrt( f0 );
     const T inv2sqrt = T{ 1 } / ( T{ 2 } * sqrt_f0 );
 
-    // f as a dense scratch (O(1) lookup of f[α] in the inner update).
+    std::vector< std::uint16_t > seeds;
+    seeds.reserve( fi.size() );
+    for ( std::size_t k = 1; k < fi.size(); ++k ) seeds.push_back( fi[k] );
+
+    const auto support = additiveClosure< N, M >( seeds );
+
+    // Dense scratches for O(1) lookup during the recurrence.
     std::vector< T > f_dense( NC, T{ 0 } );
     for ( std::size_t k = 0; k < fi.size(); ++k ) f_dense[fi[k]] = fv[k];
-
     std::vector< T > out( NC, T{ 0 } );
-    std::vector< std::uint16_t > out_idx;
-    out_idx.reserve( NC );
     out[0] = sqrt_f0;
-    out_idx.push_back( 0 );
 
-    using Deg = DegreeOf< N, M >;
-
-    for ( int d = 1; d <= N; ++d )
+    // out[α] = (f[α] - sum_{β+γ=α, β,γ>0, both in support} out[β] * out[γ]) / (2*out[0]).
+    // For each α at support[k], walk β over support[1..k-1] and compute γ = α-β.
+    for ( std::size_t k = 1; k < support.size(); ++k )
     {
-        forEachMonomial< M >( d, [&]( const auto& alpha, std::size_t ai ) {
-            T acc = f_dense[ai];
-            // Iterate β over currently nonzero out entries with degree in [1, d-1].
-            // out_idx is sorted by flat index = graded-lex, so degree is
-            // monotonic and we can break once degree(β) >= d.
-            for ( std::size_t k = 1; k < out_idx.size(); ++k )
+        const std::size_t ai = support[k];
+        const auto alpha = unflatIndex< M >( ai );
+        T acc = f_dense[ai];
+        for ( std::size_t j = 1; j < k; ++j )
+        {
+            const std::size_t bi = support[j];
+            const auto beta = unflatIndex< M >( bi );
+            MultiIndex< M > gamma{};
+            bool valid = true;
+            for ( int i = 0; i < M; ++i )
             {
-                const std::size_t bi = out_idx[k];
-                const int db = int( Deg::value[bi] );
-                if ( db >= d ) break;
-                const auto beta = unflatIndex< M >( bi );
-                MultiIndex< M > gamma{};
-                bool valid = true;
-                for ( int i = 0; i < M; ++i )
+                if ( beta[i] > alpha[i] )
                 {
-                    if ( beta[i] > alpha[i] )
-                    {
-                        valid = false;
-                        break;
-                    }
-                    gamma[i] = alpha[i] - beta[i];
+                    valid = false;
+                    break;
                 }
-                if ( !valid ) continue;
-                const std::size_t gi = flatIndex< M >( gamma );
-                acc -= out[bi] * out[gi];
+                gamma[i] = alpha[i] - beta[i];
             }
-            const T val = acc * inv2sqrt;
-            out[ai] = val;
-            if ( val != T{ 0 } ) out_idx.push_back( std::uint16_t( ai ) );
-        } );
+            if ( !valid ) continue;
+            const std::size_t gi = flatIndex< M >( gamma );
+            acc -= out[bi] * out[gi];
+        }
+        out[ai] = acc * inv2sqrt;
     }
 
     SparseTaylorExpansionT< T, N, M > result;
-    result.reserve( out_idx.size() );
-    for ( std::uint16_t k : out_idx ) result.emplaceBack( k, out[k] );
+    result.reserve( support.size() );
+    for ( std::uint16_t k : support )
+        if ( out[k] != T{ 0 } ) result.emplaceBack( k, out[k] );
     return result;
 }
 
@@ -177,12 +218,8 @@ namespace tax
 {
 
 /**
- * @brief Sparse `sqrt(f)` — sparse forward substitution.
- * @details Inner loop iterates only currently-nonzero output entries.
- *          For operands that perturb along a subset of variables, the
- *          result stays correspondingly sparse and the work per
- *          monomial scales with that subset rather than the full
- *          `numMonomials(N, M)` shape.
+ * @brief Sparse `sqrt(f)` — sparse forward substitution over the
+ *        additive-closure support of `f`'s perturbation.
  */
 template < typename T, int N, int M >
 [[nodiscard]] inline SparseTaylorExpansionT< T, N, M >
@@ -192,9 +229,8 @@ sqrt( const SparseTaylorExpansionT< T, N, M >& f )
 }
 
 /**
- * @brief Sparse `1 / f` — sparse forward substitution.
- * @details Inner loop iterates only nonzero entries of `f`; per-monomial
- *          work is `O(nnz_f)` instead of the dense `O(numMonomials)`.
+ * @brief Sparse `1 / f` — sparse forward substitution over the
+ *        additive-closure support of `f`'s perturbation.
  */
 template < typename T, int N, int M >
 [[nodiscard]] inline SparseTaylorExpansionT< T, N, M >
@@ -204,11 +240,7 @@ reciprocal( const SparseTaylorExpansionT< T, N, M >& f )
 }
 
 /**
- * @brief Sparse polynomial division: `a / b = a * reciprocal(b)`.
- * @details Both stages stay on the sparse path. Final multiply uses
- *          `sparseCauchyProduct`, so when the dividend `a` is sparse
- *          and the divisor's reciprocal densifies, the output is
- *          bounded by `nnz_a * NC`.
+ * @brief Sparse polynomial division `a / b = a * reciprocal(b)`.
  */
 template < typename T, int N, int M >
 [[nodiscard]] inline SparseTaylorExpansionT< T, N, M >
