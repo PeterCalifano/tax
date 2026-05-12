@@ -7,6 +7,7 @@
  * `TaylorExpansionT` type, and operator overloads.
  */
 
+#include <tax/storage/sparse_tte.hpp>
 #include <tax/storage/tte_dynamic_order.hpp>
 #include <tax/storage/tte_dynamic.hpp>
 #include <tax/storage/tte_static.hpp>
