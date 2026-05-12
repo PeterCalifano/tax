@@ -14,32 +14,33 @@ template < typename T, int N, int M >
 /**
  * @brief Reciprocal series solve `a * out = 1`.
  * @details Requires `a[0] != 0`.
+ *          Multivariate path uses the precomputed `CauchyStencil<N, M>` and
+ *          skips the `(beta=0, gamma=alpha)` endpoint of each row, which
+ *          encodes the `a[0] * out[alpha]` term moved to the LHS.
+ *          Univariate path uses the compile-time-unrolled forward
+ *          substitution from `tax::detail::reciprocalUniImpl`.
  */
 constexpr void seriesReciprocal( Coeffs< T, N, M >& out,
                                  const Coeffs< T, N, M >& a ) noexcept
 {
     out = {};
     const T inv_a0 = T{ 1 } / a[0];
+    out[0] = inv_a0;
 
     if constexpr ( M == 1 )
     {
-        out[0] = inv_a0;
-        for ( int d = 1; d <= N; ++d )
-        {
-            T rhs = T{ 0 };
-            for ( int k = 1; k <= d; ++k ) rhs -= a[k] * out[d - k];
-            out[d] = rhs * inv_a0;
-        }
+        reciprocalUniImpl< T, N >( out, a, inv_a0, std::make_index_sequence< N >{} );
     } else
     {
-        for ( int d = 0; d <= N; ++d )
+        using S = CauchyStencil< N, M >;
+        for ( std::size_t k = 1; k < S::NC; ++k )
         {
-            forEachMonomial< M >( d, [&]( const auto& alpha, std::size_t ai ) {
-                T rhs = ( d == 0 ) ? T{ 1 } : T{ 0 };
-                forEachSubIndex< M >( alpha, 1, d,
-                                      [&]( auto bi, auto gi, int ) { rhs -= a[bi] * out[gi]; } );
-                out[ai] = rhs * inv_a0;
-            } );
+            T acc{ 0 };
+            // Skip the (beta=0, gamma=alpha) pair (first entry by graded-lex);
+            // that's the a[0] * out[k] term we moved to the LHS.
+            for ( std::size_t j = S::offsets[k] + 1; j < S::offsets[k + 1]; ++j )
+                acc += a[S::col_a[j]] * out[S::col_b[j]];
+            out[k] = -acc * inv_a0;
         }
     }
 }
@@ -69,6 +70,12 @@ template < typename T, int N, int M >
 /**
  * @brief Square-root series solve `out * out = a`.
  * @details Uses the principal branch from `sqrt(a[0])`.
+ *          Multivariate path uses `CauchySymStencil<N, M>` and skips the
+ *          `(beta=0, gamma=alpha)` endpoint per row (the `2*out[0]*out[alpha]`
+ *          term moved to the LHS); off-diagonal pairs already carry their 2x
+ *          factor via the `is_diag` flag.
+ *          Univariate path uses the compile-time-unrolled
+ *          `tax::detail::sqrtUniImpl`.
  */
 constexpr void seriesSqrt( Coeffs< T, N, M >& out,
                            const Coeffs< T, N, M >& a ) noexcept
@@ -80,28 +87,22 @@ constexpr void seriesSqrt( Coeffs< T, N, M >& out,
 
     if constexpr ( M == 1 )
     {
-        for ( int d = 1; d <= N; ++d )
-        {
-            // Exploit symmetry: out[k]*out[d-k] == out[d-k]*out[k].
-            T rhs = a[d];
-            for ( int k = 1; k + k < d; ++k ) rhs -= T{ 2 } * out[k] * out[d - k];
-            if ( d % 2 == 0 ) rhs -= out[d / 2] * out[d / 2];
-            out[d] = rhs * inv2g0;
-        }
+        sqrtUniImpl< T, N >( out, a, inv2g0, std::make_index_sequence< N >{} );
     } else
     {
-        for ( int d = 1; d <= N; ++d )
+        using S = CauchySymStencil< N, M >;
+        for ( std::size_t k = 1; k < S::NC; ++k )
         {
-            forEachMonomial< M >( d, [&]( const auto& alpha, std::size_t ai ) {
-                T rhs = a[ai];
-                forEachSubIndex< M >( alpha, 1, d - 1, [&]( auto bi, auto gi, int ) {
-                    if ( bi < gi )
-                        rhs -= T{ 2 } * out[bi] * out[gi];
-                    else if ( bi == gi )
-                        rhs -= out[bi] * out[bi];
-                } );
-                out[ai] = rhs * inv2g0;
-            } );
+            T acc{ 0 };
+            // Skip the (beta=0, gamma=alpha) pair — the 2*out[0]*out[k] term
+            // we moved to the LHS.  Remaining pairs are interior (neither
+            // beta nor gamma is the zero multi-index).
+            for ( std::size_t j = S::offsets[k] + 1; j < S::offsets[k + 1]; ++j )
+            {
+                const T pp = out[S::col_a[j]] * out[S::col_b[j]];
+                acc += S::is_diag[j] ? pp : T{ 2 } * pp;
+            }
+            out[k] = ( a[k] - acc ) * inv2g0;
         }
     }
 }

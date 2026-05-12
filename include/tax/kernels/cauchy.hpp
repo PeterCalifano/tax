@@ -4,66 +4,11 @@
 #include <utility>
 
 #include <tax/kernels/cauchy_stencil.hpp>
+#include <tax/kernels/unroll.hpp>
 #include <tax/utils/enumeration.hpp>
 
 namespace tax::detail
 {
-
-// -----------------------------------------------------------------------------
-// Univariate (M = 1) compile-time-unrolled Cauchy kernels.
-//
-// Output degree `D` and the dot-product range `Ks...` are template parameters
-// so the compiler sees one flat FMA chain per row rather than a triangular
-// loop nest with varying inner trip count. That lets it schedule the FMAs as
-// a wide SIMD graph and beats the equivalent runtime loop by 1.0x-2.0x for
-// the N values we use. Helpers are hoisted out of generic lambdas to side-step
-// a GCC 13 ICE on nested-pack-expansion-inside-lambda.
-// -----------------------------------------------------------------------------
-
-template < typename T, int N, std::size_t D, std::size_t... Ks >
-constexpr T cauchyUniRow( const Coeffs< T, N, 1 >& f, const Coeffs< T, N, 1 >& g,
-                          std::index_sequence< Ks... > ) noexcept
-{
-    return ( ( f[Ks] * g[D - Ks] ) + ... + T{ 0 } );
-}
-
-template < typename T, int N, std::size_t... Ds >
-constexpr void cauchyUniProductImpl( Coeffs< T, N, 1 >& out,
-                                     const Coeffs< T, N, 1 >& f,
-                                     const Coeffs< T, N, 1 >& g,
-                                     std::index_sequence< Ds... > ) noexcept
-{
-    ( ( out[Ds] = cauchyUniRow< T, N, Ds >( f, g, std::make_index_sequence< Ds + 1 >{} ) ),
-      ... );
-}
-
-template < typename T, int N, std::size_t... Ds >
-constexpr void cauchyUniAccumulateImpl( Coeffs< T, N, 1 >& out,
-                                        const Coeffs< T, N, 1 >& f,
-                                        const Coeffs< T, N, 1 >& g,
-                                        std::index_sequence< Ds... > ) noexcept
-{
-    ( ( out[Ds] += cauchyUniRow< T, N, Ds >( f, g, std::make_index_sequence< Ds + 1 >{} ) ),
-      ... );
-}
-
-template < typename T, int N, std::size_t D, std::size_t... Ks >
-constexpr T selfUniRow( const Coeffs< T, N, 1 >& f, std::index_sequence< Ks... > ) noexcept
-{
-    // Range is Ks in [0, D/2]. Factor 2 for off-diagonal (2*Ks < D),
-    // 1 for the diagonal pair (2*Ks == D); both folded at compile time.
-    return ( ( ( 2 * Ks < D ? T{ 2 } : ( 2 * Ks == D ? T{ 1 } : T{ 0 } ) )
-               * f[Ks] * f[D - Ks] )
-             + ... + T{ 0 } );
-}
-
-template < typename T, int N, std::size_t... Ds >
-constexpr void selfUniImpl( Coeffs< T, N, 1 >& out, const Coeffs< T, N, 1 >& f,
-                            std::index_sequence< Ds... > ) noexcept
-{
-    ( ( out[Ds] = selfUniRow< T, N, Ds >( f, std::make_index_sequence< Ds / 2 + 1 >{} ) ),
-      ... );
-}
 
 template < typename T, int N, int M >
 /**
