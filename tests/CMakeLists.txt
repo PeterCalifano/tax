@@ -71,6 +71,7 @@ set(TEST_SOURCES
     sparse/testSparseConstruct.cpp
     sparse/testSparseArithmetic.cpp
     sparse/testSparseCauchy.cpp
+    sparse/testSparseIntPow.cpp
 )
 
 include(GoogleTest)

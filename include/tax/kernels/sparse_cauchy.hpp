@@ -4,6 +4,7 @@
 #include <bit>
 #include <cstddef>
 #include <cstdint>
+#include <stdexcept>
 
 #include <tax/storage/sparse_tte.hpp>
 #include <tax/utils/combinatorics.hpp>
@@ -172,6 +173,48 @@ void sparseCauchyAccumulate( SparseTaylorExpansionT< T, N, M >& out,
     out = out + prod;
 }
 
+/**
+ * @brief Sparse integer power `out = f^n` via binary exponentiation.
+ * @details Uses `sparseCauchySelfProduct` for the squaring step and
+ *          `sparseCauchyProduct` for the multiply step.  Negative `n` is
+ *          not supported in T2 (would require sparse reciprocal, whose
+ *          output rapidly densifies); throws `std::invalid_argument`.
+ *          `n == 0` returns `1`.
+ */
+template < typename T, int N, int M >
+[[nodiscard]] SparseTaylorExpansionT< T, N, M >
+sparseSeriesIntPow( const SparseTaylorExpansionT< T, N, M >& f, int n )
+{
+    if ( n < 0 )
+        throw std::invalid_argument(
+            "sparseSeriesIntPow: negative exponent requires sparse reciprocal, "
+            "which is not implemented (use f.toDense() and dense pow instead)." );
+    if ( n == 0 ) return SparseTaylorExpansionT< T, N, M >::one();
+    if ( n == 1 ) return f;
+
+    auto base = f;
+    SparseTaylorExpansionT< T, N, M > result;
+    bool result_set = false;
+    while ( n > 0 )
+    {
+        if ( n & 1 )
+        {
+            if ( !result_set )
+            {
+                result = base;
+                result_set = true;
+            }
+            else
+            {
+                result = sparseCauchyProduct< T, N, M >( result, base );
+            }
+        }
+        n >>= 1;
+        if ( n > 0 ) base = sparseCauchySelfProduct< T, N, M >( base );
+    }
+    return result;
+}
+
 }  // namespace tax::detail
 
 namespace tax
@@ -189,6 +232,18 @@ operator*( const SparseTaylorExpansionT< T, N, M >& f,
            const SparseTaylorExpansionT< T, N, M >& g ) noexcept
 {
     return detail::sparseCauchyProduct< T, N, M >( f, g );
+}
+
+/**
+ * @brief Sparse integer power `f^n` via binary exponentiation.
+ * @details Free-function wrapper around `detail::sparseSeriesIntPow`.
+ *          Negative `n` throws; `n == 0` returns `1`.
+ */
+template < typename T, int N, int M >
+[[nodiscard]] inline SparseTaylorExpansionT< T, N, M >
+ipow( const SparseTaylorExpansionT< T, N, M >& f, int n )
+{
+    return detail::sparseSeriesIntPow< T, N, M >( f, n );
 }
 
 }  // namespace tax
