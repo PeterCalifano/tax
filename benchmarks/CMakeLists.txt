@@ -56,6 +56,20 @@ target_link_libraries(bench_dynamic_vs_static PRIVATE tax benchmark::benchmark)
 add_executable(bench_multivariate multivariate.cpp)
 target_link_libraries(bench_multivariate PRIVATE tax benchmark::benchmark)
 
+add_executable(bench_vs_dace bench_vs_dace.cpp)
+target_link_libraries(bench_vs_dace PRIVATE tax benchmark::benchmark)
+# (N=8, M=6) weight stencil — ~126K pairs — overflows GCC's default
+# constexpr ops budget.  Give it a comfortable margin.
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+    target_compile_options(bench_vs_dace PRIVATE -fconstexpr-ops-limit=2000000000)
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    target_compile_options(bench_vs_dace PRIVATE -fconstexpr-steps=200000000)
+endif()
+if(TAX_USE_DACE)
+    target_compile_definitions(bench_vs_dace PRIVATE TAX_BENCH_HAVE_DACE=1)
+    target_link_libraries(bench_vs_dace PRIVATE ${_dace_target})
+endif()
+
 # -----------------------------------------------------------------------------
 # Profiling drivers — vanilla `int main()` programs intended to be run under
 # perf / callgrind / vtune / etc.  No Google Benchmark dependency so they
