@@ -352,24 +352,37 @@ void BM_Dace_Uni_IPow( benchmark::State& s, int N )
 
 // =============================================================================
 // Multivariate — static `TEn<N, M>`. M is fixed at 6 here.
+//
+// Operands are *dense* linear combinations of all M variables so each
+// backend's recurrence does real work on every coordinate axis (rather than
+// dropping out into a near-univariate sub-problem hidden behind a fixed M).
 // =============================================================================
 
 constexpr int kM = 6;
 
+// Two distinct dense-in-all-M polynomials so binary ops aren't symmetric.
+// Pattern A: c=1.1, alphas={0.10, 0.05, 0.03, 0.02, 0.01, 0.005}
+// Pattern B: c=1.2, alphas={0.005, 0.01, 0.02, 0.03, 0.05, 0.10}
+constexpr std::array< double, kM > kAlphaA{ 0.10, 0.05, 0.03, 0.02, 0.01, 0.005 };
+constexpr std::array< double, kM > kAlphaB{ 0.005, 0.01, 0.02, 0.03, 0.05, 0.10 };
+
 template < int N >
-auto makeStaticVars()
+tax::TEn< N, kM > denseStaticOperand( double c, const std::array< double, kM >& alphas )
 {
+    // Expand around the origin; each `vars[i]` is the variable x_i with a[0]=0.
     typename tax::TEn< N, kM >::Input x0{};
-    for ( int i = 0; i < kM; ++i ) x0[i] = 0.1 * double( i + 1 );
-    return tax::TEn< N, kM >::variables( x0 );
+    auto vars = tax::TEn< N, kM >::variables( x0 );
+    // out = c + sum_i alphas[i] * x_i  — every linear monomial is nonzero.
+    return c + alphas[0] * std::get< 0 >( vars ) + alphas[1] * std::get< 1 >( vars )
+           + alphas[2] * std::get< 2 >( vars ) + alphas[3] * std::get< 3 >( vars )
+           + alphas[4] * std::get< 4 >( vars ) + alphas[5] * std::get< 5 >( vars );
 }
 
 template < int N >
 void BM_Static_MV_Mul( benchmark::State& s )
 {
-    auto vars = makeStaticVars< N >();
-    auto x = std::get< 0 >( vars );
-    auto y = std::get< 1 >( vars );
+    auto x = denseStaticOperand< N >( 1.1, kAlphaA );
+    auto y = denseStaticOperand< N >( 1.2, kAlphaB );
     for ( auto _ : s )
     {
         benchmark::DoNotOptimize( x );
@@ -383,8 +396,7 @@ void BM_Static_MV_Mul( benchmark::State& s )
 template < int N >
 void BM_Static_MV_Reciprocal( benchmark::State& s )
 {
-    auto vars = makeStaticVars< N >();
-    tax::TEn< N, kM > x = std::get< 0 >( vars ) + 1.0;  // a[0] = 1.1
+    auto x = denseStaticOperand< N >( 1.1, kAlphaA );  // a[0]=1.1 > 0
     for ( auto _ : s )
     {
         benchmark::DoNotOptimize( x );
@@ -397,8 +409,7 @@ void BM_Static_MV_Reciprocal( benchmark::State& s )
 template < int N >
 void BM_Static_MV_Sqrt( benchmark::State& s )
 {
-    auto vars = makeStaticVars< N >();
-    tax::TEn< N, kM > x = std::get< 0 >( vars ) + 1.0;
+    auto x = denseStaticOperand< N >( 1.1, kAlphaA );
     for ( auto _ : s )
     {
         benchmark::DoNotOptimize( x );
@@ -411,8 +422,7 @@ void BM_Static_MV_Sqrt( benchmark::State& s )
 template < int N >
 void BM_Static_MV_Exp( benchmark::State& s )
 {
-    auto vars = makeStaticVars< N >();
-    auto x = std::get< 0 >( vars );
+    auto x = denseStaticOperand< N >( 0.1, kAlphaA );  // small constant so exp stays bounded
     for ( auto _ : s )
     {
         benchmark::DoNotOptimize( x );
@@ -425,8 +435,7 @@ void BM_Static_MV_Exp( benchmark::State& s )
 template < int N >
 void BM_Static_MV_Log( benchmark::State& s )
 {
-    auto vars = makeStaticVars< N >();
-    tax::TEn< N, kM > x = std::get< 0 >( vars ) + 1.0;
+    auto x = denseStaticOperand< N >( 1.1, kAlphaA );
     for ( auto _ : s )
     {
         benchmark::DoNotOptimize( x );
@@ -439,8 +448,7 @@ void BM_Static_MV_Log( benchmark::State& s )
 template < int N >
 void BM_Static_MV_Sin( benchmark::State& s )
 {
-    auto vars = makeStaticVars< N >();
-    auto x = std::get< 0 >( vars );
+    auto x = denseStaticOperand< N >( 0.1, kAlphaA );
     for ( auto _ : s )
     {
         benchmark::DoNotOptimize( x );
@@ -453,8 +461,7 @@ void BM_Static_MV_Sin( benchmark::State& s )
 template < int N >
 void BM_Static_MV_Pow( benchmark::State& s )
 {
-    auto vars = makeStaticVars< N >();
-    tax::TEn< N, kM > x = std::get< 0 >( vars ) + 1.0;
+    auto x = denseStaticOperand< N >( 1.1, kAlphaA );
     for ( auto _ : s )
     {
         benchmark::DoNotOptimize( x );
@@ -467,8 +474,7 @@ void BM_Static_MV_Pow( benchmark::State& s )
 template < int N >
 void BM_Static_MV_IPow( benchmark::State& s )
 {
-    auto vars = makeStaticVars< N >();
-    tax::TEn< N, kM > x = std::get< 0 >( vars ) + 1.0;
+    auto x = denseStaticOperand< N >( 1.1, kAlphaA );
     for ( auto _ : s )
     {
         benchmark::DoNotOptimize( x );
@@ -479,22 +485,23 @@ void BM_Static_MV_IPow( benchmark::State& s )
 }
 
 // =============================================================================
-// Multivariate — dynamic `DynTE<>`
+// Multivariate — dynamic `DynTE<>`. Same dense operand as static.
 // =============================================================================
 
-auto makeDynamicVars( int N, int M )
+tax::DynTE<> denseDynamicOperand( int N, double c, const std::array< double, kM >& alphas )
 {
-    std::vector< double > x0;
-    x0.resize( std::size_t( M ) );
-    for ( int i = 0; i < M; ++i ) x0[std::size_t( i )] = 0.1 * double( i + 1 );
-    return tax::DynTE<>::variables( std::span< const double >( x0.data(), x0.size() ), N );
+    std::vector< double > x0( std::size_t( kM ), 0.0 );
+    auto vars = tax::DynTE<>::variables(
+        std::span< const double >( x0.data(), x0.size() ), N );
+    auto x = tax::DynTE<>::constant( c, N, kM );
+    for ( int i = 0; i < int( kM ); ++i ) x = x + alphas[std::size_t( i )] * vars[std::size_t( i )];
+    return x;
 }
 
 void BM_Dynamic_MV_Mul( benchmark::State& s, int N )
 {
-    auto vars = makeDynamicVars( N, kM );
-    auto x = vars[0];
-    auto y = vars[1];
+    auto x = denseDynamicOperand( N, 1.1, kAlphaA );
+    auto y = denseDynamicOperand( N, 1.2, kAlphaB );
     for ( auto _ : s )
     {
         benchmark::DoNotOptimize( x );
@@ -507,8 +514,7 @@ void BM_Dynamic_MV_Mul( benchmark::State& s, int N )
 
 void BM_Dynamic_MV_Reciprocal( benchmark::State& s, int N )
 {
-    auto vars = makeDynamicVars( N, kM );
-    auto x = vars[0] + 1.0;
+    auto x = denseDynamicOperand( N, 1.1, kAlphaA );
     auto one = tax::DynTE<>::constant( 1.0, N, kM );
     for ( auto _ : s )
     {
@@ -521,8 +527,7 @@ void BM_Dynamic_MV_Reciprocal( benchmark::State& s, int N )
 
 void BM_Dynamic_MV_Sqrt( benchmark::State& s, int N )
 {
-    auto vars = makeDynamicVars( N, kM );
-    auto x = vars[0] + 1.0;
+    auto x = denseDynamicOperand( N, 1.1, kAlphaA );
     for ( auto _ : s )
     {
         benchmark::DoNotOptimize( x );
@@ -534,8 +539,7 @@ void BM_Dynamic_MV_Sqrt( benchmark::State& s, int N )
 
 void BM_Dynamic_MV_Exp( benchmark::State& s, int N )
 {
-    auto vars = makeDynamicVars( N, kM );
-    auto x = vars[0];
+    auto x = denseDynamicOperand( N, 0.1, kAlphaA );
     for ( auto _ : s )
     {
         benchmark::DoNotOptimize( x );
@@ -547,8 +551,7 @@ void BM_Dynamic_MV_Exp( benchmark::State& s, int N )
 
 void BM_Dynamic_MV_Log( benchmark::State& s, int N )
 {
-    auto vars = makeDynamicVars( N, kM );
-    auto x = vars[0] + 1.0;
+    auto x = denseDynamicOperand( N, 1.1, kAlphaA );
     for ( auto _ : s )
     {
         benchmark::DoNotOptimize( x );
@@ -560,8 +563,7 @@ void BM_Dynamic_MV_Log( benchmark::State& s, int N )
 
 void BM_Dynamic_MV_Sin( benchmark::State& s, int N )
 {
-    auto vars = makeDynamicVars( N, kM );
-    auto x = vars[0];
+    auto x = denseDynamicOperand( N, 0.1, kAlphaA );
     for ( auto _ : s )
     {
         benchmark::DoNotOptimize( x );
@@ -573,8 +575,7 @@ void BM_Dynamic_MV_Sin( benchmark::State& s, int N )
 
 void BM_Dynamic_MV_Pow( benchmark::State& s, int N )
 {
-    auto vars = makeDynamicVars( N, kM );
-    auto x = vars[0] + 1.0;
+    auto x = denseDynamicOperand( N, 1.1, kAlphaA );
     for ( auto _ : s )
     {
         benchmark::DoNotOptimize( x );
@@ -586,8 +587,7 @@ void BM_Dynamic_MV_Pow( benchmark::State& s, int N )
 
 void BM_Dynamic_MV_IPow( benchmark::State& s, int N )
 {
-    auto vars = makeDynamicVars( N, kM );
-    auto x = vars[0] + 1.0;
+    auto x = denseDynamicOperand( N, 1.1, kAlphaA );
     for ( auto _ : s )
     {
         benchmark::DoNotOptimize( x );
@@ -603,11 +603,22 @@ void BM_Dynamic_MV_IPow( benchmark::State& s, int N )
 
 #ifdef TAX_BENCH_HAVE_DACE
 
+// Build the same dense operand on the DACE side:
+//   c + sum_i alphas[i] * DACE::DA(i + 1)
+// (DACE indexes variables starting at 1.)
+DACE::DA denseDaceOperand( double c, const std::array< double, kM >& alphas )
+{
+    DACE::DA x( c );
+    for ( int i = 0; i < int( kM ); ++i )
+        x += alphas[std::size_t( i )] * DACE::DA( unsigned( i + 1 ) );
+    return x;
+}
+
 void BM_Dace_MV_Mul( benchmark::State& s, int N )
 {
     DACE::DA::init( unsigned( N ), unsigned( kM ) );
-    DACE::DA x = DACE::DA( 1 ) + 0.1;
-    DACE::DA y = DACE::DA( 2 ) + 0.2;
+    DACE::DA x = denseDaceOperand( 1.1, kAlphaA );
+    DACE::DA y = denseDaceOperand( 1.2, kAlphaB );
     for ( auto _ : s )
     {
         benchmark::DoNotOptimize( x );
@@ -621,7 +632,7 @@ void BM_Dace_MV_Mul( benchmark::State& s, int N )
 void BM_Dace_MV_Reciprocal( benchmark::State& s, int N )
 {
     DACE::DA::init( unsigned( N ), unsigned( kM ) );
-    DACE::DA x = DACE::DA( 1 ) + 1.1;
+    DACE::DA x = denseDaceOperand( 1.1, kAlphaA );
     for ( auto _ : s )
     {
         benchmark::DoNotOptimize( x );
@@ -634,7 +645,7 @@ void BM_Dace_MV_Reciprocal( benchmark::State& s, int N )
 void BM_Dace_MV_Sqrt( benchmark::State& s, int N )
 {
     DACE::DA::init( unsigned( N ), unsigned( kM ) );
-    DACE::DA x = DACE::DA( 1 ) + 1.1;
+    DACE::DA x = denseDaceOperand( 1.1, kAlphaA );
     for ( auto _ : s )
     {
         benchmark::DoNotOptimize( x );
@@ -647,7 +658,7 @@ void BM_Dace_MV_Sqrt( benchmark::State& s, int N )
 void BM_Dace_MV_Exp( benchmark::State& s, int N )
 {
     DACE::DA::init( unsigned( N ), unsigned( kM ) );
-    DACE::DA x = DACE::DA( 1 ) + 0.1;
+    DACE::DA x = denseDaceOperand( 0.1, kAlphaA );
     for ( auto _ : s )
     {
         benchmark::DoNotOptimize( x );
@@ -660,7 +671,7 @@ void BM_Dace_MV_Exp( benchmark::State& s, int N )
 void BM_Dace_MV_Log( benchmark::State& s, int N )
 {
     DACE::DA::init( unsigned( N ), unsigned( kM ) );
-    DACE::DA x = DACE::DA( 1 ) + 1.1;
+    DACE::DA x = denseDaceOperand( 1.1, kAlphaA );
     for ( auto _ : s )
     {
         benchmark::DoNotOptimize( x );
@@ -673,7 +684,7 @@ void BM_Dace_MV_Log( benchmark::State& s, int N )
 void BM_Dace_MV_Sin( benchmark::State& s, int N )
 {
     DACE::DA::init( unsigned( N ), unsigned( kM ) );
-    DACE::DA x = DACE::DA( 1 ) + 0.1;
+    DACE::DA x = denseDaceOperand( 0.1, kAlphaA );
     for ( auto _ : s )
     {
         benchmark::DoNotOptimize( x );
@@ -686,7 +697,7 @@ void BM_Dace_MV_Sin( benchmark::State& s, int N )
 void BM_Dace_MV_Pow( benchmark::State& s, int N )
 {
     DACE::DA::init( unsigned( N ), unsigned( kM ) );
-    DACE::DA x = DACE::DA( 1 ) + 1.1;
+    DACE::DA x = denseDaceOperand( 1.1, kAlphaA );
     for ( auto _ : s )
     {
         benchmark::DoNotOptimize( x );
@@ -699,7 +710,7 @@ void BM_Dace_MV_Pow( benchmark::State& s, int N )
 void BM_Dace_MV_IPow( benchmark::State& s, int N )
 {
     DACE::DA::init( unsigned( N ), unsigned( kM ) );
-    DACE::DA x = DACE::DA( 1 ) + 1.1;
+    DACE::DA x = denseDaceOperand( 1.1, kAlphaA );
     for ( auto _ : s )
     {
         benchmark::DoNotOptimize( x );

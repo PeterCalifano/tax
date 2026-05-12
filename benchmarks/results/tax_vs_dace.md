@@ -14,11 +14,26 @@ same orders/sizes:
 | | |
 |---|---|
 | Binary | `bench_vs_dace` (Google Benchmark) |
-| Branch | `claude/cauchy-csr-stencil` @ `a473afd` |
+| Branch | `claude/cauchy-csr-stencil` |
 | CPU | Intel(R) Xeon(R) @ 2.80 GHz |
 | OS | Linux 6.18.5 x86_64 |
 | Build | `-DCMAKE_BUILD_TYPE=Release -DTAX_BUILD_BENCHMARK=ON -DTAX_USE_DACE=ON` |
 | Method | `--benchmark_repetitions=3 --benchmark_min_time=0.3s --benchmark_report_aggregates_only`; medians reported. |
+
+**Operand construction (fair comparison).** The multivariate operands
+are *dense linear combinations of all M = 6 variables* so neither
+backend can short-circuit into a near-univariate regime:
+
+```cpp
+// All three backends construct the equivalent mathematical operand.
+constexpr std::array<double, 6> kAlphaA{ 0.10, 0.05, 0.03, 0.02, 0.01, 0.005 };
+//  x  =  1.1 + 0.10*x_1 + 0.05*x_2 + 0.03*x_3 + 0.02*x_4 + 0.01*x_5 + 0.005*x_6
+//  y  =  1.2 + (reversed kAlphaB)
+```
+
+Every linear monomial is nonzero from the start, so the first
+multiplication / transcendental step already produces a polynomial
+dense across all six axes.
 
 `Static vs DACE` columns are speed-up factors of tax static over DACE
 (`> 1` means tax wins; `< 1` means DACE wins).
@@ -112,92 +127,101 @@ same orders/sizes:
   dispatch overhead), but still beats DACE on the transcendental
   workloads up to `N = 40`.
 
-## Multivariate (M = 6)
+## Multivariate (M = 6, dense operands)
 
 ### Mul
 
 | N | Static (ns) | Dynamic (ns) | DACE (ns) | Static vs DACE | Dynamic vs DACE |
 |---:|---:|---:|---:|---:|---:|
-| 2 |       111.1 |         7,114.4 |       76.6 | 0.69x | 0.01x |
-| 4 |     1,723.6 |       258,807.1 |      241.4 | 0.14x | 0.00x |
-| 6 |    19,671.5 |     3,292,224.0 |      702.9 | 0.04x | 0.00x |
-| 8 |   139,733.5 |    26,624,902.5 |    2,018.4 | 0.01x | 0.00x |
+| 2 |     103.8 |       7,059.7 |       173.8 | 1.67x | 0.02x |
+| 4 |   1,707.4 |     257,721.6 |       373.8 | 0.22x | 0.00x |
+| 6 |  19,760.4 |   3,280,183.9 |       868.1 | 0.04x | 0.00x |
+| 8 | 141,306.5 |  26,556,153.2 |     2,333.9 | 0.02x | 0.00x |
 
 ### Reciprocal
 
 | N | Static (ns) | Dynamic (ns) | DACE (ns) | Static vs DACE | Dynamic vs DACE |
 |---:|---:|---:|---:|---:|---:|
-| 2 |        91.5 |        13,611.0 |      206.8 | 2.26x | 0.02x |
-| 4 |     1,579.5 |       556,619.4 |      926.9 | 0.59x | 0.00x |
-| 6 |    18,366.6 |     6,817,476.9 |    3,778.4 | 0.21x | 0.00x |
-| 8 |   138,201.8 |    55,085,018.9 |   10,438.6 | 0.08x | 0.00x |
+| 2 |      92.7 |      13,322.9 |       340.7 | 3.68x | 0.03x |
+| 4 |   1,572.7 |     533,000.0 |     2,474.4 | 1.57x | 0.00x |
+| 6 |  26,529.8 |   6,858,426.1 |    35,281.8 | 1.33x | 0.01x |
+| 8 | 135,677.0 |  55,029,428.8 |   133,786.7 | 0.99x | 0.00x |
 
 ### Sqrt
 
 | N | Static (ns) | Dynamic (ns) | DACE (ns) | Static vs DACE | Dynamic vs DACE |
 |---:|---:|---:|---:|---:|---:|
-| 2 |        78.5 |         3,989.9 |      232.3 | 2.96x | 0.06x |
-| 4 |       952.5 |       213,277.6 |      925.5 | 0.97x | 0.00x |
-| 6 |    13,113.8 |     3,105,200.6 |    3,722.4 | 0.28x | 0.00x |
-| 8 |    76,998.5 |    26,426,465.6 |   14,895.2 | 0.19x | 0.00x |
+| 2 |      73.6 |       3,823.2 |       343.6 | 4.67x | 0.09x |
+| 4 |   1,156.0 |     209,472.6 |     2,235.6 | 1.93x | 0.01x |
+| 6 |  12,564.2 |   3,087,652.9 |    14,272.9 | 1.14x | 0.00x |
+| 8 |  76,101.1 |  26,750,079.8 |    57,713.0 | 0.76x | 0.00x |
 
 ### Exp
 
 | N | Static (ns) | Dynamic (ns) | DACE (ns) | Static vs DACE | Dynamic vs DACE |
 |---:|---:|---:|---:|---:|---:|
-| 2 |       123.2 |         6,235.7 |      194.9 | 1.58x | 0.03x |
-| 4 |     1,916.6 |       269,735.8 |      886.5 | 0.46x | 0.00x |
-| 6 |    21,342.4 |     3,586,131.0 |    3,657.2 | 0.17x | 0.00x |
-| 8 |   178,695.5 |    29,525,126.6 |   14,594.2 | 0.08x | 0.00x |
+| 2 |     107.5 |       6,048.4 |       299.1 | 2.78x | 0.05x |
+| 4 |   2,758.6 |     260,091.2 |     2,265.3 | 0.82x | 0.01x |
+| 6 |  21,573.8 |   3,478,368.5 |    14,177.6 | 0.66x | 0.00x |
+| 8 | 176,234.1 |  28,531,819.5 |    58,649.8 | 0.33x | 0.00x |
 
 ### Log
 
 | N | Static (ns) | Dynamic (ns) | DACE (ns) | Static vs DACE | Dynamic vs DACE |
 |---:|---:|---:|---:|---:|---:|
-| 2 |       113.1 |         4,057.0 |      202.5 | 1.79x | 0.05x |
-| 4 |     2,030.8 |       217,547.1 |      897.4 | 0.44x | 0.00x |
-| 6 |    23,076.6 |     3,227,967.3 |    3,675.2 | 0.16x | 0.00x |
-| 8 |   157,564.2 |    27,223,499.3 |   14,721.7 | 0.09x | 0.00x |
+| 2 |     116.4 |       4,203.5 |       309.6 | 2.66x | 0.07x |
+| 4 |   2,056.7 |     214,694.1 |     2,251.0 | 1.09x | 0.01x |
+| 6 |  22,612.0 |   3,207,567.3 |    14,114.1 | 0.62x | 0.00x |
+| 8 | 156,978.8 |  27,368,548.9 |    57,593.9 | 0.37x | 0.00x |
 
 ### Sin
 
 | N | Static (ns) | Dynamic (ns) | DACE (ns) | Static vs DACE | Dynamic vs DACE |
 |---:|---:|---:|---:|---:|---:|
-| 2 |       176.9 |         5,484.3 |      203.7 | 1.15x | 0.04x |
-| 4 |     2,691.5 |       240,178.4 |      916.3 | 0.34x | 0.00x |
-| 6 |    27,612.7 |     3,453,076.4 |    3,822.9 | 0.14x | 0.00x |
-| 8 |   212,307.2 |    27,103,161.2 |   14,723.9 | 0.07x | 0.00x |
+| 2 |     171.2 |       5,310.5 |       307.6 | 1.80x | 0.06x |
+| 4 |   2,605.2 |     236,585.4 |     2,203.9 | 0.85x | 0.01x |
+| 6 |  27,491.2 |   3,240,652.7 |    13,978.9 | 0.51x | 0.00x |
+| 8 | 217,681.8 |  27,174,932.0 |    58,124.9 | 0.27x | 0.00x |
 
 ### Pow (`a^0.5`)
 
 | N | Static (ns) | Dynamic (ns) | DACE (ns) | Static vs DACE | Dynamic vs DACE |
 |---:|---:|---:|---:|---:|---:|
-| 2 |       165.2 |         6,148.4 |      232.3 | 1.41x | 0.04x |
-| 4 |     3,278.9 |       261,853.0 |      930.7 | 0.28x | 0.00x |
-| 6 |    30,019.4 |     3,530,123.6 |    3,695.7 | 0.12x | 0.00x |
-| 8 |   221,297.1 |    28,083,181.3 |   14,705.9 | 0.07x | 0.00x |
+| 2 |     165.8 |       5,777.1 |       342.7 | 2.07x | 0.06x |
+| 4 |   2,645.5 |     247,176.9 |     2,339.1 | 0.88x | 0.01x |
+| 6 |  29,256.9 |   3,301,894.1 |    14,113.5 | 0.48x | 0.00x |
+| 8 | 216,495.0 |  27,434,199.7 |    57,595.0 | 0.27x | 0.00x |
 
 ### IPow (`a^5`)
 
 | N | Static (ns) | Dynamic (ns) | DACE (ns) | Static vs DACE | Dynamic vs DACE |
 |---:|---:|---:|---:|---:|---:|
-| 2 |       418.1 |        28,416.9 |      279.5 | 0.67x | 0.01x |
-| 4 |     7,485.0 |     1,024,555.7 |      938.8 | 0.13x | 0.00x |
-| 6 |    82,120.7 |    13,206,303.5 |    2,804.1 | 0.03x | 0.00x |
-| 8 |   586,336.9 |   107,028,081.3 |    8,203.3 | 0.01x | 0.00x |
+| 2 |     440.1 |      30,002.3 |       786.4 | 1.79x | 0.03x |
+| 4 |   8,789.5 |   1,011,424.3 |     3,763.7 | 0.43x | 0.00x |
+| 6 |  81,913.4 |  13,024,289.3 |     7,550.8 | 0.09x | 0.00x |
+| 8 | 570,683.7 | 109,766,501.5 |    13,545.5 | 0.02x | 0.00x |
 
 ### Multivariate takeaways
 
-- **Tax static is competitive at `N = 2`** (1.15–2.96× faster than DACE
-  on `Reciprocal`, `Sqrt`, `Exp`, `Log`, `Sin`, `Pow`), and roughly
-  even on `Mul` (0.69×). For tight DA-style flow polynomials at M = 6
-  with `N ≤ 2`, tax is the right tool.
-- **DACE wins decisively from `N = 4` upward** on M = 6. The number of
-  multivariate monomials grows as `C(N+M, M)`, hitting 3003 at `(N=8,
-  M=6)`. Tax's dense `std::array<T, 3003>` storage drives every
-  Cauchy-shape kernel into a quadratic walk over the full coefficient
-  table; DACE's sparse map stays small because most coefficients of a
-  single variable are zero.
+With dense operands (every coordinate axis genuinely contributing), the
+picture is materially different from the earlier 2-sparse run:
+
+- **Tax static is faster across the board at `N = 2`** — 1.67× on `Mul`,
+  1.79–4.67× on every other operator. The dense weighted-stencil walk
+  beats DACE's per-pair sparse-map lookups when the operand fills
+  most of the truncation envelope.
+- **Tax stays competitive at `N = 4`–`6` for the divide-style
+  forward subs** (`Reciprocal`, `Sqrt`, sometimes `Log`): 0.62–1.93×
+  vs DACE. These are the kernels where the dense FMA chain over the
+  stencil's pair list closely matches DACE's sparse iteration on a
+  near-dense output.
+- **DACE wins from `N = 4` upward on `Mul` and `IPow`** (3–110×) and
+  from `N = 6` upward on the heavier transcendentals (`Exp`, `Log`,
+  `Sin`, `Pow`, ~2–4×). Two compounding factors: DACE's truncation
+  table indexes are bit-packed in 32-bit fields (one mul = one index
+  OR + sparse lookup) where tax's stencil pair lists balloon with
+  `numMonomials(N, 2M) = C(N+2M, 2M)`, and DACE's core C kernels are
+  the product of two decades of hand-tuning.
 - **Tax dynamic is unusably slow at M = 6.** The runtime kernels use a
   live `forEachMonomial` + `forEachSubIndex` walk over heap-allocated
   `std::vector<int>` alpha/beta buffers; for `(N=8, M=6)` that's
@@ -208,12 +232,16 @@ same orders/sizes:
 
 ## Choosing a backend
 
+Based on the dense-operand grid above:
+
 | Workload                                          | Best backend |
 |---------------------------------------------------|--------------|
 | Univariate transcendentals (sqrt/exp/log/sin/...) any N | **tax static** |
 | Univariate multiplicative (`Mul` / `IPow`) at N ≤ 10 | **tax static** |
 | Univariate multiplicative at N ≥ 20               | DACE |
 | Multivariate, M ≤ 3 (any N reasonable)            | **tax static** (see `csr_stencil_before_after.md`) |
-| Multivariate, M = 6, N ≤ 2                        | **tax static** (or even) |
-| Multivariate, M = 6, N ≥ 4                        | DACE |
+| Multivariate, M = 6, N ≤ 2                        | **tax static** |
+| Multivariate, M = 6, N = 4 — Reciprocal/Sqrt/Log  | **tax static** (~1× vs DACE) |
+| Multivariate, M = 6, N ≥ 4 — Mul / IPow           | DACE |
+| Multivariate, M = 6, N ≥ 6 — most transcendentals | DACE |
 | Runtime-shape / Python REPL / mixed shapes        | tax dynamic (correctness) or DACE (perf) |
