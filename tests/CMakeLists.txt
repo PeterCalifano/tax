@@ -70,6 +70,7 @@ set(TEST_SOURCES
     dynamic/testDynCalculusEval.cpp
     sparse/testSparseConstruct.cpp
     sparse/testSparseArithmetic.cpp
+    sparse/testSparseCauchy.cpp
 )
 
 include(GoogleTest)
