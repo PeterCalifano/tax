@@ -29,19 +29,38 @@ constexpr void seriesReciprocal( Coeffs< T, N, M >& out,
 
     if constexpr ( M == 1 )
     {
+#ifdef TAX_USE_UNROLL
         reciprocalUniImpl< T, N >( out, a, inv_a0, std::make_index_sequence< N >{} );
+#else
+        for ( int d = 1; d <= N; ++d )
+        {
+            T rhs = T{ 0 };
+            for ( int k = 1; k <= d; ++k ) rhs -= a[k] * out[d - k];
+            out[d] = rhs * inv_a0;
+        }
+#endif
     } else
     {
+#ifdef TAX_USE_STENCIL
         using S = CauchyStencil< N, M >;
         for ( std::size_t k = 1; k < S::NC; ++k )
         {
             T acc{ 0 };
-            // Skip the (beta=0, gamma=alpha) pair (first entry by graded-lex);
-            // that's the a[0] * out[k] term we moved to the LHS.
             for ( std::size_t j = S::offsets[k] + 1; j < S::offsets[k + 1]; ++j )
                 acc += a[S::col_a[j]] * out[S::col_b[j]];
             out[k] = -acc * inv_a0;
         }
+#else
+        for ( int d = 1; d <= N; ++d )
+        {
+            forEachMonomial< M >( d, [&]( const auto& alpha, std::size_t ai ) {
+                T rhs = T{ 0 };
+                forEachSubIndex< M >( alpha, 1, d,
+                                      [&]( auto bi, auto gi, int ) { rhs -= a[bi] * out[gi]; } );
+                out[ai] = rhs * inv_a0;
+            } );
+        }
+#endif
     }
 }
 
@@ -87,16 +106,24 @@ constexpr void seriesSqrt( Coeffs< T, N, M >& out,
 
     if constexpr ( M == 1 )
     {
+#ifdef TAX_USE_UNROLL
         sqrtUniImpl< T, N >( out, a, inv2g0, std::make_index_sequence< N >{} );
+#else
+        for ( int d = 1; d <= N; ++d )
+        {
+            T rhs = a[d];
+            for ( int k = 1; k + k < d; ++k ) rhs -= T{ 2 } * out[k] * out[d - k];
+            if ( d % 2 == 0 ) rhs -= out[d / 2] * out[d / 2];
+            out[d] = rhs * inv2g0;
+        }
+#endif
     } else
     {
+#ifdef TAX_USE_STENCIL
         using S = CauchySymStencil< N, M >;
         for ( std::size_t k = 1; k < S::NC; ++k )
         {
             T acc{ 0 };
-            // Skip the (beta=0, gamma=alpha) pair — the 2*out[0]*out[k] term
-            // we moved to the LHS.  Remaining pairs are interior (neither
-            // beta nor gamma is the zero multi-index).
             for ( std::size_t j = S::offsets[k] + 1; j < S::offsets[k + 1]; ++j )
             {
                 const T pp = out[S::col_a[j]] * out[S::col_b[j]];
@@ -104,6 +131,21 @@ constexpr void seriesSqrt( Coeffs< T, N, M >& out,
             }
             out[k] = ( a[k] - acc ) * inv2g0;
         }
+#else
+        for ( int d = 1; d <= N; ++d )
+        {
+            forEachMonomial< M >( d, [&]( const auto& alpha, std::size_t ai ) {
+                T rhs = a[ai];
+                forEachSubIndex< M >( alpha, 1, d - 1, [&]( auto bi, auto gi, int ) {
+                    if ( bi < gi )
+                        rhs -= T{ 2 } * out[bi] * out[gi];
+                    else if ( bi == gi )
+                        rhs -= out[bi] * out[bi];
+                } );
+                out[ai] = rhs * inv2g0;
+            } );
+        }
+#endif
     }
 }
 

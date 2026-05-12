@@ -3,9 +3,15 @@
 #include <cstddef>
 #include <utility>
 
-#include <tax/kernels/cauchy_stencil.hpp>
-#include <tax/kernels/unroll.hpp>
 #include <tax/utils/enumeration.hpp>
+
+#ifdef TAX_USE_STENCIL
+#include <tax/kernels/cauchy_stencil.hpp>
+#endif
+
+#ifdef TAX_USE_UNROLL
+#include <tax/kernels/unroll.hpp>
+#endif
 
 namespace tax::detail
 {
@@ -21,10 +27,17 @@ constexpr void cauchyProduct( Coeffs< T, N, M >& out,
 {
     if constexpr ( M == 1 )
     {
+#ifdef TAX_USE_UNROLL
         cauchyUniProductImpl< T, N >( out, f, g, std::make_index_sequence< N + 1 >{} );
+#else
+        out = {};
+        for ( int d = 0; d <= N; ++d )
+            for ( int k = 0; k <= d; ++k ) out[d] += f[k] * g[d - k];
+#endif
     } else
     {
         out = {};
+#ifdef TAX_USE_STENCIL
         using S = CauchyStencil< N, M >;
         for ( std::size_t k = 0; k < S::NC; ++k )
         {
@@ -33,6 +46,15 @@ constexpr void cauchyProduct( Coeffs< T, N, M >& out,
                 acc += f[S::col_a[j]] * g[S::col_b[j]];
             out[k] = acc;
         }
+#else
+        for ( int d = 0; d <= N; ++d )
+        {
+            forEachMonomial< M >( d, [&]( const auto& alpha, std::size_t ai ) {
+                forEachSubIndex< M >( alpha,
+                                      [&]( auto bi, auto gi ) { out[ai] += f[bi] * g[gi]; } );
+            } );
+        }
+#endif
     }
 }
 
@@ -48,10 +70,21 @@ constexpr void cauchySelfProduct( Coeffs< T, N, M >& out,
 {
     if constexpr ( M == 1 )
     {
+#ifdef TAX_USE_UNROLL
         selfUniImpl< T, N >( out, f, std::make_index_sequence< N + 1 >{} );
+#else
+        out = {};
+        for ( int d = 0; d <= N; ++d )
+        {
+            // Enumerate only k <= d-k, i.e. k <= d/2.
+            for ( int k = 0; k + k < d; ++k ) out[d] += T{ 2 } * f[k] * f[d - k];
+            if ( d % 2 == 0 ) out[d] += f[d / 2] * f[d / 2];
+        }
+#endif
     } else
     {
         out = {};
+#ifdef TAX_USE_STENCIL
         using S = CauchySymStencil< N, M >;
         for ( std::size_t k = 0; k < S::NC; ++k )
         {
@@ -63,6 +96,19 @@ constexpr void cauchySelfProduct( Coeffs< T, N, M >& out,
             }
             out[k] = acc;
         }
+#else
+        for ( int d = 0; d <= N; ++d )
+        {
+            forEachMonomial< M >( d, [&]( const auto& alpha, std::size_t ai ) {
+                forEachSubIndex< M >( alpha, [&]( auto bi, auto gi ) {
+                    if ( bi < gi )
+                        out[ai] += T{ 2 } * f[bi] * f[gi];
+                    else if ( bi == gi )
+                        out[ai] += f[bi] * f[bi];
+                } );
+            } );
+        }
+#endif
     }
 }
 
@@ -77,9 +123,15 @@ constexpr void cauchyAccumulate( Coeffs< T, N, M >& out,
 {
     if constexpr ( M == 1 )
     {
+#ifdef TAX_USE_UNROLL
         cauchyUniAccumulateImpl< T, N >( out, f, g, std::make_index_sequence< N + 1 >{} );
+#else
+        for ( int d = 0; d <= N; ++d )
+            for ( int k = 0; k <= d; ++k ) out[d] += f[k] * g[d - k];
+#endif
     } else
     {
+#ifdef TAX_USE_STENCIL
         using S = CauchyStencil< N, M >;
         for ( std::size_t k = 0; k < S::NC; ++k )
         {
@@ -88,6 +140,15 @@ constexpr void cauchyAccumulate( Coeffs< T, N, M >& out,
                 acc += f[S::col_a[j]] * g[S::col_b[j]];
             out[k] += acc;
         }
+#else
+        for ( int d = 0; d <= N; ++d )
+        {
+            forEachMonomial< M >( d, [&]( const auto& alpha, std::size_t ai ) {
+                forEachSubIndex< M >( alpha,
+                                      [&]( auto bi, auto gi ) { out[ai] += f[bi] * g[gi]; } );
+            } );
+        }
+#endif
     }
 }
 

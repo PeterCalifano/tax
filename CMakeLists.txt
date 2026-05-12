@@ -11,6 +11,12 @@ option(TAX_BUILD_EXAMPLES "Build the examples/ programs" OFF)
 option(TAX_BUILD_PYTHON "Build the nanobind Python bindings" OFF)
 option(TAX_USE_OPENMP "Enable OpenMP parallelism in the ADS integrator" ON)
 option(TAX_USE_DACE "Enable DACE integration (fetches dacelib/dace@v2.1.0) for tests and benchmarks" OFF)
+# Performance toggles — leave on by default for production-quality output.
+# Turn off to fall back to the simple loop-based kernels (useful for
+# diff-testing and for measuring the compile-time / binary-size cost of the
+# optimisations).
+option(TAX_USE_UNROLL  "Use compile-time-unrolled M=1 kernels (otherwise use loops)" ON)
+option(TAX_USE_STENCIL "Use precomputed CauchyStencil / CauchyWeightStencil / CauchySymStencil for M>=2 (otherwise use forEachMonomial+forEachSubIndex live walks)" ON)
 
 # -------------------------------
 # Compiler settings
@@ -43,6 +49,13 @@ target_include_directories(tax
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
 )
+
+if(TAX_USE_UNROLL)
+    target_compile_definitions(tax INTERFACE TAX_USE_UNROLL=1)
+endif()
+if(TAX_USE_STENCIL)
+    target_compile_definitions(tax INTERFACE TAX_USE_STENCIL=1)
+endif()
 
 # -------------------------------
 # Required Eigen dependency

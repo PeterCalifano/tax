@@ -5,9 +5,15 @@
 #include <utility>
 #include <vector>
 
-#include <tax/kernels/cauchy_stencil.hpp>
-#include <tax/kernels/unroll.hpp>
 #include <tax/utils/enumeration.hpp>
+
+#ifdef TAX_USE_STENCIL
+#include <tax/kernels/cauchy_stencil.hpp>
+#endif
+
+#ifdef TAX_USE_UNROLL
+#include <tax/kernels/unroll.hpp>
+#endif
 
 namespace tax::detail
 {
@@ -30,9 +36,26 @@ constexpr void seriesSinCos( Coeffs< T, N, M >& s,
 
     if constexpr ( M == 1 )
     {
+#ifdef TAX_USE_UNROLL
         sinCosUniImpl< T, N >( s, c, a, std::make_index_sequence< N >{} );
+#else
+        for ( int d = 1; d <= N; ++d )
+        {
+            T sr = T{ 0 }, cr = T{ 0 };
+            for ( int k = 0; k < d; ++k )
+            {
+                const T w = T( d - k ) * a[d - k];
+                sr += w * c[k];
+                cr += w * s[k];
+            }
+            const T inv_d = T{ 1 } / T( d );
+            s[d] = sr * inv_d;
+            c[d] = -cr * inv_d;
+        }
+#endif
     } else
     {
+#ifdef TAX_USE_STENCIL
         using S = CauchyStencil< N, M >;
         using W = CauchyWeightStencil< N, M >;
         using D = DegreeRanges< N, M >;
@@ -42,7 +65,6 @@ constexpr void seriesSinCos( Coeffs< T, N, M >& s,
             for ( std::size_t k = D::endByDegree[d]; k < D::endByDegree[d + 1]; ++k )
             {
                 T sin_rhs{ 0 }, cos_rhs{ 0 };
-                // Skip the last pair (db = d, beta = alpha); db spans [0, d-1].
                 for ( std::size_t j = S::offsets[k]; j + 1 < S::offsets[k + 1]; ++j )
                 {
                     const T fg = T( d - W::db[j] ) * a[S::col_b[j]];
@@ -53,6 +75,23 @@ constexpr void seriesSinCos( Coeffs< T, N, M >& s,
                 c[k] = -cos_rhs * inv_d;
             }
         }
+#else
+        for ( int d = 1; d <= N; ++d )
+        {
+            forEachMonomial< M >( d, [&]( const auto& alpha, std::size_t ai ) {
+                T sin_rhs = T{ 0 };
+                T cos_rhs = T{ 0 };
+                forEachSubIndex< M >( alpha, 0, d - 1, [&]( auto bi, auto gi, int db ) {
+                    const T fg = T( d - db ) * a[gi];
+                    sin_rhs += fg * c[bi];
+                    cos_rhs += fg * s[bi];
+                } );
+                const T inv_d = T{ 1 } / T( d );
+                s[ai] = sin_rhs * inv_d;
+                c[ai] = -cos_rhs * inv_d;
+            } );
+        }
+#endif
     }
 }
 
@@ -92,20 +131,40 @@ constexpr void seriesTan( Coeffs< T, N, M >& out,
 
     if constexpr ( M == 1 )
     {
+#ifdef TAX_USE_UNROLL
         out[0] = s[0] * inv_c0;
         tanLikeUniImpl< T, N >( out, s, c, inv_c0, std::make_index_sequence< N >{} );
+#else
+        for ( int d = 0; d <= N; ++d )
+        {
+            T rhs = s[d];
+            for ( int k = 1; k <= d; ++k ) rhs -= c[k] * out[d - k];
+            out[d] = rhs * inv_c0;
+        }
+#endif
     } else
     {
+#ifdef TAX_USE_STENCIL
         using S = CauchyStencil< N, M >;
         out[0] = s[0] * inv_c0;
         for ( std::size_t k = 1; k < S::NC; ++k )
         {
             T rhs = s[k];
-            // Skip the (beta=0, gamma=alpha) pair (encodes the c[0] * out[k] LHS term).
             for ( std::size_t j = S::offsets[k] + 1; j < S::offsets[k + 1]; ++j )
                 rhs -= c[S::col_a[j]] * out[S::col_b[j]];
             out[k] = rhs * inv_c0;
         }
+#else
+        for ( int d = 0; d <= N; ++d )
+        {
+            forEachMonomial< M >( d, [&]( const auto& alpha, std::size_t ai ) {
+                T rhs = s[ai];
+                forEachSubIndex< M >( alpha, 1, d,
+                                      [&]( auto bi, auto gi, int ) { rhs -= c[bi] * out[gi]; } );
+                out[ai] = rhs * inv_c0;
+            } );
+        }
+#endif
     }
 }
 
@@ -123,9 +182,26 @@ constexpr void seriesSinhCosh( Coeffs< T, N, M >& sh,
 
     if constexpr ( M == 1 )
     {
+#ifdef TAX_USE_UNROLL
         sinhCoshUniImpl< T, N >( sh, ch, a, std::make_index_sequence< N >{} );
+#else
+        for ( int d = 1; d <= N; ++d )
+        {
+            T sr = T{ 0 }, cr = T{ 0 };
+            for ( int k = 0; k < d; ++k )
+            {
+                const T w = T( d - k ) * a[d - k];
+                sr += w * ch[k];
+                cr += w * sh[k];
+            }
+            const T inv_d = T{ 1 } / T( d );
+            sh[d] = sr * inv_d;
+            ch[d] = cr * inv_d;
+        }
+#endif
     } else
     {
+#ifdef TAX_USE_STENCIL
         using S = CauchyStencil< N, M >;
         using W = CauchyWeightStencil< N, M >;
         using D = DegreeRanges< N, M >;
@@ -145,6 +221,23 @@ constexpr void seriesSinhCosh( Coeffs< T, N, M >& sh,
                 ch[k] = ch_rhs * inv_d;
             }
         }
+#else
+        for ( int d = 1; d <= N; ++d )
+        {
+            forEachMonomial< M >( d, [&]( const auto& alpha, std::size_t ai ) {
+                T sh_rhs = T{ 0 };
+                T ch_rhs = T{ 0 };
+                forEachSubIndex< M >( alpha, 0, d - 1, [&]( auto bi, auto gi, int db ) {
+                    const T fg = T( d - db ) * a[gi];
+                    sh_rhs += fg * ch[bi];
+                    ch_rhs += fg * sh[bi];
+                } );
+                const T inv_d = T{ 1 } / T( d );
+                sh[ai] = sh_rhs * inv_d;
+                ch[ai] = ch_rhs * inv_d;
+            } );
+        }
+#endif
     }
 }
 
@@ -177,10 +270,20 @@ constexpr void seriesTanh( Coeffs< T, N, M >& out,
 
     if constexpr ( M == 1 )
     {
+#ifdef TAX_USE_UNROLL
         out[0] = sh[0] * inv_ch0;
         tanLikeUniImpl< T, N >( out, sh, ch, inv_ch0, std::make_index_sequence< N >{} );
+#else
+        for ( int d = 0; d <= N; ++d )
+        {
+            T rhs = sh[d];
+            for ( int k = 1; k <= d; ++k ) rhs -= ch[k] * out[d - k];
+            out[d] = rhs * inv_ch0;
+        }
+#endif
     } else
     {
+#ifdef TAX_USE_STENCIL
         using S = CauchyStencil< N, M >;
         out[0] = sh[0] * inv_ch0;
         for ( std::size_t k = 1; k < S::NC; ++k )
@@ -190,6 +293,17 @@ constexpr void seriesTanh( Coeffs< T, N, M >& out,
                 rhs -= ch[S::col_a[j]] * out[S::col_b[j]];
             out[k] = rhs * inv_ch0;
         }
+#else
+        for ( int d = 0; d <= N; ++d )
+        {
+            forEachMonomial< M >( d, [&]( const auto& alpha, std::size_t ai ) {
+                T rhs = sh[ai];
+                forEachSubIndex< M >( alpha, 1, d,
+                                      [&]( auto bi, auto gi, int ) { rhs -= ch[bi] * out[gi]; } );
+                out[ai] = rhs * inv_ch0;
+            } );
+        }
+#endif
     }
 }
 
