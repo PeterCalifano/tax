@@ -193,4 +193,78 @@ struct CauchySymStencil
     static constexpr auto& is_diag = data_.is_diag;
 };
 
+/**
+ * @brief Per-pair `|beta|` (degree of the first factor) for the asymmetric
+ *        `CauchyStencil<N, M>`.
+ * @details One byte per pair (we cap N at 254 since `numMonomials(255, 4)`
+ *          already overflows uint16_t anyway).  Shared between every
+ *          multivariate weighted-recurrence kernel: `seriesExp`, `seriesLog`,
+ *          `seriesPow`, `seriesSinCos`, `seriesSinhCosh`, `seriesErf`,
+ *          `seriesAsin`, `seriesAtan`, `seriesAsinh`, `seriesAcosh`,
+ *          `seriesAtanh`.  Layout matches `CauchyStencil<N, M>` row-for-row.
+ */
+template < int N, int M >
+struct CauchyWeightStencil
+{
+    static_assert( N >= 0 );
+    static_assert( M >= 1 );
+    static_assert( N <= 254, "CauchyWeightStencil stores |beta| in a uint8_t" );
+
+    static constexpr std::size_t NC = numMonomials( N, M );
+    static constexpr std::size_t PC = numMonomials( N, 2 * M );
+
+  private:
+    static consteval std::array< uint8_t, PC > build() noexcept
+    {
+        // Precompute the degree of every output monomial (one byte per row).
+        std::array< uint8_t, NC > deg_of{};
+        for ( int d = 0; d <= N; ++d )
+            forEachMonomial< M >(
+                d, [&]( const auto&, std::size_t ai ) { deg_of[ai] = uint8_t( d ); } );
+
+        // Walk the same enumeration as CauchyStencil so positions match.
+        std::array< uint8_t, PC > db{};
+        std::size_t pos = 0;
+        for ( int d = 0; d <= N; ++d )
+        {
+            forEachMonomial< M >( d, [&]( const auto& alpha, std::size_t /*ai*/ ) {
+                forEachSubIndex< M >( alpha, [&]( std::size_t bi, std::size_t /*gi*/ ) {
+                    db[pos++] = deg_of[bi];
+                } );
+            } );
+        }
+
+        return db;
+    }
+
+  public:
+    static constexpr auto data_ = build();
+    static constexpr auto& db = data_;
+};
+
+/**
+ * @brief Cumulative monomial count up to and including each degree.
+ * @details `endByDegree[d]` = `numMonomials(d, M)` so the rows of total
+ *          degree `d` occupy flat indices `[endByDegree[d-1], endByDegree[d])`
+ *          (with the convention `endByDegree[-1] = 0`).
+ */
+template < int N, int M >
+struct DegreeRanges
+{
+    static_assert( N >= 0 );
+    static_assert( M >= 1 );
+
+  private:
+    static consteval std::array< std::size_t, std::size_t( N ) + 2 > build() noexcept
+    {
+        std::array< std::size_t, std::size_t( N ) + 2 > r{};
+        r[0] = 0;  // r[0] = numMonomials(-1, M) by convention.
+        for ( int d = 0; d <= N; ++d ) r[std::size_t( d ) + 1] = numMonomials( d, M );
+        return r;
+    }
+
+  public:
+    static constexpr auto endByDegree = build();
+};
+
 }  // namespace tax::detail

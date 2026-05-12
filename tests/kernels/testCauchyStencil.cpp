@@ -146,3 +146,53 @@ TEST( CauchyStencil, PairCountMatchesClosedForm )
     // numMonomials(5, 6) = C(11, 6) = 462.
     EXPECT_EQ( S::PC, tax::detail::numMonomials( 5, 6 ) );
 }
+
+// Cross-check CauchyWeightStencil::db against live |beta| values.
+namespace
+{
+template < int N, int M >
+void expectWeightStencilMatchesLive()
+{
+    using S = tax::detail::CauchyStencil< N, M >;
+    using W = tax::detail::CauchyWeightStencil< N, M >;
+    EXPECT_EQ( S::PC, W::PC );
+
+    std::size_t pos = 0;
+    for ( int d = 0; d <= N; ++d )
+    {
+        tax::detail::forEachMonomial< M >(
+            d, [&]( const auto& alpha, std::size_t /*ai*/ ) {
+                tax::detail::forEachSubIndex< M >(
+                    alpha, [&]( std::size_t /*bi*/, std::size_t /*gi*/ ) {
+                        // |beta| via deconstruction: same as stencil's db at this position.
+                        // (We use the banded walk to get db cheaply but as a separate
+                        // cross-check, recompute by summing alpha-gamma below.)
+                        ++pos;  // We'll just count.
+                    } );
+            } );
+    }
+    EXPECT_EQ( pos, W::PC );
+
+    // Now verify db[j] = totalDegree( unflatIndex( col_a[j] ) ).
+    for ( std::size_t j = 0; j < W::PC; ++j )
+    {
+        const auto beta = tax::detail::unflatIndex< M >( std::size_t( S::col_a[j] ) );
+        int dbeta = 0;
+        for ( int v = 0; v < M; ++v ) dbeta += beta[v];
+        EXPECT_EQ( int( W::db[j] ), dbeta ) << "j=" << j;
+    }
+}
+}  // namespace
+
+TEST( CauchyWeightStencil, MatchesLive_N3_M2 )
+{
+    expectWeightStencilMatchesLive< 3, 2 >();
+}
+TEST( CauchyWeightStencil, MatchesLive_N5_M3 )
+{
+    expectWeightStencilMatchesLive< 5, 3 >();
+}
+TEST( CauchyWeightStencil, MatchesLive_N4_M4 )
+{
+    expectWeightStencilMatchesLive< 4, 4 >();
+}

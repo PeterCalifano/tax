@@ -2,11 +2,13 @@
 
 #include <cmath>
 #include <span>
+#include <utility>
 #include <vector>
 
 #include <tax/kernels/algebra.hpp>
 #include <tax/kernels/cauchy.hpp>
 #include <tax/kernels/ops.hpp>
+#include <tax/kernels/unroll.hpp>
 #include <tax/utils/enumeration.hpp>
 
 namespace tax::detail
@@ -27,23 +29,23 @@ constexpr void seriesLog( Coeffs< T, N, M >& out,
 
     if constexpr ( M == 1 )
     {
-        for ( int d = 1; d <= N; ++d )
-        {
-            T rhs = T{ 0 };
-            for ( int k = 1; k < d; ++k ) rhs += T( k ) * a[d - k] * out[k];
-            out[d] = ( a[d] - rhs / T( d ) ) * inv_a0;
-        }
+        logUniImpl< T, N >( out, a, inv_a0, std::make_index_sequence< N >{} );
     } else
     {
+        using S = CauchyStencil< N, M >;
+        using W = CauchyWeightStencil< N, M >;
+        using D = DegreeRanges< N, M >;
         for ( int d = 1; d <= N; ++d )
         {
-            forEachMonomial< M >( d, [&]( const auto& alpha, std::size_t ai ) {
-                T rhs = T{ 0 };
-                forEachSubIndex< M >( alpha, 1, d - 1, [&]( auto bi, auto gi, int db ) {
-                    rhs += T( d - db ) * a[bi] * out[gi];
-                } );
-                out[ai] = ( a[ai] - rhs / T( d ) ) * inv_a0;
-            } );
+            const T inv_d = T{ 1 } / T( d );
+            for ( std::size_t k = D::endByDegree[d]; k < D::endByDegree[d + 1]; ++k )
+            {
+                T rhs{ 0 };
+                // Skip first (db=0) and last (db=d) pairs; interior pairs have db in [1, d-1].
+                for ( std::size_t j = S::offsets[k] + 1; j + 1 < S::offsets[k + 1]; ++j )
+                    rhs += T( d - W::db[j] ) * a[S::col_a[j]] * out[S::col_b[j]];
+                out[k] = ( a[k] - rhs * inv_d ) * inv_a0;
+            }
         }
     }
 }
@@ -58,23 +60,23 @@ constexpr void seriesExp( Coeffs< T, N, M >& out,
 
     if constexpr ( M == 1 )
     {
-        for ( int d = 1; d <= N; ++d )
-        {
-            T rhs = T{ 0 };
-            for ( int k = 0; k < d; ++k ) rhs += T( d - k ) * a[d - k] * out[k];
-            out[d] = rhs / T( d );
-        }
+        expUniImpl< T, N >( out, a, std::make_index_sequence< N >{} );
     } else
     {
+        using S = CauchyStencil< N, M >;
+        using W = CauchyWeightStencil< N, M >;
+        using D = DegreeRanges< N, M >;
         for ( int d = 1; d <= N; ++d )
         {
-            forEachMonomial< M >( d, [&]( const auto& alpha, std::size_t ai ) {
-                T rhs = T{ 0 };
-                forEachSubIndex< M >( alpha, 1, d, [&]( auto bi, auto gi, int db ) {
-                    rhs += T( db ) * a[bi] * out[gi];
-                } );
-                out[ai] = rhs / T( d );
-            } );
+            const T inv_d = T{ 1 } / T( d );
+            for ( std::size_t k = D::endByDegree[d]; k < D::endByDegree[d + 1]; ++k )
+            {
+                T rhs{ 0 };
+                // Skip the (beta=0, gamma=alpha) pair; remaining pairs span db in [1, d].
+                for ( std::size_t j = S::offsets[k] + 1; j < S::offsets[k + 1]; ++j )
+                    rhs += T( W::db[j] ) * a[S::col_a[j]] * out[S::col_b[j]];
+                out[k] = rhs * inv_d;
+            }
         }
     }
 }
@@ -90,23 +92,26 @@ constexpr void seriesPow( Coeffs< T, N, M >& out,
 
     if constexpr ( M == 1 )
     {
-        for ( int d = 1; d <= N; ++d )
-        {
-            T rhs = T{ 0 };
-            for ( int k = 0; k < d; ++k ) rhs += ( c * T( d - k ) - T( k ) ) * a[d - k] * out[k];
-            out[d] = rhs * inv_a0 / T( d );
-        }
+        powUniImpl< T, N >( out, a, c, inv_a0, std::make_index_sequence< N >{} );
     } else
     {
+        using S = CauchyStencil< N, M >;
+        using W = CauchyWeightStencil< N, M >;
+        using D = DegreeRanges< N, M >;
         for ( int d = 1; d <= N; ++d )
         {
-            forEachMonomial< M >( d, [&]( const auto& alpha, std::size_t ai ) {
-                T rhs = T{ 0 };
-                forEachSubIndex< M >( alpha, 1, d, [&]( auto bi, auto gi, int db ) {
-                    rhs += ( c * T( db ) - T( d - db ) ) * a[bi] * out[gi];
-                } );
-                out[ai] = rhs * inv_a0 / T( d );
-            } );
+            const T inv_d = T{ 1 } / T( d );
+            for ( std::size_t k = D::endByDegree[d]; k < D::endByDegree[d + 1]; ++k )
+            {
+                T rhs{ 0 };
+                // Skip first pair (db=0); remaining pairs span db in [1, d].
+                for ( std::size_t j = S::offsets[k] + 1; j < S::offsets[k + 1]; ++j )
+                {
+                    const int dbj = W::db[j];
+                    rhs += ( c * T( dbj ) - T( d - dbj ) ) * a[S::col_a[j]] * out[S::col_b[j]];
+                }
+                out[k] = rhs * inv_a0 * inv_d;
+            }
         }
     }
 }
@@ -188,23 +193,23 @@ constexpr void seriesErf( Coeffs< T, N, M >& out,
 
     if constexpr ( M == 1 )
     {
-        for ( int d = 1; d <= N; ++d )
-        {
-            T rhs = T{ 0 };
-            for ( int k = 0; k < d; ++k ) rhs += T( d - k ) * a[d - k] * h[k];
-            out[d] = rhs / T( d );
-        }
+        erfUniImpl< T, N >( out, a, h, std::make_index_sequence< N >{} );
     } else
     {
+        using S = CauchyStencil< N, M >;
+        using W = CauchyWeightStencil< N, M >;
+        using D = DegreeRanges< N, M >;
         for ( int d = 1; d <= N; ++d )
         {
-            forEachMonomial< M >( d, [&]( const auto& alpha, std::size_t ai ) {
-                T rhs = T{ 0 };
-                forEachSubIndex< M >( alpha, 1, d, [&]( auto bi, auto gi, int db ) {
-                    rhs += T( db ) * a[bi] * h[gi];
-                } );
-                out[ai] = rhs / T( d );
-            } );
+            const T inv_d = T{ 1 } / T( d );
+            for ( std::size_t k = D::endByDegree[d]; k < D::endByDegree[d + 1]; ++k )
+            {
+                T rhs{ 0 };
+                // Skip first pair (db=0); remaining pairs span db in [1, d].
+                for ( std::size_t j = S::offsets[k] + 1; j < S::offsets[k + 1]; ++j )
+                    rhs += T( W::db[j] ) * a[S::col_a[j]] * h[S::col_b[j]];
+                out[k] = rhs * inv_d;
+            }
         }
     }
 }
@@ -230,23 +235,23 @@ constexpr void seriesAsin( Coeffs< T, N, M >& out,
 
     if constexpr ( M == 1 )
     {
-        for ( int d = 1; d <= N; ++d )
-        {
-            T rhs = T{ 0 };
-            for ( int k = 1; k < d; ++k ) rhs += T( k ) * h[d - k] * out[k];
-            out[d] = ( a[d] - rhs / T( d ) ) * inv_h0;
-        }
+        asinLikeUniImpl< T, N >( out, a, h, inv_h0, std::make_index_sequence< N >{} );
     } else
     {
+        using S = CauchyStencil< N, M >;
+        using W = CauchyWeightStencil< N, M >;
+        using D = DegreeRanges< N, M >;
         for ( int d = 1; d <= N; ++d )
         {
-            forEachMonomial< M >( d, [&]( const auto& alpha, std::size_t ai ) {
-                T rhs = T{ 0 };
-                forEachSubIndex< M >( alpha, 1, d - 1, [&]( auto bi, auto gi, int db ) {
-                    rhs += T( d - db ) * h[bi] * out[gi];
-                } );
-                out[ai] = ( a[ai] - rhs / T( d ) ) * inv_h0;
-            } );
+            const T inv_d = T{ 1 } / T( d );
+            for ( std::size_t k = D::endByDegree[d]; k < D::endByDegree[d + 1]; ++k )
+            {
+                T rhs{ 0 };
+                // Skip both endpoints; interior pairs span db in [1, d-1].
+                for ( std::size_t j = S::offsets[k] + 1; j + 1 < S::offsets[k + 1]; ++j )
+                    rhs += T( d - W::db[j] ) * h[S::col_a[j]] * out[S::col_b[j]];
+                out[k] = ( a[k] - rhs * inv_d ) * inv_h0;
+            }
         }
     }
 }
@@ -279,23 +284,23 @@ constexpr void seriesAtan( Coeffs< T, N, M >& out,
 
     if constexpr ( M == 1 )
     {
-        for ( int d = 1; d <= N; ++d )
-        {
-            T rhs = T{ 0 };
-            for ( int k = 1; k < d; ++k ) rhs += T( k ) * h[d - k] * out[k];
-            out[d] = ( a[d] - rhs / T( d ) ) * inv_h0;
-        }
+        asinLikeUniImpl< T, N >( out, a, h, inv_h0, std::make_index_sequence< N >{} );
     } else
     {
+        using S = CauchyStencil< N, M >;
+        using W = CauchyWeightStencil< N, M >;
+        using D = DegreeRanges< N, M >;
         for ( int d = 1; d <= N; ++d )
         {
-            forEachMonomial< M >( d, [&]( const auto& alpha, std::size_t ai ) {
-                T rhs = T{ 0 };
-                forEachSubIndex< M >( alpha, 1, d - 1, [&]( auto bi, auto gi, int db ) {
-                    rhs += T( d - db ) * h[bi] * out[gi];
-                } );
-                out[ai] = ( a[ai] - rhs / T( d ) ) * inv_h0;
-            } );
+            const T inv_d = T{ 1 } / T( d );
+            for ( std::size_t k = D::endByDegree[d]; k < D::endByDegree[d + 1]; ++k )
+            {
+                T rhs{ 0 };
+                // Skip both endpoints; interior pairs span db in [1, d-1].
+                for ( std::size_t j = S::offsets[k] + 1; j + 1 < S::offsets[k + 1]; ++j )
+                    rhs += T( d - W::db[j] ) * h[S::col_a[j]] * out[S::col_b[j]];
+                out[k] = ( a[k] - rhs * inv_d ) * inv_h0;
+            }
         }
     }
 }
@@ -368,23 +373,23 @@ constexpr void seriesAsinh( Coeffs< T, N, M >& out,
 
     if constexpr ( M == 1 )
     {
-        for ( int d = 1; d <= N; ++d )
-        {
-            T rhs = T{ 0 };
-            for ( int k = 1; k < d; ++k ) rhs += T( k ) * h[d - k] * out[k];
-            out[d] = ( a[d] - rhs / T( d ) ) * inv_h0;
-        }
+        asinLikeUniImpl< T, N >( out, a, h, inv_h0, std::make_index_sequence< N >{} );
     } else
     {
+        using S = CauchyStencil< N, M >;
+        using W = CauchyWeightStencil< N, M >;
+        using D = DegreeRanges< N, M >;
         for ( int d = 1; d <= N; ++d )
         {
-            forEachMonomial< M >( d, [&]( const auto& alpha, std::size_t ai ) {
-                T rhs = T{ 0 };
-                forEachSubIndex< M >( alpha, 1, d - 1, [&]( auto bi, auto gi, int db ) {
-                    rhs += T( d - db ) * h[bi] * out[gi];
-                } );
-                out[ai] = ( a[ai] - rhs / T( d ) ) * inv_h0;
-            } );
+            const T inv_d = T{ 1 } / T( d );
+            for ( std::size_t k = D::endByDegree[d]; k < D::endByDegree[d + 1]; ++k )
+            {
+                T rhs{ 0 };
+                // Skip both endpoints; interior pairs span db in [1, d-1].
+                for ( std::size_t j = S::offsets[k] + 1; j + 1 < S::offsets[k + 1]; ++j )
+                    rhs += T( d - W::db[j] ) * h[S::col_a[j]] * out[S::col_b[j]];
+                out[k] = ( a[k] - rhs * inv_d ) * inv_h0;
+            }
         }
     }
 }
@@ -413,23 +418,23 @@ constexpr void seriesAcosh( Coeffs< T, N, M >& out,
 
     if constexpr ( M == 1 )
     {
-        for ( int d = 1; d <= N; ++d )
-        {
-            T rhs = T{ 0 };
-            for ( int k = 1; k < d; ++k ) rhs += T( k ) * h[d - k] * out[k];
-            out[d] = ( a[d] - rhs / T( d ) ) * inv_h0;
-        }
+        asinLikeUniImpl< T, N >( out, a, h, inv_h0, std::make_index_sequence< N >{} );
     } else
     {
+        using S = CauchyStencil< N, M >;
+        using W = CauchyWeightStencil< N, M >;
+        using D = DegreeRanges< N, M >;
         for ( int d = 1; d <= N; ++d )
         {
-            forEachMonomial< M >( d, [&]( const auto& alpha, std::size_t ai ) {
-                T rhs = T{ 0 };
-                forEachSubIndex< M >( alpha, 1, d - 1, [&]( auto bi, auto gi, int db ) {
-                    rhs += T( d - db ) * h[bi] * out[gi];
-                } );
-                out[ai] = ( a[ai] - rhs / T( d ) ) * inv_h0;
-            } );
+            const T inv_d = T{ 1 } / T( d );
+            for ( std::size_t k = D::endByDegree[d]; k < D::endByDegree[d + 1]; ++k )
+            {
+                T rhs{ 0 };
+                // Skip both endpoints; interior pairs span db in [1, d-1].
+                for ( std::size_t j = S::offsets[k] + 1; j + 1 < S::offsets[k + 1]; ++j )
+                    rhs += T( d - W::db[j] ) * h[S::col_a[j]] * out[S::col_b[j]];
+                out[k] = ( a[k] - rhs * inv_d ) * inv_h0;
+            }
         }
     }
 }
@@ -457,23 +462,23 @@ constexpr void seriesAtanh( Coeffs< T, N, M >& out,
 
     if constexpr ( M == 1 )
     {
-        for ( int d = 1; d <= N; ++d )
-        {
-            T rhs = T{ 0 };
-            for ( int k = 1; k < d; ++k ) rhs += T( k ) * h[d - k] * out[k];
-            out[d] = ( a[d] - rhs / T( d ) ) * inv_h0;
-        }
+        asinLikeUniImpl< T, N >( out, a, h, inv_h0, std::make_index_sequence< N >{} );
     } else
     {
+        using S = CauchyStencil< N, M >;
+        using W = CauchyWeightStencil< N, M >;
+        using D = DegreeRanges< N, M >;
         for ( int d = 1; d <= N; ++d )
         {
-            forEachMonomial< M >( d, [&]( const auto& alpha, std::size_t ai ) {
-                T rhs = T{ 0 };
-                forEachSubIndex< M >( alpha, 1, d - 1, [&]( auto bi, auto gi, int db ) {
-                    rhs += T( d - db ) * h[bi] * out[gi];
-                } );
-                out[ai] = ( a[ai] - rhs / T( d ) ) * inv_h0;
-            } );
+            const T inv_d = T{ 1 } / T( d );
+            for ( std::size_t k = D::endByDegree[d]; k < D::endByDegree[d + 1]; ++k )
+            {
+                T rhs{ 0 };
+                // Skip both endpoints; interior pairs span db in [1, d-1].
+                for ( std::size_t j = S::offsets[k] + 1; j + 1 < S::offsets[k + 1]; ++j )
+                    rhs += T( d - W::db[j] ) * h[S::col_a[j]] * out[S::col_b[j]];
+                out[k] = ( a[k] - rhs * inv_d ) * inv_h0;
+            }
         }
     }
 }
