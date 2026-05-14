@@ -48,6 +48,7 @@
 
 #include <Eigen/Core>
 
+#include <tax/ode/solution.hpp>  // EventDirection
 #include <tax/ode/verner_tableaus.hpp>
 #include <tax/storage/tte_static.hpp>
 
@@ -527,7 +528,112 @@ template < typename F, typename State >
     return { std::move( x_new ), verner_norm( err ) };
 }
 
+// =============================================================================
+// Event-bisection helper (re-step with smaller dt inside the bracket)
+// =============================================================================
+
+/// @brief Single Verner step dispatcher used by both `integrate` and the
+///        event-bisection routine.
+template < typename Coeffs, typename F, typename State >
+[[nodiscard]] inline VernerStepResult< State > verner_step_dispatch( const F& f,
+                                                                       const State& x,
+                                                                       double t, double h )
+{
+    if constexpr ( std::is_same_v< Coeffs, Verner78Coeffs > )
+        return verner78_step< F, State >( f, x, t, h );
+    else
+        return verner89_step< F, State >( f, x, t, h );
+}
+
+/**
+ * @brief Bisect an event bracket `[0, dt]` by repeatedly re-stepping the
+ *        Verner pair from @p xc to refine the crossing time.
+ *
+ * @return The state-at-event and the step-local time tau in [0, dt].
+ */
+template < typename Coeffs, typename F, typename State, typename G, typename T >
+inline std::pair< State, double > bisect_verner_event( const F& f, const State& xc, T tc,
+                                                         double dt, double g_lo, G&& g )
+{
+    constexpr int max_iter = 60;
+    const double  eps      = std::numeric_limits< double >::epsilon() * 16.0;
+
+    double tau_lo = 0.0;
+    double tau_hi = dt;
+    State  x_hi   = verner_step_dispatch< Coeffs, F, State >( f, xc, static_cast< double >( tc ),
+                                                              dt ).x_new;
+
+    for ( int it = 0; it < max_iter; ++it )
+    {
+        const double width = std::abs( tau_hi - tau_lo );
+        const double mid   = 0.5 * ( tau_lo + tau_hi );
+        if ( width < eps * ( 1.0 + std::abs( mid ) ) )
+            return { std::move( x_hi ), mid };
+
+        State        x_mid = verner_step_dispatch< Coeffs, F, State >(
+                              f, xc, static_cast< double >( tc ), mid ).x_new;
+        const double g_mid = static_cast< double >( g( x_mid, static_cast< T >( tc + mid ) ) );
+        if ( g_mid == 0.0 ) return { std::move( x_mid ), mid };
+
+        if ( ( g_lo < 0.0 ) == ( g_mid < 0.0 ) )
+        {
+            tau_lo = mid;
+            g_lo   = g_mid;
+        }
+        else
+        {
+            tau_hi = mid;
+            x_hi   = std::move( x_mid );
+        }
+    }
+    return { std::move( x_hi ), 0.5 * ( tau_lo + tau_hi ) };
+}
+
 }  // namespace detail
+
+// =============================================================================
+// Events
+// =============================================================================
+
+/**
+ * @brief Specification of a single Verner-integrator event.
+ *
+ * @tparam State User state type.
+ * @tparam T     Independent-variable scalar type.
+ *
+ * The event function `g(x, t)` is a real-valued (`double`) scalar of the
+ * state and time.  A strict sign change of `g` between two consecutive
+ * accepted steps signals an event; for DA states the user typically returns
+ * the constant term of a DA quantity (e.g. `x(0)[0]`) or any other scalar
+ * functional of the state.
+ *
+ * Unlike @ref tax::ode::Event (which composes `g` with a time-Taylor
+ * polynomial of the state), Verner steps carry no time-Taylor structure;
+ * event refinement therefore uses bisection-by-restep on the same RK pair
+ * inside the bracketing interval.
+ */
+template < typename State, typename T = double >
+struct VernerEvent
+{
+    using GFn = std::function< double( const State&, T ) >;
+
+    GFn            g;                                       ///< Event function `g(x, t)`.
+    EventDirection direction = EventDirection::Any;          ///< Crossing-direction filter (in t).
+    bool           terminal  = false;                        ///< Stop integration on detection.
+};
+
+/**
+ * @brief Record of a detected Verner-integrator event.
+ */
+template < typename State, typename T = double >
+struct VernerEventRecord
+{
+    T              t{};                                  ///< Wall-clock event time.
+    State          x{};                                  ///< State at the event time.
+    std::size_t    step_idx  = 0;                        ///< Step index containing the event.
+    std::size_t    event_idx = 0;                        ///< Index into the events list.
+    EventDirection direction = EventDirection::Any;       ///< Observed crossing direction.
+};
 
 // =============================================================================
 // Solution container
@@ -545,8 +651,12 @@ struct VernerSolution
 {
     std::vector< T >     t;             ///< Accepted step times.
     std::vector< State > x;             ///< State at each accepted step time.
-    int                  n_accepted = 0;
-    int                  n_rejected = 0;
+
+    /// Detected events (empty unless an events list was passed to the integrator).
+    std::vector< VernerEventRecord< State, T > > events;
+
+    int n_accepted = 0;
+    int n_rejected = 0;
 };
 
 // =============================================================================
@@ -570,20 +680,24 @@ template < typename Coeffs, typename State, typename T = double >
 class VernerIntegrator
 {
 public:
-    using Rhs      = std::function< State( const State&, T ) >;
-    using Config   = VernerConfig;
-    using Solution = VernerSolution< State, T >;
+    using Rhs       = std::function< State( const State&, T ) >;
+    using Config    = VernerConfig;
+    using Solution  = VernerSolution< State, T >;
+    using EventT    = VernerEvent< State, T >;
+    using EventList = std::vector< EventT >;
+    using RecordT   = VernerEventRecord< State, T >;
 
     static constexpr int order     = Coeffs::order;
     static constexpr int err_order = Coeffs::err_order;
 
-    explicit VernerIntegrator( Rhs f, Config cfg = {} )
-        : f_( std::move( f ) ), cfg_( cfg )
+    explicit VernerIntegrator( Rhs f, Config cfg = {}, EventList events = {} )
+        : f_( std::move( f ) ), cfg_( cfg ), events_( std::move( events ) )
     {
         detail::validate( cfg_ );
     }
 
-    [[nodiscard]] const Config& config() const noexcept { return cfg_; }
+    [[nodiscard]] const Config&    config() const noexcept { return cfg_; }
+    [[nodiscard]] const EventList& events() const noexcept { return events_; }
 
     /// @brief Integrate `dx/dt = f(x, t)` from @p x0 at @p t0 to @p tmax.
     [[nodiscard]] Solution integrate( State x0, T t0, T tmax ) const
@@ -637,12 +751,16 @@ public:
 
             if ( ratio <= 1.0 )
             {
-                // Accept.
-                xc = x_new;
-                tc += dt_signed;
+                // Accept — but first check for events on the bracket [xc, x_new].
+                const auto er = processStepEvents( xc, x_new, tc, dt_signed, sol );
+
+                xc = std::move( er.x_end );
+                tc += er.effective_dt;
                 sol.t.push_back( static_cast< T >( tc ) );
                 sol.x.push_back( xc );
                 ++sol.n_accepted;
+
+                if ( er.terminate ) break;
 
                 h = std::min( h_try * factor, cfg_.max_step );
             }
@@ -661,17 +779,98 @@ public:
     }
 
 private:
+    struct StepEventOutcome
+    {
+        State  x_end;          ///< State at the (possibly truncated) end of the step.
+        double effective_dt;   ///< Signed step displacement actually taken.
+        bool   terminate;      ///< Whether a terminal event triggered termination.
+    };
+
     [[nodiscard]] detail::VernerStepResult< State > takeStep( const State& x, double t,
                                                                 double dt ) const
     {
-        if constexpr ( std::is_same_v< Coeffs, detail::Verner78Coeffs > )
-            return detail::verner78_step< Rhs, State >( f_, x, t, dt );
-        else
-            return detail::verner89_step< Rhs, State >( f_, x, t, dt );
+        return detail::verner_step_dispatch< Coeffs, Rhs, State >( f_, x, t, dt );
     }
 
-    Rhs    f_;
-    Config cfg_;
+    /// @brief Detect events on the bracket (xc, x_new) over [tc, tc+dt] and
+    ///        record/refine them.  If a terminal event fires, the step is
+    ///        truncated to the event time and `terminate` is set.
+    [[nodiscard]] StepEventOutcome processStepEvents( const State& xc, const State& x_new,
+                                                       double tc, double dt,
+                                                       Solution& sol ) const
+    {
+        if ( events_.empty() || dt == 0.0 ) return { x_new, dt, false };
+
+        struct Hit
+        {
+            std::size_t    ev_idx;
+            double         tau;
+            EventDirection observed;
+            State          x_at;
+        };
+
+        std::vector< Hit > hits;
+        hits.reserve( events_.size() );
+
+        for ( std::size_t i = 0; i < events_.size(); ++i )
+        {
+            const auto& ev = events_[i];
+            if ( !ev.g ) continue;
+
+            const double g_lo = ev.g( xc, static_cast< T >( tc ) );
+            const double g_hi = ev.g( x_new, static_cast< T >( tc + dt ) );
+
+            if ( !( g_lo * g_hi < 0.0 ) ) continue;  // strict sign change required
+
+            const EventDirection observed = ( ( g_hi - g_lo ) / dt > 0.0 )
+                                                ? EventDirection::Increasing
+                                                : EventDirection::Decreasing;
+            if ( ev.direction != EventDirection::Any && ev.direction != observed ) continue;
+
+            auto [x_at, tau] = detail::bisect_verner_event< Coeffs >(
+                f_, xc, static_cast< T >( tc ), dt, g_lo, ev.g );
+
+            Hit hit;
+            hit.ev_idx   = i;
+            hit.tau      = tau;
+            hit.observed = observed;
+            hit.x_at     = std::move( x_at );
+            hits.push_back( std::move( hit ) );
+        }
+
+        std::sort( hits.begin(), hits.end(),
+                   []( const Hit& a, const Hit& b ) { return std::abs( a.tau ) < std::abs( b.tau ); } );
+
+        const std::size_t step_idx     = sol.x.size();   // index of upcoming entry
+        double            effective_dt = dt;
+        bool              terminate    = false;
+        State             x_end        = x_new;
+
+        for ( auto& h : hits )
+        {
+            RecordT rec;
+            rec.t         = static_cast< T >( tc + h.tau );
+            rec.x         = h.x_at;
+            rec.step_idx  = step_idx;
+            rec.event_idx = h.ev_idx;
+            rec.direction = h.observed;
+            sol.events.push_back( std::move( rec ) );
+
+            if ( events_[h.ev_idx].terminal )
+            {
+                effective_dt = h.tau;
+                x_end        = std::move( h.x_at );
+                terminate    = true;
+                break;
+            }
+        }
+
+        return { std::move( x_end ), effective_dt, terminate };
+    }
+
+    Rhs       f_;
+    Config    cfg_;
+    EventList events_;
 };
 
 // =============================================================================

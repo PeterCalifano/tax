@@ -265,6 +265,117 @@ TEST( Verner89Ads, NonlinearDuffingDoesSplit )
 // on a stiff-free linear problem within reasonable tolerance.
 // =============================================================================
 
+// =============================================================================
+// Events
+// =============================================================================
+
+TEST( Verner78Events, TerminalZeroCrossing )
+{
+    // Harmonic oscillator: x(t) = cos(t).  First zero at t = π/2.
+    using Vec = Eigen::Vector2d;
+    auto f    = []( const Vec& x, double /*t*/ ) -> Vec {
+        return Vec{ x( 1 ), -x( 0 ) };
+    };
+
+    ode::VernerEvent< Vec > ev;
+    ev.g        = []( const Vec& x, double /*t*/ ) { return x( 0 ); };
+    ev.terminal = true;
+
+    ode::Verner78< Vec > ig{ f, cfg( 1e-12 ), { ev } };
+    auto                 sol = ig.integrate( Vec{ 1.0, 0.0 }, 0.0, 10.0 );
+
+    ASSERT_EQ( sol.events.size(), 1u );
+    EXPECT_NEAR( sol.events[0].t, std::numbers::pi / 2.0, 1e-10 );
+    EXPECT_NEAR( sol.events[0].x( 0 ), 0.0, 1e-10 );
+    // Integration stopped at the event.
+    EXPECT_NEAR( sol.t.back(), std::numbers::pi / 2.0, 1e-10 );
+}
+
+TEST( Verner78Events, NonTerminalRecordsAllCrossings )
+{
+    // Same oscillator; record every x(0) zero crossing without stopping.
+    using Vec = Eigen::Vector2d;
+    auto f    = []( const Vec& x, double /*t*/ ) -> Vec {
+        return Vec{ x( 1 ), -x( 0 ) };
+    };
+
+    ode::VernerEvent< Vec > ev;
+    ev.g        = []( const Vec& x, double /*t*/ ) { return x( 0 ); };
+    ev.terminal = false;
+
+    ode::Verner78< Vec > ig{ f, cfg( 1e-12 ), { ev } };
+    auto                 sol = ig.integrate( Vec{ 1.0, 0.0 }, 0.0, 3.0 * std::numbers::pi );
+
+    // x(0) zeros over [0, 3π] are at π/2, 3π/2, 5π/2 → 3 events.
+    ASSERT_EQ( sol.events.size(), 3u );
+    EXPECT_NEAR( sol.events[0].t, std::numbers::pi / 2.0, 1e-9 );
+    EXPECT_NEAR( sol.events[1].t, 3.0 * std::numbers::pi / 2.0, 1e-9 );
+    EXPECT_NEAR( sol.events[2].t, 5.0 * std::numbers::pi / 2.0, 1e-9 );
+}
+
+TEST( Verner89Events, DirectionFilter )
+{
+    // Harmonic oscillator from x0 = (1, 0): x(t) = (cos t, -sin t).
+    // Event g(x, t) = x(1) = -sin(t).  dg/dt = -cos(t).
+    //   t = π  → g goes − → +, dg/dt = +1  (increasing,  filtered out).
+    //   t = 2π → g goes + → −, dg/dt = -1  (decreasing,  recorded).
+    // Over (0, 3π]  →  exactly one decreasing crossing, at t = 2π.
+    using Vec = Eigen::Vector2d;
+    auto f    = []( const Vec& x, double /*t*/ ) -> Vec {
+        return Vec{ x( 1 ), -x( 0 ) };
+    };
+
+    ode::VernerEvent< Vec > ev;
+    ev.g         = []( const Vec& x, double /*t*/ ) { return x( 1 ); };
+    ev.direction = ode::EventDirection::Decreasing;
+
+    // tmax just past 3π to avoid sign-change ambiguity at the integration end.
+    const double tmax = 3.0 * std::numbers::pi + 0.5;
+
+    ode::Verner89< Vec > ig{ f, cfg( 1e-13 ), { ev } };
+    auto                 sol = ig.integrate( Vec{ 1.0, 0.0 }, 0.0, tmax );
+
+    ASSERT_EQ( sol.events.size(), 1u );
+    EXPECT_NEAR( sol.events[0].t, 2.0 * std::numbers::pi, 1e-9 );
+    EXPECT_EQ( sol.events[0].direction, ode::EventDirection::Decreasing );
+
+    // Switching to Any direction should pick up π, 2π, 3π → 3 events.
+    ev.direction = ode::EventDirection::Any;
+    ode::Verner89< Vec > ig_any{ f, cfg( 1e-13 ), { ev } };
+    auto sol_any = ig_any.integrate( Vec{ 1.0, 0.0 }, 0.0, tmax );
+    EXPECT_EQ( sol_any.events.size(), 3u );
+}
+
+TEST( Verner89Events, DaStateEventOnConstantTerm )
+{
+    // DA-expanded harmonic oscillator: event = "constant term of x(0) hits 0".
+    constexpr int P = 2;
+    constexpr int D = 2;
+    using DA        = TEn< P, D >;
+    using VecDa     = Eigen::Matrix< DA, D, 1 >;
+
+    auto f = []( const VecDa& x, double /*t*/ ) -> VecDa {
+        VecDa dx;
+        dx( 0 ) = x( 1 );
+        dx( 1 ) = -x( 0 );
+        return dx;
+    };
+
+    Box< double, D > box{ { 1.0, 0.0 }, { 0.01, 0.01 } };
+    auto             x0 = ode::makeDaState< P, D >( box );
+
+    ode::VernerEvent< VecDa > ev;
+    ev.g        = []( const VecDa& x, double /*t*/ ) { return x( 0 )[0]; };
+    ev.terminal = true;
+
+    ode::Verner89< VecDa > ig{ f, cfg( 1e-13 ), { ev } };
+    auto                   sol = ig.integrate( x0, 0.0, 10.0 );
+
+    ASSERT_EQ( sol.events.size(), 1u );
+    EXPECT_NEAR( sol.events[0].t, std::numbers::pi / 2.0, 1e-9 );
+    EXPECT_NEAR( sol.events[0].x( 0 )[0], 0.0, 1e-10 );
+}
+
 TEST( VernerConsistency, MatchesTaylorIntegratorScalar )
 {
     auto f_taylor = []( const auto& x, [[maybe_unused]] const auto& t ) { return -x; };
