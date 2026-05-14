@@ -62,6 +62,7 @@ set(TEST_SOURCES
     ode/testLowOrderAdsIntegrator.cpp
     ode/testEvents.cpp
     ode/testParameterIntegrators.cpp
+    ode/testVernerIntegrator.cpp
     dynamic/testDynTteConstruct.cpp
     dynamic/testDynTteArithmetic.cpp
     dynamic/testDynTteExtendedMath.cpp

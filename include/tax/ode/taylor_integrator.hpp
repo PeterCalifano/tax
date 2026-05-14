@@ -15,6 +15,14 @@
  *  - tax::ode::LowOrderAdsIntegrator<N,P,D,Q=0> — DA flow with NLI-driven ADS
  *                                                  (Losacco et al., arXiv:2303.05791);
  *                                                  Q > 0 splits across IC + parameter axes
+ *  - tax::ode::Verner78<State>                — adaptive Verner 8(7) RK pair, parametrised
+ *                                                on State (scalar, Eigen vector, DA scalar,
+ *                                                DA vector)
+ *  - tax::ode::Verner89<State>                — adaptive Verner 9(8) RK pair, same generality
+ *  - tax::ode::Verner78AdsIntegrator<P,D>     — Verner 8(7) RK over a DA-expanded state
+ *                                                with ADS subdivision
+ *  - tax::ode::Verner89AdsIntegrator<P,D>     — Verner 9(8) RK over a DA-expanded state
+ *                                                with ADS subdivision
  */
 
 #include <tax/ode/stepsize.hpp>
@@ -25,3 +33,6 @@
 #include <tax/ode/da_integrator.hpp>
 #include <tax/ode/ads_integrator.hpp>
 #include <tax/ode/low_order_ads_integrator.hpp>
+#include <tax/ode/verner_tableaus.hpp>
+#include <tax/ode/verner_integrator.hpp>
+#include <tax/ode/verner_ads_integrator.hpp>
