@@ -53,8 +53,8 @@ using Coeffs = std::array< T, numMonomials( N, M ) >;
 
 /**
  * @brief Total degree `|a| = sum_i a[i]` of a multi-index.
- * @details Accepts any std::array<int, N> via std::size_t template deduction,
- *          then delegates to the int-indexed internal helpers.
+ * @details Parameterized on the array extent `N` (std::size_t) so deduction
+ *          works directly from `MultiIndex<M> = std::array<int, std::size_t(M)>`.
  */
 template < std::size_t N >
 constexpr int totalDegree( const std::array< int, N >& a ) noexcept
@@ -63,20 +63,6 @@ constexpr int totalDegree( const std::array< int, N >& a ) noexcept
     for ( std::size_t i = 0; i < N; ++i ) d += a[i];
     return d;
 }
-
-namespace detail
-{
-
-/// @brief Internal totalDegree using int M — for use inside kernels.
-template < int M >
-constexpr int totalDegreeI( const tax::MultiIndex< M >& a ) noexcept
-{
-    int d = 0;
-    for ( int i = 0; i < M; ++i ) d += a[static_cast< std::size_t >( i )];
-    return d;
-}
-
-}  // namespace detail
 
 /**
  * @brief Map a multi-index to the internal flat storage index.
