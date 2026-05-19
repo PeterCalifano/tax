@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstddef>
+#include <stdexcept>
 #include <tax/core/concepts.hpp>
 #include <tax/core/multi_index.hpp>
 #include <tax/core/storage/dense.hpp>
@@ -190,6 +191,115 @@ public:
         };
         constexpr std::size_t fac = ( factorial( Alpha ) * ... * std::size_t( 1 ) );
         return coeff< Alpha... >() * T( fac );
+    }
+
+    // ------------------------------------------------------------------
+    // Differentiation and integration
+    // ------------------------------------------------------------------
+
+    /**
+     * @brief Partial derivative polynomial with respect to variable `I`.
+     *
+     * @tparam I Variable index (0-based, must be in `[0, M)`).
+     * @details For each term `c_alpha * x^alpha` with `alpha[I] > 0`, contributes
+     *          `c_alpha * alpha[I] * x^(alpha - e_I)` to the result.
+     *          Terms where `alpha[I] == 0` vanish.  Shape (N, M) is preserved.
+     * @return New polynomial representing `d/dx_I` of this polynomial.
+     */
+    template < int I >
+    [[nodiscard]] constexpr TaylorExpansion deriv() const noexcept
+        requires( I >= 0 && I < M )
+    {
+        Data out{};
+        for ( std::size_t i = 0; i < nCoefficients; ++i )
+        {
+            if ( c_[i] == T{} ) continue;
+            auto alpha = unflatIndex< M >( i );
+            const int exp = alpha[std::size_t( I )];
+            if ( exp == 0 ) continue;
+            alpha[std::size_t( I )] = exp - 1;
+            out[flatIndex< M >( alpha )] += c_[i] * T( exp );
+        }
+        return TaylorExpansion{ out };
+    }
+
+    /**
+     * @brief Partial derivative polynomial with respect to variable `var`.
+     *
+     * @param var Variable index (0-based, must be in `[0, M)`).
+     * @details Runtime-index overload of `deriv<I>()`.
+     * @return New polynomial representing `d/dx_var` of this polynomial.
+     * @throws std::out_of_range if `var < 0` or `var >= M`.
+     */
+    [[nodiscard]] TaylorExpansion deriv( int var ) const
+    {
+        if ( var < 0 || var >= M )
+            throw std::out_of_range(
+                "tax::TaylorExpansion::deriv(var): var must be in [0, M)" );
+        Data out{};
+        for ( std::size_t i = 0; i < nCoefficients; ++i )
+        {
+            if ( c_[i] == T{} ) continue;
+            auto alpha = unflatIndex< M >( i );
+            const int exp = alpha[std::size_t( var )];
+            if ( exp == 0 ) continue;
+            alpha[std::size_t( var )] = exp - 1;
+            out[flatIndex< M >( alpha )] += c_[i] * T( exp );
+        }
+        return TaylorExpansion{ out };
+    }
+
+    /**
+     * @brief Indefinite integral polynomial with respect to variable `I`.
+     *
+     * @tparam I Variable index (0-based, must be in `[0, M)`).
+     * @details For each term `c_alpha * x^alpha` with `|alpha| < N`, contributes
+     *          `c_alpha / (alpha[I] + 1) * x^(alpha + e_I)` to the result.
+     *          Terms of degree `N` are dropped (result stays order N).
+     *          The constant of integration is zero.
+     * @return New polynomial representing `integral ... dx_I` of this polynomial.
+     */
+    template < int I >
+    [[nodiscard]] constexpr TaylorExpansion integ() const noexcept
+        requires( I >= 0 && I < M )
+    {
+        Data out{};
+        for ( std::size_t i = 0; i < nCoefficients; ++i )
+        {
+            if ( c_[i] == T{} ) continue;
+            auto alpha = unflatIndex< M >( i );
+            if ( totalDegree( alpha ) >= N ) continue;  // would exceed order N
+            const int exp = alpha[std::size_t( I )];
+            alpha[std::size_t( I )] = exp + 1;
+            out[flatIndex< M >( alpha )] = c_[i] / T( exp + 1 );
+        }
+        return TaylorExpansion{ out };
+    }
+
+    /**
+     * @brief Indefinite integral polynomial with respect to variable `var`.
+     *
+     * @param var Variable index (0-based, must be in `[0, M)`).
+     * @details Runtime-index overload of `integ<I>()`.
+     * @return New polynomial representing `integral ... dx_var` of this polynomial.
+     * @throws std::out_of_range if `var < 0` or `var >= M`.
+     */
+    [[nodiscard]] TaylorExpansion integ( int var ) const
+    {
+        if ( var < 0 || var >= M )
+            throw std::out_of_range(
+                "tax::TaylorExpansion::integ(var): var must be in [0, M)" );
+        Data out{};
+        for ( std::size_t i = 0; i < nCoefficients; ++i )
+        {
+            if ( c_[i] == T{} ) continue;
+            auto alpha = unflatIndex< M >( i );
+            if ( totalDegree( alpha ) >= N ) continue;  // would exceed order N
+            const int exp = alpha[std::size_t( var )];
+            alpha[std::size_t( var )] = exp + 1;
+            out[flatIndex< M >( alpha )] = c_[i] / T( exp + 1 );
+        }
+        return TaylorExpansion{ out };
     }
 
     // ------------------------------------------------------------------
