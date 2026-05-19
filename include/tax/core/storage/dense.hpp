@@ -16,8 +16,8 @@ struct Dense
  * @brief Dense coefficient container for a TaylorExpansion.
  *
  * Stores `numMonomials(N, M)` coefficients in a stack-allocated `std::array`.
- * Provides element access, mutation helpers, and a `forEachNonzero` traversal
- * that iterates over all entries (dense: every entry is "potentially nonzero").
+ * Provides element access, mutation helpers, and a `forEach` traversal that
+ * visits every slot in flat order.
  *
  * @tparam T  Scalar type.
  * @tparam N  Truncation order (>= 0).
@@ -40,8 +40,9 @@ struct DenseContainer
     constexpr void set( std::size_t k, T v ) noexcept { data[k] = v; }
     constexpr void accumulate( std::size_t k, T v ) noexcept { data[k] += v; }
 
+    /// @brief Visit every coefficient slot in flat-index order: fn(k, data[k]).
     template < typename Fn >
-    constexpr void forEachNonzero( Fn&& fn ) const noexcept
+    constexpr void forEach( Fn&& fn ) const noexcept
     {
         for ( std::size_t k = 0; k < nCoefficients; ++k )
             fn( k, data[k] );

@@ -28,6 +28,7 @@ class TaylorExpansion;
  * @tparam M  Number of independent variables (>= 1).
  */
 template < typename T, int N, int M >
+    requires Scalar< T >
 class TaylorExpansion< T, N, M, storage::Dense >
 {
 public:
