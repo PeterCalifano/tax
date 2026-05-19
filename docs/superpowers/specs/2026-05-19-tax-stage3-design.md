@@ -31,7 +31,7 @@ everything below.
 
 | Axis | Choice | Rationale |
 |---|---|---|
-| Test scope | Port the three pre-Stage-1 files (univariate, multivariate, norm) + expand to cover the rest of the Stage 1 dense surface (every math kernel, deriv/integ, eval, gradient/hessian/jacobian, invert) | Port establishes parity with the proven baseline; expansion covers everything Stage 1 added or formalised. |
+| Test scope | Port the two pre-Stage-1 files that target the Stage 1 surface (univariate, multivariate) + expand to cover the rest of the Stage 1 dense surface (every math kernel, deriv/integ, eval, gradient/hessian/jacobian, invert) | Port establishes parity with the proven baseline; expansion covers everything Stage 1 added or formalised. The pre-Stage-1 `testNorm.cpp` is dropped — it tested `coeffsNormInf` / `coeffsNorm` / `coeffsNormEstimate`, methods that do not exist on the Stage 1 dense surface. |
 | Sparse coverage | Out of scope | DACE has no sparse counterpart; dense↔sparse agreement is already a Stage 1 unit-test invariant. |
 | DACE provisioning | Single flag `TAX_BUILD_REGRESSIONS`, fetches DACE v2.1.0 via FetchContent | Same provisioning that worked pre-Stage-1; simplest mental model. |
 | CI policy | On-demand only — new `regressions.yml`, `workflow_dispatch` trigger | DACE build is heavy and parity is a numerical-correctness check rather than a fast-feedback signal; mirrors the `sanitizers.yml` shape. |
@@ -75,7 +75,6 @@ tests/
     │                               # + prepareInput(x) — shared pre-step
     ├── testUnivariate.cpp          # ported from add-verner-integrators, retargeted at tax::TE<N>
     ├── testMultivariate.cpp        # ported, retargeted at tax::TEn<N,M>
-    ├── testNorm.cpp                # ported
     ├── testDerivInteg.cpp          # new — DACE .deriv(i) / .integ(i) vs tax::TE::deriv / integ
     ├── testEval.cpp                # new — DACE evaluation vs tax::eval(f, dx)
     ├── testEigenVectorCalc.cpp     # new — gradient, hessian, jacobian via DACE coefficient pulls
@@ -178,7 +177,7 @@ failing tests → implement → tests green → commit.
 | # | Slice | Result |
 |---|---|---|
 | 1 | Flag rename + scaffold | Rename `TAX_BUILD_TEST` → `TAX_BUILD_UNITTESTS` everywhere (root CMake, `tests.yml`, `sanitizers.yml`, README, docs). Add `TAX_BUILD_REGRESSIONS` option with a no-op `tests/regression/CMakeLists.txt` and a single trivial regression test that does NOT link DACE — verifies wiring without paying the DACE fetch cost. CI green. |
-| 2 | DACE provisioning + ported tests | Wire `FetchContent` (DACE v2.1.0) at the root CMake under `TAX_BUILD_REGRESSIONS`. Port `testUnivariate.cpp`, `testMultivariate.cpp`, `testNorm.cpp` from `claude/add-verner-integrators-vEgRF`, retargeted at `tax::TE` / `tax::TEn` and rewritten to call `prepareInput` before every op. Add `regressionUtils.hpp` with `expectCoeffsMatch` and `prepareInput`. Settle the final choice of `prepareInput` here. Local `ctest` with `TAX_BUILD_REGRESSIONS=ON` green. |
+| 2 | DACE provisioning + ported tests | Wire `FetchContent` (DACE v2.1.0) at the root CMake under `TAX_BUILD_REGRESSIONS`. Port `testUnivariate.cpp` and `testMultivariate.cpp` from `claude/add-verner-integrators-vEgRF`, retargeted at `tax::TE` / `tax::TEn` and rewritten to call `prepareInput` before every op. Add `regressionUtils.hpp` with `expectCoeffsMatch` and `prepareInput`. Settle the final choice of `prepareInput` here. Local `ctest` with `TAX_BUILD_REGRESSIONS=ON` green. |
 | 3 | Expanded coverage | Add `testDerivInteg.cpp`, `testEval.cpp`, `testEigenVectorCalc.cpp`, `testInvert.cpp` covering everything Stage 1 added or formalised on the dense path. |
 | 4 | CI workflow | Add `regressions.yml` (`workflow_dispatch` only). Verify a single manual run is green. |
 
