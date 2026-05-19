@@ -4,15 +4,21 @@
 
 Write natural mathematical expressions and tax automatically propagates the full Taylor series, giving you the function value **and** all partial derivatives up to order \(N\) in a single evaluation pass.
 
+> **Stage 1 (current):** static dense + sparse `TaylorExpansion`, Eigen-vocabulary API,
+> and the full standard math operator set. Dynamic-shape types, the Taylor ODE integrator,
+> Automatic Domain Splitting, Python bindings, and DACE comparison are deferred to later
+> stages.
+
 ## Features
 
-- **Compile-time fixed** order \(N\) and variable count \(M\) via `TaylorExpansionT<T, N, M>`
+- **Compile-time shape** — `TaylorExpansion<T, N, M, Storage>` with `Storage = Dense`
+  (stack `std::array`) or `Storage = Sparse` (sorted-index map); order \(N\) and variable
+  count \(M\) are compile-time integers
+- **Convenience aliases** — `TE<N, M=1>` for dense, `STE<N, M=1>` for sparse
 - **Lazy expression templates** with automatic sum/product flattening and leaf fast-paths
 - **Comprehensive math**: arithmetic, trigonometric, hyperbolic, transcendental, power, and special functions
-- **Direct derivative access**: coefficients, partial derivatives, gradient, Jacobian, and higher-order derivative tensors
-- **Eigen integration**: adapters for Eigen vectors, matrices, and tensors
-- **Taylor ODE integrator**: adaptive high-order integration for scalar and vector ODEs
-- **Automatic Domain Splitting**: adaptive polynomial approximation over large domains
+- **Direct derivative access**: coefficients, partial derivatives, gradient, Jacobian, and Hessian
+- **Eigen integration**: `NumTraits` specialisation plus helpers for variables, value extraction, eval, gradient, Jacobian, and Hessian
 
 ## Quick Example
 
@@ -35,15 +41,13 @@ int main() {
 
 | Module | Description |
 |--------|-------------|
+| [Getting Started](getting_started.md) | Installation and first examples |
 | [Core](core/index.md) | Truncated Taylor polynomials, expression templates, and mathematical functions |
-| [Vector (Eigen)](vector/index.md) | Eigen integration for vectors, matrices, Jacobians, and higher-order tensors |
-| [Automatic Domain Splitting](ads/index.md) | Adaptive polynomial approximation over large domains |
-| [Taylor Integrator](taylor/index.md) | High-order adaptive ODE integration with DA-based flow maps |
 
 ## Requirements
 
 - C++23 compiler (GCC 13+, Clang 17+, Apple Clang 16+)
-- CMake 4.2+
+- CMake 3.28+
 - Eigen 3.4+
 
 ## License
