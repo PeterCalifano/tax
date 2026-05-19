@@ -3,6 +3,7 @@
 #include <tax/core/taylor_expansion.hpp>
 #include <tax/kernels/algebra.hpp>
 #include <tax/kernels/cauchy.hpp>
+#include <tax/kernels/sparse_cauchy.hpp>
 
 namespace tax
 {
@@ -255,6 +256,18 @@ template < typename T, int N, int M >
     T s, const TaylorExpansion< T, N, M, Sparse >& a ) noexcept
 {
     return ( -a ) + s;
+}
+
+/// @brief Sparse * Sparse: truncated Cauchy product via the sparse kernel.
+template < typename T, int N, int M >
+[[nodiscard]] TaylorExpansion< T, N, M, Sparse > operator*(
+    const TaylorExpansion< T, N, M, Sparse >& a,
+    const TaylorExpansion< T, N, M, Sparse >& b ) noexcept
+{
+    TaylorExpansion< T, N, M, Sparse > r;
+    detail::kernels::sparseCauchyProduct< T, N, M >(
+        r.container(), a.container(), b.container() );
+    return r;
 }
 
 }  // namespace tax
