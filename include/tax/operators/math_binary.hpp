@@ -2,6 +2,7 @@
 
 #include <tax/core/taylor_expansion.hpp>
 #include <tax/kernels/algebra.hpp>
+#include <tax/kernels/trigonometric.hpp>
 
 namespace tax
 {
@@ -42,6 +43,27 @@ template < typename T, int N, int M >
 {
     TaylorExpansion< T, N, M > r;
     detail::kernels::seriesPow< T, N, M >( r.coefficients(), x.coefficients(), p );
+    return r;
+}
+
+/**
+ * @brief Compute `out = atan2(y, x)` using the two-argument arctangent series kernel.
+ *
+ * The constant term is resolved by `std::atan2(y[0], x[0])`, giving the correct
+ * quadrant. Higher-order coefficients follow the `atan(y/x)` recurrence.
+ *
+ * @tparam T  Scalar type.
+ * @tparam N  Truncation order.
+ * @tparam M  Number of variables.
+ */
+template < typename T, int N, int M >
+[[nodiscard]] TaylorExpansion< T, N, M > atan2(
+    const TaylorExpansion< T, N, M >& y,
+    const TaylorExpansion< T, N, M >& x ) noexcept
+{
+    TaylorExpansion< T, N, M > r;
+    detail::kernels::seriesAtan2< T, N, M >( r.coefficients(), y.coefficients(),
+                                              x.coefficients() );
     return r;
 }
 
