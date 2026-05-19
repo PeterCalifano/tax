@@ -7,3 +7,4 @@
 #include <tax/core/enumeration.hpp>
 #include <tax/core/storage/dense.hpp>
 #include <tax/core/taylor_expansion.hpp>
+#include <tax/operators/arithmetic.hpp>
