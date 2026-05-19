@@ -65,7 +65,10 @@ template < typename T, int N, int M >
 [[nodiscard]] constexpr TaylorExpansion< T, N, M > operator-(
     T s, const TaylorExpansion< T, N, M >& a ) noexcept
 {
-    return -a + s;
+    TaylorExpansion< T, N, M > r;
+    r[0] = s - a[0];
+    for ( std::size_t k = 1; k < a.nCoefficients; ++k ) r[k] = -a[k];
+    return r;
 }
 
 // ---------------------------------------------------------------------------
@@ -121,7 +124,7 @@ template < typename T, int N, int M >
 {
     TaylorExpansion< T, N, M > r;
     detail::kernels::cauchyProduct< T, N, M >(
-        r.container().data, a.container().data, b.container().data );
+        r.coefficients(), a.coefficients(), b.coefficients() );
     return r;
 }
 

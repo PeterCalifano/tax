@@ -50,6 +50,28 @@ TEST(Arith, MulUniSquares) {
     EXPECT_DOUBLE_EQ(y[4], 0.0);
 }
 
+TEST(Arith, SubUni) {
+    auto a = tax::TE<3>::variable(5.0);
+    auto b = tax::TE<3>::variable(3.0);
+    auto d = a - b;
+    EXPECT_DOUBLE_EQ(d.value(), 2.0);
+    EXPECT_DOUBLE_EQ(d[1], 0.0);  // both have d/dx = 1, cancel
+}
+
+TEST(Arith, DivScalar) {
+    auto x = tax::TE<3>::variable(0.5);
+    auto d = x / 2.0;
+    EXPECT_DOUBLE_EQ(d.value(), 0.25);
+    EXPECT_DOUBLE_EQ(d[1], 0.5);
+}
+
+TEST(Arith, ScalarMinusTE) {
+    auto x = tax::TE<3>::variable(1.0);
+    auto r = 5.0 - x;
+    EXPECT_DOUBLE_EQ(r.value(), 4.0);
+    EXPECT_DOUBLE_EQ(r[1], -1.0);
+}
+
 TEST(Arith, MulMultiBilinear) {
     typename tax::TE<2, 2>::Input p{1.0, 2.0};
     auto x = tax::TE<2, 2>::variable<0>(p);

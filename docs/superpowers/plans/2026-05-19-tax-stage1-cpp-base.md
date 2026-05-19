@@ -474,7 +474,7 @@ tax_add_test(test_enumeration SOURCES core/test_enumeration.cpp)
 
 - [ ] **Step 7: Implement `core/enumeration.hpp`**
 
-Port from `main:include/tax/utils/enumeration.hpp`. Drop dynamic-shape variants. Public names: `tax::forEachMonomial<N, M>(callable)`, `tax::forEachSubIndex<M>(alpha, callable)`.
+Port from `main:include/tax/utils/enumeration.hpp`. Drop dynamic-shape variants. Public names: `tax::forEachMonomial<M, N>(callable)` (M first — callback receives `MultiIndex<M>`, so M anchors the first template parameter), `tax::forEachSubIndex<M>(alpha, callable)`.
 
 - [ ] **Step 8: Build, run both tests**
 
@@ -1095,7 +1095,7 @@ constexpr void cauchyProductLoop(Coeffs<T,N,M>& out,
                                  const Coeffs<T,N,M>& a,
                                  const Coeffs<T,N,M>& b) noexcept {
     out = {};
-    tax::forEachMonomial<N, M>([&](const MultiIndex<M>& alpha) {
+    tax::forEachMonomial<M, N>([&](const MultiIndex<M>& alpha) {
         const std::size_t i = flatIndex<M>(alpha);
         tax::forEachSubIndex<M>(alpha, [&](const MultiIndex<M>& k,
                                            const MultiIndex<M>& s) {

@@ -199,6 +199,10 @@ public:
     [[nodiscard]] constexpr const container_t& container() const noexcept { return c_; }
     [[nodiscard]] constexpr container_t& container() noexcept { return c_; }
 
+    /// @brief Raw coefficient array — convenience accessor used by kernels.
+    [[nodiscard]] constexpr const Data& coefficients() const noexcept { return c_.data; }
+    [[nodiscard]] constexpr Data& coefficients() noexcept { return c_.data; }
+
 private:
     container_t c_{};
 };
