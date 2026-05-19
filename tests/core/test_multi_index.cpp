@@ -1,0 +1,40 @@
+#include <gtest/gtest.h>
+#include <tax/tax.hpp>
+
+TEST(NumMonomials, KnownValues) {
+    // numMonomials(N, M) = C(N+M, M)
+    EXPECT_EQ(tax::numMonomials(0, 1), 1u);
+    EXPECT_EQ(tax::numMonomials(3, 1), 4u);     // 1 + x + x^2 + x^3
+    EXPECT_EQ(tax::numMonomials(2, 2), 6u);     // 1, x, y, x^2, xy, y^2
+    EXPECT_EQ(tax::numMonomials(4, 3), 35u);
+}
+
+TEST(Binom, KnownValues) {
+    EXPECT_EQ(tax::detail::binom(5, 2), 10u);
+    EXPECT_EQ(tax::detail::binom(7, 0), 1u);
+    EXPECT_EQ(tax::detail::binom(7, 7), 1u);
+    EXPECT_EQ(tax::detail::binom(-1, 0), 0u);
+    EXPECT_EQ(tax::detail::binom(3, 5), 0u);
+}
+
+TEST(FlatIndex, RoundTripUni) {
+    EXPECT_EQ(tax::flatIndex<1>({0}), 0u);
+    EXPECT_EQ(tax::flatIndex<1>({3}), 3u);
+}
+
+TEST(FlatIndex, RoundTripBiVar) {
+    // Graded-lex over (a, b): (0,0), (1,0), (0,1), (2,0), (1,1), (0,2), ...
+    using MI = tax::MultiIndex<2>;
+    EXPECT_EQ(tax::flatIndex<2>(MI{0, 0}), 0u);
+    EXPECT_EQ(tax::flatIndex<2>(MI{1, 0}), 1u);
+    EXPECT_EQ(tax::flatIndex<2>(MI{0, 1}), 2u);
+    EXPECT_EQ(tax::flatIndex<2>(MI{2, 0}), 3u);
+    EXPECT_EQ(tax::flatIndex<2>(MI{1, 1}), 4u);
+    EXPECT_EQ(tax::flatIndex<2>(MI{0, 2}), 5u);
+}
+
+TEST(TotalDegree, Sum) {
+    using MI = tax::MultiIndex<3>;
+    EXPECT_EQ(tax::totalDegree(MI{0, 0, 0}), 0);
+    EXPECT_EQ(tax::totalDegree(MI{2, 1, 3}), 6);
+}

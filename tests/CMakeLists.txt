@@ -15,3 +15,6 @@ function(tax_add_test name)
     target_link_libraries(${name} PRIVATE tax GTest::gtest GTest::gtest_main)
     add_test(NAME ${name} COMMAND ${name})
 endfunction()
+
+tax_add_test(test_multi_index SOURCES core/test_multi_index.cpp)
+tax_add_test(test_enumeration SOURCES core/test_enumeration.cpp)
