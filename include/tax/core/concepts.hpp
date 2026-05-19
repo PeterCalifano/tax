@@ -43,4 +43,20 @@ concept DensePolynomial = TaylorPolynomial< P > && requires( const P& p, std::si
     { p[k] } -> std::convertible_to< typename P::scalar_type >;
 };
 
+/**
+ * @brief Refinement of `TaylorPolynomial` for sparse storage.
+ *
+ * Additionally requires:
+ *   - `p.nnz()`     — number of stored nonzero monomials
+ *   - `p.support()` — sorted flat-index view of the support
+ *   - `p.values()`  — coefficient values aligned with `support()`
+ */
+template < typename P >
+concept SparsePolynomial = TaylorPolynomial< P > && requires( const P& p )
+{
+    { p.nnz() } -> std::convertible_to< std::size_t >;
+    { p.support() };
+    { p.values() };
+};
+
 }  // namespace tax

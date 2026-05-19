@@ -2,10 +2,12 @@
 
 #include <array>
 #include <cstddef>
+#include <span>
 #include <stdexcept>
 #include <tax/core/concepts.hpp>
 #include <tax/core/multi_index.hpp>
 #include <tax/core/storage/dense.hpp>
+#include <tax/core/storage/sparse.hpp>
 
 namespace tax
 {
@@ -318,7 +320,7 @@ private:
 };
 
 // ---------------------------------------------------------------------------
-// Convenience aliases
+// Convenience aliases  (dense)
 // ---------------------------------------------------------------------------
 
 /**
@@ -339,5 +341,264 @@ static_assert( TaylorPolynomial< TE< 3, 2 > >,
                "TE<3,2> must satisfy TaylorPolynomial" );
 static_assert( DensePolynomial< TE< 3, 2 > >,
                "TE<3,2> must satisfy DensePolynomial" );
+
+// ---------------------------------------------------------------------------
+// Sparse specialisation
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief A truncated Taylor expansion in M variables of order N with sparse storage.
+ *
+ * Stores only nonzero monomials as two parallel sorted vectors of (flat-index, value)
+ * pairs.  Element access is O(log nnz) via binary search; arithmetic is O(nnz_a + nnz_b)
+ * via a sorted merge walk.
+ *
+ * @tparam T  Scalar type (must satisfy `tax::Scalar`).
+ * @tparam N  Truncation order (non-negative compile-time integer).
+ * @tparam M  Number of independent variables (>= 1).
+ */
+template < typename T, int N, int M >
+    requires Scalar< T >
+class TaylorExpansion< T, N, M, storage::Sparse >
+{
+public:
+    static_assert( N >= 0, "TaylorExpansion<Sparse> order must be non-negative" );
+    static_assert( M >= 1, "TaylorExpansion<Sparse> variable count must be at least 1" );
+
+    // ------------------------------------------------------------------
+    // Associated types
+    // ------------------------------------------------------------------
+    using scalar_type = T;
+    using container_t = storage::SparseContainer< T, N, M >;
+    using Input       = std::array< T, std::size_t( M ) >;
+    using Dense       = TaylorExpansion< T, N, M, storage::Dense >;
+
+    // ------------------------------------------------------------------
+    // Compile-time properties
+    // ------------------------------------------------------------------
+    static constexpr int         order_v       = N;
+    static constexpr int         vars_v        = M;
+    /// Dense-equivalent upper bound on the number of monomials.
+    static constexpr std::size_t nCoefficients = numMonomials( N, M );
+
+    // ------------------------------------------------------------------
+    // Constructors
+    // ------------------------------------------------------------------
+
+    /// @brief Zero-polynomial — no nonzero monomials.
+    constexpr TaylorExpansion() = default;
+
+    /// @brief Constant polynomial with value `c`.
+    /*implicit*/ TaylorExpansion( T c )
+    {
+        if ( c != T{ 0 } )
+            c_.set( 0, c );
+    }
+
+    /**
+     * @brief Lift a dense polynomial into sparse storage (drops exact zeros).
+     *
+     * @param d  Source dense polynomial.
+     */
+    explicit TaylorExpansion( const Dense& d )
+    {
+        for ( std::size_t k = 0; k < Dense::nCoefficients; ++k )
+        {
+            if ( d[k] != T{ 0 } )
+                c_.set( k, d[k] );
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Named factories
+    // ------------------------------------------------------------------
+
+    [[nodiscard]] static TaylorExpansion zero() noexcept { return {}; }
+    [[nodiscard]] static TaylorExpansion constant( T c ) { return TaylorExpansion{ c }; }
+
+    /**
+     * @brief Univariate variable: `x = x0 + 1*dx`.
+     * @note Only available when `M == 1`.
+     */
+    [[nodiscard]] static TaylorExpansion variable( T x0 ) noexcept
+        requires( M == 1 )
+    {
+        TaylorExpansion r;
+        if ( x0 != T{ 0 } )
+            r.c_.set( 0, x0 );
+        if constexpr ( N >= 1 )
+            r.c_.set( 1, T{ 1 } );
+        return r;
+    }
+
+    /**
+     * @brief Coordinate variable `x_I` at expansion point `p` (compile-time index).
+     *
+     * @tparam I  Variable index in `[0, M)`.
+     * @param  p  Expansion point.
+     */
+    template < int I >
+    [[nodiscard]] static TaylorExpansion variable( const Input& p ) noexcept
+        requires( M >= 1 && I >= 0 && I < M )
+    {
+        TaylorExpansion r;
+        if ( p[std::size_t( I )] != T{ 0 } )
+            r.c_.set( 0, p[std::size_t( I )] );
+        if constexpr ( N >= 1 )
+        {
+            MultiIndex< M > alpha{};
+            alpha[std::size_t( I )] = 1;
+            r.c_.set( flatIndex< M >( alpha ), T{ 1 } );
+        }
+        return r;
+    }
+
+    // ------------------------------------------------------------------
+    // Element access
+    // ------------------------------------------------------------------
+
+    /// @brief Number of currently stored nonzero monomials.
+    [[nodiscard]] std::size_t nnz() const noexcept { return c_.nnz(); }
+
+    /// @brief Constant (zeroth) coefficient; returns 0 if the slot is absent.
+    [[nodiscard]] T value() const noexcept { return c_.value(); }
+
+    /// @brief Runtime multi-index coefficient lookup (O(log nnz)).
+    [[nodiscard]] T coeff( const MultiIndex< M >& alpha ) const noexcept
+    {
+        return c_.coeffAtFlat( flatIndex< M >( alpha ) );
+    }
+
+    /**
+     * @brief Compile-time multi-index coefficient lookup (O(log nnz)).
+     *
+     * Usage: `f.coeff<2, 0>()` retrieves the coefficient of `x^2 y^0`.
+     */
+    template < int... Alpha >
+    [[nodiscard]] T coeff() const noexcept
+    {
+        static_assert( sizeof...( Alpha ) == std::size_t( M ),
+                       "coeff<Alpha...>(): arity must match variable count" );
+        static_assert( ( ( Alpha >= 0 ) && ... ), "coeff<Alpha...>(): negative exponent" );
+        constexpr int total = ( Alpha + ... + 0 );
+        static_assert( total <= N, "coeff<Alpha...>(): total degree exceeds N" );
+        constexpr MultiIndex< M > a{ Alpha... };
+        return c_.coeffAtFlat( flatIndex< M >( a ) );
+    }
+
+    // ------------------------------------------------------------------
+    // Derivative accessors (apply k! scaling to raw coefficients)
+    // ------------------------------------------------------------------
+
+    /**
+     * @brief Runtime partial derivative value `d^|alpha| f / dx^alpha` at x0.
+     */
+    [[nodiscard]] T derivative( const MultiIndex< M >& alpha ) const noexcept
+    {
+        std::size_t fac = 1;
+        for ( int i = 0; i < M; ++i )
+            for ( int j = 1; j <= alpha[std::size_t( i )]; ++j )
+                fac *= std::size_t( j );
+        return coeff( alpha ) * T( fac );
+    }
+
+    /**
+     * @brief Compile-time partial derivative value.
+     */
+    template < int... Alpha >
+    [[nodiscard]] T derivative() const noexcept
+    {
+        static_assert( sizeof...( Alpha ) == std::size_t( M ) );
+        static_assert( ( ( Alpha >= 0 ) && ... ) );
+        constexpr int total = ( Alpha + ... + 0 );
+        static_assert( total <= N );
+
+        constexpr auto factorial = []( int n ) constexpr noexcept -> std::size_t
+        {
+            std::size_t r = 1;
+            for ( int i = 2; i <= n; ++i )
+                r *= std::size_t( i );
+            return r;
+        };
+        constexpr std::size_t fac = ( factorial( Alpha ) * ... * std::size_t( 1 ) );
+        return coeff< Alpha... >() * T( fac );
+    }
+
+    // ------------------------------------------------------------------
+    // Sparse-specific accessors
+    // ------------------------------------------------------------------
+
+    /// @brief Read-only view of the sorted flat indices of all nonzero slots.
+    [[nodiscard]] std::span< const storage::flat_index_t > support() const noexcept
+    {
+        return c_.support();
+    }
+
+    /// @brief Read-only view of the coefficient values aligned with `support()`.
+    [[nodiscard]] std::span< const T > values() const noexcept { return c_.values(); }
+
+    // ------------------------------------------------------------------
+    // Conversion
+    // ------------------------------------------------------------------
+
+    /**
+     * @brief Materialise a dense `TaylorExpansion<T, N, M, Dense>` from this sparse polynomial.
+     *
+     * Absent slots are filled with `T{0}` (dense default-initialisation).
+     */
+    [[nodiscard]] Dense dense() const noexcept
+    {
+        Dense r;
+        c_.forEachNonzero( [&]( std::size_t k, T v ) { r[k] = v; } );
+        return r;
+    }
+
+    // ------------------------------------------------------------------
+    // Container access
+    // ------------------------------------------------------------------
+
+    [[nodiscard]] const container_t& container() const noexcept { return c_; }
+    [[nodiscard]] container_t&       container()       noexcept { return c_; }
+
+private:
+    container_t c_;
+};
+
+// ---------------------------------------------------------------------------
+// Convenience aliases  (sparse)
+// ---------------------------------------------------------------------------
+
+/// @brief `STE<N>` — univariate sparse `double` expansion of order N.
+/// @brief `STE<N, M>` — M-variate sparse `double` expansion of order N.
+template < int N, int M = 1 >
+using STE = TaylorExpansion< double, N, M, storage::Sparse >;
+
+// ---------------------------------------------------------------------------
+// Conversion helper: dense -> sparse
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief Convert a dense polynomial to sparse storage (drops exact zeros).
+ *
+ * @tparam T Scalar type.
+ * @tparam N Truncation order.
+ * @tparam M Number of variables.
+ * @param  d Source dense polynomial.
+ * @return   Equivalent sparse polynomial.
+ */
+template < typename T, int N, int M >
+[[nodiscard]] TaylorExpansion< T, N, M, storage::Sparse >
+    sparse( const TaylorExpansion< T, N, M, storage::Dense >& d ) noexcept
+{
+    return TaylorExpansion< T, N, M, storage::Sparse >( d );
+}
+
+// ---------------------------------------------------------------------------
+// Self-check: verify the sparse TaylorExpansion satisfies its own concepts.
+// ---------------------------------------------------------------------------
+static_assert( TaylorPolynomial< STE< 3 > >,
+               "STE<3> must satisfy TaylorPolynomial" );
+static_assert( TaylorPolynomial< STE< 3, 2 > >,
+               "STE<3,2> must satisfy TaylorPolynomial" );
 
 }  // namespace tax
