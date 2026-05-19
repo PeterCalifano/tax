@@ -2,6 +2,7 @@
 
 #include <tax/core/taylor_expansion.hpp>
 #include <tax/kernels/algebra.hpp>
+#include <tax/kernels/transcendental.hpp>
 
 namespace tax
 {
@@ -83,6 +84,38 @@ template < typename T, int N, int M >
 {
     TaylorExpansion< T, N, M > r;
     detail::kernels::seriesReciprocal< T, N, M >( r.coefficients(), x.coefficients() );
+    return r;
+}
+
+/**
+ * @brief Compute `out = exp(x)` using the series exponential kernel.
+ *
+ * @tparam T  Scalar type.
+ * @tparam N  Truncation order.
+ * @tparam M  Number of variables.
+ */
+template < typename T, int N, int M >
+[[nodiscard]] TaylorExpansion< T, N, M > exp(
+    const TaylorExpansion< T, N, M >& x ) noexcept
+{
+    TaylorExpansion< T, N, M > r;
+    detail::kernels::seriesExp< T, N, M >( r.coefficients(), x.coefficients() );
+    return r;
+}
+
+/**
+ * @brief Compute `out = log(x)` using the series logarithm kernel.
+ *
+ * @tparam T  Scalar type.
+ * @tparam N  Truncation order.
+ * @tparam M  Number of variables.
+ */
+template < typename T, int N, int M >
+[[nodiscard]] TaylorExpansion< T, N, M > log(
+    const TaylorExpansion< T, N, M >& x ) noexcept
+{
+    TaylorExpansion< T, N, M > r;
+    detail::kernels::seriesLog< T, N, M >( r.coefficients(), x.coefficients() );
     return r;
 }
 
