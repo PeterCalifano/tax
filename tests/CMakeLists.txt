@@ -22,3 +22,5 @@ tax_add_test(test_taylor_expansion_ctor SOURCES core/test_taylor_expansion_ctor.
 tax_add_test(test_taylor_expansion_accessors SOURCES core/test_taylor_expansion_accessors.cpp)
 tax_add_test(test_arith_dense SOURCES operators/test_arith_dense.cpp)
 tax_add_test(test_cauchy_dense SOURCES kernels/test_cauchy_dense.cpp)
+tax_add_test(test_cauchy_unroll_diff SOURCES kernels/test_cauchy_unroll_diff.cpp)
+tax_add_test(test_cauchy_stencil_diff SOURCES kernels/test_cauchy_stencil_diff.cpp)
