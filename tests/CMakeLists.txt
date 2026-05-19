@@ -38,3 +38,15 @@ tax_add_test(test_sparse_conversion SOURCES sparse/test_sparse_conversion.cpp)
 tax_add_test(test_sparse_arith      SOURCES sparse/test_sparse_arith.cpp)
 tax_add_test(test_sparse_cauchy     SOURCES kernels/test_sparse_cauchy.cpp)
 tax_add_test(test_sparse_subs       SOURCES sparse/test_sparse_subs.cpp)
+
+# Eigen integration — slice 11
+tax_add_test(test_eigen_numtraits   SOURCES eigen/test_eigen_numtraits.cpp)
+tax_add_test(test_eigen_variables   SOURCES eigen/test_eigen_variables.cpp)
+tax_add_test(test_eigen_eval        SOURCES eigen/test_eigen_eval.cpp)
+tax_add_test(test_eigen_derivative  SOURCES eigen/test_eigen_derivative.cpp)
+
+# Eigen integration — slice 12
+tax_add_test(test_eigen_gradient    SOURCES eigen/test_eigen_gradient.cpp)
+tax_add_test(test_eigen_hessian     SOURCES eigen/test_eigen_hessian.cpp)
+tax_add_test(test_eigen_jacobian    SOURCES eigen/test_eigen_jacobian.cpp)
+tax_add_test(test_eigen_invert      SOURCES eigen/test_eigen_invert.cpp)

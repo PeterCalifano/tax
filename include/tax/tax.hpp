@@ -11,3 +11,4 @@
 #include <tax/operators/arithmetic.hpp>
 #include <tax/operators/math_unary.hpp>
 #include <tax/operators/math_binary.hpp>
+#include <tax/eigen.hpp>

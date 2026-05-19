@@ -8,6 +8,7 @@
 #include <tax/core/multi_index.hpp>
 #include <tax/core/storage/dense.hpp>
 #include <tax/core/storage/sparse.hpp>
+#include <Eigen/Core>
 
 namespace tax
 {
@@ -196,6 +197,78 @@ public:
     }
 
     // ------------------------------------------------------------------
+    // Polynomial evaluation at a displacement from expansion point
+    // ------------------------------------------------------------------
+
+    /**
+     * @brief Evaluate the polynomial at displacement `dx` from the expansion point.
+     *
+     * Computes `f(x0 + dx)` truncated to order N using the Horner scheme for
+     * univariate (M == 1) and a degree-by-degree monomial-accumulation scheme for
+     * multivariate cases.
+     *
+     * @param dx Displacement vector (same layout as `Input`).
+     * @return `f(x0 + dx)` as a scalar of type `T`.
+     */
+    [[nodiscard]] constexpr T eval( const Input& dx ) const noexcept
+    {
+        if constexpr ( M == 1 )
+        {
+            // Horner's method
+            T result = c_[N];
+            for ( int i = N - 1; i >= 0; --i ) result = result * dx[0] + c_[i];
+            return result;
+        } else
+        {
+            T result{};
+
+            // Degree-by-degree accumulation: enumerate all monomials of total degree d,
+            // compute dx^alpha and accumulate c_alpha * dx^alpha.
+            auto accumulate = [&]( auto& self, int var, int rem,
+                                   MultiIndex< M > alpha ) constexpr -> void
+            {
+                if ( var == M - 1 )
+                {
+                    alpha[std::size_t( var )] = rem;
+                    T monomial{ 1 };
+                    for ( int i = 0; i < M; ++i )
+                        for ( int j = 0; j < alpha[std::size_t( i )]; ++j ) monomial *= dx[std::size_t( i )];
+                    result += c_[flatIndex< M >( alpha )] * monomial;
+                    return;
+                }
+                for ( int k = rem; k >= 0; --k )
+                {
+                    auto a2               = alpha;
+                    a2[std::size_t( var )] = k;
+                    self( self, var + 1, rem - k, a2 );
+                }
+            };
+
+            for ( int d = 0; d <= N; ++d ) accumulate( accumulate, 0, d, MultiIndex< M >{} );
+            return result;
+        }
+    }
+
+    /**
+     * @brief Evaluate the polynomial at displacement given as an Eigen vector.
+     *
+     * Converts the Eigen vector to an `Input` array and delegates to `eval(Input)`.
+     *
+     * @tparam DxDerived Eigen expression type with `SizeAtCompileTime == M`.
+     * @param  dx        Displacement Eigen vector.
+     * @return `f(x0 + dx)` as a scalar of type `T`.
+     */
+    template < typename DxDerived >
+    [[nodiscard]] T eval( const Eigen::MatrixBase< DxDerived >& dx ) const noexcept
+    {
+        static_assert( DxDerived::SizeAtCompileTime == M || DxDerived::SizeAtCompileTime == Eigen::Dynamic,
+                       "eval(Eigen): size must match number of variables M" );
+        Input p{};
+        for ( int i = 0; i < M; ++i ) p[std::size_t( i )] = T( dx( i ) );
+        return eval( p );
+    }
+
+    // ------------------------------------------------------------------
     // Differentiation and integration
     // ------------------------------------------------------------------
 
@@ -302,6 +375,47 @@ public:
             out[flatIndex< M >( alpha )] = c_[i] / T( exp + 1 );
         }
         return TaylorExpansion{ out };
+    }
+
+    // ------------------------------------------------------------------
+    // Gradient and Hessian (require Eigen/Core, already included above)
+    // ------------------------------------------------------------------
+
+    /**
+     * @brief Compute the gradient vector `[df/dx_0, ..., df/dx_{M-1}]` at the expansion point.
+     * @return `Eigen::Matrix<T, M, 1>` of first-order partial derivatives.
+     */
+    [[nodiscard]] Eigen::Matrix< T, M, 1 > gradient() const noexcept
+    {
+        Eigen::Matrix< T, M, 1 > g;
+        MultiIndex< M > alpha{};
+        for ( int i = 0; i < M; ++i )
+        {
+            alpha[std::size_t( i )] = 1;
+            g( i ) = derivative( alpha );
+            alpha[std::size_t( i )] = 0;
+        }
+        return g;
+    }
+
+    /**
+     * @brief Compute the Hessian matrix `H(i,j) = d^2 f / (dx_i dx_j)` at the expansion point.
+     * @return `Eigen::Matrix<T, M, M>` of second-order mixed partial derivatives.
+     */
+    [[nodiscard]] Eigen::Matrix< T, M, M > hessian() const noexcept
+    {
+        Eigen::Matrix< T, M, M > H;
+        for ( int i = 0; i < M; ++i )
+        {
+            for ( int j = 0; j < M; ++j )
+            {
+                MultiIndex< M > alpha{};
+                alpha[std::size_t( i )] += 1;
+                alpha[std::size_t( j )] += 1;
+                H( i, j ) = derivative( alpha );
+            }
+        }
+        return H;
     }
 
     // ------------------------------------------------------------------
