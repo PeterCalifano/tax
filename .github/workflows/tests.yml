@@ -46,10 +46,19 @@ jobs:
         with:
           cmake-version: "4.2.x"
 
-      - name: Install Linux compilers
+      - name: Install Ninja (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
+          sudo apt-get install -y ninja-build
+
+      - name: Install Ninja (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ninja
+
+      - name: Install Linux compilers
+        if: runner.os == 'Linux'
+        run: |
           if [ "${{ matrix.compiler }}" = "gcc" ]; then
             sudo apt-get install -y g++
           else
@@ -75,15 +84,40 @@ jobs:
           "$CXX" --version
 
       - name: Install Eigen ${{ matrix.eigen_version }}
-        run: bash tools/install_eigen.sh ${{ matrix.eigen_version }}
+        run: |
+          EIGEN_VERSION="${{ matrix.eigen_version }}"
+          EIGEN_PREFIX="$HOME/.local"
+          mkdir -p "$EIGEN_PREFIX"
+
+          if [ "$EIGEN_VERSION" = "3.4.0" ]; then
+            # Use the system package where available; fall back to source build
+            if command -v apt-get &>/dev/null; then
+              sudo apt-get install -y libeigen3-dev
+              exit 0
+            elif command -v brew &>/dev/null; then
+              brew install eigen
+              exit 0
+            fi
+          fi
+
+          # Source install (used for Eigen 5 or as fallback)
+          wget -q "https://gitlab.com/libeigen/eigen/-/archive/${EIGEN_VERSION}/eigen-${EIGEN_VERSION}.tar.gz"
+          tar -xzf "eigen-${EIGEN_VERSION}.tar.gz"
+          cmake -S "eigen-${EIGEN_VERSION}" -B eigen-build \
+                -DCMAKE_INSTALL_PREFIX="$EIGEN_PREFIX" \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DEIGEN_BUILD_DOC=OFF \
+                -DEIGEN_BUILD_TESTING=OFF
+          cmake --install eigen-build
+          echo "CMAKE_PREFIX_PATH=$EIGEN_PREFIX" >> "$GITHUB_ENV"
 
       - name: Configure
         run: >
           cmake -S . -B build
           -DCMAKE_BUILD_TYPE=Release
-          -DTAX_BUILD_BENCH=OFF
-          -DTAX_ENABLE_EIGEN=ON
-          -DTAX_USE_DACE=ON
+          -DTAX_BUILD_TEST=ON
+          -DTAX_BUILD_BENCHMARK=OFF
+          -G Ninja
 
       - name: Build
         run: cmake --build build -j 2
@@ -92,7 +126,7 @@ jobs:
         run: ctest --test-dir build --output-on-failure
 
   coverage:
-    name: coverage
+    name: coverage (gcc / ubuntu / debug)
     runs-on: ubuntu-latest
     env:
       CC: gcc
@@ -110,7 +144,7 @@ jobs:
       - name: Install coverage toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y g++ gcovr
+          sudo apt-get install -y g++ gcovr libeigen3-dev ninja-build
 
       - name: Toolchain info
         run: |
@@ -118,16 +152,13 @@ jobs:
           "$CC" --version
           "$CXX" --version
 
-      - name: Install Eigen
-        run: bash tools/install_eigen.sh 5.0.0
-
       - name: Configure (coverage)
         run: >
           cmake -S . -B build-coverage
           -DCMAKE_BUILD_TYPE=Debug
           -DTAX_BUILD_TEST=ON
-          -DTAX_BUILD_BENCH=OFF
-          -DTAX_ENABLE_EIGEN=ON
+          -DTAX_BUILD_BENCHMARK=OFF
+          -G Ninja
           -DCMAKE_CXX_FLAGS=--coverage
           -DCMAKE_EXE_LINKER_FLAGS=--coverage
 
