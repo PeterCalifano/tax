@@ -28,3 +28,5 @@ tax_add_test(test_algebra_square_cube SOURCES operators/test_algebra_square_cube
 tax_add_test(test_algebra_inverse SOURCES operators/test_algebra_inverse.cpp)
 tax_add_test(test_pow SOURCES operators/test_pow.cpp)
 tax_add_test(test_exp_log SOURCES operators/test_exp_log.cpp)
+tax_add_test(test_hyperbolic SOURCES operators/test_hyperbolic.cpp)
+tax_add_test(test_erf SOURCES operators/test_erf.cpp)

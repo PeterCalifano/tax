@@ -119,4 +119,120 @@ template < typename T, int N, int M >
     return r;
 }
 
+/**
+ * @brief Compute `out = sinh(x)` using the series hyperbolic-sine kernel.
+ *
+ * @tparam T  Scalar type.
+ * @tparam N  Truncation order.
+ * @tparam M  Number of variables.
+ */
+template < typename T, int N, int M >
+[[nodiscard]] TaylorExpansion< T, N, M > sinh(
+    const TaylorExpansion< T, N, M >& x ) noexcept
+{
+    TaylorExpansion< T, N, M > r;
+    detail::kernels::seriesSinh< T, N, M >( r.coefficients(), x.coefficients() );
+    return r;
+}
+
+/**
+ * @brief Compute `out = cosh(x)` using the series hyperbolic-cosine kernel.
+ *
+ * @tparam T  Scalar type.
+ * @tparam N  Truncation order.
+ * @tparam M  Number of variables.
+ */
+template < typename T, int N, int M >
+[[nodiscard]] TaylorExpansion< T, N, M > cosh(
+    const TaylorExpansion< T, N, M >& x ) noexcept
+{
+    TaylorExpansion< T, N, M > r;
+    detail::kernels::seriesCosh< T, N, M >( r.coefficients(), x.coefficients() );
+    return r;
+}
+
+/**
+ * @brief Compute `out = tanh(x)` using the series hyperbolic-tangent kernel.
+ *
+ * @tparam T  Scalar type.
+ * @tparam N  Truncation order.
+ * @tparam M  Number of variables.
+ */
+template < typename T, int N, int M >
+[[nodiscard]] TaylorExpansion< T, N, M > tanh(
+    const TaylorExpansion< T, N, M >& x ) noexcept
+{
+    TaylorExpansion< T, N, M > r;
+    detail::kernels::seriesTanh< T, N, M >( r.coefficients(), x.coefficients() );
+    return r;
+}
+
+/**
+ * @brief Compute `out = asinh(x)` using the inverse-hyperbolic-sine kernel.
+ *
+ * @tparam T  Scalar type.
+ * @tparam N  Truncation order.
+ * @tparam M  Number of variables.
+ */
+template < typename T, int N, int M >
+[[nodiscard]] TaylorExpansion< T, N, M > asinh(
+    const TaylorExpansion< T, N, M >& x ) noexcept
+{
+    TaylorExpansion< T, N, M > r;
+    detail::kernels::seriesAsinh< T, N, M >( r.coefficients(), x.coefficients() );
+    return r;
+}
+
+/**
+ * @brief Compute `out = acosh(x)` using the inverse-hyperbolic-cosine kernel.
+ *
+ * Requires `x.value() > 1`.
+ *
+ * @tparam T  Scalar type.
+ * @tparam N  Truncation order.
+ * @tparam M  Number of variables.
+ */
+template < typename T, int N, int M >
+[[nodiscard]] TaylorExpansion< T, N, M > acosh(
+    const TaylorExpansion< T, N, M >& x ) noexcept
+{
+    TaylorExpansion< T, N, M > r;
+    detail::kernels::seriesAcosh< T, N, M >( r.coefficients(), x.coefficients() );
+    return r;
+}
+
+/**
+ * @brief Compute `out = atanh(x)` using the inverse-hyperbolic-tangent kernel.
+ *
+ * Requires `|x.value()| < 1`.
+ *
+ * @tparam T  Scalar type.
+ * @tparam N  Truncation order.
+ * @tparam M  Number of variables.
+ */
+template < typename T, int N, int M >
+[[nodiscard]] TaylorExpansion< T, N, M > atanh(
+    const TaylorExpansion< T, N, M >& x ) noexcept
+{
+    TaylorExpansion< T, N, M > r;
+    detail::kernels::seriesAtanh< T, N, M >( r.coefficients(), x.coefficients() );
+    return r;
+}
+
+/**
+ * @brief Compute `out = erf(x)` using the error-function series kernel.
+ *
+ * @tparam T  Scalar type.
+ * @tparam N  Truncation order.
+ * @tparam M  Number of variables.
+ */
+template < typename T, int N, int M >
+[[nodiscard]] TaylorExpansion< T, N, M > erf(
+    const TaylorExpansion< T, N, M >& x ) noexcept
+{
+    TaylorExpansion< T, N, M > r;
+    detail::kernels::seriesErf< T, N, M >( r.coefficients(), x.coefficients() );
+    return r;
+}
+
 }  // namespace tax
