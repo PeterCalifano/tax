@@ -3,6 +3,7 @@
 #include <tax/core/taylor_expansion.hpp>
 #include <tax/kernels/algebra.hpp>
 #include <tax/kernels/transcendental.hpp>
+#include <tax/kernels/trigonometric.hpp>
 
 namespace tax
 {
@@ -232,6 +233,106 @@ template < typename T, int N, int M >
 {
     TaylorExpansion< T, N, M > r;
     detail::kernels::seriesErf< T, N, M >( r.coefficients(), x.coefficients() );
+    return r;
+}
+
+/**
+ * @brief Compute `out = sin(x)` using the trigonometric series kernel.
+ *
+ * @tparam T  Scalar type.
+ * @tparam N  Truncation order.
+ * @tparam M  Number of variables.
+ */
+template < typename T, int N, int M >
+[[nodiscard]] TaylorExpansion< T, N, M > sin(
+    const TaylorExpansion< T, N, M >& x ) noexcept
+{
+    TaylorExpansion< T, N, M > r;
+    detail::kernels::seriesSin< T, N, M >( r.coefficients(), x.coefficients() );
+    return r;
+}
+
+/**
+ * @brief Compute `out = cos(x)` using the trigonometric series kernel.
+ *
+ * @tparam T  Scalar type.
+ * @tparam N  Truncation order.
+ * @tparam M  Number of variables.
+ */
+template < typename T, int N, int M >
+[[nodiscard]] TaylorExpansion< T, N, M > cos(
+    const TaylorExpansion< T, N, M >& x ) noexcept
+{
+    TaylorExpansion< T, N, M > r;
+    detail::kernels::seriesCos< T, N, M >( r.coefficients(), x.coefficients() );
+    return r;
+}
+
+/**
+ * @brief Compute `out = tan(x)` using the trigonometric series kernel.
+ *
+ * @tparam T  Scalar type.
+ * @tparam N  Truncation order.
+ * @tparam M  Number of variables.
+ */
+template < typename T, int N, int M >
+[[nodiscard]] TaylorExpansion< T, N, M > tan(
+    const TaylorExpansion< T, N, M >& x ) noexcept
+{
+    TaylorExpansion< T, N, M > r;
+    detail::kernels::seriesTan< T, N, M >( r.coefficients(), x.coefficients() );
+    return r;
+}
+
+/**
+ * @brief Compute `out = asin(x)` using the inverse-sine series kernel.
+ *
+ * Requires `|x.value()| < 1`.
+ *
+ * @tparam T  Scalar type.
+ * @tparam N  Truncation order.
+ * @tparam M  Number of variables.
+ */
+template < typename T, int N, int M >
+[[nodiscard]] TaylorExpansion< T, N, M > asin(
+    const TaylorExpansion< T, N, M >& x ) noexcept
+{
+    TaylorExpansion< T, N, M > r;
+    detail::kernels::seriesAsin< T, N, M >( r.coefficients(), x.coefficients() );
+    return r;
+}
+
+/**
+ * @brief Compute `out = acos(x)` using the inverse-cosine series kernel.
+ *
+ * Requires `|x.value()| < 1`.
+ *
+ * @tparam T  Scalar type.
+ * @tparam N  Truncation order.
+ * @tparam M  Number of variables.
+ */
+template < typename T, int N, int M >
+[[nodiscard]] TaylorExpansion< T, N, M > acos(
+    const TaylorExpansion< T, N, M >& x ) noexcept
+{
+    TaylorExpansion< T, N, M > r;
+    detail::kernels::seriesAcos< T, N, M >( r.coefficients(), x.coefficients() );
+    return r;
+}
+
+/**
+ * @brief Compute `out = atan(x)` using the inverse-tangent series kernel.
+ *
+ * @tparam T  Scalar type.
+ * @tparam N  Truncation order.
+ * @tparam M  Number of variables.
+ */
+template < typename T, int N, int M >
+[[nodiscard]] TaylorExpansion< T, N, M > atan(
+    const TaylorExpansion< T, N, M >& x ) noexcept
+{
+    TaylorExpansion< T, N, M > r;
+    detail::kernels::seriesAtan< T, N, M >( r.coefficients(), x.coefficients() );
     return r;
 }
 
