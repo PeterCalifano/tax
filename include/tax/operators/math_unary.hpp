@@ -2,6 +2,7 @@
 
 #include <tax/core/taylor_expansion.hpp>
 #include <tax/kernels/algebra.hpp>
+#include <tax/kernels/sparse_subs.hpp>
 #include <tax/kernels/transcendental.hpp>
 #include <tax/kernels/trigonometric.hpp>
 
@@ -333,6 +334,38 @@ template < typename T, int N, int M >
 {
     TaylorExpansion< T, N, M > r;
     detail::kernels::seriesAtan< T, N, M >( r.coefficients(), x.coefficients() );
+    return r;
+}
+
+// ===========================================================================
+// Sparse overloads: sqrt, reciprocal
+// ===========================================================================
+
+/**
+ * @brief Sparse `sqrt(f)` via support-set forward substitution.
+ *
+ * Constant term must be strictly positive.
+ */
+template < typename T, int N, int M >
+[[nodiscard]] TaylorExpansion< T, N, M, storage::Sparse > sqrt(
+    const TaylorExpansion< T, N, M, storage::Sparse >& x )
+{
+    TaylorExpansion< T, N, M, storage::Sparse > r;
+    detail::kernels::seriesSqrtSparse< T, N, M >( r.container(), x.container() );
+    return r;
+}
+
+/**
+ * @brief Sparse `1/f` via support-set forward substitution.
+ *
+ * Constant term must be nonzero.
+ */
+template < typename T, int N, int M >
+[[nodiscard]] TaylorExpansion< T, N, M, storage::Sparse > reciprocal(
+    const TaylorExpansion< T, N, M, storage::Sparse >& x )
+{
+    TaylorExpansion< T, N, M, storage::Sparse > r;
+    detail::kernels::seriesReciprocalSparse< T, N, M >( r.container(), x.container() );
     return r;
 }
 

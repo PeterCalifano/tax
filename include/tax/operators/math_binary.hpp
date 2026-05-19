@@ -2,6 +2,7 @@
 
 #include <tax/core/taylor_expansion.hpp>
 #include <tax/kernels/algebra.hpp>
+#include <tax/kernels/sparse_subs.hpp>
 #include <tax/kernels/trigonometric.hpp>
 
 namespace tax
@@ -64,6 +65,24 @@ template < typename T, int N, int M >
     TaylorExpansion< T, N, M > r;
     detail::kernels::seriesAtan2< T, N, M >( r.coefficients(), y.coefficients(),
                                               x.coefficients() );
+    return r;
+}
+
+/**
+ * @brief Sparse `f^n` via binary exponentiation of the Cauchy product.
+ *
+ * Negative `n` throws `std::invalid_argument`; `n == 0` returns `1`.
+ *
+ * @tparam T  Scalar type.
+ * @tparam N  Truncation order.
+ * @tparam M  Number of variables.
+ */
+template < typename T, int N, int M >
+[[nodiscard]] TaylorExpansion< T, N, M, storage::Sparse > pow(
+    const TaylorExpansion< T, N, M, storage::Sparse >& x, int n )
+{
+    TaylorExpansion< T, N, M, storage::Sparse > r;
+    detail::kernels::seriesPowIntSparse< T, N, M >( r.container(), x.container(), n );
     return r;
 }
 

@@ -4,6 +4,7 @@
 #include <tax/kernels/algebra.hpp>
 #include <tax/kernels/cauchy.hpp>
 #include <tax/kernels/sparse_cauchy.hpp>
+#include <tax/kernels/sparse_subs.hpp>
 
 namespace tax
 {
@@ -267,6 +268,20 @@ template < typename T, int N, int M >
     TaylorExpansion< T, N, M, Sparse > r;
     detail::kernels::sparseCauchyProduct< T, N, M >(
         r.container(), a.container(), b.container() );
+    return r;
+}
+
+/// @brief Sparse / Sparse: Cauchy product of a and 1/b.
+template < typename T, int N, int M >
+[[nodiscard]] TaylorExpansion< T, N, M, Sparse > operator/(
+    const TaylorExpansion< T, N, M, Sparse >& a,
+    const TaylorExpansion< T, N, M, Sparse >& b )
+{
+    TaylorExpansion< T, N, M, Sparse > inv_b;
+    detail::kernels::seriesReciprocalSparse< T, N, M >( inv_b.container(), b.container() );
+    TaylorExpansion< T, N, M, Sparse > r;
+    detail::kernels::sparseCauchyProduct< T, N, M >( r.container(), a.container(),
+                                                     inv_b.container() );
     return r;
 }
 
