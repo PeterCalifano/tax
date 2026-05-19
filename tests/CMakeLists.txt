@@ -8,6 +8,7 @@ if(NOT GTest_FOUND)
     set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(googletest)
 endif()
+# Tests are added by subsequent slices via tax_add_test(name SOURCES files...).
 function(tax_add_test name)
     cmake_parse_arguments(T "" "" "SOURCES" ${ARGN})
     add_executable(${name} ${T_SOURCES})

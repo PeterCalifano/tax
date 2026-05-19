@@ -32,7 +32,7 @@ if(TAX_USE_STENCIL)
     target_compile_definitions(tax INTERFACE TAX_USE_STENCIL=1)
 endif()
 
-find_package(Eigen3 REQUIRED)
+find_package(Eigen3 3.4...99 REQUIRED)
 target_link_libraries(tax INTERFACE Eigen3::Eigen)
 
 if(TAX_BUILD_TEST)
