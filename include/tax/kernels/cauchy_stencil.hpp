@@ -38,7 +38,13 @@ struct CauchyStencil
     // Upper bound on the number of entries: sum over all monomials of
     // (d+1)^(M-1) sub-indices, which is at most numMonomials(N,M)^2.
     // We use a generous overestimate and store the actual count.
+    // TODO: replace with the exact count `sum_{|alpha|<=N} prod_i (alpha_i+1)`
+    //       once large (N,M) shapes (e.g. N>=8,M>=6) are actually exercised.
+    //       Current overestimate factor grows ~M^2; at N=8,M=6 this would be 206 MB.
     static constexpr std::size_t kMaxEntries = numMonomials( N, M ) * numMonomials( N, M );
+    static_assert( kMaxEntries < ( 1u << 22 ),
+                   "CauchyStencil table exceeds 4M entries (~96 MB). "
+                   "Implement the exact count before using this (N, M)." );
 
     std::array< StencilEntry, kMaxEntries > entries{};
     std::size_t size = 0;
