@@ -9,3 +9,4 @@
 #include <tax/core/taylor_expansion.hpp>
 #include <tax/operators/arithmetic.hpp>
 #include <tax/operators/math_unary.hpp>
+#include <tax/operators/math_binary.hpp>

@@ -272,4 +272,127 @@ void seriesCbrt( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
     }
 }
 
+/**
+ * @brief Real-exponent power series `out = a^c` via degree-by-degree recurrence.
+ *
+ * Derived from logarithmic differentiation of `f = a^c`:
+ *   d * a[0] * f[d] = sum_{k=0}^{d-1} (c*(d-k) - k) * a[d-k] * f[k]
+ *
+ * Multivariate generalisation with |alpha|=d:
+ *   d * a[0] * f[alpha] = sum_{0 < |beta| <= d}
+ *                           (c*|beta| - (d-|beta|)) * a[beta] * f[alpha-beta]
+ *
+ * Requires `a[0] != 0`. NOT constexpr because it calls `std::pow`.
+ *
+ * @tparam T  Scalar type.
+ * @tparam N  Truncation order.
+ * @tparam M  Number of variables.
+ */
+template < typename T, int N, int M >
+void seriesPow( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a, T c ) noexcept
+{
+    using std::pow;
+    out = {};
+    out[0] = pow( a[0], c );
+    const T inv_a0 = T{ 1 } / a[0];
+
+    if constexpr ( M == 1 )
+    {
+        for ( int d = 1; d <= N; ++d )
+        {
+            T rhs = T{ 0 };
+            for ( int k = 0; k < d; ++k )
+                rhs += ( c * T( d - k ) - T( k ) ) * a[std::size_t( d - k )] * out[std::size_t( k )];
+            out[std::size_t( d )] = rhs * inv_a0 / T( d );
+        }
+    }
+    else
+    {
+        for ( int d = 1; d <= N; ++d )
+        {
+            tax::forEachMonomialOfDegree< M >( d, [&]( const MultiIndex< M >& alpha ) {
+                const std::size_t ai = flatIndex< M >( alpha );
+                T rhs = T{ 0 };
+                tax::forEachSubIndex< M >( alpha, [&]( const MultiIndex< M >& beta,
+                                                        const MultiIndex< M >& gamma ) {
+                    // Need |beta| > 0 (skip the beta=0 term)
+                    int db = 0;
+                    for ( int i = 0; i < M; ++i ) db += beta[std::size_t( i )];
+                    if ( db == 0 ) return;
+                    const std::size_t bi = flatIndex< M >( beta );
+                    const std::size_t gi = flatIndex< M >( gamma );
+                    rhs += ( c * T( db ) - T( d - db ) ) * a[bi] * out[gi];
+                } );
+                out[ai] = rhs * inv_a0 / T( d );
+            } );
+        }
+    }
+}
+
+/**
+ * @brief Integer-exponent power series `out = a^n` via binary exponentiation.
+ *
+ * Special cases handled directly:
+ *   - n == 0  → constant 1
+ *   - n == 1  → copy of a
+ *   - n == -1 → seriesReciprocal(a)
+ *   - n <  0  → seriesReciprocal(a), then seriesPowInt(rec, -n)
+ *   - n >= 2  → binary exponentiation using cauchyProduct
+ *
+ * @tparam T  Scalar type.
+ * @tparam N  Truncation order.
+ * @tparam M  Number of variables.
+ */
+template < typename T, int N, int M >
+constexpr void seriesPowInt( Coeffs< T, N, M >& out,
+                             const Coeffs< T, N, M >& a, int n ) noexcept
+{
+    constexpr auto S = numMonomials( N, M );
+
+    if ( n == 0 )
+    {
+        out = {};
+        out[0] = T{ 1 };
+        return;
+    }
+    if ( n == 1 )
+    {
+        out = a;
+        return;
+    }
+    if ( n == -1 )
+    {
+        seriesReciprocal< T, N, M >( out, a );
+        return;
+    }
+    if ( n < 0 )
+    {
+        std::array< T, S > rec{};
+        seriesReciprocal< T, N, M >( rec, a );
+        seriesPowInt< T, N, M >( out, rec, -n );
+        return;
+    }
+    // n >= 2: binary exponentiation (left-to-right square-and-multiply)
+    std::array< T, S > base = a;
+    out = {};
+    out[0] = T{ 1 };
+    int e = n;
+    while ( e > 0 )
+    {
+        if ( e & 1 )
+        {
+            std::array< T, S > tmp{};
+            cauchyProduct< T, N, M >( tmp, out, base );
+            out = tmp;
+        }
+        e >>= 1;
+        if ( e > 0 )
+        {
+            std::array< T, S > tmp{};
+            cauchyProduct< T, N, M >( tmp, base, base );
+            base = tmp;
+        }
+    }
+}
+
 }  // namespace tax::detail::kernels

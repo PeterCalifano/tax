@@ -26,3 +26,4 @@ tax_add_test(test_cauchy_unroll_diff SOURCES kernels/test_cauchy_unroll_diff.cpp
 tax_add_test(test_cauchy_stencil_diff SOURCES kernels/test_cauchy_stencil_diff.cpp)
 tax_add_test(test_algebra_square_cube SOURCES operators/test_algebra_square_cube.cpp)
 tax_add_test(test_algebra_inverse SOURCES operators/test_algebra_inverse.cpp)
+tax_add_test(test_pow SOURCES operators/test_pow.cpp)
