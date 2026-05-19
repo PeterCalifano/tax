@@ -5,3 +5,5 @@
 #include <tax/core/concepts.hpp>
 #include <tax/core/multi_index.hpp>
 #include <tax/core/enumeration.hpp>
+#include <tax/core/storage/dense.hpp>
+#include <tax/core/taylor_expansion.hpp>

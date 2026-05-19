@@ -18,3 +18,5 @@ endfunction()
 
 tax_add_test(test_multi_index SOURCES core/test_multi_index.cpp)
 tax_add_test(test_enumeration SOURCES core/test_enumeration.cpp)
+tax_add_test(test_taylor_expansion_ctor SOURCES core/test_taylor_expansion_ctor.cpp)
+tax_add_test(test_taylor_expansion_accessors SOURCES core/test_taylor_expansion_accessors.cpp)
