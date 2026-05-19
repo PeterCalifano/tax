@@ -84,4 +84,192 @@ constexpr void seriesCube( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) 
     cauchyProduct< T, N, M >( out, tmp, a );
 }
 
+/**
+ * @brief Reciprocal series solve `a * out = 1`.
+ *
+ * Requires `a[0] != 0`. Degree-by-degree forward substitution:
+ *   out[alpha] = -(1/a[0]) * sum_{0 < beta <= alpha} a[beta] * out[alpha - beta]
+ *
+ * @tparam T  Scalar type.
+ * @tparam N  Truncation order.
+ * @tparam M  Number of variables.
+ */
+template < typename T, int N, int M >
+constexpr void seriesReciprocal( Coeffs< T, N, M >& out,
+                                 const Coeffs< T, N, M >& a ) noexcept
+{
+    out = {};
+    const T inv_a0 = T{ 1 } / a[0];
+    out[0] = inv_a0;
+
+    if constexpr ( M == 1 )
+    {
+        for ( int d = 1; d <= N; ++d )
+        {
+            T rhs = T{ 0 };
+            for ( int k = 1; k <= d; ++k ) rhs -= a[std::size_t( k )] * out[std::size_t( d - k )];
+            out[std::size_t( d )] = rhs * inv_a0;
+        }
+    }
+    else
+    {
+        for ( int d = 1; d <= N; ++d )
+        {
+            tax::forEachMonomialOfDegree< M >( d, [&]( const MultiIndex< M >& alpha ) {
+                const std::size_t ai = flatIndex< M >( alpha );
+                T rhs = T{ 0 };
+                // sum over all beta with 0 < |beta| <= d (i.e., beta != 0 and gamma != 0... actually
+                // beta in [1..d] means we skip beta=0; gamma=alpha-beta has |gamma|=d-|beta| in [0,d-1])
+                tax::forEachSubIndex< M >( alpha, [&]( const MultiIndex< M >& beta,
+                                                        const MultiIndex< M >& gamma ) {
+                    // skip beta == 0 (that term is a[0]*out[alpha], moved to LHS)
+                    int beta_deg = 0;
+                    for ( int i = 0; i < M; ++i ) beta_deg += beta[std::size_t( i )];
+                    if ( beta_deg == 0 ) return;
+                    const std::size_t bi = flatIndex< M >( beta );
+                    const std::size_t gi = flatIndex< M >( gamma );
+                    rhs -= a[bi] * out[gi];
+                } );
+                out[ai] = rhs * inv_a0;
+            } );
+        }
+    }
+}
+
+/**
+ * @brief Square-root series solve `out * out = a`.
+ *
+ * Uses the principal branch from `sqrt(a[0])`. Requires `a[0] > 0`.
+ * Recurrence at degree d:
+ *   out[d] = (1 / (2*out[0])) * (a[d] - sum_{0 < k < d} out[k]*out[d-k])
+ *
+ * @tparam T  Scalar type.
+ * @tparam N  Truncation order.
+ * @tparam M  Number of variables.
+ */
+template < typename T, int N, int M >
+void seriesSqrt( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
+{
+    using std::sqrt;
+    out = {};
+    out[0] = sqrt( a[0] );
+    const T inv2g0 = T{ 1 } / ( T{ 2 } * out[0] );
+
+    if constexpr ( M == 1 )
+    {
+        for ( int d = 1; d <= N; ++d )
+        {
+            T rhs = a[std::size_t( d )];
+            for ( int k = 1; k + k < d; ++k )
+                rhs -= T{ 2 } * out[std::size_t( k )] * out[std::size_t( d - k )];
+            if ( d % 2 == 0 )
+                rhs -= out[std::size_t( d / 2 )] * out[std::size_t( d / 2 )];
+            out[std::size_t( d )] = rhs * inv2g0;
+        }
+    }
+    else
+    {
+        for ( int d = 1; d <= N; ++d )
+        {
+            tax::forEachMonomialOfDegree< M >( d, [&]( const MultiIndex< M >& alpha ) {
+                const std::size_t ai = flatIndex< M >( alpha );
+                T rhs = a[ai];
+                // Subtract off-diagonal and diagonal cross terms (beta in [1, d-1])
+                tax::forEachSubIndex< M >( alpha, [&]( const MultiIndex< M >& beta,
+                                                        const MultiIndex< M >& gamma ) {
+                    int beta_deg = 0;
+                    for ( int i = 0; i < M; ++i ) beta_deg += beta[std::size_t( i )];
+                    if ( beta_deg == 0 || beta_deg == d ) return;
+                    const std::size_t bi = flatIndex< M >( beta );
+                    const std::size_t gi = flatIndex< M >( gamma );
+                    if ( bi < gi )
+                        rhs -= T{ 2 } * out[bi] * out[gi];
+                    else if ( bi == gi )
+                        rhs -= out[bi] * out[bi];
+                } );
+                out[ai] = rhs * inv2g0;
+            } );
+        }
+    }
+}
+
+/**
+ * @brief Cubic-root series solve `out * out * out = a`.
+ *
+ * Uses the real branch from `cbrt(a[0])`. Requires `a[0] != 0`.
+ * Maintains `sq = out^2` incrementally for O(N^2) total work (M=1).
+ *
+ * @tparam T  Scalar type.
+ * @tparam N  Truncation order.
+ * @tparam M  Number of variables.
+ */
+template < typename T, int N, int M >
+void seriesCbrt( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
+{
+    using std::cbrt;
+    constexpr auto S = numMonomials( N, M );
+
+    out = {};
+    out[0] = cbrt( a[0] );
+    const T inv3g0sq = T{ 1 } / ( T{ 3 } * out[0] * out[0] );
+
+    if constexpr ( M == 1 )
+    {
+        std::array< T, S > sq{};
+        sq[0] = out[0] * out[0];
+        for ( int d = 1; d <= N; ++d )
+        {
+            T sq_d_partial = T{ 0 };
+            for ( int k = 1; k + k < d; ++k )
+                sq_d_partial += T{ 2 } * out[std::size_t( k )] * out[std::size_t( d - k )];
+            if ( d % 2 == 0 )
+                sq_d_partial += out[std::size_t( d / 2 )] * out[std::size_t( d / 2 )];
+
+            T rhs = out[0] * sq_d_partial;
+            for ( int j = 1; j < d; ++j ) rhs += out[std::size_t( j )] * sq[std::size_t( d - j )];
+
+            out[std::size_t( d )] = ( a[std::size_t( d )] - rhs ) * inv3g0sq;
+            sq[std::size_t( d )] = T{ 2 } * out[0] * out[std::size_t( d )] + sq_d_partial;
+        }
+    }
+    else
+    {
+        std::array< T, S > sq{};
+        sq[0] = out[0] * out[0];
+        for ( int d = 1; d <= N; ++d )
+        {
+            tax::forEachMonomialOfDegree< M >( d, [&]( const MultiIndex< M >& alpha ) {
+                const std::size_t ai = flatIndex< M >( alpha );
+                T rhs = a[ai];
+                // beta in [1, d-1]: skip beta==0 and beta with |beta|==d
+                tax::forEachSubIndex< M >( alpha, [&]( const MultiIndex< M >& beta,
+                                                        const MultiIndex< M >& gamma ) {
+                    int beta_deg = 0;
+                    for ( int i = 0; i < M; ++i ) beta_deg += beta[std::size_t( i )];
+                    if ( beta_deg == 0 || beta_deg == d ) return;
+                    const std::size_t bi = flatIndex< M >( beta );
+                    const std::size_t gi = flatIndex< M >( gamma );
+                    rhs -= out[bi] * ( out[0] * out[gi] + sq[gi] );
+                } );
+                out[ai] = rhs * inv3g0sq;
+            } );
+
+            tax::forEachMonomialOfDegree< M >( d, [&]( const MultiIndex< M >& alpha ) {
+                const std::size_t ai = flatIndex< M >( alpha );
+                T val = T{ 0 };
+                tax::forEachSubIndex< M >( alpha, [&]( const MultiIndex< M >& beta,
+                                                        const MultiIndex< M >& gamma ) {
+                    const std::size_t bi = flatIndex< M >( beta );
+                    const std::size_t gi = flatIndex< M >( gamma );
+                    if ( bi < gi )
+                        val += T{ 2 } * out[bi] * out[gi];
+                    else if ( bi == gi )
+                        val += out[bi] * out[bi];
+                } );
+                sq[ai] = val;
+            } );
+        }
+    }
+}
+
 }  // namespace tax::detail::kernels
