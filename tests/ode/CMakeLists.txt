@@ -7,3 +7,4 @@
 tax_add_test(test_ode_config SOURCES testConfig.cpp)
 tax_add_test(test_ode_concepts SOURCES testConcepts.cpp)
 tax_add_test(test_ode_solution SOURCES testSolution.cpp)
+tax_add_test(test_ode_controllers SOURCES testControllers.cpp)
