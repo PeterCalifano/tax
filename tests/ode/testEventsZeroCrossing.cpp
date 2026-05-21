@@ -123,3 +123,101 @@ TEST( OdeEventsZeroCrossing, EmptyEventListRunsToTmax )
     EXPECT_NEAR( sol.x.back()( 0 ), std::exp( 1.0 ), 1e-10 );
     EXPECT_EQ( sol.events.size(), 0u );
 }
+
+TEST( OdeEventsZeroCrossing, HarmonicTerminateAcrossAllMethods )
+{
+    using State = Eigen::Matrix< double, 2, 1 >;
+    tax::ode::IntegratorConfig< double > cfg;
+    cfg.abstol = cfg.reltol = 1e-12;
+
+    const auto f = []( const auto& x, const auto& )
+    {
+        State out;
+        out( 0 ) =  x( 1 );
+        out( 1 ) = -x( 0 );
+        return out;
+    };
+
+    State x0; x0( 0 ) = 1.0; x0( 1 ) = 0.0;
+    const double tmax       = 5.0;
+    const double t_expected = M_PI / 2;
+    // Verner78/89 and Fehlberg78 achieve ~1e-7 via Brent-on-Hermite.
+    // Feagin12/14's sparse error tables produce slightly larger step sizes
+    // near the event, so their Brent bracket is coarser; 1e-6 covers all five.
+    const double tol = 1e-6;
+
+    {
+        using Stepper = tax::ode::Verner78Stepper< State >;
+        std::vector< tax::ode::Event< Stepper > > events;
+        events.emplace_back(
+            tax::ode::ZeroCrossing(
+                []( const auto& x, const auto& ) { return x( 0 ); },
+                tax::ode::Direction::Decreasing ),
+            tax::ode::Terminate() );
+
+        auto integ = tax::ode::makeVerner78Integrator< double, 2, false >(
+            f, cfg, std::move( events ) );
+        auto sol = integ.integrate( x0, 0.0, tmax );
+        EXPECT_NEAR( sol.t.back(), t_expected, tol ) << "Verner78";
+    }
+
+    {
+        using Stepper = tax::ode::Verner89Stepper< State >;
+        std::vector< tax::ode::Event< Stepper > > events;
+        events.emplace_back(
+            tax::ode::ZeroCrossing(
+                []( const auto& x, const auto& ) { return x( 0 ); },
+                tax::ode::Direction::Decreasing ),
+            tax::ode::Terminate() );
+
+        auto integ = tax::ode::makeVerner89Integrator< double, 2, false >(
+            f, cfg, std::move( events ) );
+        auto sol = integ.integrate( x0, 0.0, tmax );
+        EXPECT_NEAR( sol.t.back(), t_expected, tol ) << "Verner89";
+    }
+
+    {
+        using Stepper = tax::ode::Fehlberg78Stepper< State >;
+        std::vector< tax::ode::Event< Stepper > > events;
+        events.emplace_back(
+            tax::ode::ZeroCrossing(
+                []( const auto& x, const auto& ) { return x( 0 ); },
+                tax::ode::Direction::Decreasing ),
+            tax::ode::Terminate() );
+
+        auto integ = tax::ode::makeFehlberg78Integrator< double, 2, false >(
+            f, cfg, std::move( events ) );
+        auto sol = integ.integrate( x0, 0.0, tmax );
+        EXPECT_NEAR( sol.t.back(), t_expected, tol ) << "Fehlberg78";
+    }
+
+    {
+        using Stepper = tax::ode::Feagin12Stepper< State >;
+        std::vector< tax::ode::Event< Stepper > > events;
+        events.emplace_back(
+            tax::ode::ZeroCrossing(
+                []( const auto& x, const auto& ) { return x( 0 ); },
+                tax::ode::Direction::Decreasing ),
+            tax::ode::Terminate() );
+
+        auto integ = tax::ode::makeFeagin12Integrator< double, 2, false >(
+            f, cfg, std::move( events ) );
+        auto sol = integ.integrate( x0, 0.0, tmax );
+        EXPECT_NEAR( sol.t.back(), t_expected, tol ) << "Feagin12";
+    }
+
+    {
+        using Stepper = tax::ode::Feagin14Stepper< State >;
+        std::vector< tax::ode::Event< Stepper > > events;
+        events.emplace_back(
+            tax::ode::ZeroCrossing(
+                []( const auto& x, const auto& ) { return x( 0 ); },
+                tax::ode::Direction::Decreasing ),
+            tax::ode::Terminate() );
+
+        auto integ = tax::ode::makeFeagin14Integrator< double, 2, false >(
+            f, cfg, std::move( events ) );
+        auto sol = integ.integrate( x0, 0.0, tmax );
+        EXPECT_NEAR( sol.t.back(), t_expected, tol ) << "Feagin14";
+    }
+}
