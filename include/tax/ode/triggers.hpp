@@ -89,6 +89,12 @@ auto ZeroCrossing( GFn g, Direction dir = Direction::Any )
         using DenseData = typename Ctx::DenseData_type;
         using Stepper   = typename Ctx::Stepper_type;
 
+        static_assert( Stepper::has_dense_output,
+                       "ZeroCrossing requires a stepper with dense output. "
+                       "Steppers without dense output (Fehlberg78Stepper, "
+                       "Feagin12Stepper, Feagin14Stepper) can only use EveryStep "
+                       "triggers." );
+
         // Scalar evaluation at the step boundaries (always supported —
         // user g is at minimum invocable on the concrete State type).
         const T s0 = T( g( ctx.x_old, ctx.t_old ) );

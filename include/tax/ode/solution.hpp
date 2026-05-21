@@ -4,7 +4,8 @@
 // Dense=false:  step-boundary states + events only.
 // Dense=true :  adds per-step continuous-extension payload and an
 //               operator()(t_query) that interpolates via the
-//               stepper's static eval_dense().
+//               stepper's static eval_dense(). Requires a
+//               concepts::DenseStepper.
 
 #pragma once
 
@@ -14,6 +15,8 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+
+#include <tax/ode/concepts.hpp>
 
 namespace tax::ode
 {
@@ -43,7 +46,9 @@ public:
 };
 
 // Dense specialisation: adds per-step continuous-extension data and sol(t).
+// Requires a DenseStepper (has_dense_output == true, DenseData, eval_dense).
 template < class Stepper, class State >
+    requires concepts::DenseStepper< Stepper >
 class Solution< Stepper, State, /*Dense=*/true >
 {
 public:

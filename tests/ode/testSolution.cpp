@@ -26,6 +26,8 @@ struct FakeStepper
     using Rhs       = std::function< State( const State&, T ) >;
     using DenseData = State;
 
+    static constexpr bool has_dense_output = true;
+
     tax::ode::StepResult< State, FakeStepper >
     step( const Rhs&, const State& x, T, T h, const Config& ) const
     {

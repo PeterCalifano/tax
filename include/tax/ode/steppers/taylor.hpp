@@ -45,7 +45,8 @@ struct TaylorStepper
     using Rhs             = std::function< StateT( const StateT&, T ) >;
 
     static constexpr int D = StateT::RowsAtCompileTime;  // may be Eigen::Dynamic
-    static constexpr bool is_adaptive = true;
+    static constexpr bool is_adaptive       = true;
+    static constexpr bool has_dense_output  = true;
 
     // DenseData: per-step Taylor expansion of x(t) in time around the
     // step start. We store one tax::TE<N> per state component.

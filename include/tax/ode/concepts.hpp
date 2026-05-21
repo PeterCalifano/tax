@@ -1,14 +1,14 @@
 // include/tax/ode/concepts.hpp
 //
 // Stepper concept hierarchy.
-//   - Stepper:         minimum — take one step at the supplied h.
-//   - AdaptiveStepper: refinement — additionally provides embedded
-//                      error estimate and recommended next step.
-//                      Keyed off a per-Stepper
-//                      `static constexpr bool is_adaptive = true;`
-//                      marker so that steppers sharing the same
-//                      StepResult struct layout can still be
-//                      discriminated at compile time.
+//   - Stepper:        minimum — take one step at the supplied h.
+//   - DenseStepper:   refinement — provides DenseData + eval_dense +
+//                     has_dense_output marker. Required for Solution<…,
+//                     Dense=true> and for ZeroCrossing events (which
+//                     need a continuous extension to locate roots inside
+//                     a step).
+//   - AdaptiveStepper: refinement — embedded error estimator + retry
+//                     loop, keyed off `static constexpr bool is_adaptive`.
 
 #pragma once
 
@@ -33,14 +33,23 @@ concept Stepper = requires(
     typename S::T;
     typename S::Config;
     typename S::Rhs;
-    typename S::DenseData;
 
     { s.step( f, x, t, h, cfg ) }
         -> std::same_as< StepResult< typename S::State, S > >;
-
-    { S::eval_dense( std::declval< typename S::DenseData >(), t, t, t ) }
-        -> std::same_as< typename S::State >;
 };
+
+template < class S >
+concept DenseStepper = Stepper< S >
+    && requires { { S::has_dense_output } -> std::convertible_to< bool >; }
+    && S::has_dense_output
+    && requires {
+           typename S::DenseData;
+           { S::eval_dense( std::declval< typename S::DenseData >(),
+                            std::declval< typename S::T >(),
+                            std::declval< typename S::T >(),
+                            std::declval< typename S::T >() ) }
+               -> std::same_as< typename S::State >;
+       };
 
 // AdaptiveStepper: a Stepper that declares
 //   static constexpr bool is_adaptive = true;

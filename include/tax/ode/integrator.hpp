@@ -126,7 +126,8 @@ Integrator< Stepper, F, Dense >::integrate(
             }
 
             // Build the step context once for all events.
-            using Ctx = StepperCtx< Stepper, State, T, typename Stepper::DenseData >;
+            using Ctx = StepperCtx< Stepper, State, T,
+                                    detail::stepper_dense_data_t< Stepper > >;
             const Ctx ctx{ x, t, r.x_new, r.h_used, r.dense };
 
             struct Fired { T tau; std::size_t idx; };
@@ -152,16 +153,25 @@ Integrator< Stepper, F, Dense >::integrate(
             if ( terminate )
             {
                 // Replace the final solution point with the event time
-                // using the Stepper's continuous extension for
-                // machine-precision x_term.
+                // using the Stepper's continuous extension (only available
+                // for DenseSteppers) for machine-precision x_term.
                 if ( !fired.empty() )
                 {
                     const T tau_term = fired.front().tau;
-                    State   x_term   = Stepper::eval_dense(
-                        ctx.dense, ctx.t_old, ctx.t_old + ctx.h_used,
-                        ctx.t_old + tau_term );
-                    sol.t.push_back( ctx.t_old + tau_term );
-                    sol.x.push_back( std::move( x_term ) );
+                    if constexpr ( concepts::DenseStepper< Stepper > )
+                    {
+                        State x_term = Stepper::eval_dense(
+                            ctx.dense, ctx.t_old, ctx.t_old + ctx.h_used,
+                            ctx.t_old + tau_term );
+                        sol.t.push_back( ctx.t_old + tau_term );
+                        sol.x.push_back( std::move( x_term ) );
+                    }
+                    else
+                    {
+                        // Propagation-only stepper: use x_new as best estimate.
+                        sol.t.push_back( ctx.t_old + tau_term );
+                        sol.x.push_back( r.x_new );
+                    }
                     if constexpr ( Dense )
                         sol.dense.push_back( std::move( r.dense ) );
                 }

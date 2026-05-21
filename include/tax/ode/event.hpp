@@ -11,6 +11,8 @@
 #include <optional>
 #include <utility>
 
+#include <tax/ode/step_result.hpp>
+
 namespace tax::ode
 {
 
@@ -69,7 +71,7 @@ class Event
 public:
     using T         = typename Stepper::T;
     using State     = typename Stepper::State;
-    using DenseData = typename Stepper::DenseData;
+    using DenseData = detail::stepper_dense_data_t< Stepper >;
     using Ctx       = StepperCtx< Stepper, State, T, DenseData >;
     using Storage      = EventStorage< State, T >;
     using TriggerFn = std::function< std::optional< T >( const Ctx& ) >;
