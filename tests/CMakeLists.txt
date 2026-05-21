@@ -50,3 +50,6 @@ tax_add_test(test_eigen_gradient    SOURCES eigen/test_eigen_gradient.cpp)
 tax_add_test(test_eigen_hessian     SOURCES eigen/test_eigen_hessian.cpp)
 tax_add_test(test_eigen_jacobian    SOURCES eigen/test_eigen_jacobian.cpp)
 tax_add_test(test_eigen_invert      SOURCES eigen/test_eigen_invert.cpp)
+
+# ODE integrator — Stage 2a
+add_subdirectory(ode)
