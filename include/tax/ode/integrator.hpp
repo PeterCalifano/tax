@@ -30,6 +30,8 @@
 #include <tax/ode/steppers/verner78.hpp>
 #include <tax/ode/steppers/verner89.hpp>
 #include <tax/ode/steppers/fehlberg78.hpp>
+#include <tax/ode/steppers/feagin12.hpp>
+#include <tax/ode/steppers/feagin14.hpp>
 #include <tax/ode/triggers.hpp>
 
 namespace tax::ode
@@ -294,6 +296,56 @@ template < class T = double, int D = Eigen::Dynamic,
 {
     using State   = Eigen::Matrix< T, D, 1 >;
     using Stepper = Fehlberg78Stepper< State, Controller >;
+    return Integrator< Stepper, F, Dense >{
+        std::move( f ), std::move( cfg ), std::move( events ) };
+}
+
+// ---- Feagin 12(10) factories ----
+template < class T = double, int D = Eigen::Dynamic,
+           bool Dense = false,
+           class Controller = controllers::PI< T >, class F >
+[[nodiscard]] auto makeFeagin12Integrator( F f, IntegratorConfig< T > cfg = {} )
+{
+    using State   = Eigen::Matrix< T, D, 1 >;
+    using Stepper = Feagin12Stepper< State, Controller >;
+    return Integrator< Stepper, F, Dense >{ std::move( f ), std::move( cfg ) };
+}
+
+template < class T = double, int D = Eigen::Dynamic,
+           bool Dense = false,
+           class Controller = controllers::PI< T >, class F >
+[[nodiscard]] auto makeFeagin12Integrator(
+    F f,
+    IntegratorConfig< T > cfg,
+    std::vector< Event< Feagin12Stepper< Eigen::Matrix< T, D, 1 >, Controller > > > events )
+{
+    using State   = Eigen::Matrix< T, D, 1 >;
+    using Stepper = Feagin12Stepper< State, Controller >;
+    return Integrator< Stepper, F, Dense >{
+        std::move( f ), std::move( cfg ), std::move( events ) };
+}
+
+// ---- Feagin 14(12) factories ----
+template < class T = double, int D = Eigen::Dynamic,
+           bool Dense = false,
+           class Controller = controllers::PI< T >, class F >
+[[nodiscard]] auto makeFeagin14Integrator( F f, IntegratorConfig< T > cfg = {} )
+{
+    using State   = Eigen::Matrix< T, D, 1 >;
+    using Stepper = Feagin14Stepper< State, Controller >;
+    return Integrator< Stepper, F, Dense >{ std::move( f ), std::move( cfg ) };
+}
+
+template < class T = double, int D = Eigen::Dynamic,
+           bool Dense = false,
+           class Controller = controllers::PI< T >, class F >
+[[nodiscard]] auto makeFeagin14Integrator(
+    F f,
+    IntegratorConfig< T > cfg,
+    std::vector< Event< Feagin14Stepper< Eigen::Matrix< T, D, 1 >, Controller > > > events )
+{
+    using State   = Eigen::Matrix< T, D, 1 >;
+    using Stepper = Feagin14Stepper< State, Controller >;
     return Integrator< Stepper, F, Dense >{
         std::move( f ), std::move( cfg ), std::move( events ) };
 }
