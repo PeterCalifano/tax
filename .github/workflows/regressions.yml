@@ -1,0 +1,47 @@
+name: Regressions
+
+on:
+  workflow_dispatch:
+
+jobs:
+  regressions:
+    name: regressions (ubuntu / gcc / Release)
+    runs-on: ubuntu-latest
+    env:
+      CC: gcc
+      CXX: g++
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup CMake
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: "4.2.x"
+
+      - name: Install toolchain and Eigen
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++ libeigen3-dev ninja-build
+
+      - name: Toolchain info
+        run: |
+          cmake --version
+          "$CC" --version
+          "$CXX" --version
+
+      - name: Configure
+        run: >
+          cmake -S . -B build
+          -DCMAKE_BUILD_TYPE=Release
+          -DTAX_BUILD_UNITTESTS=OFF
+          -DTAX_BUILD_REGRESSIONS=ON
+          -DTAX_BUILD_BENCHMARK=OFF
+          -G Ninja
+
+      - name: Build
+        run: cmake --build build -j 2
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
