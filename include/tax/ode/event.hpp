@@ -71,9 +71,9 @@ public:
     using State     = typename Stepper::State;
     using DenseData = typename Stepper::DenseData;
     using Ctx       = StepperCtx< Stepper, State, T, DenseData >;
-    using Sink      = EventStorage< State, T >;
+    using Storage      = EventStorage< State, T >;
     using TriggerFn = std::function< std::optional< T >( const Ctx& ) >;
-    using ActionFn  = std::function< ControlFlow( const Ctx&, T, Sink& ) >;
+    using ActionFn  = std::function< ControlFlow( const Ctx&, T, Storage& ) >;
 
     template < class Trig, class Act >
     Event( Trig trig, Act act )
@@ -86,9 +86,9 @@ public:
         return trigger_( ctx );
     }
 
-    ControlFlow run( const Ctx& ctx, T tau_fired, Sink& sink ) const
+    ControlFlow run( const Ctx& ctx, T tau_fired, Storage& storage ) const
     {
-        return action_( ctx, tau_fired, sink );
+        return action_( ctx, tau_fired, storage );
     }
 
 private:

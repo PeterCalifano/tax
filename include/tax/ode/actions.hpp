@@ -7,7 +7,7 @@
 // with the τ at which the firing took place. Actions decide whether
 // the integration continues (ControlFlow::Continue) or terminates
 // (ControlFlow::Terminate) and may push EventRecord entries into the
-// Solution via the provided sink.
+// Solution via the provided storage.
 
 #pragma once
 
@@ -22,7 +22,7 @@
 namespace tax::ode
 {
 
-// Sink that the Integrator hands to each Action so it can push
+// Storage that the Integrator hands to each Action so it can push
 // EventRecords into the Solution. Defined here (one definition) and
 // forward declared in event.hpp.
 template < class State, class T >
@@ -39,8 +39,8 @@ struct EventStorage
 // Continue — no-op action that always asks the Integrator to keep going.
 inline auto Continue()
 {
-    return []< class Ctx, class T, class Sink >(
-               const Ctx&, T, Sink& ) -> ControlFlow
+    return []< class Ctx, class T, class Storage >(
+               const Ctx&, T, Storage& ) -> ControlFlow
     {
         return ControlFlow::Continue;
     };
@@ -49,47 +49,47 @@ inline auto Continue()
 // Terminate — always asks the Integrator to halt at the event.
 inline auto Terminate()
 {
-    return []< class Ctx, class T, class Sink >(
-               const Ctx&, T, Sink& ) -> ControlFlow
+    return []< class Ctx, class T, class Storage >(
+               const Ctx&, T, Storage& ) -> ControlFlow
     {
         return ControlFlow::Terminate;
     };
 }
 
 // Record(label) — push an EventRecord with the Stepper's continuous
-// extension evaluated at τ into the sink and continue. Using
+// extension evaluated at τ into the storage and continue. Using
 // eval_dense gives machine-precision x_event when τ was located by
 // polynomial-Newton on g_poly.
 inline auto Record( std::string label )
 {
     return [ lbl = std::move( label ) ]<
-               class Ctx, class T, class Sink >(
-               const Ctx& ctx, T tau, Sink& sink ) -> ControlFlow
+               class Ctx, class T, class Storage >(
+               const Ctx& ctx, T tau, Storage& storage ) -> ControlFlow
     {
-        using SinkState = std::remove_cvref_t< decltype( ctx.x_old ) >;
+        using StorageState = std::remove_cvref_t< decltype( ctx.x_old ) >;
         // Use the Stepper's continuous extension to evaluate state at
         // the event time — gives machine-precision x_event when τ was
         // located by polynomial-Newton on g_poly.
-        SinkState x_event = Ctx::Stepper_type::eval_dense(
+        StorageState x_event = Ctx::Stepper_type::eval_dense(
             ctx.dense,
             ctx.t_old,
             ctx.t_old + ctx.h_used,
             ctx.t_old + tau );
-        sink.push( { lbl, ctx.t_old + tau, std::move( x_event ) } );
+        storage.push( { lbl, ctx.t_old + tau, std::move( x_event ) } );
         return ControlFlow::Continue;
     };
 }
 
 // Custom(fn) — wrap a user callable as an Action. The wrapped callable
-// must accept (Ctx, T, Sink) and return ControlFlow.
+// must accept (Ctx, T, Storage) and return ControlFlow.
 template < class Fn >
 auto Custom( Fn fn )
 {
     return [ fn = std::move( fn ) ]<
-               class Ctx, class T, class Sink >(
-               const Ctx& ctx, T tau, Sink& sink ) -> ControlFlow
+               class Ctx, class T, class Storage >(
+               const Ctx& ctx, T tau, Storage& storage ) -> ControlFlow
     {
-        return fn( ctx, tau, sink );
+        return fn( ctx, tau, storage );
     };
 }
 

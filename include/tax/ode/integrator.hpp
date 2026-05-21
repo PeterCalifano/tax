@@ -93,7 +93,7 @@ Integrator< Stepper, F, Dense >::integrate(
                         ? cfg_.min_step
                         : std::numeric_limits< T >::epsilon() * std::abs( span ) * T{ 16 };
 
-    EventStorage< State, T > sink{ &sol.events };
+    EventStorage< State, T > storage{ &sol.events };
 
     int  total_steps = 0;
     bool terminate   = false;
@@ -142,7 +142,7 @@ Integrator< Stepper, F, Dense >::integrate(
                        { return a.tau < b.tau; } );
             for ( const auto& fe : fired )
             {
-                auto cf = events_[ fe.idx ].run( ctx, fe.tau, sink );
+                auto cf = events_[ fe.idx ].run( ctx, fe.tau, storage );
                 if ( cf == ControlFlow::Terminate ) terminate = true;
             }
 
