@@ -11,5 +11,7 @@
 #include <tax/ode/solution.hpp>
 #include <tax/ode/controllers.hpp>
 #include <tax/ode/steppers/taylor.hpp>
-#include <tax/ode/integrator.hpp>
 #include <tax/ode/event.hpp>
+#include <tax/ode/actions.hpp>
+#include <tax/ode/triggers.hpp>
+#include <tax/ode/integrator.hpp>

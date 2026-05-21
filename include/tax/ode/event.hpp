@@ -1,10 +1,15 @@
 // include/tax/ode/event.hpp
 //
-// Direction / ControlFlow enums and TriggerContext struct. The
-// type-erased Event<Stepper> class is defined in this same header
-// after the Trigger and Action factories (triggers.hpp / actions.hpp).
+// Direction / ControlFlow enums, TriggerContext, StepperCtx, and the
+// type-erased Event<Stepper> class. Trigger and Action factories live
+// in triggers.hpp / actions.hpp; the EventSink they use is defined in
+// actions.hpp and forward-declared at the bottom of this file.
 
 #pragma once
+
+#include <functional>
+#include <optional>
+#include <utility>
 
 namespace tax::ode
 {
@@ -12,14 +17,75 @@ namespace tax::ode
 enum class Direction   { Increasing, Decreasing, Any };
 enum class ControlFlow { Continue, Terminate };
 
-template < class State, class T, class DenseData >
+// Plain TriggerContext — Stepper-agnostic view of the step boundary.
+// The Integrator passes a StepperCtx (below) which adds the Stepper
+// typedef for triggers that need it (e.g. the Brent fallback in
+// ZeroCrossing routes through Stepper::eval_dense).
+template < class State_, class T_, class DenseData_ >
 struct TriggerContext
 {
-    const State&     x_old;
-    T                t_old;
-    const State&     x_new;
-    T                h_used;
-    const DenseData& dense;
+    using State_type     = State_;
+    using T_type         = T_;
+    using DenseData_type = DenseData_;
+
+    const State_&     x_old;
+    T_                t_old;
+    const State_&     x_new;
+    T_                h_used;
+    const DenseData_& dense;
+};
+
+// StepperCtx — Stepper-aware view of TriggerContext used inside the
+// integrator so triggers can route through Stepper::eval_dense.
+template < class Stepper, class State_, class T_, class DenseData_ >
+struct StepperCtx : TriggerContext< State_, T_, DenseData_ >
+{
+    using Stepper_type = Stepper;
+
+    StepperCtx( const State_& xo, T_ to, const State_& xn, T_ hu,
+                const DenseData_& d )
+        : TriggerContext< State_, T_, DenseData_ >{ xo, to, xn, hu, d }
+    {
+    }
+};
+
+// Forward declaration of EventSink (definition in actions.hpp).
+template < class State, class T > struct EventSink;
+
+// Type-erased Event = (Trigger, Action) pair. Stepper is fixed at the
+// Event's instantiation point so the Trigger / Action callables can
+// statically rely on Stepper::eval_dense, Stepper::DenseData, etc.
+template < class Stepper >
+class Event
+{
+public:
+    using T         = typename Stepper::T;
+    using State     = typename Stepper::State;
+    using DenseData = typename Stepper::DenseData;
+    using Ctx       = StepperCtx< Stepper, State, T, DenseData >;
+    using Sink      = EventSink< State, T >;
+    using TriggerFn = std::function< std::optional< T >( const Ctx& ) >;
+    using ActionFn  = std::function< ControlFlow( const Ctx&, T, Sink& ) >;
+
+    template < class Trig, class Act >
+    Event( Trig trig, Act act )
+        : trigger_( std::move( trig ) ), action_( std::move( act ) )
+    {
+    }
+
+    [[nodiscard]] std::optional< T > test( const Ctx& ctx ) const
+    {
+        return trigger_( ctx );
+    }
+
+    ControlFlow run( const Ctx& ctx, T tau_fired, Sink& sink ) const
+    {
+        return action_( ctx, tau_fired, sink );
+    }
+
+private:
+    TriggerFn trigger_;
+    ActionFn  action_;
 };
 
 }  // namespace tax::ode
