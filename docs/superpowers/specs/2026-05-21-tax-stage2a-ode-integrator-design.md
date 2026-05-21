@@ -47,6 +47,8 @@ the surface rather than replacing it.
 | Direction enum | `Increasing`, `Decreasing`, `Any` | Direct description of the slope of `g(x, t)` at the crossing. |
 | Config field names | `initial_step`, `min_step`, `max_step` (not `h0`, `h_min`, `h_max`) | Spelled-out names read better at call sites. |
 | Dense evaluation | `static State Stepper::eval_dense(dense, t0, t1, tq)` | Keeps Stepper stateless. `Solution::operator()(t)` doesn't need to hold an instance. |
+| Root finding for `ZeroCrossing` | Polynomial-Newton with bisection safeguard for TaylorStepper; Brent's method for Verner78/89 | Stepper-specific via `static find_zero` member. TaylorStepper has an analytic polynomial `g_poly` valid on the whole accepted step → safeguarded Newton converges in 3–6 iterations to ULP precision at O(N) flops/iter. Verner steppers have only scalar samples via `eval_dense` → Brent's bracketed method (derivative-free, superlinear convergence) is the right scalar default. |
+| `ZeroCrossing` user contract | `g` is supplied as a generic lambda `[](const auto& x, const auto& t){…}` so the same `g` instantiates on both scalar state (Verner path) and `tax::TE<N>`-valued state (Taylor polynomial path) | One user-facing signature, two erased forms stored inside `Event`. Non-generic `g`s (e.g. a `std::function<T(const State&, T)>` literal) still work but fall back to Brent on the Taylor path. |
 | Source language | C++23, header-only, no new external deps | Same as the rest of `tax`. |
 
 ## Public API
@@ -89,6 +91,10 @@ concept Stepper =
         -> std::same_as<StepResult<typename S::State, S>>;
     { S::eval_dense(std::declval<typename S::DenseData>(), t, t, t) }
         -> std::same_as<typename S::State>;
+    // ZeroCrossing root-finding hook — Stepper-specific implementation.
+    // See "Event root finding" below.
+    { S::find_zero(/* g_scalar, g_poly, dense, t0, h_used, direction, tol */) }
+        -> std::same_as<std::optional<typename S::T>>;
 };
 
 // Refinement: stepper additionally provides embedded error estimate and
@@ -185,11 +191,14 @@ public:
 
 - `ZeroCrossing(g, d)`: at step end, evaluate `g` at the boundaries via
   `g(x_old, t_old)` and `g(x_new, t_old + h_used)`. If the signs differ
-  (filtered by `d`), bisect on `τ ∈ [0, h_used]` using
-  `Stepper::eval_dense(dense, t_old, t_old + h_used, t_old + τ)` to obtain
-  intermediate state samples. Bisection terminates when the τ-bracket is
-  within `16 × eps × (1 + |τ_mid|)`. No method-specific event code; the
-  same bisection works for Taylor and Verner.
+  (filtered by `d`), locate the zero of `g` inside `τ ∈ [0, h_used]` by
+  calling the Stepper's `find_zero` static (see *Event root finding*
+  below). Root finding is method-specific because the available
+  information differs: TaylorStepper has the per-component step
+  polynomial; Verner steppers only have a dense-output interpolator.
+  Both report `std::optional<τ>`; on `nullopt` the event silently
+  doesn't fire even though the boundary sign-change check passed (e.g.
+  the safeguard refused to converge — diagnosed in `Risks` below).
 - `EveryStep()`: fires unconditionally at the step boundary with
   `τ = h_used`. This is the seam through which ADS plugs in later.
 - `Record(label)`: appends a `EventRecord{label, t_event, x_event}` to
@@ -202,6 +211,56 @@ public:
 the same step, the integrator orders detections by `τ_fired` ascending so
 the recorded time stream is monotonic. If any action returns
 `Terminate`, the loop exits cleanly after the current step.
+
+### Event root finding
+
+Each Stepper provides a static `find_zero` that locates a single root of
+`g(x(τ), t0 + τ)` in `τ ∈ [0, h_used]` given a boundary sign change. The
+two shipped implementations differ in what information they exploit:
+
+**TaylorStepper — polynomial-Newton with bisection safeguard.** When
+`Event::g_poly` is available (i.e., the user wrote `g` generically), the
+stepper composes `g_poly_step(τ) = g(eval_state_as_TE(dense, τ), t0 + τ)`
+to obtain a `tax::TE<N>` whose coefficients describe `g` on the entire
+accepted step. The polynomial is by construction valid on `[0, h_used]`,
+so the boundary sign change brackets the root. Algorithm:
+
+1. Compute `s0 = g_poly_step(0)`, `s1 = g_poly_step(h_used)`; apply
+   `Direction` filter.
+2. Initial bracket `[τ_lo, τ_hi] = [0, h_used]`.
+3. Newton step `τ_{k+1} = τ_k - g_poly_step(τ_k) / g_poly_step.deriv()(τ_k)`.
+4. If `τ_{k+1} ∉ [τ_lo, τ_hi]` or `|Δτ|` is not at least halving each
+   iteration, take one bisection step on the current bracket instead.
+5. Tighten the bracket using `τ_{k+1}` and the sign of
+   `g_poly_step(τ_{k+1})`.
+6. Stop when `|τ_hi - τ_lo| ≤ 16 · ε · (1 + |τ_mid|)`; return the bracket
+   midpoint.
+
+Convergence: 3–6 iterations to ULP precision in typical cases;
+worst-case bounded by bisection (one bracket halving per safeguard
+fallback). Cost: O(N) per iteration. Fallback when `g_poly` is
+unavailable (non-generic `g`): treat as the Verner case and use Brent
+on scalar samples.
+
+**Verner78Stepper / Verner89Stepper — Brent's method on scalar
+samples.** No polynomial available; sample `g(eval_dense(dense, t0,
+t0+h_used, t0+τ), t0+τ)` and use Brent's algorithm
+(Dekker–Brent: inverse quadratic interpolation with bisection fallback)
+on the bracketed sign change. Same termination criterion as above.
+Derivative-free, superlinear convergence, robust on non-monotonic `g`.
+
+Both methods return `std::optional<τ>`; `nullopt` indicates the
+safeguard couldn't converge (e.g. interval became degenerate due to
+flat-but-not-zero `g`). The integrator logs and skips silently.
+
+Both methods are **bracketed-single-root**: they find the *earliest*
+zero between the step boundaries when the boundary signs disagree, and
+report nothing when they agree. If the user's `g` has multiple
+zeros inside a single accepted step (large `max_step` vs. fast-varying
+`g`), the inner zeros are silently missed. Multi-root detection (e.g.
+companion-matrix all-roots extraction on `g_poly` for TaylorStepper) is
+a future opt-in; for Stage 2a, the documented mitigation is to set
+`Config::max_step` consistently with the expected frequency of `g`.
 
 ### Solution
 
@@ -367,8 +426,8 @@ failing tests → implement → tests green → commit.
 | 1 | Config + concepts + step result + solution skeleton | `IntegratorConfig`, `concepts::Stepper` / `AdaptiveStepper`, `StepResult`, both `Solution` specialisations as empty shells; `testConfig.cpp` + a stub stepper to exercise the concept compile-time. |
 | 2 | TaylorStepper | `TaylorStepper<N, State>::step` + `eval_dense` + Jorba–Zou step-size control; `testTaylorStepper.cpp` exercises stepper-level behaviour directly (no Integrator yet). |
 | 3 | Integrator + 3 RHS smoke | `Integrator<Stepper, Dense>` with the `if constexpr (AdaptiveStepper)` retry loop, both `Dense` modes, but without the event machinery (event list defaults to empty); `testIntegratorBasic.cpp` (Taylor only) + `testIntegratorDense.cpp` (Taylor only); aliases. |
-| 4 | Events: triggers + actions + integrator wiring | `Direction`, `ControlFlow`, `TriggerContext`, `Event`, `ZeroCrossing`, `EveryStep`, `Continue`, `Terminate`, `Record`, `Custom`; integrator's `run_events_`; `testEventsZeroCrossing.cpp` + `testEventsEveryStep.cpp` (Taylor only). |
-| 5 | Verner 7/8 + Verner 8/9 | `verner_tableaus.hpp`, `Verner78Stepper`, `Verner89Stepper` with PI controller and built-in dense output; per-stepper tests; expand `testIntegratorBasic.cpp` and the events tests to cover all three methods. |
+| 4 | Events: triggers + actions + integrator wiring | `Direction`, `ControlFlow`, `TriggerContext`, `Event` (storing both scalar `g` and `g_poly` erased forms), `ZeroCrossing`, `EveryStep`, `Continue`, `Terminate`, `Record`, `Custom`; integrator's `run_events_`; `TaylorStepper::find_zero` (polynomial-Newton with bisection safeguard); shared Brent-on-scalar-samples helper (used as Taylor's fallback when `g` is non-generic); `testEventsZeroCrossing.cpp` + `testEventsEveryStep.cpp` (Taylor only — including the non-generic-`g` fallback path). |
+| 5 | Verner 7/8 + Verner 8/9 | `verner_tableaus.hpp`, `Verner78Stepper`, `Verner89Stepper` with PI controller and built-in dense output; `Verner*Stepper::find_zero` reusing the shared Brent helper from slice 4; per-stepper tests; expand `testIntegratorBasic.cpp` and the events tests to cover all three methods. |
 | 6 | Static-vs-dynamic D parity | `testIntegratorStatic.cpp` confirms `Eigen::Matrix<T, 3, 1>` vs `Eigen::VectorXd` agreement; tighten any remaining loose edges. |
 
 Roughly one PR per slice; final slice ends Stage 2a.
@@ -381,6 +440,9 @@ Roughly one PR per slice; final slice ends Stage 2a.
 | std::function-erased Triggers/Actions become a measurable cost when events are evaluated thousands of times | Each event check happens once per accepted step. Pre-Stage-1 measurements showed it negligible against a Verner 13-stage RHS sweep. Re-measure in slice 4 if doubts emerge; the type-erased shape can be replaced with a variadic template-parameter pack later without changing user code. |
 | Step rejection loop hides infinite oscillation | `Config::max_rejects_per_step` (default 16) hard-caps the retries; throw with diagnostic if exceeded. |
 | `eval_dense` outside `[t0, t1]` returns nonsense without warning | Document precondition; Stage 2a tests assert in-range usage. `Solution::operator()` clamps to the solution's `[t0, tf]` and throws on out-of-range. |
+| Polynomial-Newton diverges on flat/pathological `g_poly` (e.g. multiple very close roots, near-zero derivative) | Bisection safeguard caps fallback at one bracket-halving per safeguarded iteration; tolerance criterion uses both interval width and ULP scale; `find_zero` returns `std::nullopt` on safeguard exhaustion rather than wrong answers. |
+| Multiple zeros of `g` inside a single step go undetected by bracketed root finding | Documented limitation. Mitigation in 2a: set `Config::max_step` consistent with the expected frequency of `g`. Future opt-in: companion-matrix all-roots extraction on `g_poly` for TaylorStepper (~O(N³) per detection — fine for rare event evaluation). |
+| Non-generic `g` (e.g. raw `std::function<T(const State&, T)>`) silently falls back to Brent even on TaylorStepper, losing the polynomial advantage | Documented user contract: write `g` as a generic lambda. `Event` constructor detects whether `g` is invocable with TE-valued state at compile time and stores only the supported erased form(s); a `[[nodiscard]] bool uses_polynomial_root_finding() const` accessor lets users audit. |
 | Forward-compat with DA states relies on the Stepper concept staying generic | Slice 5 explicitly cross-instantiates `TaylorStepper<N, Eigen::Matrix<double, D, 1>>` to confirm the State trait extraction works for both static and dynamic D. Stage 2b will add a `static_assert`-driven test that the same `TaylorStepper` template also instantiates for a TE-valued State. |
 
 ## Open questions deferred to implementation
