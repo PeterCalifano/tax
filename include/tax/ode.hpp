@@ -11,6 +11,7 @@
 #include <tax/ode/solution.hpp>
 #include <tax/ode/controllers.hpp>
 #include <tax/ode/steppers/taylor.hpp>
+#include <tax/ode/steppers/verner78.hpp>
 #include <tax/ode/event.hpp>
 #include <tax/ode/actions.hpp>
 #include <tax/ode/triggers.hpp>
