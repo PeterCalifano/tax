@@ -28,6 +28,7 @@
 #include <tax/ode/solution.hpp>
 #include <tax/ode/steppers/taylor.hpp>
 #include <tax/ode/steppers/verner78.hpp>
+#include <tax/ode/steppers/verner89.hpp>
 #include <tax/ode/triggers.hpp>
 
 namespace tax::ode
@@ -242,6 +243,31 @@ template < class T = double, int D = Eigen::Dynamic,
 {
     using State   = Eigen::Matrix< T, D, 1 >;
     using Stepper = Verner78Stepper< State, Controller >;
+    return Integrator< Stepper, F, Dense >{
+        std::move( f ), std::move( cfg ), std::move( events ) };
+}
+
+// ---- Verner 9(8) factories ----
+template < class T = double, int D = Eigen::Dynamic,
+           bool Dense = false,
+           class Controller = controllers::PI< T >, class F >
+[[nodiscard]] auto makeVerner89Integrator( F f, IntegratorConfig< T > cfg = {} )
+{
+    using State   = Eigen::Matrix< T, D, 1 >;
+    using Stepper = Verner89Stepper< State, Controller >;
+    return Integrator< Stepper, F, Dense >{ std::move( f ), std::move( cfg ) };
+}
+
+template < class T = double, int D = Eigen::Dynamic,
+           bool Dense = false,
+           class Controller = controllers::PI< T >, class F >
+[[nodiscard]] auto makeVerner89Integrator(
+    F f,
+    IntegratorConfig< T > cfg,
+    std::vector< Event< Verner89Stepper< Eigen::Matrix< T, D, 1 >, Controller > > > events )
+{
+    using State   = Eigen::Matrix< T, D, 1 >;
+    using Stepper = Verner89Stepper< State, Controller >;
     return Integrator< Stepper, F, Dense >{
         std::move( f ), std::move( cfg ), std::move( events ) };
 }
