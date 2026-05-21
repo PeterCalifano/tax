@@ -35,3 +35,7 @@ endfunction()
 
 tax_add_regression(test_regression_univariate   SOURCES testUnivariate.cpp)
 tax_add_regression(test_regression_multivariate SOURCES testMultivariate.cpp)
+tax_add_regression(test_regression_deriv_integ  SOURCES testDerivInteg.cpp)
+tax_add_regression(test_regression_eval         SOURCES testEval.cpp)
+tax_add_regression(test_regression_vector_calc  SOURCES testEigenVectorCalc.cpp)
+tax_add_regression(test_regression_invert       SOURCES testInvert.cpp)
