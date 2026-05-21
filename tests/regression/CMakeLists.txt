@@ -1,8 +1,8 @@
 # tests/regression/CMakeLists.txt
 #
-# Built only when TAX_BUILD_REGRESSIONS=ON. Slice 1 ships a sentinel test
-# that does not depend on DACE so the wiring can be verified in isolation.
-# Slice 2 replaces it with the real DACE-backed regression tests.
+# Built only when TAX_BUILD_REGRESSIONS=ON. Each test links the resolved
+# DACE target (set in the root CMakeLists.txt under TAX_DACE_TARGET) and
+# compares tax coefficient outputs against DACE references.
 
 include(FetchContent)
 find_package(GTest QUIET)
@@ -15,16 +15,23 @@ if(NOT GTest_FOUND)
     FetchContent_MakeAvailable(googletest)
 endif()
 
+if(NOT TAX_DACE_TARGET)
+    message(FATAL_ERROR
+        "tests/regression requires TAX_DACE_TARGET to be resolved by the root CMakeLists.txt")
+endif()
+
 # tax_add_regression(name SOURCES files...)
-#
-# Slice 1: links tax + GTest only. Slice 2 extends this helper to also
-# link the resolved DACE target.
 function(tax_add_regression name)
     cmake_parse_arguments(R "" "" "SOURCES" ${ARGN})
     add_executable(${name} ${R_SOURCES})
     target_include_directories(${name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-    target_link_libraries(${name} PRIVATE tax GTest::gtest GTest::gtest_main)
+    target_link_libraries(${name} PRIVATE
+        tax
+        ${TAX_DACE_TARGET}
+        GTest::gtest
+        GTest::gtest_main)
     add_test(NAME ${name} COMMAND ${name})
 endfunction()
 
-tax_add_regression(test_regression_sentinel SOURCES testSentinel.cpp)
+tax_add_regression(test_regression_univariate   SOURCES testUnivariate.cpp)
+tax_add_regression(test_regression_multivariate SOURCES testMultivariate.cpp)

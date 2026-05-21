@@ -36,6 +36,45 @@ endif()
 find_package(Eigen3 3.4...99 REQUIRED)
 target_link_libraries(tax INTERFACE Eigen3::Eigen)
 
+# ---------------------------------------------------------------
+# DACE dependency (only when regression suite is enabled)
+# ---------------------------------------------------------------
+set(TAX_DACE_TARGET "" CACHE INTERNAL "Resolved DACE target" FORCE)
+if(TAX_BUILD_REGRESSIONS)
+    include(FetchContent)
+    if(NOT TARGET dace AND NOT TARGET dace_s
+       AND NOT TARGET dace::dace AND NOT TARGET dace::dace_s)
+        FetchContent_Declare(
+            DACE
+            GIT_REPOSITORY https://github.com/dacelib/dace.git
+            GIT_TAG v2.1.0
+        )
+        FetchContent_MakeAvailable(DACE)
+    endif()
+
+    # Upstream-recommended aliases.
+    if(TARGET dace AND NOT TARGET dace::dace)
+        add_library(dace::dace ALIAS dace)
+    endif()
+    if(TARGET dace_s AND NOT TARGET dace::dace_s)
+        add_library(dace::dace_s ALIAS dace_s)
+    endif()
+
+    if(TARGET dace::dace_s)
+        set(TAX_DACE_TARGET dace::dace_s)
+    elseif(TARGET dace_s)
+        set(TAX_DACE_TARGET dace_s)
+    elseif(TARGET dace::dace)
+        set(TAX_DACE_TARGET dace::dace)
+    elseif(TARGET dace)
+        set(TAX_DACE_TARGET dace)
+    else()
+        message(FATAL_ERROR
+            "TAX_BUILD_REGRESSIONS=ON but no DACE target was produced by FetchContent")
+    endif()
+    message(STATUS "DACE target for regression tests: ${TAX_DACE_TARGET}")
+endif()
+
 if(TAX_BUILD_UNITTESTS OR TAX_BUILD_REGRESSIONS)
     enable_testing()
 endif()
