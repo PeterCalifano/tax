@@ -21,6 +21,9 @@
 
 #include <tax/core/taylor_expansion.hpp>
 #include <tax/eigen.hpp>
+#include <tax/operators/arithmetic.hpp>
+#include <tax/operators/math_unary.hpp>
+#include <tax/operators/math_binary.hpp>
 #include <tax/ode/config.hpp>
 #include <tax/ode/controllers.hpp>
 #include <tax/ode/step_result.hpp>
@@ -48,8 +51,9 @@ struct TaylorStepper
     using TE        = tax::TE< N, 1 >;
     using DenseData = Eigen::Matrix< TE, D, 1 >;
 
+    template < class F >
     StepResult< State, TaylorStepper > step(
-        const Rhs& f, const State& x, T t, T h, const Config& cfg );
+        const F& f, const State& x, T t, T h, const Config& cfg );
 
     [[nodiscard]] static State eval_dense(
         const DenseData& d, const T& t0, const T& /*t1*/, const T& tq );
@@ -78,28 +82,91 @@ State TaylorStepper< N, State, Controller >::eval_dense(
     return out;
 }
 
-// -------- step (real implementation lands in Task 6) --------
+// -------- step (real Taylor expansion — Task 6) --------
 template < int N, class State, class Controller >
+template < class F >
 StepResult< State, TaylorStepper< N, State, Controller > >
 TaylorStepper< N, State, Controller >::step(
-    const Rhs& /*f*/, const State& x, T /*t*/, T h, const Config& /*cfg*/ )
+    const F& f, const State& x, T t, T h, const Config& cfg )
 {
-    StepResult< State, TaylorStepper > r;
+    using std::abs;
+    using std::pow;
+
     const Eigen::Index dim = x.size();
-    r.dense.resize( dim );
-    // Stub: every coefficient is the value (placeholder so the
-    // concept is satisfied and tests compile in Task 6).
+
+    // --- 1. Time variable as a TE in t: value = t, c_1 = 1, rest 0.
+    TE t_te;
+    t_te[ 0 ] = t;
+    t_te[ 1 ] = T{ 1 };
+    for ( int k = 2; k <= N; ++k ) t_te[ static_cast< std::size_t >( k ) ] = T{ 0 };
+
+    // --- 2. State TE per component: start with c_0 = x(i), rest 0.
+    using StateTE = Eigen::Matrix< TE, State::RowsAtCompileTime, 1 >;
+    StateTE x_te{ dim };
     for ( Eigen::Index i = 0; i < dim; ++i )
     {
-        r.dense( i )[ 0 ] = x( i );
+        x_te( i )[ 0 ] = x( i );
         for ( int k = 1; k <= N; ++k )
-            r.dense( i )[ static_cast< std::size_t >( k ) ] = T{ 0 };
+            x_te( i )[ static_cast< std::size_t >( k ) ] = T{ 0 };
     }
-    r.x_new   = x;
-    r.h_used  = h;
-    r.h_next  = h;
-    r.err_norm = T{ 0 };
-    r.accepted = true;
+
+    // --- 3. Iterate to fill coefficients k = 1 .. N.
+    for ( int order = 0; order < N; ++order )
+    {
+        StateTE f_te = f( x_te, t_te );
+        for ( Eigen::Index i = 0; i < dim; ++i )
+        {
+            const T c_next = f_te( i )[ static_cast< std::size_t >( order ) ]
+                             / T( order + 1 );
+            x_te( i )[ static_cast< std::size_t >( order + 1 ) ] = c_next;
+        }
+    }
+
+    // --- 4. Build DenseData and x_new = x(t + h) via Horner.
+    DenseData dense{ dim };
+    State     x_new{ dim };
+    for ( Eigen::Index i = 0; i < dim; ++i )
+    {
+        dense( i ) = x_te( i );
+        T acc = x_te( i )[ static_cast< std::size_t >( N ) ];
+        for ( int k = N - 1; k >= 0; --k )
+            acc = acc * h + x_te( i )[ static_cast< std::size_t >( k ) ];
+        x_new( i ) = acc;
+    }
+
+    // --- 5. Truncation indicator and last-two coefficient norms.
+    T c_N_norm = T{ 0 }, c_Nm1_norm = T{ 0 };
+    for ( Eigen::Index i = 0; i < dim; ++i )
+    {
+        c_N_norm   = std::max( c_N_norm,   T( abs( x_te( i )[ N ] ) ) );
+        c_Nm1_norm = std::max( c_Nm1_norm, T( abs( x_te( i )[ N - 1 ] ) ) );
+    }
+    const T err_norm =
+        c_N_norm * pow( abs( h ), T( N ) )
+      + c_Nm1_norm * pow( abs( h ), T( N - 1 ) );
+
+    T x_norm = T{ 0 };
+    for ( Eigen::Index i = 0; i < dim; ++i )
+        x_norm = std::max( x_norm, T( abs( x_new( i ) ) ) );
+    const T tol = cfg.abstol + cfg.reltol * x_norm;
+
+    // --- 6. Step-size control: JorbaZou uses (c_N, c_{N-1}) directly;
+    // every other controller uses err_norm via next_step(h, err, tol, p_emb).
+    T h_next;
+    if constexpr ( std::is_same_v< Controller, controllers::JorbaZou< T > > )
+        h_next = controller_.next_step( h, c_N_norm, c_Nm1_norm, tol, N );
+    else
+        h_next = controller_.next_step( h, err_norm, tol, /*p_emb=*/N - 1 );
+
+    const bool accepted = err_norm <= tol;
+
+    StepResult< State, TaylorStepper > r;
+    r.x_new    = std::move( x_new );
+    r.h_used   = h;
+    r.h_next   = h_next;
+    r.err_norm = err_norm;
+    r.accepted = accepted;
+    r.dense    = std::move( dense );
     return r;
 }
 
