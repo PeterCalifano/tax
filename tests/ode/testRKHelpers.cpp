@@ -1,96 +1,37 @@
 // tests/ode/testRKHelpers.cpp
 //
-// Direct unit tests for the shared adaptive_rk_step driver, plus
-// verification that the new concept hierarchy gates dense usage
-// correctly.
+// Direct unit tests for the shared adaptive_rk_step driver and the
+// cubic-Hermite interpolator. Both are foundational for the five
+// Plan B RK steppers.
 
 #include <gtest/gtest.h>
 
 #include <Eigen/Core>
 #include <array>
 #include <cmath>
-#include <functional>
 
-#include <tax/ode.hpp>
 #include <tax/ode/detail/adaptive_rk_step.hpp>
+#include <tax/ode/detail/hermite_interp.hpp>
 
 namespace
 {
 
-// Classical RK4 as a Butcher tableau: 4 stages.
 struct RK4Tab
 {
     static constexpr int n_stages   = 4;
     static constexpr int order      = 4;
-    static constexpr int order_emb  = 4;          // degenerate (err = 0)
+    static constexpr int order_emb  = 4;
     static constexpr bool fsal      = false;
 
     static constexpr std::array< double, 4 > c{ 0.0, 0.5, 0.5, 1.0 };
-
     static constexpr std::array< double, 6 > a{
         0.5,
         0.0, 0.5,
         0.0, 0.0, 1.0
     };
-
     static constexpr std::array< double, 4 > b{ 1.0 / 6, 1.0 / 3, 1.0 / 3, 1.0 / 6 };
     static constexpr std::array< double, 4 > b_emb = b;
 };
-
-// Two fake steppers for concept tests:
-using FakeState = Eigen::Matrix< double, 1, 1 >;
-
-struct DenseFake
-{
-    using State = FakeState;
-    using T = double;
-    using Config = tax::ode::IntegratorConfig< T >;
-    using Rhs = std::function< State( const State&, T ) >;
-    using DenseData = State;
-
-    static constexpr bool is_adaptive       = true;
-    static constexpr bool has_dense_output  = true;
-
-    tax::ode::StepResult< State, DenseFake > step(
-        const Rhs&, const State& x, T, T h, const Config& ) const
-    {
-        tax::ode::StepResult< State, DenseFake > r;
-        r.x_new = x; r.h_used = h; r.dense = x; r.accepted = true;
-        return r;
-    }
-
-    static State eval_dense( const DenseData& d, const T&, const T&, const T& )
-    {
-        return d;
-    }
-};
-
-struct PropagationOnlyFake
-{
-    using State = FakeState;
-    using T = double;
-    using Config = tax::ode::IntegratorConfig< T >;
-    using Rhs = std::function< State( const State&, T ) >;
-
-    static constexpr bool is_adaptive       = true;
-    static constexpr bool has_dense_output  = false;
-
-    tax::ode::StepResult< State, PropagationOnlyFake > step(
-        const Rhs&, const State& x, T, T h, const Config& ) const
-    {
-        tax::ode::StepResult< State, PropagationOnlyFake > r;
-        r.x_new = x; r.h_used = h; r.accepted = true;
-        return r;
-    }
-};
-
-static_assert(  tax::ode::concepts::Stepper<       DenseFake > );
-static_assert(  tax::ode::concepts::DenseStepper<  DenseFake > );
-static_assert(  tax::ode::concepts::AdaptiveStepper< DenseFake > );
-
-static_assert(  tax::ode::concepts::Stepper<       PropagationOnlyFake > );
-static_assert( !tax::ode::concepts::DenseStepper<  PropagationOnlyFake > );
-static_assert(  tax::ode::concepts::AdaptiveStepper< PropagationOnlyFake > );
 
 }  // namespace
 
@@ -108,11 +49,17 @@ TEST( OdeRKHelpers, RK4OneStepOnExp )
     EXPECT_DOUBLE_EQ( out.err_norm, 0.0 );
 }
 
-TEST( OdeRKHelpers, TaylorStepperSatisfiesDenseStepper )
+TEST( OdeRKHelpers, HermiteReproducesBoundaries )
 {
-    // Sanity: Taylor (from Plan A) must satisfy DenseStepper after
-    // the has_dense_output marker addition.
-    using S = tax::ode::TaylorStepper< 8, Eigen::Matrix< double, 1, 1 > >;
-    static_assert( tax::ode::concepts::DenseStepper< S > );
-    SUCCEED();
+    using State = Eigen::Matrix< double, 2, 1 >;
+    const double t0 = 1.0, t1 = 2.0;
+    State x0; x0( 0 ) = 0.5; x0( 1 ) = -1.0;
+    State x1; x1( 0 ) = 0.7; x1( 1 ) = -0.3;
+    State f0; f0( 0 ) = 0.2; f0( 1 ) =  0.8;
+    State f1; f1( 0 ) = 0.1; f1( 1 ) = -0.4;
+
+    const State at_t0 = tax::ode::detail::hermite_interp( x0, x1, f0, f1, t0, t1, t0 );
+    const State at_t1 = tax::ode::detail::hermite_interp( x0, x1, f0, f1, t0, t1, t1 );
+    EXPECT_NEAR( ( at_t0 - x0 ).norm(), 0.0, 1e-14 );
+    EXPECT_NEAR( ( at_t1 - x1 ).norm(), 0.0, 1e-14 );
 }

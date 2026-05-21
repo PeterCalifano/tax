@@ -1,14 +1,15 @@
 // include/tax/ode/concepts.hpp
 //
 // Stepper concept hierarchy.
-//   - Stepper:        minimum — take one step at the supplied h.
-//   - DenseStepper:   refinement — provides DenseData + eval_dense +
-//                     has_dense_output marker. Required for Solution<…,
-//                     Dense=true> and for ZeroCrossing events (which
-//                     need a continuous extension to locate roots inside
-//                     a step).
+//   - Stepper:         minimum — take one step at the supplied h and
+//                      expose a dense-output payload + eval_dense.
 //   - AdaptiveStepper: refinement — embedded error estimator + retry
-//                     loop, keyed off `static constexpr bool is_adaptive`.
+//                      loop, keyed off `static constexpr bool is_adaptive`.
+//
+// Steppers may additionally declare `static constexpr bool
+// has_dense_output` to indicate whether eval_dense reproduces the
+// method's full order (true) or only a cubic-Hermite fallback (false).
+// The flag is informational; no concept gates on it.
 
 #pragma once
 
@@ -33,29 +34,18 @@ concept Stepper = requires(
     typename S::T;
     typename S::Config;
     typename S::Rhs;
+    typename S::DenseData;
 
     { s.step( f, x, t, h, cfg ) }
         -> std::same_as< StepResult< typename S::State, S > >;
+
+    { S::eval_dense( std::declval< typename S::DenseData >(),
+                     std::declval< typename S::T >(),
+                     std::declval< typename S::T >(),
+                     std::declval< typename S::T >() ) }
+        -> std::same_as< typename S::State >;
 };
 
-template < class S >
-concept DenseStepper = Stepper< S >
-    && requires { { S::has_dense_output } -> std::convertible_to< bool >; }
-    && S::has_dense_output
-    && requires {
-           typename S::DenseData;
-           { S::eval_dense( std::declval< typename S::DenseData >(),
-                            std::declval< typename S::T >(),
-                            std::declval< typename S::T >(),
-                            std::declval< typename S::T >() ) }
-               -> std::same_as< typename S::State >;
-       };
-
-// AdaptiveStepper: a Stepper that declares
-//   static constexpr bool is_adaptive = true;
-// Concrete adaptive steppers set this flag; non-adaptive or fixed-step
-// steppers omit it (or set it to false) so `if constexpr` dispatch in
-// the Integrator core loop can skip rejection/retry logic.
 template < class S >
 concept AdaptiveStepper = Stepper< S >
     && requires { { S::is_adaptive } -> std::convertible_to< bool >; }
