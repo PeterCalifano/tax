@@ -8,21 +8,26 @@
 // The RHS callable F is template-deduced because the Taylor path
 // needs to invoke f on tax::TE-valued state (a std::function with a
 // fixed signature would not compose). For ergonomic construction,
-// see makeTaylorIntegrator below.
+// see makeTaylorIntegrator factories below.
 
 #pragma once
 
 #include <Eigen/Core>
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <limits>
 #include <stdexcept>
 #include <utility>
+#include <vector>
 
+#include <tax/ode/actions.hpp>
 #include <tax/ode/concepts.hpp>
 #include <tax/ode/config.hpp>
+#include <tax/ode/event.hpp>
 #include <tax/ode/solution.hpp>
 #include <tax/ode/steppers/taylor.hpp>
+#include <tax/ode/triggers.hpp>
 
 namespace tax::ode
 {
@@ -31,13 +36,16 @@ template < concepts::Stepper Stepper, class F, bool Dense = false >
 class Integrator
 {
 public:
-    using State    = typename Stepper::State;
-    using T        = typename Stepper::T;
-    using Config   = typename Stepper::Config;
-    using Solution = tax::ode::Solution< Stepper, State, Dense >;
+    using State     = typename Stepper::State;
+    using T         = typename Stepper::T;
+    using Config    = typename Stepper::Config;
+    using Solution  = tax::ode::Solution< Stepper, State, Dense >;
+    using EventList = std::vector< Event< Stepper > >;
 
-    Integrator( F f, Config cfg = {} )
-        : f_( std::move( f ) ), cfg_( std::move( cfg ) )
+    Integrator( F f, Config cfg = {}, EventList events = {} )
+        : f_( std::move( f ) ),
+          cfg_( std::move( cfg ) ),
+          events_( std::move( events ) )
     {
         if ( !( cfg_.abstol > T{ 0 } ) )
             throw std::invalid_argument( "IntegratorConfig: abstol must be > 0" );
@@ -54,8 +62,9 @@ public:
         const State& x0, const T& t0, const T& tmax ) const;
 
 private:
-    F      f_;
-    Config cfg_;
+    F         f_;
+    Config    cfg_;
+    EventList events_;
 };
 
 template < concepts::Stepper Stepper, class F, bool Dense >
@@ -84,8 +93,12 @@ Integrator< Stepper, F, Dense >::integrate(
                         ? cfg_.min_step
                         : std::numeric_limits< T >::epsilon() * std::abs( span ) * T{ 16 };
 
-    int total_steps = 0;
-    while ( t < tmax )
+    EventSink< State, T > sink{ &sol.events };
+
+    int  total_steps = 0;
+    bool terminate   = false;
+
+    while ( t < tmax && !terminate )
     {
         if ( ++total_steps > cfg_.max_steps )
             throw std::runtime_error(
@@ -112,9 +125,54 @@ Integrator< Stepper, F, Dense >::integrate(
                 }
             }
 
-            // Accepted.
+            // Build the step context once for all events.
+            using Ctx = StepperCtx< Stepper, State, T, typename Stepper::DenseData >;
+            const Ctx ctx{ x, t, r.x_new, r.h_used, r.dense };
+
+            struct Fired { T tau; std::size_t idx; };
+            std::vector< Fired > fired;
+            fired.reserve( events_.size() );
+            for ( std::size_t i = 0; i < events_.size(); ++i )
+            {
+                auto tau = events_[ i ].test( ctx );
+                if ( tau ) fired.push_back( { *tau, i } );
+            }
+            std::sort( fired.begin(), fired.end(),
+                       []( const Fired& a, const Fired& b )
+                       { return a.tau < b.tau; } );
+            for ( const auto& fe : fired )
+            {
+                auto cf = events_[ fe.idx ].run( ctx, fe.tau, sink );
+                if ( cf == ControlFlow::Terminate ) terminate = true;
+            }
+
             t += r.h_used;
             x  = r.x_new;
+
+            if ( terminate )
+            {
+                // Replace the final solution point with the event time
+                // (linear interpolation). Matches the precision of
+                // Record/Custom. Stepper-specific refinement is a
+                // Stage 2b enhancement.
+                if ( !fired.empty() )
+                {
+                    const T tau_term = fired.front().tau;
+                    const T frac     = ( ctx.h_used > T{ 0 } )
+                                            ? tau_term / ctx.h_used
+                                            : T{ 0 };
+                    State   x_term   = ctx.x_old + frac * ( ctx.x_new - ctx.x_old );
+                    sol.t.push_back( ctx.t_old + tau_term );
+                    sol.x.push_back( std::move( x_term ) );
+                }
+                else
+                {
+                    sol.t.push_back( t );
+                    sol.x.push_back( x );
+                }
+                break;
+            }
+
             sol.t.push_back( t );
             sol.x.push_back( x );
             if constexpr ( Dense )
@@ -132,6 +190,8 @@ Integrator< Stepper, F, Dense >::integrate(
     return sol;
 }
 
+// ----- Factories -----
+
 // Convenience factory: deduces the user callable type F.
 // (A typedef alias can't be used here because F is unknown until call site.)
 template < int N, class T = double, int D = Eigen::Dynamic,
@@ -141,6 +201,20 @@ template < int N, class T = double, int D = Eigen::Dynamic,
     using State   = Eigen::Matrix< T, D, 1 >;
     using Stepper = TaylorStepper< N, State >;
     return Integrator< Stepper, F, Dense >{ std::move( f ), std::move( cfg ) };
+}
+
+// 3-arg factory taking an event list.
+template < int N, class T = double, int D = Eigen::Dynamic,
+           bool Dense = false, class F >
+[[nodiscard]] auto makeTaylorIntegrator(
+    F f,
+    IntegratorConfig< T > cfg,
+    std::vector< Event< TaylorStepper< N, Eigen::Matrix< T, D, 1 > > > > events )
+{
+    using State   = Eigen::Matrix< T, D, 1 >;
+    using Stepper = TaylorStepper< N, State >;
+    return Integrator< Stepper, F, Dense >{
+        std::move( f ), std::move( cfg ), std::move( events ) };
 }
 
 }  // namespace tax::ode
