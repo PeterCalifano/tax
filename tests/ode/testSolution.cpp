@@ -1,9 +1,10 @@
 // tests/ode/testSolution.cpp
 //
 // Verifies that both Solution specialisations (Dense=false and
-// Dense=true) exist with the expected member layout, and that
-// appending steps/events works as advertised. Uses a local FakeStepper
-// (kept header-only here for test isolation).
+// Dense=true) exist with the expected member layout, that appending
+// steps/events works, and that operator()(t_query) on the dense form
+// throws on empty/out-of-range inputs. FakeStepper is defined locally
+// and is compatible with concepts::Stepper.
 
 #include <gtest/gtest.h>
 
@@ -75,4 +76,23 @@ TEST( OdeSolution, DenseExposesDenseAndOperatorCall )
     State at_t0 = s( 0.0 );
     EXPECT_DOUBLE_EQ( at_t0( 0 ), 1.0 );
     EXPECT_DOUBLE_EQ( at_t0( 1 ), 2.0 );
+}
+
+TEST( OdeSolution, DenseOperatorThrowsOnEmpty )
+{
+    using Sol = tax::ode::Solution< FakeStepper, State, /*Dense=*/true >;
+    Sol s;
+    EXPECT_THROW( s( 0.0 ), std::runtime_error );
+}
+
+TEST( OdeSolution, DenseOperatorThrowsOnOutOfRange )
+{
+    using Sol = tax::ode::Solution< FakeStepper, State, /*Dense=*/true >;
+    Sol s;
+    s.t = { 0.0, 1.0 };
+    s.x = { State{ 1.0, 2.0 }, State{ 3.0, 4.0 } };
+    s.dense.push_back( State{ 1.0, 2.0 } );
+
+    EXPECT_THROW( s( -0.1 ), std::out_of_range );
+    EXPECT_THROW( s(  1.1 ), std::out_of_range );
 }

@@ -9,6 +9,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cassert>
 #include <cstddef>
 #include <stdexcept>
 #include <string>
@@ -60,11 +61,20 @@ public:
     {
         if ( t.empty() )
             throw std::runtime_error( "Solution::operator(): empty solution" );
+        if ( dense.empty() )
+            throw std::runtime_error( "Solution::operator(): no dense data" );
         if ( t_query < t.front() || t_query > t.back() )
             throw std::out_of_range( "Solution::operator(): t_query out of [t0, tf]" );
 
+        // Invariant: dense.size() == t.size() - 1 (one continuous extension
+        // per step). Maintained by the Integrator; callers constructing a
+        // Solution manually must preserve it.
+        assert( dense.size() + 1 == t.size() );
+
         // Binary search: find i with t[i] <= t_query <= t[i+1].
         auto       it = std::upper_bound( t.begin(), t.end(), t_query );
+        // upper_bound never returns begin() here because t_query >= t.front()
+        // is already enforced; the clamp guards against any future relaxation.
         const auto i  = static_cast< std::size_t >( std::max< std::ptrdiff_t >(
             0, std::distance( t.begin(), it ) - 1 ) );
         const std::size_t idx = std::min( i, dense.size() - 1 );
