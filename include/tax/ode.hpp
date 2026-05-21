@@ -11,3 +11,4 @@
 #include <tax/ode/solution.hpp>
 #include <tax/ode/controllers.hpp>
 #include <tax/ode/steppers/taylor.hpp>
+#include <tax/ode/integrator.hpp>

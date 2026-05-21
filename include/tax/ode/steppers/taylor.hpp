@@ -1,6 +1,6 @@
 // include/tax/ode/steppers/taylor.hpp
 //
-// TaylorStepper<N, State, Controller>.
+// TaylorStepper<N, StateT, Controller>.
 //
 // Propagates the ODE dx/dt = f(x, t) by computing the Taylor
 // expansion of x(t) in time (univariate, order N) around the step
@@ -32,18 +32,19 @@ namespace tax::ode
 {
 
 template < int N,
-           class State,
-           class Controller = controllers::JorbaZou< typename State::Scalar > >
+           class StateT,
+           class Controller = controllers::JorbaZou< typename StateT::Scalar > >
 struct TaylorStepper
 {
     static_assert( N >= 2,
                    "TaylorStepper: order N must be at least 2 for meaningful adaptive control" );
 
-    using T               = typename State::Scalar;
+    using State            = StateT;
+    using T               = typename StateT::Scalar;
     using Config          = IntegratorConfig< T >;
-    using Rhs             = std::function< State( const State&, T ) >;
+    using Rhs             = std::function< StateT( const StateT&, T ) >;
 
-    static constexpr int D = State::RowsAtCompileTime;  // may be Eigen::Dynamic
+    static constexpr int D = StateT::RowsAtCompileTime;  // may be Eigen::Dynamic
     static constexpr bool is_adaptive = true;
 
     // DenseData: per-step Taylor expansion of x(t) in time around the
@@ -52,10 +53,10 @@ struct TaylorStepper
     using DenseData = Eigen::Matrix< TE, D, 1 >;
 
     template < class F >
-    StepResult< State, TaylorStepper > step(
-        const F& f, const State& x, T t, T h, const Config& cfg );
+    StepResult< StateT, TaylorStepper > step(
+        const F& f, const StateT& x, T t, T h, const Config& cfg );
 
-    [[nodiscard]] static State eval_dense(
+    [[nodiscard]] static StateT eval_dense(
         const DenseData& d, const T& t0, const T& /*t1*/, const T& tq );
 
 private:
@@ -64,13 +65,13 @@ private:
 
 // -------- eval_dense --------
 // x(tq) = sum_k d_i.coeff(k) * (tq - t0)^k
-template < int N, class State, class Controller >
-State TaylorStepper< N, State, Controller >::eval_dense(
+template < int N, class StateT, class Controller >
+StateT TaylorStepper< N, StateT, Controller >::eval_dense(
     const DenseData& d, const T& t0, const T& /*t1*/, const T& tq )
 {
     const T dt = tq - t0;
     const Eigen::Index dim = d.size();
-    State out{ dim };
+    StateT out{ dim };
     for ( Eigen::Index i = 0; i < dim; ++i )
     {
         // Horner-style evaluation of d(i) at dt.
@@ -83,11 +84,11 @@ State TaylorStepper< N, State, Controller >::eval_dense(
 }
 
 // -------- step (real Taylor expansion — Task 6) --------
-template < int N, class State, class Controller >
+template < int N, class StateT, class Controller >
 template < class F >
-StepResult< State, TaylorStepper< N, State, Controller > >
-TaylorStepper< N, State, Controller >::step(
-    const F& f, const State& x, T t, T h, const Config& cfg )
+StepResult< StateT, TaylorStepper< N, StateT, Controller > >
+TaylorStepper< N, StateT, Controller >::step(
+    const F& f, const StateT& x, T t, T h, const Config& cfg )
 {
     using std::abs;
     using std::pow;
@@ -101,7 +102,7 @@ TaylorStepper< N, State, Controller >::step(
     for ( int k = 2; k <= N; ++k ) t_te[ static_cast< std::size_t >( k ) ] = T{ 0 };
 
     // --- 2. State TE per component: start with c_0 = x(i), rest 0.
-    using StateTE = Eigen::Matrix< TE, State::RowsAtCompileTime, 1 >;
+    using StateTE = Eigen::Matrix< TE, StateT::RowsAtCompileTime, 1 >;
     StateTE x_te{ dim };
     for ( Eigen::Index i = 0; i < dim; ++i )
     {
@@ -124,7 +125,7 @@ TaylorStepper< N, State, Controller >::step(
 
     // --- 4. Build DenseData and x_new = x(t + h) via Horner.
     DenseData dense{ dim };
-    State     x_new{ dim };
+    StateT    x_new{ dim };
     for ( Eigen::Index i = 0; i < dim; ++i )
     {
         dense( i ) = x_te( i );
@@ -160,7 +161,7 @@ TaylorStepper< N, State, Controller >::step(
 
     const bool accepted = err_norm <= tol;
 
-    StepResult< State, TaylorStepper > r;
+    StepResult< StateT, TaylorStepper > r;
     r.x_new    = std::move( x_new );
     r.h_used   = h;
     r.h_next   = h_next;
