@@ -1,4 +1,4 @@
-# tax — Stage 2a: flexible ODE integrator (Taylor + Verner 7/8 + Verner 8/9) — Design
+# tax — Stage 2a: flexible ODE integrator (Taylor + Verner 7/8 + Verner 8/9 + Fehlberg 7/8) — Design
 
 **Status:** draft for approval
 **Date:** 2026-05-21
@@ -7,11 +7,12 @@
 ## Goal
 
 Reintroduce ODE integration to `tax`, but on a single method-agnostic
-`Integrator` surface that swaps between the Taylor method and the two Verner
-Runge–Kutta pairs (7/8 and 8/9) by a compile-time policy. Events are
-expressed as `Trigger + Action`, factoring zero-crossing detection from the
-post-detection behaviour so the same machinery scales from "record an
-apoapsis" to "subdivide an initial-condition box" without re-architecting.
+`Integrator` surface that swaps between the Taylor method and three explicit
+Runge–Kutta pairs (Verner 7/8, Verner 8/9, Fehlberg 7/8) by a compile-time
+policy. Events are expressed as `Trigger + Action`, factoring zero-crossing
+detection from the post-detection behaviour so the same machinery scales
+from "record an apoapsis" to "subdivide an initial-condition box" without
+re-architecting.
 
 Stage 2a is the integrator core only: state is `Eigen::Matrix<T, D, 1>` with
 `D` static *or* `Eigen::Dynamic`. DA-state propagation (`State =
@@ -38,16 +39,17 @@ the surface rather than replacing it.
 | Axis | Choice | Rationale |
 |---|---|---|
 | Scope | Integrator + events only; no DA state, no ADS, but forward-compatible | Smaller surface to spec/plan/ship; ADS naturally plugs into `EveryStep + Custom` once DA states arrive. |
-| Method dispatch | Compile-time `concepts::Stepper` policy; one `Integrator` class, three Stepper types | Fits `tax`'s header-only, zero-cost-abstraction style. Generic over method without runtime dispatch or virtual calls. |
+| Method dispatch | Compile-time `concepts::Stepper` policy; one `Integrator` class, four Stepper types | Fits `tax`'s header-only, zero-cost-abstraction style. Generic over method without runtime dispatch or virtual calls. |
+| RK methods shipped | Verner 7/8 (Verner 8(7) "efficient" 13-stage), Verner 8/9 (Verner 9(8) "efficient" 16-stage), Fehlberg 7/8 (classical Fehlberg 1968 13-stage 7(8) pair) | Verner pairs are the modern default for high-accuracy non-stiff ODEs (efficient stage count, well-behaved embedded estimator). Fehlberg 7/8 is the classical baseline included for compatibility / cross-validation and for users with existing tableaux references; its known "Fehlberg coincidence" (embedded estimator zeroes on certain steps) is documented in Risks. |
+| Aliases | Parameterise on `<N, T, D, Dense>` for Taylor and `<T, D, Dense>` for Verner/Fehlberg | Ergonomic for the common case (`Eigen::Matrix<T, D, 1>`); raw `Integrator<Stepper, Dense>` still available for non-Eigen states later. |
 | Stepper hierarchy | Two-tier: `concepts::Stepper` (minimum) + `concepts::AdaptiveStepper` (refinement with `err_norm`, `h_next`, `accepted`) | One Integrator core drives both. Fixed-step methods can plug in later without API break. Stage 2a ships only adaptive instances. |
 | Event abstraction | `Trigger + Action` factoring | Decouples *when* an event fires from *what to do*. Built-in triggers (`ZeroCrossing`, `EveryStep`) cover Stage 2a; `Custom` action is the ADS seam. |
 | Dense output | Template bool on Integrator/Solution: `Integrator<Stepper, Dense=false>`; two partial specializations of `Solution` | Discrete mode pays nothing for unused storage; dense mode exposes `sol(t)` uniformly across methods. Stepper always produces `DenseData` per step (needed for event bisection); Solution stores it only when `Dense=true`. |
 | State type | `Eigen::Matrix<T, D, 1>` with `D` static or `Eigen::Dynamic` | One code path covers scalar (D=1), small static, and dynamic. Scalar specialisation avoided. |
-| Aliases | Parameterise on `<N, T, D, Dense>` for Taylor and `<T, D, Dense>` for Verner | Ergonomic for the common case (`Eigen::Matrix<T, D, 1>`); raw `Integrator<Stepper, Dense>` still available for non-Eigen states later. |
 | Direction enum | `Increasing`, `Decreasing`, `Any` | Direct description of the slope of `g(x, t)` at the crossing. |
 | Config field names | `initial_step`, `min_step`, `max_step` (not `h0`, `h_min`, `h_max`) | Spelled-out names read better at call sites. |
 | Dense evaluation | `static State Stepper::eval_dense(dense, t0, t1, tq)` | Keeps Stepper stateless. `Solution::operator()(t)` doesn't need to hold an instance. |
-| Root finding for `ZeroCrossing` | Polynomial-Newton with bisection safeguard for TaylorStepper; Brent's method for Verner78/89 | Stepper-specific via `static find_zero` member. TaylorStepper has an analytic polynomial `g_poly` valid on the whole accepted step → safeguarded Newton converges in 3–6 iterations to ULP precision at O(N) flops/iter. Verner steppers have only scalar samples via `eval_dense` → Brent's bracketed method (derivative-free, superlinear convergence) is the right scalar default. |
+| Root finding for `ZeroCrossing` | Polynomial-Newton with bisection safeguard for TaylorStepper; Brent's method for Verner78/89 and Fehlberg78 | Stepper-specific via `static find_zero` member. TaylorStepper has an analytic polynomial `g_poly` valid on the whole accepted step → safeguarded Newton converges in 3–6 iterations to ULP precision at O(N) flops/iter. RK steppers have only scalar samples via `eval_dense` → Brent's bracketed method (derivative-free, superlinear convergence) is the right scalar default. |
 | `ZeroCrossing` user contract | `g` is supplied as a generic lambda `[](const auto& x, const auto& t){…}` so the same `g` instantiates on both scalar state (Verner path) and `tax::TE<N>`-valued state (Taylor polynomial path) | One user-facing signature, two erased forms stored inside `Event`. Non-generic `g`s (e.g. a `std::function<T(const State&, T)>` literal) still work but fall back to Brent on the Taylor path. |
 | Source language | C++23, header-only, no new external deps | Same as the rest of `tax`. |
 
@@ -142,8 +144,9 @@ struct TaylorStepper {
     static State eval_dense(const DenseData& d, const T& t0, const T& t1, const T& tq);
 };
 
-template <class State> struct Verner78Stepper { /* same shape, no N */ };
-template <class State> struct Verner89Stepper { /* same shape, no N */ };
+template <class State> struct Verner78Stepper  { /* same shape, no N */ };
+template <class State> struct Verner89Stepper  { /* same shape, no N */ };
+template <class State> struct Fehlberg78Stepper{ /* same shape, no N */ };
 ```
 
 The RHS `f` is `std::function<State(const State&, T)>`. For Stage 2a's
@@ -242,12 +245,13 @@ fallback). Cost: O(N) per iteration. Fallback when `g_poly` is
 unavailable (non-generic `g`): treat as the Verner case and use Brent
 on scalar samples.
 
-**Verner78Stepper / Verner89Stepper — Brent's method on scalar
-samples.** No polynomial available; sample `g(eval_dense(dense, t0,
-t0+h_used, t0+τ), t0+τ)` and use Brent's algorithm
-(Dekker–Brent: inverse quadratic interpolation with bisection fallback)
-on the bracketed sign change. Same termination criterion as above.
-Derivative-free, superlinear convergence, robust on non-monotonic `g`.
+**Verner78Stepper / Verner89Stepper / Fehlberg78Stepper — Brent's
+method on scalar samples.** No polynomial available; sample
+`g(eval_dense(dense, t0, t0+h_used, t0+τ), t0+τ)` and use Brent's
+algorithm (Dekker–Brent: inverse quadratic interpolation with
+bisection fallback) on the bracketed sign change. Same termination
+criterion as above. Derivative-free, superlinear convergence, robust
+on non-monotonic `g`.
 
 Both methods return `std::optional<τ>`; `nullopt` indicates the
 safeguard couldn't converge (e.g. interval became degenerate due to
@@ -326,11 +330,13 @@ public:
 
 // Convenience aliases (assume State = Eigen::Matrix<T, D, 1>)
 template <int N, class T = double, int D = Eigen::Dynamic, bool Dense = false>
-using TaylorIntegrator   = Integrator<TaylorStepper<N, Eigen::Matrix<T, D, 1>>, Dense>;
+using TaylorIntegrator     = Integrator<TaylorStepper<N, Eigen::Matrix<T, D, 1>>, Dense>;
 template <class T = double, int D = Eigen::Dynamic, bool Dense = false>
-using Verner78Integrator = Integrator<Verner78Stepper<Eigen::Matrix<T, D, 1>>, Dense>;
+using Verner78Integrator   = Integrator<Verner78Stepper<Eigen::Matrix<T, D, 1>>, Dense>;
 template <class T = double, int D = Eigen::Dynamic, bool Dense = false>
-using Verner89Integrator = Integrator<Verner89Stepper<Eigen::Matrix<T, D, 1>>, Dense>;
+using Verner89Integrator   = Integrator<Verner89Stepper<Eigen::Matrix<T, D, 1>>, Dense>;
+template <class T = double, int D = Eigen::Dynamic, bool Dense = false>
+using Fehlberg78Integrator = Integrator<Fehlberg78Stepper<Eigen::Matrix<T, D, 1>>, Dense>;
 ```
 
 ### Integrator core loop
@@ -381,12 +387,14 @@ include/tax/
     ├── event.hpp                    # Event, TriggerContext, ControlFlow, Direction
     ├── triggers.hpp                 # ZeroCrossing, EveryStep + bisection helper
     ├── actions.hpp                  # Continue, Terminate, Record, Custom
-    ├── integrator.hpp               # Integrator + 3 aliases
+    ├── integrator.hpp               # Integrator + 4 aliases
     ├── taylor_stepper.hpp
     ├── verner78_stepper.hpp
     ├── verner89_stepper.hpp
+    ├── fehlberg78_stepper.hpp
     └── detail/
-        └── verner_tableaus.hpp      # internal Butcher tables
+        ├── verner_tableaus.hpp      # Verner 7/8 + 8/9 Butcher tables
+        └── fehlberg_tableaus.hpp    # Fehlberg 7/8 Butcher table
 ```
 
 `tax/tax.hpp` does **not** include `tax/ode.hpp` — ODE is opt-in via an
@@ -402,9 +410,10 @@ tests/ode/
 ├── testTaylorStepper.cpp            # step() + eval_dense agreement on exp, harmonic
 ├── testVerner78Stepper.cpp          # same RHS set
 ├── testVerner89Stepper.cpp          # same
-├── testIntegratorBasic.cpp          # 3 methods × {D=1, static D=3, dynamic D} × 3 RHS
+├── testFehlberg78Stepper.cpp        # same
+├── testIntegratorBasic.cpp          # 4 methods × {D=1, static D=3, dynamic D} × 3 RHS
 ├── testIntegratorDense.cpp          # Dense=true: sol(t) accuracy within abstol
-├── testEventsZeroCrossing.cpp       # 3 methods × Direction × terminal/record
+├── testEventsZeroCrossing.cpp       # 4 methods × Direction × terminal/record
 ├── testEventsEveryStep.cpp          # EveryStep + Custom; terminate-from-Custom
 └── testIntegratorStatic.cpp         # Static D vs Eigen::Dynamic parity (1e-12)
 ```
@@ -414,7 +423,9 @@ endpoints reproduces `x_old` (at `tq = t0`) and `x_new` (at `tq = t1`)
 exactly; that's a minimal self-consistency check independent of analytic
 truth. Integrator-level tests compare endpoint to closed-form solutions
 (exp, harmonic) and cross-method (Lotka–Volterra: Taylor vs Verner78 vs
-Verner89 within 1e-10 over a moderate horizon).
+Verner89 vs Fehlberg78 within 1e-9 over a moderate horizon — Fehlberg
+gets the looser cross-method tolerance because of the documented
+embedded-estimator behaviour).
 
 ## Slice ordering
 
@@ -427,8 +438,9 @@ failing tests → implement → tests green → commit.
 | 2 | TaylorStepper | `TaylorStepper<N, State>::step` + `eval_dense` + Jorba–Zou step-size control; `testTaylorStepper.cpp` exercises stepper-level behaviour directly (no Integrator yet). |
 | 3 | Integrator + 3 RHS smoke | `Integrator<Stepper, Dense>` with the `if constexpr (AdaptiveStepper)` retry loop, both `Dense` modes, but without the event machinery (event list defaults to empty); `testIntegratorBasic.cpp` (Taylor only) + `testIntegratorDense.cpp` (Taylor only); aliases. |
 | 4 | Events: triggers + actions + integrator wiring | `Direction`, `ControlFlow`, `TriggerContext`, `Event` (storing both scalar `g` and `g_poly` erased forms), `ZeroCrossing`, `EveryStep`, `Continue`, `Terminate`, `Record`, `Custom`; integrator's `run_events_`; `TaylorStepper::find_zero` (polynomial-Newton with bisection safeguard); shared Brent-on-scalar-samples helper (used as Taylor's fallback when `g` is non-generic); `testEventsZeroCrossing.cpp` + `testEventsEveryStep.cpp` (Taylor only — including the non-generic-`g` fallback path). |
-| 5 | Verner 7/8 + Verner 8/9 | `verner_tableaus.hpp`, `Verner78Stepper`, `Verner89Stepper` with PI controller and built-in dense output; `Verner*Stepper::find_zero` reusing the shared Brent helper from slice 4; per-stepper tests; expand `testIntegratorBasic.cpp` and the events tests to cover all three methods. |
-| 6 | Static-vs-dynamic D parity | `testIntegratorStatic.cpp` confirms `Eigen::Matrix<T, 3, 1>` vs `Eigen::VectorXd` agreement; tighten any remaining loose edges. |
+| 5 | Verner 7/8 + Verner 8/9 | `verner_tableaus.hpp`, `Verner78Stepper`, `Verner89Stepper` with PI controller and built-in dense output; `Verner*Stepper::find_zero` reusing the shared Brent helper from slice 4; per-stepper tests; expand `testIntegratorBasic.cpp` and the events tests to cover Taylor + Verner. |
+| 6 | Fehlberg 7/8 | `fehlberg_tableaus.hpp`, `Fehlberg78Stepper` with PI controller and (Hermite-based) dense output; `Fehlberg78Stepper::find_zero` reuses the same Brent helper; `testFehlberg78Stepper.cpp`; widen `testIntegratorBasic.cpp` and the events tests to cover all four methods. |
+| 7 | Static-vs-dynamic D parity | `testIntegratorStatic.cpp` confirms `Eigen::Matrix<T, 3, 1>` vs `Eigen::VectorXd` agreement; tighten any remaining loose edges. |
 
 Roughly one PR per slice; final slice ends Stage 2a.
 
@@ -437,6 +449,7 @@ Roughly one PR per slice; final slice ends Stage 2a.
 | Risk | Mitigation |
 |---|---|
 | Taylor step-size control (Jorba–Zou) underperforms vs Verner on stiff-ish smooth problems | Surface `abstol` / `reltol` symmetrically; document the per-method behaviour. Cross-method tests catch regressions. |
+| Fehlberg 7/8 "coincidence" — embedded estimator returns zero error on certain steps even when true error is nonzero, causing the controller to over-extend the step | Documented limitation of the method itself, not a `tax` bug. The PI controller's `min_step` floor and the cross-method endpoint tests catch gross failures. Users who need maximum reliability should prefer `Verner78Integrator` (the modern replacement); `Fehlberg78Integrator` is shipped for compatibility and cross-validation. |
 | std::function-erased Triggers/Actions become a measurable cost when events are evaluated thousands of times | Each event check happens once per accepted step. Pre-Stage-1 measurements showed it negligible against a Verner 13-stage RHS sweep. Re-measure in slice 4 if doubts emerge; the type-erased shape can be replaced with a variadic template-parameter pack later without changing user code. |
 | Step rejection loop hides infinite oscillation | `Config::max_rejects_per_step` (default 16) hard-caps the retries; throw with diagnostic if exceeded. |
 | `eval_dense` outside `[t0, t1]` returns nonsense without warning | Document precondition; Stage 2a tests assert in-range usage. `Solution::operator()` clamps to the solution's `[t0, tf]` and throws on out-of-range. |
