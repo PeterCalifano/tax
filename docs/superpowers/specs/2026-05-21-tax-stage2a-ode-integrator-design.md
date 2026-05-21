@@ -44,7 +44,7 @@ the surface rather than replacing it.
 | Scope | Integrator + events only; no DA state, no ADS, but forward-compatible | Smaller surface to spec/plan/ship; ADS naturally plugs into `EveryStep + Custom` once DA states arrive. |
 | Method dispatch | Compile-time `concepts::Stepper` policy; one `Integrator` class, six Stepper types | Fits `tax`'s header-only, zero-cost-abstraction style. Generic over method without runtime dispatch or virtual calls. |
 | RK methods shipped | Verner 8(7) ("efficient" 13-stage), Verner 9(8) ("efficient" 16-stage), Fehlberg 7(8) (classical Fehlberg 1968, 13-stage), Feagin 12(10) (Feagin 2007, 25-stage), Feagin 14(12) (Feagin 2010, 35-stage) | Verner pairs are the modern default for high-accuracy non-stiff ODEs (efficient stage count, well-behaved embedded estimator). Feagin pairs cover the very-high-order regime for smooth astrodynamics problems where Taylor isn't desired. Fehlberg 7/8 is the classical baseline included for compatibility / cross-validation; its known "Fehlberg coincidence" (embedded estimator zeroes on certain steps) is documented in Risks. |
-| Step-size controllers | `controllers::I<T>`, `controllers::PI<T>` (default), `controllers::H211b<T>`; pluggable per-RK-stepper via template parameter | One row of the "what to optimise for" matrix per controller: `I` = robustness baseline (predictable, more rejections); `PI` = Gustafsson PI, modern default (best efficiency on smooth problems); `H211b` = Söderlind digital filter, smoother step-size sequence on bumpy / piecewise-smooth problems. Taylor uses Jorba–Zou intrinsically (not template-parameterised). |
+| Step-size controllers | `controllers::JorbaZou<T>` (TaylorStepper default), `controllers::I<T>`, `controllers::PI<T>` (RK default), `controllers::H211b<T>`; all pluggable per-stepper via a `Controller` template parameter | `JorbaZou` is Taylor-specific (uses the last two polynomial coefficients to predict `h_next`; compile error if used with an RK stepper). The other three are generic: they consume a scalar `err_norm` produced by the stepper. For Taylor, `err_norm = ‖c_N · h^N + c_{N-1} · h^{N-1}‖` so the generic controllers also work. `I` = robust baseline (more rejections, predictable); `PI` = Gustafsson, best on smooth problems; `H211b` = Söderlind digital filter, smoother on bumpy / piecewise-smooth problems. |
 | Aliases | Parameterise on `<N, T, D, Dense>` for Taylor and `<T, D, Dense>` for Verner/Fehlberg | Ergonomic for the common case (`Eigen::Matrix<T, D, 1>`); raw `Integrator<Stepper, Dense>` still available for non-Eigen states later. |
 | Stepper hierarchy | Two-tier: `concepts::Stepper` (minimum) + `concepts::AdaptiveStepper` (refinement with `err_norm`, `h_next`, `accepted`) | One Integrator core drives both. Fixed-step methods can plug in later without API break. Stage 2a ships only adaptive instances. |
 | Event abstraction | `Trigger + Action` factoring | Decouples *when* an event fires from *what to do*. Built-in triggers (`ZeroCrossing`, `EveryStep`) cover Stage 2a; `Custom` action is the ADS seam. |
@@ -136,9 +136,10 @@ struct StepResult {
 ```cpp
 namespace tax::ode::controllers {
 
+// Generic controllers — consume scalar err_norm, work with any AdaptiveStepper.
+
 // I-controller — classic integral. No memory of prior steps.
 //   h_new = h_used · safety · (tol / err_norm)^(1/(p+1))
-// p is the embedded estimator order, passed to next_step.
 template <class T = double>
 struct I {
     T safety = T{0.9};
@@ -150,7 +151,6 @@ struct I {
 
 // PI-controller (Gustafsson) — adds a proportional term from previous error.
 //   h_new = h_used · safety · (tol/err)^β · (err_prev/err)^α
-// State: err_prev is updated on each call.
 template <class T = double>
 struct PI {
     T safety = T{0.9};
@@ -165,7 +165,6 @@ private:
 };
 
 // H211b — Söderlind digital filter; smoother step-size sequence.
-// State: err_prev_ and h_prev_ updated each call.
 template <class T = double>
 struct H211b {
     T safety = T{0.9};
@@ -179,19 +178,34 @@ private:
     T h_prev_   = T{0};   // 0 ⇒ first call falls back to I-step
 };
 
+// Taylor-specific controller — works ONLY with TaylorStepper.
+//   Uses the magnitudes of the last two Taylor coefficients (c_N, c_{N-1})
+//   to predict h_new directly (Jorba & Zou, "A software package for the
+//   numerical integration of ODE by means of high-order Taylor methods",
+//   ETNA 22, 2005).
+template <class T = double>
+struct JorbaZou {
+    T safety = T{0.9};
+    T min_factor = T{0.2};
+    T max_factor = T{5.0};
+
+    // Different signature — needs the last two coefficient norms.
+    T next_step(T h_used, T c_N_norm, T c_Nm1_norm, T tol, int N_order) const noexcept;
+};
+
 } // namespace tax::ode::controllers
 ```
 
-Each RK Stepper owns one controller instance as a member; `step()` is *not*
-`const` on RK steppers because the controller's internal state evolves
-with each call. TaylorStepper's `step()` remains `const` (Jorba–Zou is
-stateless).
+Each Stepper owns one controller instance as a member; `step()` is *not*
+`const` because PI/H211b mutate internal state. JorbaZou and I have no
+internal state but `step()` is still non-const for uniformity.
 
 ### Steppers
 
 ```cpp
-// Taylor: no Controller template — Jorba–Zou is intrinsic and stateless.
-template <int N, class State>
+// Taylor: Controller defaults to JorbaZou (Taylor-specific) but I/PI/H211b
+// also work on the truncation-error norm.
+template <int N, class State, class Controller = controllers::JorbaZou<typename State::Scalar>>
 struct TaylorStepper {
     using T         = typename State::Scalar;
     static constexpr int D = State::RowsAtCompileTime;
@@ -200,9 +214,12 @@ struct TaylorStepper {
     using DenseData = /* per-step Taylor expansion in t (one tax::TE<N> per component) */;
 
     StepResult<State, TaylorStepper> step(
-        const Rhs& f, const State& x, T t, T h, const Config& cfg) const;
+        const Rhs& f, const State& x, T t, T h, const Config& cfg);  // non-const
 
     static State eval_dense(const DenseData& d, const T& t0, const T& t1, const T& tq);
+
+private:
+    Controller controller_{};
 };
 
 // RK steppers: parameterised on Controller (default PI). step() is non-const.
@@ -481,13 +498,14 @@ include/tax/
     ├── triggers.hpp                 # ZeroCrossing, EveryStep + bisection helper
     ├── actions.hpp                  # Continue, Terminate, Record, Custom
     ├── integrator.hpp               # Integrator + 6 aliases
-    ├── controllers.hpp              # controllers::I, controllers::PI, controllers::H211b
-    ├── taylor_stepper.hpp
-    ├── verner78_stepper.hpp
-    ├── verner89_stepper.hpp
-    ├── fehlberg78_stepper.hpp
-    ├── feagin12_stepper.hpp
-    ├── feagin14_stepper.hpp
+    ├── controllers.hpp              # JorbaZou, I, PI, H211b
+    ├── steppers/
+    │   ├── taylor.hpp               # TaylorStepper<N, State, Controller>
+    │   ├── verner78.hpp             # Verner78Stepper<State, Controller>
+    │   ├── verner89.hpp             # Verner89Stepper<State, Controller>
+    │   ├── fehlberg78.hpp           # Fehlberg78Stepper<State, Controller>
+    │   ├── feagin12.hpp             # Feagin12Stepper<State, Controller>
+    │   └── feagin14.hpp             # Feagin14Stepper<State, Controller>
     └── detail/
         ├── verner_tableaus.hpp      # Verner 8(7) + 9(8) Butcher tables
         ├── fehlberg_tableaus.hpp    # Fehlberg 7(8) Butcher table
@@ -586,10 +604,24 @@ benchmarks/
 
 The benchmark uses the same ICs and propagation horizon as
 `testCR3BPPropagation.cpp` so the correctness test and the performance
-profile measure the same problem. Reported metrics let users pick the
-(method, controller) pair appropriate for their application —
-typically Verner 9(8) + PI for general use, Feagin 14(12) + H211b for
-ultra-high precision, Verner 8(7) + I for the most robust baseline.
+profile measure the same problem.
+
+**Reference combination: `Fehlberg78Integrator` with `controllers::I`
+(the classical baseline).** The benchmark fixture pre-computes a
+reference trajectory at high accuracy (`abstol = reltol = 1e-14`) with
+this combination once, then for each (method, controller, tolerance)
+sweep runs the same problem and reports:
+
+- wall time (Google Benchmark `cpu_time`)
+- accepted-step count
+- rejected-step count
+- end-state error vs the RKF78+I reference
+
+The output table lets users read directly "method X with controller Y
+achieves N× speedup over RKF78+I at the same end-state error" — the
+expected modern result is that Verner / Feagin pairs with PI or H211b
+beat RKF78+I in efficiency by a substantial margin, with Taylor
+(JorbaZou) most competitive at very high precision.
 
 ## Slice ordering
 
@@ -599,14 +631,14 @@ failing tests → implement → tests green → commit.
 | # | Slice | Result |
 |---|---|---|
 | 1 | Config + concepts + step result + solution skeleton | `IntegratorConfig`, `concepts::Stepper` / `AdaptiveStepper`, `StepResult`, both `Solution` specialisations as empty shells; `testConfig.cpp` + a stub stepper to exercise the concept compile-time. |
-| 2 | TaylorStepper | `TaylorStepper<N, State>::step` + `eval_dense` + Jorba–Zou step-size control; `testTaylorStepper.cpp` exercises stepper-level behaviour directly (no Integrator yet). |
+| 2 | Controllers + TaylorStepper | `controllers.hpp` (`JorbaZou`, `I`, `PI`, `H211b`) with `testControllers.cpp` covering state evolution and parameter clamping; `steppers/taylor.hpp` (`TaylorStepper<N, State, Controller=JorbaZou>::step` + `eval_dense`); `testTaylorStepper.cpp` sweeps all four controllers compatible with Taylor (JorbaZou + the three generic ones on the truncation-error norm). |
 | 3 | Integrator + 3 RHS smoke | `Integrator<Stepper, Dense>` with the `if constexpr (AdaptiveStepper)` retry loop, both `Dense` modes, no event machinery yet; `testIntegratorBasic.cpp` (Taylor only) + `testIntegratorDense.cpp` (Taylor only); aliases. |
 | 4 | Events: triggers + actions + integrator wiring | `Direction`, `ControlFlow`, `TriggerContext`, `Event` (storing both scalar `g` and `g_poly` erased forms), `ZeroCrossing`, `EveryStep`, `Continue`, `Terminate`, `Record`, `Custom`; integrator's `run_events_`; `TaylorStepper::find_zero` (polynomial-Newton with bisection safeguard); shared `detail/brent_root.hpp`; `testEventsZeroCrossing.cpp` + `testEventsEveryStep.cpp` (Taylor only). |
-| 5 | Step-size controllers + Verner pairs | `controllers.hpp` (`I`, `PI`, `H211b`); `testControllers.cpp`; `verner_tableaus.hpp`, `Verner78Stepper`, `Verner89Stepper` with the controller as a template parameter and built-in dense output; per-stepper tests sweep all three controllers; expand `testIntegratorBasic.cpp` and the events tests to Taylor + Verner. |
-| 6 | Fehlberg 7/8 | `fehlberg_tableaus.hpp`, `Fehlberg78Stepper` with controller template parameter and Hermite-based dense output; per-stepper test; widen `testIntegratorBasic.cpp` and event tests. |
-| 7 | Feagin 12(10) + Feagin 14(12) | `feagin_tableaus.hpp`, `Feagin12Stepper`, `Feagin14Stepper`; per-stepper tests; widen `testIntegratorBasic.cpp` and event tests to cover all six methods. |
-| 8 | Physical-dynamics correctness | `testTwoBodyKepler.cpp` and `testCR3BPPropagation.cpp` (propagation-only); these sweep all six methods × three controllers (Taylor uses Jorba–Zou). The Feagin14 + H211b @ 1e-14 reference trajectory used by the CR3BP test is generated during the test setup. |
-| 9 | CR3BP events + benchmark | `testCR3BPEvents.cpp` reuses the slice-8 RHS and ICs and adds the three `ZeroCrossing` events; `benchmarks/bench_ode_cr3bp.cpp` reports timing + step counts for each (method, controller) on the same problem. |
+| 5 | Verner pairs | `detail/verner_tableaus.hpp`, `steppers/verner78.hpp`, `steppers/verner89.hpp` (parameterised on the controllers from slice 2); per-stepper tests sweep `I`, `PI`, `H211b`; expand `testIntegratorBasic.cpp` and the events tests to Taylor + Verner. |
+| 6 | Fehlberg 7/8 | `detail/fehlberg_tableaus.hpp`, `steppers/fehlberg78.hpp` with controller template parameter and Hermite-based dense output; per-stepper test; widen `testIntegratorBasic.cpp` and event tests. |
+| 7 | Feagin 12(10) + Feagin 14(12) | `detail/feagin_tableaus.hpp`, `steppers/feagin12.hpp`, `steppers/feagin14.hpp`; per-stepper tests; widen `testIntegratorBasic.cpp` and event tests to cover all six methods. |
+| 8 | Physical-dynamics correctness | `testTwoBodyKepler.cpp` and `testCR3BPPropagation.cpp` (propagation-only); these sweep all six methods × three generic controllers (Taylor additionally sweeps JorbaZou). The Feagin14 + H211b @ 1e-14 reference trajectory used by the CR3BP test is generated during the test setup. |
+| 9 | CR3BP events + benchmark | `testCR3BPEvents.cpp` reuses the slice-8 RHS and ICs and adds the three `ZeroCrossing` events; `benchmarks/bench_ode_cr3bp.cpp` uses **`Fehlberg78Integrator` + `controllers::I` at `abstol = reltol = 1e-14`** as the reference and reports speedup vs that baseline for every other (method, controller, tolerance) combination. |
 | 10 | Static-vs-dynamic D parity | `testIntegratorStatic.cpp` confirms `Eigen::Matrix<T, D_static, 1>` vs `Eigen::VectorXd` agreement; tighten any remaining loose edges. |
 
 Roughly one PR per slice; final slice ends Stage 2a.
