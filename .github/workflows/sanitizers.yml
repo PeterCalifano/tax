@@ -112,7 +112,7 @@ jobs:
         run: >
           cmake -S . -B build
           -DCMAKE_BUILD_TYPE=Release
-          -DTAX_BUILD_TEST=ON
+          -DTAX_BUILD_UNITTESTS=ON
           -DTAX_BUILD_BENCHMARK=OFF
           -G Ninja
 
@@ -165,7 +165,7 @@ jobs:
         run: >
           cmake -S . -B build-${{ matrix.sanitizer }}
           -DCMAKE_BUILD_TYPE=RelWithDebInfo
-          -DTAX_BUILD_TEST=ON
+          -DTAX_BUILD_UNITTESTS=ON
           -DTAX_BUILD_BENCHMARK=OFF
           -G Ninja
           "-DCMAKE_CXX_FLAGS=${{ matrix.flags }}"

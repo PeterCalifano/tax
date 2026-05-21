@@ -82,7 +82,7 @@ ctest --test-dir build --output-on-failure
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `TAX_BUILD_TEST` | `ON` | Build Google Test suite |
+| `TAX_BUILD_UNITTESTS` | `ON` | Build Google Test unit-test suite |
 | `TAX_BUILD_BENCHMARK` | `OFF` | Build Google Benchmark suite |
 | `TAX_BUILD_PYTHON` | `OFF` | Build the nanobind Python bindings (target `_tax`) |
 | `TAX_USE_DACE` | `OFF` | Enable DACE comparison (fetched automatically) |

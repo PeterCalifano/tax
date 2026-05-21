@@ -115,7 +115,7 @@ jobs:
         run: >
           cmake -S . -B build
           -DCMAKE_BUILD_TYPE=Release
-          -DTAX_BUILD_TEST=ON
+          -DTAX_BUILD_UNITTESTS=ON
           -DTAX_BUILD_BENCHMARK=OFF
           -G Ninja
 
@@ -156,7 +156,7 @@ jobs:
         run: >
           cmake -S . -B build-coverage
           -DCMAKE_BUILD_TYPE=Debug
-          -DTAX_BUILD_TEST=ON
+          -DTAX_BUILD_UNITTESTS=ON
           -DTAX_BUILD_BENCHMARK=OFF
           -G Ninja
           -DCMAKE_CXX_FLAGS=--coverage

@@ -115,7 +115,7 @@ ctest --test-dir build --output-on-failure
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `TAX_BUILD_TEST` | `ON` | Build the test suite |
+| `TAX_BUILD_UNITTESTS` | `ON` | Build the unit-test suite |
 | `TAX_BUILD_BENCHMARK` | `OFF` | Build Google Benchmark suite |
 | `TAX_USE_UNROLL` | `ON` | Compile-time-unrolled M=1 Cauchy kernels |
 | `TAX_USE_STENCIL` | `ON` | Precomputed Cauchy stencils for M≥2 |
