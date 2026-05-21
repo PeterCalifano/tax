@@ -12,3 +12,4 @@
 #include <tax/ode/controllers.hpp>
 #include <tax/ode/steppers/taylor.hpp>
 #include <tax/ode/integrator.hpp>
+#include <tax/ode/event.hpp>
