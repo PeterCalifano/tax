@@ -83,3 +83,39 @@ TEST( OdeIntegrator, CubicDecayDynamicDim )
 
     EXPECT_NEAR( sol.x.back()( 0 ), 1.0 / std::sqrt( 3.0 ), 1e-10 );
 }
+
+TEST( OdeIntegrator, LotkaVolterraCrossMethod )
+{
+    using State = Eigen::Matrix< double, 2, 1 >;
+
+    tax::ode::IntegratorConfig< double > cfg;
+    cfg.abstol = cfg.reltol = 1e-12;
+
+    // dx/dt = x (a - b*y), dy/dt = -y (c - d*x)
+    // Use a = 1.1, b = 0.4, c = 0.4, d = 0.1.
+    const auto f = []( const auto& z, const auto& /*t*/ )
+    {
+        using S = std::decay_t< decltype( z ) >;
+        S out;
+        out( 0 ) =  z( 0 ) * ( 1.1 - 0.4 * z( 1 ) );
+        out( 1 ) = -z( 1 ) * ( 0.4 - 0.1 * z( 0 ) );
+        return out;
+    };
+
+    State x0; x0( 0 ) = 10.0; x0( 1 ) = 5.0;
+    const double t0 = 0.0, tf = 5.0;
+
+    auto tay = tax::ode::makeTaylorIntegrator   < 16, double, 2, false >( f, cfg );
+    auto v78 = tax::ode::makeVerner78Integrator <    double, 2, false >( f, cfg );
+    auto v89 = tax::ode::makeVerner89Integrator <    double, 2, false >( f, cfg );
+
+    const auto sol_t  = tay.integrate( x0, t0, tf );
+    const auto sol_78 = v78.integrate( x0, t0, tf );
+    const auto sol_89 = v89.integrate( x0, t0, tf );
+
+    // Cross-method agreement: tolerated to ~1e-9 over moderate horizon.
+    EXPECT_NEAR( sol_t.x.back()( 0 ), sol_78.x.back()( 0 ), 1e-9 );
+    EXPECT_NEAR( sol_t.x.back()( 1 ), sol_78.x.back()( 1 ), 1e-9 );
+    EXPECT_NEAR( sol_t.x.back()( 0 ), sol_89.x.back()( 0 ), 1e-9 );
+    EXPECT_NEAR( sol_t.x.back()( 1 ), sol_89.x.back()( 1 ), 1e-9 );
+}
