@@ -1,7 +1,7 @@
 // include/tax/ode/actions.hpp
 //
 // Action factories. Each factory returns a callable with the signature
-//   ControlFlow(const StepperCtx<…>&, T tau_fired, EventSink<State, T>&).
+//   ControlFlow(const StepperCtx<…>&, T tau_fired, EventStorage<State, T>&).
 //
 // The action is invoked by the Integrator after a Trigger has fired
 // with the τ at which the firing took place. Actions decide whether
@@ -26,7 +26,7 @@ namespace tax::ode
 // EventRecords into the Solution. Defined here (one definition) and
 // forward declared in event.hpp.
 template < class State, class T >
-struct EventSink
+struct EventStorage
 {
     std::vector< EventRecord< State, T > >* events;
 

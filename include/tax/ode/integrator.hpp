@@ -93,7 +93,7 @@ Integrator< Stepper, F, Dense >::integrate(
                         ? cfg_.min_step
                         : std::numeric_limits< T >::epsilon() * std::abs( span ) * T{ 16 };
 
-    EventSink< State, T > sink{ &sol.events };
+    EventStorage< State, T > sink{ &sol.events };
 
     int  total_steps = 0;
     bool terminate   = false;

@@ -2,7 +2,7 @@
 //
 // Direction / ControlFlow enums, TriggerContext, StepperCtx, and the
 // type-erased Event<Stepper> class. Trigger and Action factories live
-// in triggers.hpp / actions.hpp; the EventSink they use is defined in
+// in triggers.hpp / actions.hpp; the EventStorage they use is defined in
 // actions.hpp and forward-declared at the bottom of this file.
 
 #pragma once
@@ -49,8 +49,8 @@ struct StepperCtx : TriggerContext< State_, T_, DenseData_ >
     }
 };
 
-// Forward declaration of EventSink (definition in actions.hpp).
-template < class State, class T > struct EventSink;
+// Forward declaration of EventStorage (definition in actions.hpp).
+template < class State, class T > struct EventStorage;
 
 // Event<Stepper>
 //
@@ -71,7 +71,7 @@ public:
     using State     = typename Stepper::State;
     using DenseData = typename Stepper::DenseData;
     using Ctx       = StepperCtx< Stepper, State, T, DenseData >;
-    using Sink      = EventSink< State, T >;
+    using Sink      = EventStorage< State, T >;
     using TriggerFn = std::function< std::optional< T >( const Ctx& ) >;
     using ActionFn  = std::function< ControlFlow( const Ctx&, T, Sink& ) >;
 
