@@ -97,14 +97,20 @@ jobs:
             fi
           fi
 
-          # Source install (used for Eigen 5 or as fallback)
+          # Source install (used for Eigen 5 or as fallback).
+          # Disable the BLAS / LAPACK subdirs: Eigen 5's install step
+          # references compiled BLAS artifacts even when we never asked
+          # for them, causing `cmake --install` to fail. tax only uses
+          # Eigen as a header-only library.
           wget -q "https://gitlab.com/libeigen/eigen/-/archive/${EIGEN_VERSION}/eigen-${EIGEN_VERSION}.tar.gz"
           tar -xzf "eigen-${EIGEN_VERSION}.tar.gz"
           cmake -S "eigen-${EIGEN_VERSION}" -B eigen-build \
                 -DCMAKE_INSTALL_PREFIX="$EIGEN_PREFIX" \
                 -DCMAKE_BUILD_TYPE=Release \
                 -DEIGEN_BUILD_DOC=OFF \
-                -DEIGEN_BUILD_TESTING=OFF
+                -DEIGEN_BUILD_TESTING=OFF \
+                -DEIGEN_BUILD_BLAS=OFF \
+                -DEIGEN_BUILD_LAPACK=OFF
           cmake --install eigen-build
           echo "CMAKE_PREFIX_PATH=$EIGEN_PREFIX" >> "$GITHUB_ENV"
 
