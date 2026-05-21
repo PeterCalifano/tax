@@ -1,6 +1,7 @@
 // include/tax/ode.hpp
 //
-// tax Stage 2a — opt-in ODE integration umbrella.
+// Opt-in ODE integration umbrella — include only this header to access
+// the full ODE surface (config + concepts + step result + …).
 
 #pragma once
 
