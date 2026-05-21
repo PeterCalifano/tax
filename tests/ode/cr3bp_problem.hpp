@@ -24,6 +24,12 @@
 // IC chosen to produce a trajectory that begins near Earth, transits
 // the L1 neck, loops around the Moon, and exits via L2 within
 // T_final = 7 non-dim. time units.
+//
+// Note: the original IC (x=0.836, vy=0.0095) produced a bounded lunar
+// orbit that never exits via L2.  It was replaced (Task 22) with
+// (x=0.82, vy=0.175), which gives a clean interior-to-exterior transit:
+//   L1 crossing at t≈0.47,  two Moon periapses (r2≈0.049–0.067),
+//   L2 crossing at t≈4.2.  Min Moon distance ≈ 0.049 (no singularity).
 
 #pragma once
 
@@ -85,11 +91,13 @@ inline double cr3bp_jacobi( const CR3BPState& s, double mu = kCR3BPMu )
 
 inline CR3BPState cr3bp_transit_ic()
 {
+    // Interior-to-exterior transit: crosses L1, loops Moon twice, exits L2.
+    // Adjusted in Task 22 from (0.836, 0, 0, 0.0095) — that IC was bounded.
     CR3BPState x0;
-    x0( 0 ) = 0.836;    // just inside L1
+    x0( 0 ) = 0.82;     // inside L1 neck
     x0( 1 ) = 0.0;
     x0( 2 ) = 0.0;
-    x0( 3 ) = 0.0095;   // small velocity normal to x-axis
+    x0( 3 ) = 0.175;    // velocity normal to x-axis, strong enough to transit
     return x0;
 }
 
