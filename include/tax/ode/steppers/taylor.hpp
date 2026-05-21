@@ -53,7 +53,7 @@ struct TaylorStepper
     using DenseData = Eigen::Matrix< TE, D, 1 >;
 
     template < class F >
-    StepResult< StateT, TaylorStepper > step(
+    [[nodiscard]] StepResult< StateT, TaylorStepper > step(
         const F& f, const StateT& x, T t, T h, const Config& cfg );
 
     [[nodiscard]] static StateT eval_dense(

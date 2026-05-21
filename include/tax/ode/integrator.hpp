@@ -42,7 +42,7 @@ public:
     using Solution  = tax::ode::Solution< Stepper, State, Dense >;
     using EventList = std::vector< Event< Stepper > >;
 
-    Integrator( F f, Config cfg = {}, EventList events = {} )
+    explicit Integrator( F f, Config cfg = {}, EventList events = {} )
         : f_( std::move( f ) ),
           cfg_( std::move( cfg ) ),
           events_( std::move( events ) )
@@ -162,11 +162,15 @@ Integrator< Stepper, F, Dense >::integrate(
                         ctx.t_old + tau_term );
                     sol.t.push_back( ctx.t_old + tau_term );
                     sol.x.push_back( std::move( x_term ) );
+                    if constexpr ( Dense )
+                        sol.dense.push_back( std::move( r.dense ) );
                 }
                 else
                 {
                     sol.t.push_back( t );
                     sol.x.push_back( x );
+                    if constexpr ( Dense )
+                        sol.dense.push_back( std::move( r.dense ) );
                 }
                 break;
             }

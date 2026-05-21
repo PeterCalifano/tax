@@ -9,6 +9,7 @@
 #include <Eigen/Core>
 #include <cmath>
 #include <stdexcept>
+#include <vector>
 
 #include <tax/ode.hpp>
 
@@ -58,4 +59,41 @@ TEST( OdeIntegratorDense, OutOfRangeThrows )
 
     EXPECT_THROW( sol( -0.1 ), std::out_of_range );
     EXPECT_THROW( sol(  0.6 ), std::out_of_range );
+}
+
+TEST( OdeIntegratorDense, TerminatePreservesDenseInvariant )
+{
+    constexpr int N = 16;
+    using State = Eigen::Matrix< double, 1, 1 >;
+
+    tax::ode::IntegratorConfig< double > cfg;
+    cfg.abstol = cfg.reltol = 1e-12;
+
+    const auto f = []( const auto& x, const auto& /*t*/ ) { return x; };
+
+    using Stepper = tax::ode::TaylorStepper< N, State >;
+    std::vector< tax::ode::Event< Stepper > > events;
+    events.emplace_back(
+        tax::ode::ZeroCrossing(
+            []( const auto& x, const auto& ) { return x( 0 ) - 2.0; },
+            tax::ode::Direction::Increasing ),
+        tax::ode::Terminate() );
+
+    auto integ = tax::ode::makeTaylorIntegrator<
+        N, double, 1, /*Dense=*/true >( f, cfg, events );
+
+    State x0; x0( 0 ) = 1.0;
+    auto sol = integ.integrate( x0, 0.0, 5.0 );
+
+    // Invariant: dense.size() + 1 == t.size().
+    ASSERT_EQ( sol.dense.size() + 1, sol.t.size() );
+    // Terminated early at x = 2 (which is exp(t) = 2 ⇒ t = ln(2) ≈ 0.693).
+    EXPECT_NEAR( sol.t.back(), std::log( 2.0 ), 1e-9 );
+    // Dense query just before the event should be valid and ≈ exp(tq).
+    const double tq = sol.t.back() - 0.01;
+    State x_at_tq = sol( tq );
+    EXPECT_NEAR( x_at_tq( 0 ), std::exp( tq ), 1e-10 );
+    // Dense query AT the event boundary should also be valid.
+    State x_at_event = sol( sol.t.back() );
+    EXPECT_NEAR( x_at_event( 0 ), 2.0, 1e-10 );
 }

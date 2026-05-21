@@ -52,9 +52,17 @@ struct StepperCtx : TriggerContext< State_, T_, DenseData_ >
 // Forward declaration of EventSink (definition in actions.hpp).
 template < class State, class T > struct EventSink;
 
-// Type-erased Event = (Trigger, Action) pair. Stepper is fixed at the
-// Event's instantiation point so the Trigger / Action callables can
-// statically rely on Stepper::eval_dense, Stepper::DenseData, etc.
+// Event<Stepper>
+//
+// Type-erased pair of {Trigger, Action}. Triggers and Actions are
+// stored as std::function-erased callables. Any state captured by
+// reference inside a Trigger or Action lambda (e.g. counters, output
+// buffers) MUST outlive the call to Integrator::integrate(); references
+// dangling at trigger-evaluation time produce UB.
+//
+// Stepper is fixed at the Event's instantiation point so the Trigger /
+// Action callables can statically rely on Stepper::eval_dense,
+// Stepper::DenseData, etc.
 template < class Stepper >
 class Event
 {
