@@ -5,3 +5,4 @@
 # tax_add_test() from the parent tests/CMakeLists.txt.
 
 tax_add_test(test_ode_config SOURCES testConfig.cpp)
+tax_add_test(test_ode_concepts SOURCES testConcepts.cpp)
