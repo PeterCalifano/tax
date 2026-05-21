@@ -152,16 +152,14 @@ Integrator< Stepper, F, Dense >::integrate(
             if ( terminate )
             {
                 // Replace the final solution point with the event time
-                // (linear interpolation). Matches the precision of
-                // Record/Custom. Stepper-specific refinement is a
-                // Stage 2b enhancement.
+                // using the Stepper's continuous extension for
+                // machine-precision x_term.
                 if ( !fired.empty() )
                 {
                     const T tau_term = fired.front().tau;
-                    const T frac     = ( ctx.h_used > T{ 0 } )
-                                            ? tau_term / ctx.h_used
-                                            : T{ 0 };
-                    State   x_term   = ctx.x_old + frac * ( ctx.x_new - ctx.x_old );
+                    State   x_term   = Stepper::eval_dense(
+                        ctx.dense, ctx.t_old, ctx.t_old + ctx.h_used,
+                        ctx.t_old + tau_term );
                     sol.t.push_back( ctx.t_old + tau_term );
                     sol.x.push_back( std::move( x_term ) );
                 }

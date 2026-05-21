@@ -95,10 +95,9 @@ TEST( OdeEventsZeroCrossing, HarmonicVZeroRecord )
         EXPECT_GE( e.t_event, 0.0 );
         EXPECT_LE( e.t_event, 2 * M_PI + 1e-9 );
         // The event *time* is found via polynomial Newton (near machine
-        // precision). The recorded *state* uses Record's linear-interp
-        // approximation, accurate only to ~O(h^2). Stage 2a keeps the
-        // looser bound here; Stage 2b promotes Record to eval_dense.
-        EXPECT_NEAR( std::abs( e.x_event( 1 ) ), 0.0, 5e-2 );
+        // precision). Record now uses Stepper::eval_dense so x_event
+        // is machine-precision accurate — tighten to the spec's 1e-8.
+        EXPECT_NEAR( std::abs( e.x_event( 1 ) ), 0.0, 1e-8 );
     }
 }
 

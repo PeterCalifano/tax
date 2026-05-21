@@ -56,10 +56,10 @@ inline auto Terminate()
     };
 }
 
-// Record(label) — push an EventRecord with a linearly-interpolated
-// state at τ into the sink and continue. The linear interpolant is
-// Stage 2a's good-enough event coordinate; Stepper-specific Record
-// can refine via eval_dense in a later stage.
+// Record(label) — push an EventRecord with the Stepper's continuous
+// extension evaluated at τ into the sink and continue. Using
+// eval_dense gives machine-precision x_event when τ was located by
+// polynomial-Newton on g_poly.
 inline auto Record( std::string label )
 {
     return [ lbl = std::move( label ) ]<
@@ -67,8 +67,14 @@ inline auto Record( std::string label )
                const Ctx& ctx, T tau, Sink& sink ) -> ControlFlow
     {
         using SinkState = std::remove_cvref_t< decltype( ctx.x_old ) >;
-        const T frac = ( ctx.h_used != T{ 0 } ) ? tau / ctx.h_used : T{ 0 };
-        SinkState x_event = ctx.x_old + frac * ( ctx.x_new - ctx.x_old );
+        // Use the Stepper's continuous extension to evaluate state at
+        // the event time — gives machine-precision x_event when τ was
+        // located by polynomial-Newton on g_poly.
+        SinkState x_event = Ctx::Stepper_type::eval_dense(
+            ctx.dense,
+            ctx.t_old,
+            ctx.t_old + ctx.h_used,
+            ctx.t_old + tau );
         sink.push( { lbl, ctx.t_old + tau, std::move( x_event ) } );
         return ControlFlow::Continue;
     };
