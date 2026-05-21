@@ -617,11 +617,24 @@ sweep runs the same problem and reports:
 - rejected-step count
 - end-state error vs the RKF78+I reference
 
+**Taylor order sweep.** Since `TaylorStepper<N, …>` order is a
+compile-time parameter, the benchmark instantiates and times the
+Taylor path at a representative set of orders to characterise the
+order-vs-cost curve directly: `N ∈ {8, 10, 12, 16, 20, 24, 30}`. The
+expected shape on CR3BP (univariate-in-time Taylor on a 4D state) is
+fewer steps but higher per-step cost as `N` grows; the curve typically
+has a sweet spot around `N = 16–24` for `abstol = 1e-12`, with
+diminishing returns past that point. The full Taylor sweep is run
+under JorbaZou (default), and additionally under `PI` and `H211b` for
+one or two representative orders (e.g. `N = 12` and `N = 24`) so the
+controller-vs-controller comparison stays manageable.
+
 The output table lets users read directly "method X with controller Y
-achieves N× speedup over RKF78+I at the same end-state error" — the
-expected modern result is that Verner / Feagin pairs with PI or H211b
-beat RKF78+I in efficiency by a substantial margin, with Taylor
-(JorbaZou) most competitive at very high precision.
+(and order N for Taylor) achieves K× speedup over RKF78+I at the same
+end-state error" — the expected modern result is that Verner / Feagin
+pairs with PI or H211b beat RKF78+I in efficiency by a substantial
+margin, with high-order Taylor (`N ≥ 16` + JorbaZou) most competitive
+at very high precision.
 
 ## Slice ordering
 
@@ -638,7 +651,7 @@ failing tests → implement → tests green → commit.
 | 6 | Fehlberg 7/8 | `detail/fehlberg_tableaus.hpp`, `steppers/fehlberg78.hpp` with controller template parameter and Hermite-based dense output; per-stepper test; widen `testIntegratorBasic.cpp` and event tests. |
 | 7 | Feagin 12(10) + Feagin 14(12) | `detail/feagin_tableaus.hpp`, `steppers/feagin12.hpp`, `steppers/feagin14.hpp`; per-stepper tests; widen `testIntegratorBasic.cpp` and event tests to cover all six methods. |
 | 8 | Physical-dynamics correctness | `testTwoBodyKepler.cpp` and `testCR3BPPropagation.cpp` (propagation-only); these sweep all six methods × three generic controllers (Taylor additionally sweeps JorbaZou). The Feagin14 + H211b @ 1e-14 reference trajectory used by the CR3BP test is generated during the test setup. |
-| 9 | CR3BP events + benchmark | `testCR3BPEvents.cpp` reuses the slice-8 RHS and ICs and adds the three `ZeroCrossing` events; `benchmarks/bench_ode_cr3bp.cpp` uses **`Fehlberg78Integrator` + `controllers::I` at `abstol = reltol = 1e-14`** as the reference and reports speedup vs that baseline for every other (method, controller, tolerance) combination. |
+| 9 | CR3BP events + benchmark | `testCR3BPEvents.cpp` reuses the slice-8 RHS and ICs and adds the three `ZeroCrossing` events; `benchmarks/bench_ode_cr3bp.cpp` uses **`Fehlberg78Integrator` + `controllers::I` at `abstol = reltol = 1e-14`** as the reference. The sweep covers every RK (method, controller, tolerance) combination plus `TaylorIntegrator` at `N ∈ {8, 10, 12, 16, 20, 24, 30}` (full sweep under JorbaZou, with `PI` and `H211b` also benchmarked at `N = 12` and `N = 24`). |
 | 10 | Static-vs-dynamic D parity | `testIntegratorStatic.cpp` confirms `Eigen::Matrix<T, D_static, 1>` vs `Eigen::VectorXd` agreement; tighten any remaining loose edges. |
 
 Roughly one PR per slice; final slice ends Stage 2a.
