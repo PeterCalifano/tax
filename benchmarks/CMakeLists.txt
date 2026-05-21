@@ -14,3 +14,6 @@ function(tax_add_bench name)
     add_executable(${name} ${B_SOURCES})
     target_link_libraries(${name} PRIVATE tax benchmark::benchmark)
 endfunction()
+
+tax_add_bench(bench_ode_cr3bp SOURCES bench_ode_cr3bp.cpp)
+target_include_directories(bench_ode_cr3bp PRIVATE ${CMAKE_SOURCE_DIR})
