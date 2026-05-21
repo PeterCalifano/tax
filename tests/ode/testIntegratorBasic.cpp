@@ -108,14 +108,19 @@ TEST( OdeIntegrator, LotkaVolterraCrossMethod )
     auto tay = tax::ode::makeTaylorIntegrator   < 16, double, 2, false >( f, cfg );
     auto v78 = tax::ode::makeVerner78Integrator <    double, 2, false >( f, cfg );
     auto v89 = tax::ode::makeVerner89Integrator <    double, 2, false >( f, cfg );
+    auto fhl = tax::ode::makeFehlberg78Integrator< double, 2, false >( f, cfg );
 
     const auto sol_t  = tay.integrate( x0, t0, tf );
     const auto sol_78 = v78.integrate( x0, t0, tf );
     const auto sol_89 = v89.integrate( x0, t0, tf );
+    const auto sol_fh = fhl.integrate( x0, t0, tf );
 
     // Cross-method agreement: tolerated to ~1e-9 over moderate horizon.
     EXPECT_NEAR( sol_t.x.back()( 0 ), sol_78.x.back()( 0 ), 1e-9 );
     EXPECT_NEAR( sol_t.x.back()( 1 ), sol_78.x.back()( 1 ), 1e-9 );
     EXPECT_NEAR( sol_t.x.back()( 0 ), sol_89.x.back()( 0 ), 1e-9 );
     EXPECT_NEAR( sol_t.x.back()( 1 ), sol_89.x.back()( 1 ), 1e-9 );
+    // Looser tolerance per the Fehlberg coincidence (see spec Risks).
+    EXPECT_NEAR( sol_t.x.back()( 0 ), sol_fh.x.back()( 0 ), 1e-8 );
+    EXPECT_NEAR( sol_t.x.back()( 1 ), sol_fh.x.back()( 1 ), 1e-8 );
 }
