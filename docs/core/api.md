@@ -1,6 +1,10 @@
 # API Reference
 
-Complete reference for the core **tax** types, constructors, accessors, operators, and mathematical functions.
+Complete reference for the core **tax** types, constructors, accessors,
+operators, and mathematical functions.
+
+All names live in `namespace tax` unless noted; storage tags live in
+`namespace tax::storage`.
 
 ---
 
@@ -9,191 +13,150 @@ Complete reference for the core **tax** types, constructors, accessors, operator
 ```cpp
 namespace tax {
 
-template <typename T, int N, int M = 1>
-class TaylorExpansionT;
+template <typename T,
+          int N,
+          int M = 1,
+          typename Storage = storage::Dense>
+class TaylorExpansion;
 
-}
+}  // namespace tax
 ```
 
-### Template Parameters
+### Template parameters
 
 | Parameter | Description |
-|-----------|-------------|
-| `T` | Scalar coefficient type (must satisfy `std::floating_point`, e.g. `double`, `float`) |
-| `N` | Maximum total polynomial order (\(N \ge 0\)) |
-| `M` | Number of independent variables (\(M \ge 1\), default 1) |
+|---|---|
+| `T`       | Scalar coefficient type — must satisfy `tax::Scalar` (`std::floating_point`) |
+| `N`       | Maximum total polynomial order, \(N \ge 0\) |
+| `M`       | Number of independent variables, \(M \ge 1\) (default `1`) |
+| `Storage` | Storage policy: `tax::storage::Dense` (default) or `tax::storage::Sparse` |
 
-### Type Aliases
+### Convenience aliases
 
 ```cpp
-template <int N>
-using TE = TaylorExpansionT<double, N, 1>;    // univariate, double
+template <int N, int M = 1>
+using TE  = TaylorExpansion<double, N, M, storage::Dense>;
 
-template <int N, int M>
-using TEn = TaylorExpansionT<double, N, M>;   // multivariate, double
+template <int N, int M = 1>
+using STE = TaylorExpansion<double, N, M, storage::Sparse>;
 ```
 
-### Constants and Member Types
+### Compile-time members
 
-| Name | Type | Description |
-|------|------|-------------|
-| `nCoefficients` | `static constexpr std::size_t` | Total number of stored coefficients: \(\binom{N+M}{M}\) |
-| `Data` | `std::array<T, nCoefficients>` | Coefficient storage type |
-| `Input` | `std::array<T, M>` | Expansion point / displacement vector type |
+| Member | Type | Description |
+|---|---|---|
+| `nCoefficients` | `std::size_t` | Total monomials: \(\binom{N+M}{M}\) |
+| `order_v`       | `int` | Truncation order \(N\) |
+| `vars_v`        | `int` | Variable count \(M\) |
+| `scalar_type`   | type alias | `T` |
+| `Input`         | type alias | `std::array<T, M>` — expansion-point / displacement vector |
 
 ---
 
 ## Constructors
 
 ```cpp
-// Zero polynomial (all coefficients = 0)
-constexpr TaylorExpansionT() noexcept;
-
-// From full coefficient array
-explicit constexpr TaylorExpansionT(Data c) noexcept;
-
-// Constant polynomial (value = val, all other coefficients = 0)
-/*implicit*/ constexpr TaylorExpansionT(T val) noexcept;
-
-// Materialize an expression template
-template <typename Derived>
-/*implicit*/ constexpr TaylorExpansionT(const Expr<Derived, T, N, M>& expr) noexcept;
+constexpr TaylorExpansion() noexcept;                       // zero polynomial
+/*implicit*/ constexpr TaylorExpansion(T val) noexcept;     // constant polynomial
+explicit constexpr TaylorExpansion(Data coeffs) noexcept;   // direct coefficient array
 ```
 
-The expression constructor evaluates the entire lazy expression tree in a single pass, writing the result directly into the coefficient array.
+The constant-value constructor is implicit so scalars are promoted naturally in
+arithmetic expressions.
 
 ---
 
-## Variable Factories
+## Variable factories
 
-All factories are `static constexpr` member functions of `TaylorExpansionT`.
+All factories are `static constexpr` member functions of `TaylorExpansion`.
 
 ```cpp
-// Univariate variable: x = x0 + 1*dx (requires M == 1)
-[[nodiscard]] static constexpr TaylorExpansionT
-variable(T x0) noexcept;
-
-// Multivariate variable x_I at expansion point x0
-template <int I>
-[[nodiscard]] static constexpr TaylorExpansionT
-variable(const Input& x0) noexcept;
-
-// All M variables at expansion point x0, returned as std::tuple
-[[nodiscard]] static constexpr auto
-variables(const Input& x0) noexcept;
-
-// All M variables from splatted scalar arguments (requires M > 1)
-template <typename... X0>
-[[nodiscard]] static constexpr auto
-variables(X0&&... x0) noexcept;
+// Zero polynomial
+[[nodiscard]] static constexpr TaylorExpansion zero() noexcept;
 
 // Constant polynomial with value v
-[[nodiscard]] static constexpr TaylorExpansionT
-constant(T v) noexcept;
+[[nodiscard]] static constexpr TaylorExpansion constant(T v) noexcept;
 
-// Zero polynomial
-[[nodiscard]] static constexpr TaylorExpansionT
-zero() noexcept;
+// Univariate variable: x = x0 + 1·δx   (requires M == 1)
+[[nodiscard]] static constexpr TaylorExpansion variable(T x0) noexcept;
 
-// Unit polynomial (constant = 1)
-[[nodiscard]] static constexpr TaylorExpansionT
-one() noexcept;
+// I-th coordinate variable at expansion point p   (requires 0 ≤ I < M)
+template <int I>
+[[nodiscard]] static constexpr TaylorExpansion variable(const Input& p) noexcept;
 ```
+
+For an Eigen column-vector of all \(M\) coordinate variables at once, use the
+free function `tax::variables<TE>(x0)` from
+[Eigen integration](../eigen/index.md).
 
 ---
 
-## Coefficient Access
+## Coefficient access
 
 ```cpp
-// Constant term (coefficient of the degree-0 monomial)
+// Constant term, f(x0)
 [[nodiscard]] constexpr T value() const noexcept;
 
-// Read/write coefficient by flat index
-[[nodiscard]] constexpr T  operator[](std::size_t i) const noexcept;
-[[nodiscard]] constexpr T& operator[](std::size_t i) noexcept;
-[[nodiscard]] constexpr T  operator()(std::size_t i) const noexcept;
-[[nodiscard]] constexpr T& operator()(std::size_t i) noexcept;
-
-// Full coefficient array
-[[nodiscard]] constexpr const Data& coeffs() const noexcept;
-[[nodiscard]] constexpr Data&       coeffs() noexcept;
+// Raw coefficient by flat (graded-lex) index
+[[nodiscard]] constexpr T  operator[](std::size_t k) const noexcept;
+[[nodiscard]] constexpr T& operator[](std::size_t k) noexcept;          // Dense only
 
 // Coefficient by runtime multi-index
 [[nodiscard]] constexpr T coeff(const MultiIndex<M>& alpha) const noexcept;
 
 // Coefficient by compile-time multi-index
+//   Usage: f.coeff<2, 1>()  → coefficient of δx₁²·δx₂
 template <int... Alpha>
 [[nodiscard]] constexpr T coeff() const noexcept;
 ```
 
+Dense and Sparse expose the same shape. Sparse additionally exposes:
+
+```cpp
+[[nodiscard]] std::size_t nnz() const noexcept;                              // # nonzeros
+[[nodiscard]] std::span<const storage::flat_index_t> support() const;        // flat indices
+[[nodiscard]] std::span<const T>                     values()  const;        // values
+[[nodiscard]] auto dense() const noexcept;                                   // → Dense conversion
+```
+
 ---
 
-## Derivative Access
+## Derivative access
 
 Derivatives are related to coefficients by \(\partial^\alpha f = \alpha! \cdot f_\alpha\).
 
 ```cpp
-// Partial derivative by runtime multi-index
+// Partial derivative at x0 by runtime multi-index
 [[nodiscard]] constexpr T derivative(const MultiIndex<M>& alpha) const noexcept;
 
-// Partial derivative by compile-time multi-index
+// Partial derivative at x0 by compile-time multi-index
+//   Usage: f.derivative<2>()    → d²f/dx² (univariate)
+//          f.derivative<1, 0>() → ∂f/∂x   (multivariate, M==2)
 template <int... Alpha>
 [[nodiscard]] constexpr T derivative() const noexcept;
-
-// All derivatives in flat monomial order (entry i = coeff[i] * alpha_i!)
-[[nodiscard]] constexpr Data derivatives() const noexcept;
 ```
 
 ---
 
-## Differentiation and Integration
+## Differentiation and integration
 
-These methods return new TTE objects representing the symbolic derivative or integral of the polynomial.
-
-```cpp
-// Partial derivative w.r.t. variable I (compile-time index)
-template <int I>
-[[nodiscard]] constexpr TaylorExpansionT deriv() const noexcept;
-
-// Partial derivative w.r.t. variable var (runtime index)
-// Throws std::out_of_range if var >= M
-[[nodiscard]] constexpr TaylorExpansionT deriv(int var) const;
-
-// Indefinite integral w.r.t. variable I (compile-time index)
-// Terms of degree N are dropped; constant of integration is zero
-template <int I>
-[[nodiscard]] constexpr TaylorExpansionT integ() const noexcept;
-
-// Indefinite integral w.r.t. variable var (runtime index)
-// Throws std::out_of_range if var >= M
-[[nodiscard]] constexpr TaylorExpansionT integ(int var) const;
-```
-
----
-
-## Norms
+These return new `TaylorExpansion` objects with the same shape \((N, M)\).
 
 ```cpp
-// Infinity norm: max_i |c_i|
-[[nodiscard]] constexpr T coeffsNormInf() const noexcept;
+// ∂/∂x_I   compile-time index
+template <int I>
+[[nodiscard]] constexpr TaylorExpansion deriv() const noexcept;
 
-// p-norm (runtime): (sum |c_i|^p)^(1/p), p > 0
-// Throws std::invalid_argument if p == 0
-[[nodiscard]] T coeffsNorm(unsigned int p) const;
+// ∂/∂x_var   runtime index — throws std::out_of_range if var >= M
+[[nodiscard]] TaylorExpansion deriv(int var) const;
 
-// p-norm (compile-time): P > 0
-template <unsigned int P>
-[[nodiscard]] T coeffsNorm() const noexcept;
+// Indefinite integral w.r.t. x_I   (constant of integration = 0)
+//   Coefficients of degree N are dropped (truncation).
+template <int I>
+[[nodiscard]] constexpr TaylorExpansion integ() const noexcept;
 
-// Grouped coefficient norm estimate with exponential fit
-// var: 0 = group by total degree, 1..M = group by variable exponent
-// type: 0 = max, 1 = sum, >1 = p-norm
-// nc: maximum group index for returned estimates
-[[nodiscard]] std::vector<T> coeffsNormEstimate(
-    unsigned int var = 0, unsigned int type = 0, unsigned int nc = N) const;
-
-// Convergence radius estimate from norm extrapolation
-T radius(T eps, unsigned int type = 1) const;
+// Runtime variant — throws std::out_of_range if var >= M
+[[nodiscard]] TaylorExpansion integ(int var) const;
 ```
 
 ---
@@ -201,114 +164,134 @@ T radius(T eps, unsigned int type = 1) const;
 ## Evaluation
 
 ```cpp
-// Univariate evaluation at x0 + dx (Horner's method, requires M == 1)
-[[nodiscard]] constexpr T eval(T dx) const noexcept;
-
-// Multivariate evaluation at x0 + dx
+// Evaluate at displacement dx from the expansion point.
+//   Univariate (M==1) uses Horner's method.
 [[nodiscard]] constexpr T eval(const Input& dx) const noexcept;
+
+// Eigen-vector displacement (size must equal M, statically or at runtime).
+template <typename DxDerived>
+[[nodiscard]] T eval(const Eigen::MatrixBase<DxDerived>& dx) const noexcept;
 ```
 
 ---
 
-## In-place Operators
+## Gradient and Hessian (member form)
+
+For multivariate dense expansions, on-object convenience helpers are provided:
 
 ```cpp
-// TTE-TTE arithmetic
-constexpr TaylorExpansionT& operator+=(const TaylorExpansionT& o) noexcept;
-constexpr TaylorExpansionT& operator-=(const TaylorExpansionT& o) noexcept;
-constexpr TaylorExpansionT& operator*=(const TaylorExpansionT& o) noexcept;
-constexpr TaylorExpansionT& operator/=(const TaylorExpansionT& o) noexcept;
+// ∇f at x0 as an Eigen column vector
+[[nodiscard]] Eigen::Matrix<T, M, 1> gradient() const noexcept;
 
-// TTE-expression arithmetic
-template <typename Derived>
-constexpr TaylorExpansionT& operator+=(const Expr<Derived, T, N, M>& e) noexcept;
-template <typename Derived>
-constexpr TaylorExpansionT& operator-=(const Expr<Derived, T, N, M>& e) noexcept;
-
-// TTE-scalar arithmetic
-constexpr TaylorExpansionT& operator*=(T s) noexcept;
-constexpr TaylorExpansionT& operator/=(T s) noexcept;
+// Hf at x0 as a symmetric Eigen matrix
+[[nodiscard]] Eigen::Matrix<T, M, M> hessian() const noexcept;
 ```
 
-Division (`/=`) with a TTE computes the reciprocal of the divisor (via the reciprocal recurrence), then multiplies.
+Vector-valued counterparts (Jacobian of a vector function) live in
+`tax/eigen.hpp` — see [Eigen / API Reference](../eigen/api.md).
 
 ---
 
-## Comparison Operators
+## Arithmetic operators
 
-All comparison operators act on the **constant term** only. Supported for TTE vs TTE, TTE vs scalar, and scalar vs TTE:
+All binary arithmetic operators are free functions defined for any combination
+of TE × TE and TE × scalar. They are eager for Dense/Sparse and operate on
+materialised polynomials (the lazy expression-template layer is invoked
+internally via the kernels).
 
 ```cpp
-==  !=  <  >  <=  >=
+operator+(lhs, rhs);   // sum
+operator-(lhs, rhs);   // difference
+operator*(lhs, rhs);   // product (Cauchy convolution)
+operator/(lhs, rhs);   // division (via reciprocal recurrence when rhs is TE)
+operator-(x);          // unary negation
+operator+(x);          // unary plus (identity)
 ```
+
+In-place forms (`+=`, `-=`, `*=`, `/=`) are available for TE × TE and
+TE × scalar.
 
 ---
 
-## Arithmetic Operators (Free Functions)
+## Comparison operators
 
-All binary arithmetic operators return **lazy expression objects** that are evaluated only on assignment to a `TaylorExpansionT`. Supported operand combinations: TTE-TTE, TTE-scalar, and scalar-TTE.
+`==`, `!=`, `<`, `>`, `<=`, `>=` compare the **constant terms** only. Supported
+for TE × TE, TE × scalar, and scalar × TE. Useful when threading TE values
+through Eigen factorisations and control-flow predicates.
+
+---
+
+## Unary math functions
+
+All accept a `TaylorExpansion` and return a `TaylorExpansion` of the same
+shape, using degree-by-degree recurrences (see
+[Mathematical Foundations](math.md)).
+
+| Function     | Domain restriction | Recurrence helper |
+|---|---|---|
+| `square(f)`  | none | \(f \cdot f\) via Cauchy self-product |
+| `cube(f)`    | none | two Cauchy products |
+| `reciprocal(f)` | \(f_0 \ne 0\) | solve \(f \cdot g = 1\) |
+| `sqrt(f)`    | \(f_0 > 0\) | solve \(g^2 = f\) |
+| `cbrt(f)`    | \(f_0 \ne 0\) | solve \(g^3 = f\) with incremental \(g^2\) |
+| `sin(f)`     | none | coupled sin/cos |
+| `cos(f)`     | none | coupled sin/cos |
+| `tan(f)`     | \(\cos(f_0) \ne 0\) | solve \(\cos\cdot t = \sin\) |
+| `asin(f)`    | \(|f_0| < 1\) | via \(h = \sqrt{1-f^2}\) |
+| `acos(f)`    | \(|f_0| < 1\) | \(\pi/2 - \arcsin\) |
+| `atan(f)`    | none | via \(h = 1 + f^2\) |
+| `sinh(f)`    | none | coupled sinh/cosh |
+| `cosh(f)`    | none | coupled sinh/cosh |
+| `tanh(f)`    | none | solve \(\cosh\cdot t = \sinh\) |
+| `asinh(f)`   | none | via \(h = \sqrt{1+f^2}\) |
+| `acosh(f)`   | \(f_0 > 1\) | via \(h = \sqrt{f^2-1}\) |
+| `atanh(f)`   | \(|f_0| < 1\) | via \(h = 1-f^2\) |
+| `exp(f)`     | none | derivative-driven |
+| `log(f)`     | \(f_0 > 0\) | derivative-driven |
+| `erf(f)`     | none | via \(h = \tfrac{2}{\sqrt\pi}\exp(-f^2)\) |
+
+---
+
+## Binary math functions
 
 ```cpp
-auto operator+(lhs, rhs);   // sum (flattened N-ary for chains)
-auto operator-(lhs, rhs);   // difference
-auto operator*(lhs, rhs);   // product (flattened N-ary for chains)
-auto operator/(lhs, rhs);   // division (via reciprocal)
-auto operator-(expr);        // unary negation
-auto operator+(expr);        // unary plus (identity)
+// Integer power via binary exponentiation
+[[nodiscard]] TaylorExpansion<T, N, M> pow(const TaylorExpansion<T, N, M>& f, int n);
+
+// Real-exponent power, requires f_0 > 0
+[[nodiscard]] TaylorExpansion<T, N, M> pow(const TaylorExpansion<T, N, M>& f, T c);
+
+// Two-argument arctangent
+[[nodiscard]] TaylorExpansion<T, N, M> atan2(const TaylorExpansion<T, N, M>& y,
+                                              const TaylorExpansion<T, N, M>& x);
 ```
 
----
-
-## Unary Math Functions
-
-All functions accept expression arguments and return lazy expression objects. Defined in namespace `tax`.
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `abs` | `abs(f)` | Absolute value (\(f_0 \ne 0\)) |
-| `square` | `square(f)` | \(f^2\) via Cauchy self-product |
-| `cube` | `cube(f)` | \(f^3\) via two Cauchy products |
-| `sqrt` | `sqrt(f)` | Square root (\(f_0 > 0\)) |
-| `cbrt` | `cbrt(f)` | Cubic root (\(f_0 \ne 0\)) |
-| `sin` | `sin(f)` | Sine (coupled sin/cos recurrence) |
-| `cos` | `cos(f)` | Cosine (coupled sin/cos recurrence) |
-| `tan` | `tan(f)` | Tangent (solves \(\cos \cdot t = \sin\)) |
-| `asin` | `asin(f)` | Arcsine via \(h = \sqrt{1-f^2}\) |
-| `acos` | `acos(f)` | Arccosine (\(\pi/2 - \arcsin\)) |
-| `atan` | `atan(f)` | Arctangent via \(h = 1 + f^2\) |
-| `sinh` | `sinh(f)` | Hyperbolic sine (coupled recurrence) |
-| `cosh` | `cosh(f)` | Hyperbolic cosine (coupled recurrence) |
-| `tanh` | `tanh(f)` | Hyperbolic tangent (solves \(\cosh \cdot t = \sinh\)) |
-| `asinh` | `asinh(f)` | Inverse hyperbolic sine via \(h = \sqrt{1+f^2}\) |
-| `acosh` | `acosh(f)` | Inverse hyperbolic cosine via \(h = \sqrt{f^2-1}\) |
-| `atanh` | `atanh(f)` | Inverse hyperbolic tangent via \(h = 1-f^2\) |
-| `exp` | `exp(f)` | Exponential |
-| `log` | `log(f)` | Natural logarithm (\(f_0 > 0\)) |
-| `log10` | `log10(f)` | Common logarithm (\(\ln(f)/\ln(10)\)) |
-| `erf` | `erf(f)` | Error function via \(h = \frac{2}{\sqrt{\pi}} e^{-f^2}\) |
-
----
-
-## Binary and Ternary Math Functions
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `ipow` | `ipow(f, int n)` | Integer power via binary exponentiation |
-| `dpow` | `dpow(f, T c)` | Real-exponent power (\(f_0 > 0\)) |
-| `tpow` | `tpow(f, g)` | DA power: \(\exp(g \cdot \ln f)\) |
-| `pow` | `pow(f, int n)` | Dispatches to `ipow` |
-| `pow` | `pow(f, T c)` | Dispatches to `dpow` |
-| `pow` | `pow(f, g)` | Dispatches to `tpow` |
-| `atan2` | `atan2(y, x)` | Two-argument arctangent |
-| `hypot` | `hypot(x, y)` | \(\sqrt{x^2 + y^2}\) |
-| `hypot` | `hypot(x, y, z)` | \(\sqrt{x^2 + y^2 + z^2}\) |
+Power overloads exist for both Dense and Sparse storage.
 
 ---
 
 ## Streaming
 
 ```cpp
-friend std::ostream& operator<<(std::ostream& os, const TaylorExpansionT& a);
+friend std::ostream& operator<<(std::ostream& os, const TaylorExpansion& a);
 ```
 
-Outputs the polynomial in human-readable form with Unicode superscripts for powers and subscripts for variable indices. Zero coefficients are suppressed. The truncation remainder \(\mathcal{O}(\delta\mathbf{x}^{N+1})\) is appended.
+Outputs the polynomial in human-readable form: zero coefficients suppressed,
+truncation remainder \(\mathcal{O}(\delta\mathbf{x}^{N+1})\) appended.
+
+---
+
+## Eigen integration helpers
+
+Free functions in `namespace tax` (see [Eigen / API Reference](../eigen/api.md)):
+
+```cpp
+tax::variables<TE>(x0)               // Eigen column vector of M coordinate vars
+tax::value(F)                        // extract constant terms
+tax::eval(F, dx)                     // evaluate at displacement
+tax::derivative<Alpha...>(F)         // compile-time partial of each entry
+tax::gradient(f)                     // ∇f as Eigen vector
+tax::hessian(f)                      // Hf as Eigen matrix
+tax::jacobian(F)                     // Jacobian of a vector function
+tax::invert(map)                     // local inverse of a polynomial map
+```

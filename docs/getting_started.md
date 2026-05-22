@@ -1,31 +1,40 @@
 # Getting Started
 
-## Installation
+This page walks you from a fresh checkout to writing your first Taylor expansion
+and propagating an ODE.
 
-### Requirements
+---
 
-- C++23 compiler (GCC 13+, Clang 17+, Apple Clang 16+)
-- CMake 3.28+
-- Eigen 3.4+
+## Requirements
 
-### Building from Source
+| Tool | Minimum version |
+|---|---|
+| C++ compiler | GCC 13, Clang 17, Apple Clang 16 (C++23 with concepts) |
+| CMake | 3.28 |
+| Eigen | 3.4 |
+| GoogleTest | fetched automatically by CMake if missing |
+| Google Benchmark | fetched automatically when `TAX_BUILD_BENCHMARK=ON` |
+
+## Build & test from source
 
 ```bash
+git clone https://github.com/andreapasquale94/tax.git
+cd tax
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build
+cmake --build build -j
 ctest --test-dir build --output-on-failure
 ```
 
-### CMake Options
+### CMake options
 
 | Option | Default | Description |
-|--------|---------|-------------|
-| `TAX_BUILD_UNITTESTS` | `ON` | Build Google Test unit-test suite |
-| `TAX_BUILD_BENCHMARK` | `OFF` | Build Google Benchmark suite |
-| `TAX_USE_UNROLL` | `ON` | Compile-time-unrolled M=1 Cauchy kernels |
-| `TAX_USE_STENCIL` | `ON` | Precomputed Cauchy stencils for M≥2 |
+|---|:-:|---|
+| `TAX_BUILD_UNITTESTS` | `ON`  | Build the GoogleTest unit-test suite |
+| `TAX_BUILD_BENCHMARK` | `OFF` | Build the Google Benchmark suite |
+| `TAX_USE_UNROLL`      | `ON`  | Compile-time-unrolled Cauchy kernels for \(M=1\) |
+| `TAX_USE_STENCIL`     | `ON`  | Precomputed Cauchy stencils for \(M \ge 2\) |
 
-### Using tax in Your Project
+### Install and consume from another CMake project
 
 ```bash
 cmake --install build --prefix /your/install/prefix
@@ -36,35 +45,58 @@ find_package(tax CONFIG REQUIRED)
 target_link_libraries(your_target PRIVATE tax::tax)
 ```
 
-## Include
+If installed to a non-standard prefix:
 
-A single umbrella header pulls in everything:
-
-```cpp
-#include <tax/tax.hpp>
+```bash
+cmake -S . -B build -DCMAKE_PREFIX_PATH=/your/install/prefix
 ```
 
-## Core Type
+---
 
-The central type is `TaylorExpansion<T, N, M, Storage>`:
+## Single umbrella header
+
+```cpp
+#include <tax/tax.hpp>          // core + Eigen integration
+```
+
+The ODE module is opt-in via a separate header:
+
+```cpp
+#include <tax/ode.hpp>          // adaptive Taylor + RK steppers
+```
+
+---
+
+## The core type
+
+```cpp
+namespace tax {
+    template <typename T, int N, int M = 1, typename Storage = storage::Dense>
+    class TaylorExpansion;
+}
+```
 
 | Parameter | Meaning |
-|-----------|---------|
-| `T` | Scalar coefficient type (e.g. `double`) |
-| `N` | Maximum total polynomial order (compile-time integer) |
-| `M` | Number of independent variables (compile-time integer, default `1`) |
-| `Storage` | `tax::Dense` (default) or `tax::Sparse` |
+|---|---|
+| `T`       | Scalar coefficient type (`double`, `float`) |
+| `N`       | Maximum total polynomial order, \(N \ge 0\) |
+| `M`       | Number of independent variables, \(M \ge 1\) (default `1`) |
+| `Storage` | `tax::storage::Dense` (default) or `tax::storage::Sparse` |
 
-### Convenience Aliases
+### Convenience aliases
 
 ```cpp
-tax::TE<N>         // dense univariate  — TaylorExpansion<double, N, 1, Dense>
-tax::TE<N, M>      // dense multivariate
-tax::STE<N>        // sparse univariate — TaylorExpansion<double, N, 1, Sparse>
-tax::STE<N, M>     // sparse multivariate
+tax::TE<N>          // dense univariate  — TaylorExpansion<double, N, 1, Dense>
+tax::TE<N, M>       // dense multivariate
+tax::STE<N>         // sparse univariate — TaylorExpansion<double, N, 1, Sparse>
+tax::STE<N, M>      // sparse multivariate
 ```
 
-## Creating Variables
+See [Dense vs Sparse Storage](core/storage.md) for the trade-offs.
+
+---
+
+## Creating variables
 
 === "Univariate (dense)"
 
@@ -75,85 +107,142 @@ tax::STE<N, M>     // sparse multivariate
 === "Multivariate (dense)"
 
     ```cpp
-    auto [x, y] = tax::TE<3, 2>::variables({1.0, 2.0});
+    using TE2 = tax::TE<3, 2>;
+    auto x = TE2::variable<0>({1.0, 2.0});   // coordinate 0
+    auto y = TE2::variable<1>({1.0, 2.0});   // coordinate 1
     ```
 
-=== "Single indexed"
+=== "Eigen vector form"
 
     ```cpp
-    auto z = tax::TE<2, 3>::variable<2>({1.0, 2.0, 3.0});
+    // Same as above, returned as Eigen::Vector<TE2, 2>
+    auto v = tax::variables<tax::TE<3, 2>>(Eigen::Vector2d{1.0, 2.0});
+    auto& x = v(0); auto& y = v(1);
     ```
 
 === "Sparse"
 
     ```cpp
-    auto x = tax::STE<5>::variable(1.0);  // same factories, sparse storage
+    auto x = tax::STE<5>::variable(1.0);   // identical factories, sparse storage
     ```
 
-## Building Expressions
+---
 
-Arithmetic and math functions work naturally on both dense and sparse types:
+## Building expressions
+
+Arithmetic and math functions work naturally; the right-hand side builds a lazy
+expression tree that is materialised only on assignment.
 
 ```cpp
 auto x = tax::TE<6>::variable(0.0);
 tax::TE<6> f = tax::sin(x) + tax::square(x) / 2.0;
 ```
 
-The right-hand side builds a lazy expression tree. Evaluation happens only on
-assignment to a `TaylorExpansion` object.
+A complete list of supported operations is in the [API Reference](core/api.md).
 
-## Extracting Results
+---
+
+## Extracting results
 
 ```cpp
 f.value();              // f(x₀) — the constant term
 f.coeff({k});           // coefficient of δxᵏ
 f.derivative({k});      // k-th derivative (= k! · coeff)
-f.eval(0.3);            // evaluate polynomial at x₀ + 0.3
+f.eval(0.3);            // evaluate Taylor polynomial at x₀ + 0.3
 ```
 
 For multivariate objects:
 
 ```cpp
-auto [x, y] = tax::TE<3, 2>::variables({0.0, 0.0});
-tax::TE<3, 2> g = x*x + x*y + y*y;
+using TE2 = tax::TE<3, 2>;
+auto x = TE2::variable<0>({0.0, 0.0});
+auto y = TE2::variable<1>({0.0, 0.0});
+TE2 g = x*x + x*y + y*y;
 
 g.derivative({2, 0});   // ∂²g/∂x²   = 2
 g.derivative({1, 1});   // ∂²g/∂x∂y  = 1
-g.coeff<1, 1>();         // compile-time index access
+g.coeff<1, 1>();        // compile-time index access
 ```
 
-## Coefficients vs Derivatives
+### Coefficients vs derivatives
 
 A Taylor expansion stores **coefficients** of the monomial basis:
 
 \[
-f(\mathbf{x}_0 + \delta\mathbf{x}) = \sum_{|\alpha| \le N} f_\alpha \, \delta\mathbf{x}^\alpha
+f(\mathbf{x}_0 + \delta\mathbf{x})
+  = \sum_{|\alpha| \le N} f_\alpha \, \delta\mathbf{x}^\alpha
 \]
 
-The relationship to partial derivatives is:
+The relationship to partial derivatives is
 
 \[
-f_\alpha = \frac{1}{\alpha!} \frac{\partial^{|\alpha|} f}{\partial x_1^{\alpha_1} \cdots \partial x_M^{\alpha_M}} \bigg|_{\mathbf{x}_0}
+f_\alpha
+  = \frac{1}{\alpha!} \,
+    \frac{\partial^{|\alpha|} f}
+         {\partial x_1^{\alpha_1} \cdots \partial x_M^{\alpha_M}}
+    \bigg|_{\mathbf{x}_0}
 \]
 
-The `derivative()` method returns the partial derivative (multiplies the coefficient by
-\(\alpha!\)), while `coeff()` returns the raw coefficient.
+so `derivative()` returns `coeff()` multiplied by \(\alpha!\).
 
-## Eigen Integration
+---
 
-tax ships with `NumTraits` and vocabulary helpers so `TaylorExpansion` objects can live
-inside Eigen vectors and matrices:
+## Eigen integration
+
+`tax::TaylorExpansion` ships with a `NumTraits` specialisation so it can live
+inside Eigen vectors and matrices unchanged.
 
 ```cpp
 #include <tax/tax.hpp>
 
-Eigen::Vector2<tax::TE<3, 2>> f = {tax::sin(x), tax::cos(y)};
+using TE2 = tax::TE<3, 2>;
+auto x = TE2::variable<0>({1.0, 2.0});
+auto y = TE2::variable<1>({1.0, 2.0});
+Eigen::Vector2<TE2> F = {tax::sin(x), tax::cos(y)};
 
-auto vals = tax::value(f);           // Eigen::Vector2d of constant terms
-auto J    = tax::jacobian(f, 2);     // 2×2 Jacobian at expansion point
-auto H    = tax::hessian(f[0], 2);   // 2×2 Hessian of f[0]
+auto vals = tax::value(F);           // Eigen::Vector2d of constant terms
+auto J    = tax::jacobian(F, 2);     // 2×2 Jacobian at expansion point
+auto H    = tax::hessian(F[0], 2);   // 2×2 Hessian of F[0]
 ```
 
-## Next Steps
+Reference is in [Eigen Integration](eigen/index.md).
 
-- [Core Module](core/index.md) — full treatment of the Taylor expansion type and expression templates
+---
+
+## A first ODE
+
+```cpp
+#include <tax/ode.hpp>
+#include <Eigen/Core>
+
+// Harmonic oscillator: dx/dt = v, dv/dt = -x
+auto f = [](const auto& x, const auto& /*t*/) {
+    using S = std::decay_t<decltype(x)>;
+    S out;
+    out(0) =  x(1);
+    out(1) = -x(0);
+    return out;
+};
+
+tax::ode::IntegratorConfig<double> cfg;
+cfg.abstol = cfg.reltol = 1e-12;
+
+auto integ = tax::ode::makeTaylorIntegrator<25, double, 2>(f, cfg);
+
+Eigen::Vector2d x0{1.0, 0.0};
+auto sol = integ.integrate(x0, /*t0=*/0.0, /*tmax=*/2.0 * M_PI);
+
+sol.x.back();  // ≈ (1, 0): one full period
+```
+
+More examples — RK methods, events, dense output — in
+[ODE Examples](ode/examples.md).
+
+---
+
+## Next steps
+
+- [Core / Mathematical Foundations](core/math.md) — the math behind the type.
+- [Core / API Reference](core/api.md) — every public method, listed.
+- [ODE / Methods & Benchmarks](ode/methods.md) — pick the right integrator.
+- [Internals](internals/index.md) — how expression templates and recurrences fit together.

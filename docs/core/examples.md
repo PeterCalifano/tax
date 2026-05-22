@@ -1,257 +1,211 @@
 # Examples
 
-Worked examples demonstrating the core features of the **tax** library.
+Worked examples that exercise the core `TaylorExpansion` API. All snippets
+assume `#include <tax/tax.hpp>`.
 
 ---
 
-## Creating Variables
+## Creating variables
 
 ### Univariate
 
 ```cpp
-#include <tax/tax.hpp>
-
 // Order-5 expansion of x around x₀ = 1.0
 auto x = tax::TE<5>::variable(1.0);
-// Coefficients: [1.0, 1.0, 0.0, 0.0, 0.0, 0.0]
-//                 ↑     ↑
-//              value  δx coefficient
+// Coefficients (Dense): [1.0, 1.0, 0, 0, 0, 0]
+//                         ↑    ↑
+//                       value  δx coefficient
 
 // A pure constant (no δx dependence)
 auto c = tax::TE<5>::constant(3.14);
 // Coefficients: [3.14, 0, 0, 0, 0, 0]
 ```
 
-### Multivariate with Structured Bindings
+### Multivariate — per-coordinate factories
 
 ```cpp
-#include <tax/tax.hpp>
+using TE2 = tax::TE<3, 2>;
+const std::array<double, 2> p{1.0, 2.0};
 
-// Order-3 expansion in two variables around (1.0, 2.0)
-auto [x, y] = tax::TEn<3, 2>::variables(1.0, 2.0);
-// x has a unit coefficient for δx₁, y has a unit coefficient for δx₂
+auto x = TE2::variable<0>(p);   // δx coordinate around (1, 2)
+auto y = TE2::variable<1>(p);   // δy coordinate around (1, 2)
+```
 
-// Three variables
-auto [a, b, c] = tax::TEn<4, 3>::variables(0.0, 1.0, -1.0);
+### Multivariate — Eigen vector form
+
+```cpp
+auto v = tax::variables<tax::TE<3, 2>>(Eigen::Vector2d{1.0, 2.0});
+auto& x = v(0);
+auto& y = v(1);
 ```
 
 ---
 
-## Accessing Coefficients and Derivatives
+## Accessing coefficients and derivatives
 
 ### Univariate
 
 ```cpp
 auto x = tax::TE<5>::variable(0.0);
-auto f = sin(x);
+tax::TE<5> f = tax::sin(x);
 
-// Constant term (the function value)
-double val = f.value();          // sin(0) = 0
-
-// Taylor coefficients: f_k = f^(k)(x₀) / k!
-double c0 = f.coeff(0);         // 0
-double c1 = f.coeff(1);         // 1
-double c2 = f.coeff(2);         // 0
-double c3 = f.coeff(3);         // -1/6
-
-// Derivatives (with k! scaling applied)
-double d1 = f.derivative(1);    // f'(0)   = cos(0) = 1
-double d2 = f.derivative(2);    // f''(0)  = -sin(0) = 0
-double d3 = f.derivative(3);    // f'''(0) = -cos(0) = -1
+double v   = f.value();              // sin(0) = 0
+double c1  = f.coeff({1});           // 1                (1st Taylor coefficient)
+double c3  = f.coeff({3});           // -1/6
+double d1  = f.derivative({1});      // cos(0)  = 1
+double d3  = f.derivative({3});      // -cos(0) = -1     (= 3! · c3)
 ```
 
 ### Multivariate
 
 ```cpp
-auto [x, y] = tax::TEn<3, 2>::variables(1.0, 2.0);
-auto g = x * x * y;
+using TE2 = tax::TE<3, 2>;
+const std::array<double, 2> p{1.0, 2.0};
+auto x = TE2::variable<0>(p);
+auto y = TE2::variable<1>(p);
 
-// Access by multi-index: coeff({α₁, α₂})
-double c_200 = g.coeff({2, 0});  // coefficient of δx²
-double c_010 = g.coeff({0, 1});  // coefficient of δy
-double c_110 = g.coeff({1, 1});  // coefficient of δx·δy
+TE2 g = x*x*y;
+
+double c_200 = g.coeff({2, 0});       // coefficient of δx²
+double c_110 = g.coeff({1, 1});       // coefficient of δx·δy
+double c_110_ct = g.coeff<1, 1>();    // compile-time variant
+double d_110 = g.derivative<1, 1>();  // ∂²g/∂x∂y at (1, 2)
 ```
 
 ---
 
-## Arithmetic and Composition
+## Arithmetic and composition
 
-The library builds lightweight expression trees that are evaluated only on
-assignment. Sums and products are automatically flattened.
+The library uses expression-template flattening internally; the user just
+writes the math.
 
 ```cpp
 auto x = tax::TE<5>::variable(1.0);
 
-// Arithmetic builds expression trees, materialised on assignment
 tax::TE<5> f = (x + 2.0) * (x - 3.0);   // x² - x - 6 at x₀ = 1
-
-// Chain of additions → single flattened SumExpr (one pass)
-tax::TE<5> g = x + x * x + x * x * x;
-
-// Division
-tax::TE<5> h = 1.0 / (1.0 + x);         // geometric series at x₀ = 1
+tax::TE<5> g = x + x*x + x*x*x;         // chained sums
+tax::TE<5> h = 1.0 / (1.0 + x);         // reciprocal recurrence
 ```
 
-### Multivariate Products
+### Multivariate products
 
 ```cpp
-auto [x, y] = tax::TEn<3, 2>::variables(1.0, 2.0);
+using TE2 = tax::TE<3, 2>;
+const std::array<double, 2> p{1.0, 2.0};
+auto x = TE2::variable<0>(p);
+auto y = TE2::variable<1>(p);
 
-// Mixed-variable expression
-tax::TEn<3, 2> f = x * x + 2.0 * x * y + y * y;  // (x + y)²
+TE2 f = x*x + 2.0*x*y + y*y;   // (x + y)² at (1, 2)
 ```
 
 ---
 
-## Differentiation and Integration
+## Differentiation and integration
 
-Every TTE object supports symbolic differentiation and integration with respect
-to any variable.
-
-### Compile-Time Variable Index
+### Compile-time variable index
 
 ```cpp
-auto [x, y] = tax::TEn<4, 2>::variables(1.0, 2.0);
-auto f = x * x * y + y * y;
+using TE2 = tax::TE<4, 2>;
+const std::array<double, 2> p{1.0, 2.0};
+auto x = TE2::variable<0>(p);
+auto y = TE2::variable<1>(p);
 
-// Partial derivatives (compile-time index)
-auto df_dx = f.deriv<0>();    // ∂f/∂x = 2xy
-auto df_dy = f.deriv<1>();    // ∂f/∂y = x² + 2y
+TE2 f = x*x*y + y*y;
 
-// Integration
-auto F_x = f.integ<0>();     // ∫f dx
-auto F_y = f.integ<1>();     // ∫f dy
+auto df_dx = f.deriv<0>();    // ∂f/∂x  = 2xy
+auto df_dy = f.deriv<1>();    // ∂f/∂y  = x² + 2y
+
+auto F_x   = f.integ<0>();    // ∫f dx
+auto F_y   = f.integ<1>();    // ∫f dy
 ```
 
-### Runtime Variable Index
+### Runtime variable index
 
 ```cpp
 auto x = tax::TE<5>::variable(1.0);
-auto f = exp(x);
+tax::TE<5> f = tax::exp(x);
 
-// Runtime index (throws if out of range)
-auto df = f.deriv(0);        // d/dx exp(x) = exp(x)
-auto F  = f.integ(0);        // ∫exp(x) dx
+auto df = f.deriv(0);          // d/dx exp(x)
+auto F  = f.integ(0);          // ∫ exp(x) dx
 ```
 
-### Verifying Derivative Identities
+### Verifying an identity
 
 ```cpp
 auto x = tax::TE<6>::variable(0.5);
-auto f = sin(x);
+tax::TE<6> f = tax::sin(x);
 
-// sin'(x) = cos(x)
-auto df = f.deriv<0>();
-tax::TE<6> expected = cos(tax::TE<6>::variable(0.5));
-
-// The coefficients of df and expected match to machine precision
+tax::TE<6> df       = f.deriv<0>();
+tax::TE<6> expected = tax::cos(tax::TE<6>::variable(0.5));
+// The coefficient arrays of df and expected agree to machine precision.
 ```
 
 ---
 
-## Transcendental Functions
+## Transcendental functions
 
-All standard mathematical functions are supported. They are implemented as
-degree-by-degree recurrence relations, computing all coefficients in a single
-forward pass.
+All standard mathematical functions are propagated via degree-by-degree
+recurrences in a single forward pass.
 
 ```cpp
 auto x = tax::TE<8>::variable(0.0);
 
-// Trigonometric
-tax::TE<8> s = sin(x);     // [0, 1, 0, -1/6, 0, 1/120, ...]
-tax::TE<8> c = cos(x);     // [1, 0, -1/2, 0, 1/24, ...]
+tax::TE<8> s  = tax::sin(x);     // [0, 1, 0, -1/6, 0, 1/120, ...]
+tax::TE<8> c  = tax::cos(x);     // [1, 0, -1/2, 0, 1/24, 0, ...]
 
-// Exponential and logarithm
 auto y = tax::TE<8>::variable(1.0);
-tax::TE<8> e = exp(y);     // exp(1+δx) = e · [1, 1, 1/2, 1/6, ...]
-tax::TE<8> l = log(y);     // log(1+δx) = [0, 1, -1/2, 1/3, ...]
+tax::TE<8> e  = tax::exp(y);     // exp(1+δx) = e · [1, 1, 1/2, 1/6, ...]
+tax::TE<8> l  = tax::log(y);     // log(1+δx) = [0, 1, -1/2, 1/3, ...]
 
-// Hyperbolic
-tax::TE<8> sh = sinh(x);
-tax::TE<8> ch = cosh(x);
+tax::TE<8> sq = tax::sqrt(tax::TE<8>::variable(4.0));  // √(4+δx)
+tax::TE<8> cb = tax::cbrt(tax::TE<8>::variable(8.0));  // ∛(8+δx)
 
-// Power and roots
-tax::TE<8> sq = sqrt(tax::TE<8>::variable(4.0));  // √(4+δx)
-tax::TE<8> cb = cbrt(tax::TE<8>::variable(8.0));  // ∛(8+δx)
-```
-
-### Composed Expressions
-
-```cpp
-auto x = tax::TE<10>::variable(0.0);
-
-// Compound expressions work naturally
-tax::TE<10> f = sin(x) * exp(x);
-tax::TE<10> g = log(1.0 + x * x);
-tax::TE<10> h = atan(x) / (1.0 + x * x);
+tax::TE<10> h = tax::atan(x) / (1.0 + x*x);
 ```
 
 ---
 
-## Polynomial Evaluation
+## Polynomial evaluation
 
-Use `.eval()` to evaluate the Taylor polynomial at a displacement
+`eval()` Horner-evaluates the truncated Taylor polynomial at a displacement
 \(\delta x\) from the expansion point.
 
 ```cpp
 auto x = tax::TE<15>::variable(0.0);
-tax::TE<15> f = sin(x);
+tax::TE<15> f = tax::sin(x);
 
-// Evaluate at x = 0.3 (i.e., x₀ + δx = 0 + 0.3)
-double approx = f.eval(0.3);
-// approx ≈ sin(0.3) = 0.29552020666...
-// The order-15 approximation matches to ~16 digits
+double approx = f.eval({0.3});   // sin(0.3) within machine precision
 ```
 
-### Multivariate Evaluation
+### Multivariate evaluation
 
 ```cpp
-auto [x, y] = tax::TEn<5, 2>::variables(0.0, 0.0);
-tax::TEn<5, 2> f = sin(x) * cos(y);
+using TE2 = tax::TE<5, 2>;
+const std::array<double, 2> p{0.0, 0.0};
+auto x = TE2::variable<0>(p);
+auto y = TE2::variable<1>(p);
 
-// Evaluate at (x, y) = (0.3, 0.5)
-double approx = f.eval({0.3, 0.5});
-// approx ≈ sin(0.3) * cos(0.5)
+TE2 f = tax::sin(x) * tax::cos(y);
+double approx = f.eval({0.3, 0.5});   // ≈ sin(0.3) * cos(0.5)
 ```
 
 ---
 
-## Norms and Convergence
+## Sparse storage drop-in
 
-TTE objects provide norms useful for convergence monitoring and step-size
-control.
-
-```cpp
-auto x = tax::TE<10>::variable(0.0);
-tax::TE<10> f = sin(x);
-
-// Sum of absolute values of all coefficients
-double abs_sum = f.absSum();
-
-// Infinity norm of the coefficient vector
-double inf_norm = f.normInf();
-```
-
----
-
-## Nested Expansions (DA over DA)
-
-A TTE whose scalar type is itself a TTE enables **differential algebra** maps:
-expand in time around a spatial expansion.
+The factories on `STE<N, M>` mirror those on `TE<N, M>`; the storage layout
+differs but the API is identical.
 
 ```cpp
-#include <tax/tax.hpp>
+using STE2 = tax::STE<5, 2>;
+const std::array<double, 2> p{0.0, 0.0};
+auto x = STE2::variable<0>(p);
+auto y = STE2::variable<1>(p);
 
-using SpatialDA = tax::TEn<4, 2>;   // order-4, 2 spatial variables
-using TimeDA = tax::TaylorExpansionT<SpatialDA, 6, 1>;
-// order-6 in time, coefficients are spatial polynomials
+STE2 f = x*x + y*y;                  // only 2 nonzeros stored
+auto nnz = f.nnz();                  // = 2
 
-// Create a time variable whose constant term is a spatial expansion
-SpatialDA x0 = SpatialDA::constant(1.0);
-auto t = TimeDA::variable(x0);
-
-// Operations on t propagate through both levels
-TimeDA f = sin(t);
-// f is a time polynomial whose coefficients are spatial polynomials
+auto fd = f.dense();                 // → TaylorExpansion<…, Dense> conversion
 ```
+
+See [Dense vs Sparse Storage](storage.md) for guidance on when each pays off.

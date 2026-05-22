@@ -2,39 +2,54 @@
 
 [![Tests](https://github.com/andreapasquale94/tax/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/andreapasquale94/tax/actions/workflows/tests.yml)
 [![Sanitizers](https://github.com/andreapasquale94/tax/actions/workflows/sanitizers.yml/badge.svg?branch=main)](https://github.com/andreapasquale94/tax/actions/workflows/sanitizers.yml)
+[![Docs](https://github.com/andreapasquale94/tax/actions/workflows/docs.yml/badge.svg?branch=main)](https://andreapasquale94.github.io/tax/)
 [![codecov](https://codecov.io/gh/andreapasquale94/tax/graph/badge.svg?token=XwO5JOoaz6)](https://codecov.io/gh/andreapasquale94/tax)
 
-**tax** is a header-only C++23 library for **Truncated Algebraic eXpansions** — a framework for computing truncated multivariate Taylor polynomials as first-class objects.
+**tax** is a header-only C++23 library for **Truncated Algebraic eXpansions** —
+truncated multivariate Taylor polynomials as first-class numerical objects.
+Write a natural mathematical expression and tax propagates the full Taylor
+series through it, yielding the function value **and** every partial derivative
+up to order \(N\) in a single evaluation pass.
 
-Write natural mathematical expressions and tax automatically propagates the full Taylor series, giving you the function value and all partial derivatives up to order N in a single evaluation pass.
+> :books: **Full documentation:** <https://andreapasquale94.github.io/tax/>
 
-    DISCLAIMER: this repository is under active development. APIs and behavior may change; use with care.
+> :warning: **Active development.** APIs and behavior may change between minor
+> versions until 1.0.
 
-> **Stage 1 (current):** static dense + sparse `TaylorExpansion`, Eigen-first API, and the
-> full standard math operator set. Dynamic-shape types, the Taylor ODE integrator,
-> Automatic Domain Splitting, Python bindings, and DACE comparison are deferred to later
-> stages. See the spec and implementation plan in `docs/superpowers/specs/` and
-> `docs/superpowers/plans/`.
+---
 
 ## Features
 
-- **Compile-time fixed shape** — `TaylorExpansion<T, N, M, Storage>` where `N` and `M` are
-  compile-time integers and `Storage` is `Dense` (stack `std::array`) or `Sparse`
-  (sorted-index map); the two configurations share the same kernel layer and agree
-  numerically
-- **Convenience aliases** — `TE<N, M=1>` for dense, `STE<N, M=1>` for sparse
-- **Lazy expression templates** with automatic sum/product flattening and leaf fast-paths
-- **Comprehensive math**: arithmetic, trigonometric, hyperbolic, transcendental, power, and special functions
-- **Direct derivative access**: coefficients, partial derivatives, gradient, Jacobian, and Hessian
-- **Eigen integration**: `NumTraits` specialisation plus helpers for variables, value extraction, eval, gradient, Jacobian, and Hessian
+- **Compile-time fixed shape** — `TaylorExpansion<T, N, M, Storage>` with `N`
+  and `M` as compile-time integers and `Storage` as `Dense` (stack
+  `std::array`) or `Sparse` (sorted-index map); both share the kernel layer
+  and agree numerically.
+- **Convenience aliases** — `TE<N, M=1>` for dense, `STE<N, M=1>` for sparse.
+- **Comprehensive math** — arithmetic, trigonometric, hyperbolic,
+  transcendental, square/cubic root, reciprocal, integer & real powers,
+  `atan2`, `erf`.
+- **Direct derivative access** — coefficients, partial derivatives at the
+  expansion point, full gradient / Hessian / Jacobian.
+- **Eigen integration** — `NumTraits` specialisation plus helpers for
+  variables, value extraction, evaluation, gradient, Jacobian, Hessian, and
+  formal map inversion.
+- **Adaptive ODE integrator** — one `Integrator<Stepper>` driving six methods:
+  Taylor (`N`-th order), Verner 8(7), Verner 9(8), Fehlberg 7(8),
+  Feagin 12(10), Feagin 14(12). Four controllers (I, PI, H211b, JorbaZou).
+  Trigger + Action events with polynomial-Newton root finding on the Taylor
+  path and Brent on the RK path.
+
+---
 
 ## Requirements
 
-- C++23 compiler (GCC 13+, Clang 17+, Apple Clang 16+)
+- C++23 compiler — GCC 13+, Clang 17+, Apple Clang 16+
 - CMake 3.28+
 - Eigen 3.4+
 
-## Quick Start
+---
+
+## Quick start
 
 ### Univariate
 
@@ -43,16 +58,13 @@ Write natural mathematical expressions and tax automatically propagates the full
 #include <iostream>
 
 int main() {
-    using tax::TE;
+    auto x = tax::TE<9>::variable(0.0);     // x at x₀ = 0, order 9
+    tax::TE<9> f = tax::sin(x);
 
-    // sin(x) expanded at x₀ = 0, up to order 9
-    auto x = TE<9>::variable(0.0);
-    TE<9> f = tax::sin(x);
-
-    std::cout << f.value()          << "\n";   // sin(0) = 0
-    std::cout << f.derivative({1})  << "\n";   // cos(0) = 1
-    std::cout << f.derivative({2})  << "\n";   // -sin(0) = 0
-    std::cout << f.eval(0.3)        << "\n";   // ≈ sin(0.3)
+    std::cout << f.value()           << "\n";   // sin(0)  = 0
+    std::cout << f.derivative<1>()   << "\n";   // cos(0)  = 1
+    std::cout << f.derivative<3>()   << "\n";   // -cos(0) = -1
+    std::cout << f.eval({0.3})       << "\n";   // ≈ sin(0.3)
 }
 ```
 
@@ -60,147 +72,115 @@ int main() {
 
 ```cpp
 #include <tax/tax.hpp>
-#include <iostream>
 
 int main() {
-    using tax::TE;
+    using TE2 = tax::TE<3, 2>;
+    auto x = TE2::variable<0>({1.0, 2.0});
+    auto y = TE2::variable<1>({1.0, 2.0});
+    TE2 f = tax::sin(x + y);
 
-    // f(x, y) = sin(x + y) expanded at (1, 2)
-    auto [x, y] = TE<3, 2>::variables({1.0, 2.0});
-    TE<3, 2> f = tax::sin(x + y);
-
-    std::cout << f.value()              << "\n";   // sin(3)
-    std::cout << f.derivative({1, 0})   << "\n";   // ∂f/∂x = cos(3)
-    std::cout << f.derivative({1, 1})   << "\n";   // ∂²f/∂x∂y = -sin(3)
+    f.value();              // sin(3)
+    f.derivative<1, 0>();   // ∂f/∂x   = cos(3)
+    f.derivative<1, 1>();   // ∂²f/∂x∂y = -sin(3)
 }
 ```
 
-### Sparse Storage
+### Sparse storage
 
 ```cpp
-#include <tax/tax.hpp>
-
-int main() {
-    using tax::STE;
-
-    // Same API, sparse coefficient storage — efficient when only few monomials are non-zero
-    auto x = STE<5>::variable(1.0);
-    STE<5> f = tax::exp(x);
-}
+auto x = tax::STE<5>::variable(1.0);     // same API, sparse storage
+tax::STE<5> f = tax::exp(x);             // 6 nonzeros, sorted by flat index
 ```
 
-### Eigen Integration
+### Eigen integration
 
 ```cpp
-#include <tax/tax.hpp>
+using TE2 = tax::TE<3, 2>;
+auto x = TE2::variable<0>({1.0, 2.0});
+auto y = TE2::variable<1>({1.0, 2.0});
+Eigen::Vector2<TE2> F = { tax::sin(x), tax::cos(y) };
 
-int main() {
-    using tax::TE;
-
-    auto [x, y] = TE<3, 2>::variables({1.0, 2.0});
-    Eigen::Vector2<TE<3, 2>> F = {tax::sin(x), tax::cos(y)};
-
-    auto vals = tax::value(F);           // Eigen::Vector2d of constant terms
-    auto J    = tax::jacobian(F, 2);     // 2×2 Jacobian at expansion point
-}
+auto vals = tax::value(F);              // Eigen::Vector2d of constant terms
+auto J    = tax::jacobian(F);           // 2×2 Jacobian at expansion point
 ```
 
-## Build and Test
+### Adaptive ODE integration
+
+```cpp
+#include <tax/ode.hpp>
+
+// Harmonic oscillator: dx/dt = v, dv/dt = -x
+auto f = [](const auto& x, auto /*t*/) {
+    using S = std::decay_t<decltype(x)>;
+    S out;
+    out(0) =  x(1);
+    out(1) = -x(0);
+    return out;
+};
+
+tax::ode::IntegratorConfig<double> cfg;
+cfg.abstol = cfg.reltol = 1e-12;
+
+auto integ = tax::ode::makeTaylorIntegrator<16, double, 2>(f, cfg);
+
+Eigen::Matrix<double, 2, 1> x0{1.0, 0.0};
+auto sol = integ.integrate(x0, /*t0=*/0.0, /*tmax=*/2 * M_PI);
+// sol.x.back() ≈ (1, 0)
+```
+
+---
+
+## Build, test, install
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build
+cmake --build build -j
 ctest --test-dir build --output-on-failure
 ```
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `TAX_BUILD_UNITTESTS` | `ON` | Build the unit-test suite |
-| `TAX_BUILD_BENCHMARK` | `OFF` | Build Google Benchmark suite |
-| `TAX_USE_UNROLL` | `ON` | Compile-time-unrolled M=1 Cauchy kernels |
-| `TAX_USE_STENCIL` | `ON` | Precomputed Cauchy stencils for M≥2 |
+### CMake options
 
-## Install
+| Option | Default | Description |
+|---|:-:|---|
+| `TAX_BUILD_UNITTESTS` | `ON`  | Build the unit-test suite |
+| `TAX_BUILD_BENCHMARK` | `OFF` | Build Google Benchmark suite |
+| `TAX_USE_UNROLL`      | `ON`  | Compile-time-unrolled M=1 Cauchy kernels |
+| `TAX_USE_STENCIL`     | `ON`  | Precomputed Cauchy stencils for M≥2 |
+
+### Consume from another project
 
 ```bash
 cmake --install build --prefix /your/install/prefix
 ```
-
-From another CMake project:
 
 ```cmake
 find_package(tax CONFIG REQUIRED)
 target_link_libraries(your_target PRIVATE tax::tax)
 ```
 
-If installed to a non-standard prefix:
-
-```bash
-cmake -S . -B build -DCMAKE_PREFIX_PATH=/your/install/prefix
-```
-
-## API at a Glance
-
-```cpp
-#include <tax/tax.hpp>
-```
-
-### Types
-
-| Type | Description |
-|------|-------------|
-| `TE<N>` | `TaylorExpansion<double, N, 1, Dense>` |
-| `TE<N, M>` | `TaylorExpansion<double, N, M, Dense>` |
-| `STE<N>` | `TaylorExpansion<double, N, 1, Sparse>` |
-| `STE<N, M>` | `TaylorExpansion<double, N, M, Sparse>` |
-
-### Factories
-
-```cpp
-TE<N>::variable(x0)              // univariate variable at x₀
-TE<N,M>::variable<I>(x0)        // I-th variable of a multivariate expansion
-TE<N,M>::variables(x0)          // all variables (structured bindings)
-TaylorExpansion::constant(v) / zero() / one()
-```
-
-### Accessors
-
-```cpp
-f.value()            // f(x₀)
-f.coeff({2, 1})      // coefficient of δx²·δy
-f.derivative({2, 1}) // ∂³f/∂x²∂y at x₀
-f.derivatives()      // all partial derivatives
-f.coeffsNormInf()    // max |coefficient| (L-infinity norm)
-f.eval(dx)           // polynomial evaluated at x₀ + δx
-```
-
-### Operations
-
-**Arithmetic**: `+`, `-`, `*`, `/` between DA expressions and scalars
-
-**Unary math**: `abs`, `square`, `cube`, `sqrt`, `cbrt`, `sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `sinh`, `cosh`, `tanh`, `asinh`, `acosh`, `atanh`, `exp`, `log`, `log10`, `erf`
-
-**Binary math**: `pow` (integer, real, DA exponents), `atan2`, `hypot` (2- and 3-argument)
-
-### Eigen Helpers
-
-```cpp
-tax::value(container)        // extract constant terms into Eigen vector/matrix
-tax::eval(container, dx)     // evaluate at displacement dx
-tax::gradient(f, M)          // gradient vector (Eigen::VectorXd)
-tax::jacobian(F, M)          // Jacobian matrix (Eigen::MatrixXd)
-tax::hessian(f, M)           // Hessian matrix (Eigen::MatrixXd)
-```
+---
 
 ## Documentation
 
-Full documentation is available at [andreapasquale94.github.io/tax](https://andreapasquale94.github.io/tax).
+Hosted at <https://andreapasquale94.github.io/tax/>.
 
-| Section | Description |
-|---------|-------------|
-| [Getting Started](docs/getting_started.md) | Installation and first examples |
-| [Core](docs/core/index.md) | Taylor expansion type, expression templates, mathematical functions |
+| Section | Topic |
+|---|---|
+| [Getting Started](https://andreapasquale94.github.io/tax/getting_started/) | Install, build, write your first Taylor expansion |
+| [Core](https://andreapasquale94.github.io/tax/core/) | `TaylorExpansion` math, API, examples, Dense vs Sparse storage |
+| [Eigen Integration](https://andreapasquale94.github.io/tax/eigen/) | `NumTraits`, helpers, map inversion |
+| [ODE Integrator](https://andreapasquale94.github.io/tax/ode/) | Methods, controllers, events, CR3BP benchmark |
+| [Internals](https://andreapasquale94.github.io/tax/internals/) | Architecture, kernels, recurrences |
+
+Source for the docs lives in `docs/` and is built with MkDocs Material:
+
+```bash
+pip install mkdocs-material pymdown-extensions
+mkdocs serve --strict
+```
+
+---
 
 ## License
 
-See [LICENSE](LICENSE) for details.
+[BSD 3-Clause](LICENSE).
