@@ -34,7 +34,12 @@ f(x_0 + \delta x) = \sum_{d=0}^{N} f_d \, \delta x^d, \qquad f_d = \frac{f^{(d)}
 
 ## Graded Lexicographic Ordering
 
-Coefficients are stored in a contiguous `std::array` using **graded lexicographic (grlex) ordering**: monomials are grouped by total degree \(|\alpha|\), and within each degree group they are sorted lexicographically by the exponent vector \(\alpha\).
+Coefficients are stored using **graded lexicographic (grlex) ordering**:
+monomials are grouped by total degree \(|\alpha|\), and within each degree group
+they are sorted lexicographically by the exponent vector \(\alpha\). For dense
+storage the container is a `std::array<T, S>`; for sparse storage only the
+nonzero coefficients are stored alongside their flat indices (see
+[Dense vs Sparse Storage](storage.md)).
 
 **Example for \(M = 2\), \(N = 2\):**
 
@@ -161,16 +166,6 @@ g_\alpha = \frac{1}{3g_0^2} \left( f_\alpha - \sum_{\substack{\beta \le \alpha \
 \]
 
 with \(q = g^2\) updated degree by degree using symmetric enumeration.
-
-### Absolute Value
-
-Absolute value propagates as:
-
-\[
-|f| = \begin{cases} f & \text{if } f_0 > 0 \\ -f & \text{if } f_0 < 0 \end{cases}
-\]
-
-This is well-defined only when \(f_0 \ne 0\).
 
 ---
 
@@ -418,14 +413,6 @@ g_\alpha = \frac{1}{f_0} \left( f_\alpha - \frac{1}{|\alpha|} \sum_{\substack{\b
 
 This is derived from \(f \cdot g' = f'\), matching coefficients.
 
-### Logarithm Base 10
-
-\[
-\log_{10}(f) = \frac{\ln(f)}{\ln(10)}
-\]
-
-Computed by applying the natural logarithm recurrence and scaling all coefficients by \(1/\ln(10)\).
-
 ---
 
 ## Power Functions
@@ -451,16 +438,6 @@ g_\alpha = \frac{1}{|\alpha| \cdot f_0} \sum_{\substack{\beta \le \alpha \\ 1 \l
 \]
 
 This recurrence is derived from the identity \(f \cdot g' = c \cdot f' \cdot g\).
-
-### DA Power
-
-When both base and exponent are DA objects, \(f^g\) is computed as:
-
-\[
-f^g = \exp(g \cdot \ln(f))
-\]
-
-using the logarithm, Cauchy product, and exponential recurrences in sequence.
 
 ---
 
@@ -488,12 +465,6 @@ g_0 = \text{erf}(f_0), \qquad g_d = \frac{1}{d} \sum_{k=0}^{d-1} (d-k) \, f_{d-k
 g_\alpha = \frac{1}{|\alpha|} \sum_{\substack{\beta \le \alpha \\ 1 \le |\beta| \le |\alpha|}} |\beta| \, f_\beta \, h_{\alpha-\beta}
 \]
 
-### Distance Functions
-
-**Hypot (2-argument):** \(\text{hypot}(x, y) = \sqrt{x^2 + y^2}\). Computed by forming the Cauchy self-products \(x^2\) and \(y^2\), summing, and applying the square root recurrence.
-
-**Hypot (3-argument):** \(\text{hypot}(x, y, z) = \sqrt{x^2 + y^2 + z^2}\). Same approach extended to three terms.
-
 ---
 
 ## Multivariate Generalisation
@@ -506,3 +477,32 @@ All univariate recurrences presented above generalize naturally to the multivari
 4. The **weight factor** \(d - k\) generalises to \(|\alpha| - |\beta|\), and \(k\) to \(|\beta|\).
 
 In the implementation, the function `forEachSubIndex<M>(alpha, lo, hi, callback)` enumerates all sub-multi-indices \(\beta \le \alpha\) with \(\text{lo} \le |\beta| \le \text{hi}\), calling `callback(flatIndex(beta), flatIndex(alpha - beta), |beta|)`. This provides a uniform interface for both univariate and multivariate kernels, with the univariate path using simple scalar loops as a fast path via `if constexpr (M == 1)`.
+
+---
+
+## Truncation Error and Convergence
+
+The truncated polynomial \(\tilde{f}_N(\mathbf{x}_0 + \delta\mathbf{x})\) of
+order \(N\) approximates the true function with error
+
+\[
+\bigl| f(\mathbf{x}_0 + \delta\mathbf{x}) - \tilde{f}_N(\mathbf{x}_0 + \delta\mathbf{x}) \bigr|
+  \le C \, |\delta\mathbf{x}|^{N+1}
+\]
+
+within the **radius of convergence** of the underlying Taylor series, where
+\(C\) bounds the magnitude of the \((N+1)\)-th derivatives. The library does
+not compute \(C\) itself, but two practical proxies are exposed on
+`TaylorExpansion`:
+
+- **Coefficient \(\ell^\infty\) norm** — `coeffs_norm_inf()` returns
+  \(\max_{|\alpha| \le N} |f_\alpha|\). A small value at the boundary
+  \(|\alpha| = N\) suggests the truncation is harmless on the displacement
+  scale of interest.
+- **Per-degree extraction** — `f.coeff({k})` (or `f.coeff<k,...>()`) gives the
+  individual \(f_\alpha\); the geometric decay rate of the largest-magnitude
+  coefficient at each total degree estimates the convergence radius.
+
+This is the same idea the [Jorba–Zou step-size controller](../ode/math.md#step-size-control)
+applies inside the Taylor ODE integrator to choose the step \(h\) from the
+last two coefficient norms of the per-step expansion.

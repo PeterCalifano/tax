@@ -1,17 +1,49 @@
 # Core Module
 
-The core module of **tax** provides truncated multivariate Taylor polynomials as first-class C++ objects. A single evaluation pass through any supported mathematical expression yields the function value and all partial derivatives up to a compile-time truncation order \(N\). The library uses expression templates for lazy evaluation: arithmetic and transcendental operations build a lightweight expression tree that is materialized only on assignment, eliminating intermediate temporary objects and enabling automatic sum/product flattening.
+The core module provides truncated multivariate Taylor polynomials as
+first-class C++ objects. A single evaluation pass through any supported
+mathematical expression yields the function value and all partial derivatives up
+to a compile-time truncation order \(N\).
 
-The central type, `TaylorExpansionT<T, N, M>`, stores \(\binom{N+M}{M}\) Taylor coefficients in a fixed-size `std::array` with zero heap allocation. Coefficients follow **graded-lexicographic ordering** -- grouped first by total degree, then lexicographically within each grade. A comprehensive set of mathematical functions (trigonometric, hyperbolic, transcendental, algebraic, and special functions) is implemented via degree-by-degree recurrence relations, supporting both univariate and multivariate expansions.
+The library uses **expression templates** for lazy evaluation: arithmetic and
+transcendental operations build a lightweight expression tree that is
+materialised only on assignment, eliminating intermediate temporary objects and
+enabling automatic sum/product flattening.
 
-## Key Headers
+The central type, `TaylorExpansion<T, N, M, Storage>`, stores
+\(\binom{N+M}{M}\) Taylor coefficients in **graded-lexicographic order**. With
+`Storage = Dense` the coefficients live in a fixed-size `std::array` with zero
+heap allocation; with `Storage = Sparse` only nonzero monomials are stored as
+two parallel sorted vectors.
+
+A comprehensive set of mathematical functions — trigonometric, hyperbolic,
+transcendental, algebraic, and the error function — is implemented via
+degree-by-degree recurrence relations, supporting both univariate and
+multivariate expansions.
+
+## Pages in this section
+
+| Page | Topic |
+|---|---|
+| [Mathematical Foundations](math.md) | Coefficient storage, recurrence relations, univariate vs multivariate |
+| [API Reference](api.md) | Complete signature reference for `TaylorExpansion` |
+| [Examples](examples.md) | Worked examples — variables, expressions, derivatives |
+| [Dense vs Sparse Storage](storage.md) | When to use `TE` vs `STE`, performance trade-offs |
+
+## Key headers
 
 | Header | Contents |
-|--------|----------|
-| `tax/tax.hpp` | Umbrella header -- the only include users need |
-| `tax/storage/tte_static.hpp` | Core `TaylorExpansionT<T, N, M>` class with constructors, variable factories, coefficient/derivative access, evaluation, differentiation, integration, norms, and in-place operators |
-| `tax/operators.hpp` | Facade that pulls in all free-function operators and math functions |
-| `tax/kernels.hpp` | Facade that pulls in all series computation kernels (recurrence relations) |
-| `tax/expr/` | Expression template nodes: `Expr<>` CRTP base, binary/unary/sum/product expressions, arithmetic and function call nodes |
-| `tax/kernels/` | Degree-by-degree recurrence implementations: `cauchy.hpp` (Cauchy product), `algebra.hpp` (reciprocal, sqrt, cbrt), `trigonometric.hpp` (sin, cos, tan, sinh, cosh, tanh and inverses), `transcendental.hpp` (exp, log, pow, erf, asin, acos, atan, inverse hyperbolics) |
-| `tax/utils/` | Combinatorics, multi-index enumeration, flat-index mapping, type traits |
+|---|---|
+| `tax/tax.hpp` | Umbrella header — the only include users need |
+| `tax/core/taylor_expansion.hpp` | Primary `TaylorExpansion` class template + Dense/Sparse specialisations |
+| `tax/core/multi_index.hpp` | `MultiIndex<M>`, flat-index ↔ multi-index conversion |
+| `tax/core/enumeration.hpp` | Compile-time monomial enumeration utilities |
+| `tax/core/concepts.hpp` | `Scalar` concept and related traits |
+| `tax/operators/arithmetic.hpp` | `+`, `-`, `*`, `/` between TE and scalars |
+| `tax/operators/math_unary.hpp` | `sin`, `cos`, `exp`, `log`, `sqrt`, … |
+| `tax/operators/math_binary.hpp` | `pow`, `atan2`, … |
+| `tax/kernels/cauchy.hpp` | Cauchy product (multiplication) |
+| `tax/kernels/algebra.hpp` | reciprocal, sqrt, cbrt, square, cube |
+| `tax/kernels/trigonometric.hpp` | trigonometric recurrences |
+| `tax/kernels/transcendental.hpp` | exp, log, hyperbolic, inverse, erf |
+| `tax/eigen.hpp` | `NumTraits` + Eigen-vocabulary helpers |
