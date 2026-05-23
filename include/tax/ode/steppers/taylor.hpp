@@ -152,15 +152,27 @@ TaylorStepper< N, StateT, Controller >::step(
         x_norm = std::max( x_norm, T( abs( x_new( i ) ) ) );
     const T tol = cfg.abstol + cfg.reltol * x_norm;
 
-    // --- 6. Step-size control: JorbaZou uses (c_N, c_{N-1}) directly;
-    // every other controller uses err_norm via next_step(h, err, tol, p_emb).
-    T h_next;
-    if constexpr ( std::is_same_v< Controller, controllers::JorbaZou< T > > )
-        h_next = controller_.next_step( h, c_N_norm, c_Nm1_norm, tol, N );
+    // --- 6. Step-size control:
+    //   FixedStep  — always accept, return h unchanged.
+    //   JorbaZou   — uses (c_N, c_{N-1}) directly.
+    //   any other  — uses err_norm via next_step(h, err, tol, p_emb).
+    T    h_next;
+    bool accepted;
+    if constexpr ( std::is_same_v< Controller, controllers::FixedStep< T > > )
+    {
+        h_next   = h;
+        accepted = true;
+    }
+    else if constexpr ( std::is_same_v< Controller, controllers::JorbaZou< T > > )
+    {
+        h_next   = controller_.next_step( h, c_N_norm, c_Nm1_norm, tol, N );
+        accepted = err_norm <= tol;
+    }
     else
-        h_next = controller_.next_step( h, err_norm, tol, /*p_emb=*/N - 1 );
-
-    const bool accepted = err_norm <= tol;
+    {
+        h_next   = controller_.next_step( h, err_norm, tol, /*p_emb=*/N - 1 );
+        accepted = err_norm <= tol;
+    }
 
     StepResult< StateT, TaylorStepper > r;
     r.x_new    = std::move( x_new );
