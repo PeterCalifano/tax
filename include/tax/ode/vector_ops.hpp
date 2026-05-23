@@ -64,12 +64,12 @@ struct VectorOps< TaylorExpansion< T, N, M, storage::Dense > >
         return n;
     }
 
-    static void axpy( S& y, double a, const S& x )
+    static void axpy( S& y, double a, const S& x ) noexcept
     {
         y = y + static_cast< T >( a ) * x;
     }
 
-    static void scale_assign( S& y, double a, const S& x )
+    static void scale_assign( S& y, double a, const S& x ) noexcept
     {
         y = static_cast< T >( a ) * x;
     }
