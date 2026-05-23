@@ -255,35 +255,45 @@ can be reused across the scalar-state RK steppers and the TE-state Taylor steppe
 
 ---
 
-## Factory functions
+## Per-method type aliases
 
-All factories deduce the user callable `F` and instantiate the right Stepper.
+| Alias                                                           | Stepper                  | Default controller              |
+| --------------------------------------------------------------- | ------------------------ | ------------------------------- |
+| `Verner78<State, Ctrl=PI, Dense=false, F=Rhs>`                  | `Verner78Stepper`        | `controllers::PI<double>`       |
+| `Verner89<State, Ctrl=PI, Dense=false, F=Rhs>`                  | `Verner89Stepper`        | `controllers::PI<double>`       |
+| `Fehlberg78<State, Ctrl=PI, Dense=false, F=Rhs>`                | `Fehlberg78Stepper`      | `controllers::PI<double>`       |
+| `Feagin12<State, Ctrl=PI, Dense=false, F=Rhs>`                  | `Feagin12Stepper`        | `controllers::PI<double>`       |
+| `Feagin14<State, Ctrl=PI, Dense=false, F=Rhs>`                  | `Feagin14Stepper`        | `controllers::PI<double>`       |
+| `Taylor<N, State, Ctrl=JorbaZou, Dense=false, F=Rhs>`           | `TaylorStepper<N,…>`     | `controllers::JorbaZou<double>` |
+
+`F` defaults to `Stepper::Rhs` (a `std::function<State(const State&, double)>`).
+Spell `F` explicitly to avoid the vtable indirection on benchmark hot loops.
+
+!!! note "`Taylor<…>` requires explicit `F`"
+    `TaylorStepper::step()` invokes the RHS with TE-valued state internally, so the
+    `std::function<State(const State&, double)>` default does not compile. Spell
+    `decltype(f)` as the 5th template parameter:
+
+    ```cpp
+    auto f = [](const auto& x, double t) { /*…*/ return x; };
+    tax::ode::Taylor<25, Eigen::Matrix<double, 6, 1>,
+                     tax::ode::controllers::JorbaZou<double>, /*Dense=*/false,
+                     decltype(f)> integ{ f, cfg };
+    ```
+
+### Examples
 
 ```cpp
-// Taylor method — N is mandatory.
-template <int N, class T = double, int D = Eigen::Dynamic,
-          bool Dense = false, class F>
-[[nodiscard]] auto makeTaylorIntegrator(F f, IntegratorConfig<T> cfg = {});
+// Adaptive Verner 8(7) on a 6-state double system:
+tax::ode::Verner78< Eigen::Matrix<double, 6, 1> > integ{ f, cfg };
 
-template <int N, class T = double, int D = Eigen::Dynamic,
-          bool Dense = false, class F>
-[[nodiscard]] auto makeTaylorIntegrator(F f, IntegratorConfig<T> cfg,
-                                        std::vector<Event<TaylorStepper<N, Eigen::Matrix<T, D, 1>>>> events);
+// FixedStep grid (uses cfg.initial_step uniformly):
+tax::ode::Verner78< Eigen::Matrix<double, 6, 1>,
+                    tax::ode::controllers::FixedStep<double> > integ{ f, cfg };
+
+// DA-vector state (vector of TE in IC deviations):
+tax::ode::Verner78< Eigen::Matrix<tax::TEn<2, 4>, 6, 1> > integ_da{ f, cfg };
 ```
-
-Each Runge–Kutta family has matching factories:
-
-```cpp
-makeVerner78Integrator  <T, D, Dense, Controller, F>(f, cfg[, events])
-makeVerner89Integrator  <T, D, Dense, Controller, F>(f, cfg[, events])
-makeFehlberg78Integrator<T, D, Dense, Controller, F>(f, cfg[, events])
-makeFeagin12Integrator  <T, D, Dense, Controller, F>(f, cfg[, events])
-makeFeagin14Integrator  <T, D, Dense, Controller, F>(f, cfg[, events])
-```
-
-Default `Controller = controllers::PI<T>`. Power users who want a different
-controller (or a non-Eigen state) can construct the raw
-`Integrator<Stepper, F, Dense>` directly.
 
 ---
 

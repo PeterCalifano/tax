@@ -37,11 +37,11 @@ using MyV89   = tax::ode::Verner89Stepper<StateT, tax::ode::controllers::H211b<d
 auto integ = tax::ode::Integrator<MyV89, decltype(f)>{ f, cfg };
 ```
 
-Or pass `Controller` to the matching factory:
+Or spell the controller as the second type parameter of the alias:
 
 ```cpp
-auto integ = tax::ode::makeVerner89Integrator<double, 2, /*Dense=*/false,
-                                              tax::ode::controllers::H211b<double>>(f, cfg);
+tax::ode::Verner89< Eigen::Matrix<double, 2, 1>,
+                    tax::ode::controllers::H211b<double> > integ{ f, cfg };
 ```
 
 ---
@@ -120,3 +120,52 @@ that JorbaZou exploits.
 The full benchmark report — environment, build flags, raw numbers, and known
 caveats — is preserved in the repository at
 [`docs/benchmarks/2026-05-21-stage2a-cr3bp.md`](https://github.com/andreapasquale94/tax/blob/main/docs/benchmarks/2026-05-21-stage2a-cr3bp.md).
+
+---
+
+## Propagating an expansion in the initial conditions (DA-vector state)
+
+The five RK steppers accept any state for which `tax::ode::VectorOps<State>`
+is specialized. The library provides built-in specializations for
+floating-point scalars, `tax::TaylorExpansionT<T,N,M>`, and
+`Eigen::Matrix<T,D,1>` of either.
+
+To propagate a polynomial flow map about an initial-condition box, use a
+vector of multivariate Taylor polynomials in the IC deviations:
+
+```cpp
+using DA    = tax::TEn<2, 4>;            // order 2, 4 IC variables
+using State = Eigen::Matrix<DA, 4, 1>;
+
+State x0;
+for (int i = 0; i < 4; ++i)
+    x0(i) = DA(centre(i)) + DA(halfWidth(i)) * DA::variable(0.0, i);
+
+tax::ode::Verner78<State> integ{ f, cfg };
+auto sol = integ.integrate(x0, t0, tmax);
+
+// sol.x.back()(i)[0]    = component i at tmax, constant DA term
+// sol.x.back()(i)[1+j]  = ∂(component i)/∂(δ_j) at tmax, scaled by halfWidth(j)
+```
+
+Step-size control still operates in `double`: `VectorOps<State>::norm`
+returns the sup over all coefficients of the polynomial state, and the
+adaptive controller compares that against `cfg.abstol + cfg.reltol *
+state_norm`.
+
+The Taylor stepper currently requires a real-scalar state — propagating a
+DA-vector state through `Taylor<…>` would require a separate DA-Taylor
+integrator (planned, not in this stage).
+
+### Supported state types out of the box
+
+| State type | `VectorOps<S>` specialization | Use case |
+|---|---|---|
+| `double` (or any floating-point) | `VectorOps<T>` | scalar ODE |
+| `Eigen::Matrix<double, D, 1>` | `VectorOps<V>` recursing on inner `double` | classical N-state vector ODE |
+| `tax::TEn<P, M>` (a single TE) | `VectorOps<TaylorExpansionT<…>>` | rare; advanced usage |
+| `Eigen::Matrix<tax::TEn<P, M>, D, 1>` | `VectorOps<V>` recursing on inner TE | polynomial flow map / sensitivity propagation |
+
+To support a custom state type, specialize `tax::ode::VectorOps<MyState>` in
+the `tax::ode` namespace, providing three static functions: `norm(x) →
+double`, `axpy(y, double a, x)`, `scale_assign(y, double a, x)`.
