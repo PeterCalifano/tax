@@ -51,3 +51,75 @@ TEST( OdeFixedStep, Verner78AlwaysAcceptedAtTightTol )
 
     check_uniform_grid( sol, kH, /*expected_count=*/11u );
 }
+
+TEST( OdeFixedStep, Verner89AlwaysAcceptedAtTightTol )
+{
+    using State = Eigen::Matrix< double, 1, 1 >;
+
+    IntegratorConfig< double > cfg;
+    cfg.initial_step = kH;
+    cfg.abstol = cfg.reltol = 1e-30;
+
+    auto integ = tax::ode::makeVerner89Integrator< double, 1, false,
+                                                    FixedStep< double > >(
+        identity_rhs< State >(), cfg );
+
+    State x0; x0( 0 ) = 1.0;
+    auto sol = integ.integrate( x0, 0.0, 1.0 );
+
+    check_uniform_grid( sol, kH, /*expected_count=*/11u );
+}
+
+TEST( OdeFixedStep, Fehlberg78AlwaysAcceptedAtTightTol )
+{
+    using State = Eigen::Matrix< double, 1, 1 >;
+
+    IntegratorConfig< double > cfg;
+    cfg.initial_step = kH;
+    cfg.abstol = cfg.reltol = 1e-30;
+
+    auto integ = tax::ode::makeFehlberg78Integrator< double, 1, false,
+                                                      FixedStep< double > >(
+        identity_rhs< State >(), cfg );
+
+    State x0; x0( 0 ) = 1.0;
+    auto sol = integ.integrate( x0, 0.0, 1.0 );
+
+    check_uniform_grid( sol, kH, /*expected_count=*/11u );
+}
+
+TEST( OdeFixedStep, Feagin12AlwaysAcceptedAtTightTol )
+{
+    using State = Eigen::Matrix< double, 1, 1 >;
+
+    IntegratorConfig< double > cfg;
+    cfg.initial_step = kH;
+    cfg.abstol = cfg.reltol = 1e-30;
+
+    auto integ = tax::ode::makeFeagin12Integrator< double, 1, false,
+                                                    FixedStep< double > >(
+        identity_rhs< State >(), cfg );
+
+    State x0; x0( 0 ) = 1.0;
+    auto sol = integ.integrate( x0, 0.0, 1.0 );
+
+    check_uniform_grid( sol, kH, /*expected_count=*/11u );
+}
+
+TEST( OdeFixedStep, Feagin14AlwaysAcceptedAtTightTol )
+{
+    using State = Eigen::Matrix< double, 1, 1 >;
+
+    IntegratorConfig< double > cfg;
+    cfg.initial_step = kH;
+    cfg.abstol = cfg.reltol = 1e-30;
+
+    auto integ = tax::ode::makeFeagin14Integrator< double, 1, false,
+                                                    FixedStep< double > >(
+        identity_rhs< State >(), cfg );
+
+    State x0; x0( 0 ) = 1.0;
+    auto sol = integ.integrate( x0, 0.0, 1.0 );
+
+    check_uniform_grid( sol, kH, /*expected_count=*/11u );
+}
