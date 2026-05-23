@@ -123,3 +123,27 @@ TEST( OdeFixedStep, Feagin14AlwaysAcceptedAtTightTol )
 
     check_uniform_grid( sol, kH, /*expected_count=*/11u );
 }
+
+TEST( OdeFixedStep, TaylorAlwaysAcceptedAtTightTol )
+{
+    using State = Eigen::Matrix< double, 1, 1 >;
+
+    IntegratorConfig< double > cfg;
+    cfg.initial_step = kH;
+    cfg.abstol = cfg.reltol = 1e-30;        // impossibly tight; must still accept
+
+    // TaylorStepper calls f(x_te, t_te) with TE-valued arguments, so the
+    // RHS must be a generic lambda (std::function with a fixed signature
+    // would not compose with the TE state). makeTaylorIntegrator does not
+    // expose a Controller template parameter, so we instantiate the
+    // Integrator type manually with FixedStep.
+    auto rhs = []( const auto& x, const auto& /*t*/ ) { return x; };
+    using Stepper = tax::ode::TaylorStepper< 16, State, FixedStep< double > >;
+    using Integ   = tax::ode::Integrator< Stepper, decltype( rhs ), false >;
+    Integ integ_fs{ rhs, cfg };
+
+    State x0; x0( 0 ) = 1.0;
+    auto sol = integ_fs.integrate( x0, 0.0, 1.0 );
+
+    check_uniform_grid( sol, kH, /*expected_count=*/11u );
+}
