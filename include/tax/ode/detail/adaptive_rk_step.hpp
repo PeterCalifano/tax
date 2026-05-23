@@ -7,7 +7,6 @@
 
 #pragma once
 
-#include <Eigen/Core>
 #include <array>
 #include <cstddef>
 #include <utility>

@@ -26,7 +26,7 @@ namespace tax::ode
 {
 
 template < class StateT,
-           class Controller = controllers::PI< typename StateT::Scalar > >
+           class Controller = controllers::PI< double > >
 struct Verner89Stepper
 {
     using State  = StateT;
