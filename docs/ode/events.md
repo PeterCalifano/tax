@@ -95,12 +95,12 @@ ControlFlow(const StepperCtx<…>&, T tau_fired, EventStorage<State, T>&)
 |---|---|
 | `Continue()`       | No-op; integration proceeds. |
 | `Terminate()`      | Integration loop exits cleanly after the current step. |
-| `Record(label)`    | Push `EventRecord{label, t_event, x_event}` into the solution's `events` vector, then continue. |
+| `Record(label)`    | Push `EventRecord{label, t, x}` into the solution's `events` vector, then continue. |
 | `Custom(fn)`       | Invoke a user lambda `fn(ctx, τ, storage) -> ControlFlow`. The storage exposes `push(EventRecord)` for writes. |
 
-The `Record` action uses `Stepper::eval_dense` to obtain `x_event` at the
-located τ. On the TaylorStepper this gives machine-precision accuracy when
-`g_poly` was used by the trigger.
+The `Record` action uses `Stepper::eval_dense` to obtain `x` at the located
+τ. On the TaylorStepper this gives machine-precision accuracy when `g_poly`
+was used by the trigger.
 
 ---
 
@@ -150,7 +150,7 @@ Eigen::Matrix<double, 2, 1> x0; x0 << 1.0, 0.0;
 auto sol = integ.integrate(x0, 0.0, 4.0 * M_PI);
 
 for (const auto& e : sol.events) {
-    std::cout << e.label << " at t = " << e.t_event << "\n";
+    std::cout << e.label << " at t = " << e.t << "\n";
 }
 ```
 

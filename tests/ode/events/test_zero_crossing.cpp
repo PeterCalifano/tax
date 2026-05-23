@@ -89,12 +89,12 @@ TEST( OdeEventsZeroCrossing, HarmonicVZeroRecord )
     EXPECT_LE( sol.events.size(), 3u );
     for ( const auto& e : sol.events )
     {
-        EXPECT_GE( e.t_event, 0.0 );
-        EXPECT_LE( e.t_event, 2 * M_PI + 1e-9 );
+        EXPECT_GE( e.t, 0.0 );
+        EXPECT_LE( e.t, 2 * M_PI + 1e-9 );
         // The event *time* is found via polynomial Newton (near machine
-        // precision). Record now uses Stepper::eval_dense so x_event
-        // is machine-precision accurate — tighten to the spec's 1e-8.
-        EXPECT_NEAR( std::abs( e.x_event( 1 ) ), 0.0, 1e-8 );
+        // precision). Record now uses Stepper::eval_dense so the recorded
+        // x is machine-precision accurate — tighten to the spec's 1e-8.
+        EXPECT_NEAR( std::abs( e.x( 1 ) ), 0.0, 1e-8 );
     }
 }
 

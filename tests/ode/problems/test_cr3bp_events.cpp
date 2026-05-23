@@ -74,7 +74,7 @@ TEST( OdeCR3BPEvents, TaylorRecordsL1MoonL2 )
     for ( const auto& e : sol.events )
     {
         if ( e.label != "moon_periapsis" ) continue;
-        const double r2 = std::hypot( e.x_event( 0 ) - 1.0 + mu, e.x_event( 1 ) );
+        const double r2 = std::hypot( e.x( 0 ) - 1.0 + mu, e.x( 1 ) );
         if ( r2 < 0.1 ) { close_moon = true; break; }
     }
     EXPECT_TRUE( close_moon );

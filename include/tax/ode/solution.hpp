@@ -22,8 +22,8 @@ template < class State, class T >
 struct EventRecord
 {
     std::string label;          // "" if anonymous
-    T           t_event;
-    State       x_event;
+    T           t;
+    State       x;
 };
 
 template < class Stepper, class State, bool Dense >

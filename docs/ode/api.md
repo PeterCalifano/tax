@@ -199,7 +199,7 @@ public:
     using T = typename Stepper::T;
     std::vector<T>                       t;       // size = nsteps + 1
     std::vector<State>                   x;       // x[i] at t[i]
-    std::vector<EventRecord<State, T>>   events;  // monotonic in t_event
+    std::vector<EventRecord<State, T>>   events;  // monotonic in EventRecord::t
 
     [[nodiscard]] std::size_t size() const noexcept;
 };
@@ -225,8 +225,8 @@ public:
 template <class State, class T>
 struct EventRecord {
     std::string label;           // "" if anonymous
-    T           t_event;
-    State       x_event;
+    T           t;
+    State       x;
 };
 ```
 
