@@ -153,14 +153,19 @@ struct JorbaZou
 template < class T = double >
 struct FixedStep
 {
-    [[nodiscard]] T next_step( T h_used, T /*err_norm*/, T /*tol*/,
-                                int /*p_emb*/ ) const noexcept
-    { return h_used; }
+    [[nodiscard]] T next_step( T h_used, T err_norm, T tol, int p_emb ) const noexcept
+    {
+        (void) err_norm; (void) tol; (void) p_emb;
+        return h_used;
+    }
 
     // Overload matching JorbaZou's call signature, used by TaylorStepper.
-    [[nodiscard]] T next_step( T h_used, T /*c_N_norm*/, T /*c_Nm1_norm*/,
-                                T /*tol*/, int /*N_order*/ ) const noexcept
-    { return h_used; }
+    [[nodiscard]] T next_step( T h_used, T c_N_norm, T c_Nm1_norm, T tol,
+                                int N_order ) const noexcept
+    {
+        (void) c_N_norm; (void) c_Nm1_norm; (void) tol; (void) N_order;
+        return h_used;
+    }
 };
 
 }  // namespace tax::ode::controllers
