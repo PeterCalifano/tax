@@ -178,6 +178,47 @@ template < typename Derived, typename DxDerived >
     return out;
 }
 
+/**
+ * @brief Evaluate a scalar univariate `TaylorExpansion` at a scalar displacement.
+ *
+ * Convenience for the `M == 1` case: spares the user from wrapping `dx` in an
+ * `Input` array or a 1-vector. Equivalent to `f.eval(Input{dx})`.
+ */
+template < typename T, int N, typename S >
+[[nodiscard]] T eval( const TaylorExpansion< T, N, 1, S >& f, T dx ) noexcept
+{
+    typename TaylorExpansion< T, N, 1, S >::Input p{ dx };
+    return f.eval( p );
+}
+
+/**
+ * @brief Evaluate each element of an Eigen matrix/vector of univariate
+ *        `TaylorExpansion` objects at a shared scalar displacement.
+ *
+ * Convenience for the `M == 1` case: same as
+ * `eval(F, Eigen::Matrix<T,1,1>{dx})` but without the wrapping.
+ *
+ * @param F   Eigen matrix/vector of univariate `TaylorExpansion` objects.
+ * @param dx  Scalar displacement.
+ * @return    Eigen matrix/vector of the same shape, scalar type `T`.
+ */
+template < typename Derived >
+    requires( detail::eigen::is_te_v< typename Derived::Scalar >
+              && detail::eigen::te_traits< typename Derived::Scalar >::vars_v == 1 )
+[[nodiscard]] auto eval(
+    const Eigen::MatrixBase< Derived >&                                       F,
+    typename detail::eigen::te_traits< typename Derived::Scalar >::scalar_type dx )
+{
+    using TE = typename Derived::Scalar;
+    using T  = typename detail::eigen::te_traits< TE >::scalar_type;
+    typename TE::Input p{ dx };
+    Eigen::Matrix< T, Derived::RowsAtCompileTime, Derived::ColsAtCompileTime >
+        out( F.rows(), F.cols() );
+    for ( Eigen::Index i = 0; i < F.size(); ++i )
+        out( i ) = F.derived().coeff( i ).eval( p );
+    return out;
+}
+
 // ---------------------------------------------------------------------------
 // derivative — element-wise partial derivative extraction
 // ---------------------------------------------------------------------------

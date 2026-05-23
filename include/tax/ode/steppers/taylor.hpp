@@ -70,9 +70,7 @@ template < int N, class StateT, class Controller >
 StateT TaylorStepper< N, StateT, Controller >::eval_dense(
     const DenseData& d, const T& t0, const T& /*t1*/, const T& tq )
 {
-    Eigen::Matrix< T, 1, 1 > dx;
-    dx[ 0 ] = tq - t0;
-    return tax::eval( d, dx );
+    return tax::eval( d, T( tq - t0 ) );
 }
 
 // -------- step (real Taylor expansion — Task 6) --------
@@ -106,9 +104,7 @@ TaylorStepper< N, StateT, Controller >::step(
     }
 
     // --- 4. x_new = x(t + h) via the TE Eigen-eval helper.
-    Eigen::Matrix< T, 1, 1 > dx;
-    dx[ 0 ] = h;
-    StateT x_new = tax::eval( x_te, dx );
+    StateT x_new = tax::eval( x_te, h );
 
     // --- 5. Truncation indicator and last-two coefficient norms.
     T c_N_norm = T{ 0 }, c_Nm1_norm = T{ 0 };
