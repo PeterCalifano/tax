@@ -114,6 +114,31 @@ public:
         return r;
     }
 
+    /**
+     * @brief Runtime-indexed coordinate variable: `x_i = x0 + 1*dx_i`.
+     *
+     * Equivalent to the compile-time `variable<I>(...)` but with a runtime index.
+     * Sets `coeff(0) = x0` and `coeff(e_i) = 1` where `e_i` is the i-th unit
+     * multi-index.  Throws `std::out_of_range` if `var_idx >= M`.
+     *
+     * @param x0       Expansion point value for this variable.
+     * @param var_idx  Variable index in `[0, M)`.
+     */
+    [[nodiscard]] static TaylorExpansion variable( T x0, int var_idx )
+    {
+        if ( var_idx < 0 || var_idx >= M )
+            throw std::out_of_range( "variable(): var_idx out of range" );
+        TaylorExpansion r{};
+        r.c_.set( 0, x0 );
+        if constexpr ( N >= 1 )
+        {
+            MultiIndex< M > alpha{};
+            alpha[std::size_t( var_idx )] = 1;
+            r.c_.set( flatIndex< M >( alpha ), T{ 1 } );
+        }
+        return r;
+    }
+
     // ------------------------------------------------------------------
     // Element access
     // ------------------------------------------------------------------
@@ -443,6 +468,15 @@ private:
  */
 template < int N, int M = 1 >
 using TE = TaylorExpansion< double, N, M, storage::Dense >;
+
+/**
+ * @brief `TEn<N, M>` — explicit M-variate alias, same as `TE<N, M>`.
+ *
+ * Provided as a more readable form when M > 1 is required:
+ *   `tax::TEn<3, 2>` instead of `tax::TE<3, 2>`.
+ */
+template < int N, int M >
+using TEn = TaylorExpansion< double, N, M, storage::Dense >;
 
 // ---------------------------------------------------------------------------
 // Self-check: verify the dense TaylorExpansion satisfies its own concepts.
