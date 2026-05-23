@@ -10,7 +10,6 @@
 #include <tax/ode.hpp>
 
 using tax::ode::IntegratorConfig;
-using tax::ode::makeTaylorIntegrator;
 
 TEST( OdeIntegrator, ExpEndpointAccurate )
 {
@@ -22,7 +21,7 @@ TEST( OdeIntegrator, ExpEndpointAccurate )
 
     const auto f = []( const auto& x, const auto& /*t*/ ) { return x; };
 
-    auto integ = makeTaylorIntegrator< N, double, 1, /*Dense=*/false >( f, cfg );
+    tax::ode::Taylor< N, State, tax::ode::controllers::JorbaZou< double >, false, decltype( f ) > integ{ f, cfg };
 
     State x0; x0( 0 ) = 1.0;
     auto sol = integ.integrate( x0, /*t0=*/0.0, /*tmax=*/1.0 );
@@ -49,7 +48,7 @@ TEST( OdeIntegrator, HarmonicQuarterPeriod )
         return out;
     };
 
-    auto integ = makeTaylorIntegrator< N, double, 2, /*Dense=*/false >( f, cfg );
+    tax::ode::Taylor< N, Eigen::Matrix< double, 2, 1 >, tax::ode::controllers::JorbaZou< double >, false, decltype( f ) > integ{ f, cfg };
 
     State x0; x0( 0 ) = 1.0; x0( 1 ) = 0.0;
     const double T_quarter = M_PI / 2.0;
@@ -76,7 +75,7 @@ TEST( OdeIntegrator, CubicDecayDynamicDim )
     };
 
     // Dynamic-D variant.
-    auto integ = makeTaylorIntegrator< N >( f, cfg );
+    tax::ode::Taylor< N, Eigen::VectorXd, tax::ode::controllers::JorbaZou< double >, false, decltype( f ) > integ{ f, cfg };
 
     State x0( 1 ); x0( 0 ) = 1.0;
     auto sol = integ.integrate( x0, 0.0, 1.0 );
@@ -105,12 +104,13 @@ TEST( OdeIntegrator, LotkaVolterraCrossMethod )
     State x0; x0( 0 ) = 10.0; x0( 1 ) = 5.0;
     const double t0 = 0.0, tf = 5.0;
 
-    auto tay = tax::ode::makeTaylorIntegrator   < 16, double, 2, false >( f, cfg );
-    auto v78 = tax::ode::makeVerner78Integrator <    double, 2, false >( f, cfg );
-    auto v89 = tax::ode::makeVerner89Integrator <    double, 2, false >( f, cfg );
-    auto fhl = tax::ode::makeFehlberg78Integrator< double, 2, false >( f, cfg );
-    auto f12 = tax::ode::makeFeagin12Integrator < double, 2, false >( f, cfg );
-    auto f14 = tax::ode::makeFeagin14Integrator < double, 2, false >( f, cfg );
+    using S2 = Eigen::Matrix< double, 2, 1 >;
+    tax::ode::Taylor< 16, S2, tax::ode::controllers::JorbaZou< double >, false, decltype( f ) > tay{ f, cfg };
+    tax::ode::Verner78< S2 >      v78{ f, cfg };
+    tax::ode::Verner89< S2 >      v89{ f, cfg };
+    tax::ode::Fehlberg78< S2 >    fhl{ f, cfg };
+    tax::ode::Feagin12< S2 >      f12{ f, cfg };
+    tax::ode::Feagin14< S2 >      f14{ f, cfg };
 
     const auto sol_t   = tay.integrate( x0, t0, tf );
     const auto sol_78  = v78.integrate( x0, t0, tf );

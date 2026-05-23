@@ -85,8 +85,7 @@ TEST( OdeTwoBodyKepler, Taylor16 )
     tax::ode::IntegratorConfig< double > cfg;
     cfg.abstol = cfg.reltol = 1e-13;
 
-    auto integ = tax::ode::makeTaylorIntegrator< 16, double, 4, false >(
-        make_rhs(), cfg );
+    tax::ode::Taylor< 16, State, tax::ode::controllers::JorbaZou< double >, false, decltype( make_rhs() ) > integ{ make_rhs(), cfg };
     auto sol = integ.integrate( make_ic(), 0.0, 10.0 * kPeriod );
 
     check_invariants( sol, /*E=*/1e-10, /*L=*/1e-10, /*close=*/1e-8, "Taylor16" );
@@ -97,8 +96,7 @@ TEST( OdeTwoBodyKepler, Verner89 )
     tax::ode::IntegratorConfig< double > cfg;
     cfg.abstol = cfg.reltol = 1e-13;
 
-    auto integ = tax::ode::makeVerner89Integrator< double, 4, false >(
-        make_rhs(), cfg );
+    tax::ode::Verner89< State > integ{ make_rhs(), cfg };
     auto sol = integ.integrate( make_ic(), 0.0, 10.0 * kPeriod );
 
     check_invariants( sol, /*E=*/1e-9, /*L=*/1e-9, /*close=*/1e-7, "Verner89" );
@@ -109,8 +107,7 @@ TEST( OdeTwoBodyKepler, Feagin14 )
     tax::ode::IntegratorConfig< double > cfg;
     cfg.abstol = cfg.reltol = 1e-13;
 
-    auto integ = tax::ode::makeFeagin14Integrator< double, 4, false >(
-        make_rhs(), cfg );
+    tax::ode::Feagin14< State > integ{ make_rhs(), cfg };
     auto sol = integ.integrate( make_ic(), 0.0, 10.0 * kPeriod );
 
     check_invariants( sol, /*E=*/1e-11, /*L=*/1e-11, /*close=*/1e-9, "Feagin14" );
@@ -121,8 +118,7 @@ TEST( OdeTwoBodyKepler, Verner78 )
     tax::ode::IntegratorConfig< double > cfg;
     cfg.abstol = cfg.reltol = 1e-13;
 
-    auto integ = tax::ode::makeVerner78Integrator< double, 4, false >(
-        make_rhs(), cfg );
+    tax::ode::Verner78< State > integ{ make_rhs(), cfg };
     auto sol = integ.integrate( make_ic(), 0.0, 10.0 * kPeriod );
 
     check_invariants( sol, /*E=*/1e-8, /*L=*/1e-8, /*close=*/1e-6, "Verner78" );

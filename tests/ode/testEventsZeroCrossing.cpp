@@ -16,7 +16,6 @@
 using tax::ode::Direction;
 using tax::ode::Event;
 using tax::ode::IntegratorConfig;
-using tax::ode::makeTaylorIntegrator;
 using tax::ode::Record;
 using tax::ode::TaylorStepper;
 using tax::ode::Terminate;
@@ -46,8 +45,7 @@ TEST( OdeEventsZeroCrossing, HarmonicTerminateAtZero )
                       Direction::Decreasing ),
         Terminate() );
 
-    auto integ = makeTaylorIntegrator< N, double, 2, /*Dense=*/false >(
-        f, cfg, events );
+    tax::ode::Taylor< N, State, tax::ode::controllers::JorbaZou< double >, false, decltype( f ) > integ{ f, cfg, events };
     State x0; x0( 0 ) = 1.0; x0( 1 ) = 0.0;
     // x(t) = cos t, so x(0)=1, decreasing through 0 at t = π/2.
     auto sol = integ.integrate( x0, 0.0, 5.0 );
@@ -80,8 +78,7 @@ TEST( OdeEventsZeroCrossing, HarmonicVZeroRecord )
                       Direction::Any ),
         Record( "v_zero" ) );
 
-    auto integ = makeTaylorIntegrator< N, double, 2, /*Dense=*/false >(
-        f, cfg, events );
+    tax::ode::Taylor< N, State, tax::ode::controllers::JorbaZou< double >, false, decltype( f ) > integ{ f, cfg, events };
     State x0; x0( 0 ) = 1.0; x0( 1 ) = 0.0;
     // v(t) = -sin t : zero at t = 0 (boundary), π, 2π. Over (0, 2π]
     // we expect events at π and 2π (the t=0 boundary is filtered by
@@ -114,8 +111,7 @@ TEST( OdeEventsZeroCrossing, EmptyEventListRunsToTmax )
     using Stepper = TaylorStepper< N, State >;
     std::vector< Event< Stepper > > events;  // empty
 
-    auto integ = makeTaylorIntegrator< N, double, 1, /*Dense=*/false >(
-        f, cfg, events );
+    tax::ode::Taylor< N, State, tax::ode::controllers::JorbaZou< double >, false, decltype( f ) > integ{ f, cfg, events };
     State x0; x0( 0 ) = 1.0;
     auto sol = integ.integrate( x0, 0.0, 1.0 );
 
@@ -155,8 +151,7 @@ TEST( OdeEventsZeroCrossing, HarmonicTerminateAcrossAllMethods )
                 tax::ode::Direction::Decreasing ),
             tax::ode::Terminate() );
 
-        auto integ = tax::ode::makeVerner78Integrator< double, 2, false >(
-            f, cfg, std::move( events ) );
+        tax::ode::Verner78< State > integ{ f, cfg, std::move( events ) };
         auto sol = integ.integrate( x0, 0.0, tmax );
         EXPECT_NEAR( sol.t.back(), t_expected, tol ) << "Verner78";
     }
@@ -170,8 +165,7 @@ TEST( OdeEventsZeroCrossing, HarmonicTerminateAcrossAllMethods )
                 tax::ode::Direction::Decreasing ),
             tax::ode::Terminate() );
 
-        auto integ = tax::ode::makeVerner89Integrator< double, 2, false >(
-            f, cfg, std::move( events ) );
+        tax::ode::Verner89< State > integ{ f, cfg, std::move( events ) };
         auto sol = integ.integrate( x0, 0.0, tmax );
         EXPECT_NEAR( sol.t.back(), t_expected, tol ) << "Verner89";
     }
@@ -185,8 +179,7 @@ TEST( OdeEventsZeroCrossing, HarmonicTerminateAcrossAllMethods )
                 tax::ode::Direction::Decreasing ),
             tax::ode::Terminate() );
 
-        auto integ = tax::ode::makeFehlberg78Integrator< double, 2, false >(
-            f, cfg, std::move( events ) );
+        tax::ode::Fehlberg78< State > integ{ f, cfg, std::move( events ) };
         auto sol = integ.integrate( x0, 0.0, tmax );
         EXPECT_NEAR( sol.t.back(), t_expected, tol ) << "Fehlberg78";
     }
@@ -200,8 +193,7 @@ TEST( OdeEventsZeroCrossing, HarmonicTerminateAcrossAllMethods )
                 tax::ode::Direction::Decreasing ),
             tax::ode::Terminate() );
 
-        auto integ = tax::ode::makeFeagin12Integrator< double, 2, false >(
-            f, cfg, std::move( events ) );
+        tax::ode::Feagin12< State > integ{ f, cfg, std::move( events ) };
         auto sol = integ.integrate( x0, 0.0, tmax );
         EXPECT_NEAR( sol.t.back(), t_expected, tol ) << "Feagin12";
     }
@@ -215,8 +207,7 @@ TEST( OdeEventsZeroCrossing, HarmonicTerminateAcrossAllMethods )
                 tax::ode::Direction::Decreasing ),
             tax::ode::Terminate() );
 
-        auto integ = tax::ode::makeFeagin14Integrator< double, 2, false >(
-            f, cfg, std::move( events ) );
+        tax::ode::Feagin14< State > integ{ f, cfg, std::move( events ) };
         auto sol = integ.integrate( x0, 0.0, tmax );
         EXPECT_NEAR( sol.t.back(), t_expected, tol ) << "Feagin14";
     }

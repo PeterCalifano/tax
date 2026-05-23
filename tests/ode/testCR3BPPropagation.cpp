@@ -22,8 +22,7 @@ CR3BPState compute_reference()
 {
     tax::ode::IntegratorConfig< double > cfg;
     cfg.abstol = cfg.reltol = 1e-14;
-    auto integ = tax::ode::makeFeagin14Integrator< double, 4, false >(
-        cr3bp_rhs(), cfg );
+    tax::ode::Feagin14< CR3BPState > integ{ cr3bp_rhs(), cfg };
     auto sol = integ.integrate( cr3bp_transit_ic(), 0.0, kCR3BPTFinal );
     return sol.x.back();
 }
@@ -49,8 +48,7 @@ TEST( OdeCR3BPPropagation, Taylor16 )
 {
     tax::ode::IntegratorConfig< double > cfg;
     cfg.abstol = cfg.reltol = 1e-13;
-    auto integ = tax::ode::makeTaylorIntegrator< 16, double, 4, false >(
-        cr3bp_rhs(), cfg );
+    tax::ode::Taylor< 16, CR3BPState, tax::ode::controllers::JorbaZou< double >, false, decltype( cr3bp_rhs() ) > integ{ cr3bp_rhs(), cfg };
     auto sol = integ.integrate( cr3bp_transit_ic(), 0.0, kCR3BPTFinal );
     check_jacobi_preserved( sol, 1e-10 );
 
@@ -62,8 +60,7 @@ TEST( OdeCR3BPPropagation, Verner89 )
 {
     tax::ode::IntegratorConfig< double > cfg;
     cfg.abstol = cfg.reltol = 1e-13;
-    auto integ = tax::ode::makeVerner89Integrator< double, 4, false >(
-        cr3bp_rhs(), cfg );
+    tax::ode::Verner89< CR3BPState > integ{ cr3bp_rhs(), cfg };
     auto sol = integ.integrate( cr3bp_transit_ic(), 0.0, kCR3BPTFinal );
     check_jacobi_preserved( sol, 1e-9 );
 
@@ -75,8 +72,7 @@ TEST( OdeCR3BPPropagation, Verner78 )
 {
     tax::ode::IntegratorConfig< double > cfg;
     cfg.abstol = cfg.reltol = 1e-13;
-    auto integ = tax::ode::makeVerner78Integrator< double, 4, false >(
-        cr3bp_rhs(), cfg );
+    tax::ode::Verner78< CR3BPState > integ{ cr3bp_rhs(), cfg };
     auto sol = integ.integrate( cr3bp_transit_ic(), 0.0, kCR3BPTFinal );
     check_jacobi_preserved( sol, 1e-8 );
 
@@ -88,8 +84,7 @@ TEST( OdeCR3BPPropagation, Feagin12 )
 {
     tax::ode::IntegratorConfig< double > cfg;
     cfg.abstol = cfg.reltol = 1e-13;
-    auto integ = tax::ode::makeFeagin12Integrator< double, 4, false >(
-        cr3bp_rhs(), cfg );
+    tax::ode::Feagin12< CR3BPState > integ{ cr3bp_rhs(), cfg };
     auto sol = integ.integrate( cr3bp_transit_ic(), 0.0, kCR3BPTFinal );
     check_jacobi_preserved( sol, 1e-10 );
 

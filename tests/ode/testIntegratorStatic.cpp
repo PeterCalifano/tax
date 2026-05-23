@@ -38,10 +38,10 @@ TEST( OdeIntegratorStatic, Taylor16ParityWithDynamic )
     using SStatic = Eigen::Matrix< double, 2, 1 >;
     using SDyn    = Eigen::VectorXd;
 
-    auto integ_s = tax::ode::makeTaylorIntegrator< 16, double, 2,              false >(
-        harmonic_rhs(), cfg );
-    auto integ_d = tax::ode::makeTaylorIntegrator< 16, double, Eigen::Dynamic, false >(
-        harmonic_rhs(), cfg );
+    using RhsT = decltype( harmonic_rhs() );
+    using Ctrl = tax::ode::controllers::JorbaZou< double >;
+    tax::ode::Taylor< 16, SStatic, Ctrl, false, RhsT > integ_s{ harmonic_rhs(), cfg };
+    tax::ode::Taylor< 16, SDyn,    Ctrl, false, RhsT > integ_d{ harmonic_rhs(), cfg };
 
     SStatic x0_s; x0_s( 0 ) = 1.0; x0_s( 1 ) = 0.0;
     SDyn    x0_d( 2 ); x0_d( 0 ) = 1.0; x0_d( 1 ) = 0.0;
@@ -61,10 +61,8 @@ TEST( OdeIntegratorStatic, Verner89ParityWithDynamic )
     using SStatic = Eigen::Matrix< double, 2, 1 >;
     using SDyn    = Eigen::VectorXd;
 
-    auto integ_s = tax::ode::makeVerner89Integrator< double, 2,              false >(
-        harmonic_rhs(), cfg );
-    auto integ_d = tax::ode::makeVerner89Integrator< double, Eigen::Dynamic, false >(
-        harmonic_rhs(), cfg );
+    tax::ode::Verner89< SStatic > integ_s{ harmonic_rhs(), cfg };
+    tax::ode::Verner89< SDyn >    integ_d{ harmonic_rhs(), cfg };
 
     SStatic x0_s; x0_s( 0 ) = 1.0; x0_s( 1 ) = 0.0;
     SDyn    x0_d( 2 ); x0_d( 0 ) = 1.0; x0_d( 1 ) = 0.0;

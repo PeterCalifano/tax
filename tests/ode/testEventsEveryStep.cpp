@@ -17,7 +17,6 @@ using tax::ode::Custom;
 using tax::ode::Event;
 using tax::ode::EveryStep;
 using tax::ode::IntegratorConfig;
-using tax::ode::makeTaylorIntegrator;
 using tax::ode::TaylorStepper;
 
 TEST( OdeEventsEveryStep, FiresOncePerStep )
@@ -38,8 +37,7 @@ TEST( OdeEventsEveryStep, FiresOncePerStep )
         Custom( [&counter]( const auto&, double, auto& )
                 { ++counter; return ControlFlow::Continue; } ) );
 
-    auto integ = makeTaylorIntegrator< N, double, 1, /*Dense=*/false >(
-        f, cfg, events );
+    tax::ode::Taylor< N, State, tax::ode::controllers::JorbaZou< double >, false, decltype( f ) > integ{ f, cfg, events };
     State x0; x0( 0 ) = 1.0;
     auto sol = integ.integrate( x0, 0.0, 1.0 );
 
@@ -69,8 +67,7 @@ TEST( OdeEventsEveryStep, CustomCanTerminate )
                                : ControlFlow::Continue;
                 } ) );
 
-    auto integ = makeTaylorIntegrator< N, double, 1, /*Dense=*/false >(
-        f, cfg, events );
+    tax::ode::Taylor< N, State, tax::ode::controllers::JorbaZou< double >, false, decltype( f ) > integ{ f, cfg, events };
     State x0; x0( 0 ) = 1.0;
     auto sol = integ.integrate( x0, 0.0, 1.0 );
 

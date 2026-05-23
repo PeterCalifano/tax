@@ -14,7 +14,6 @@
 #include <tax/ode.hpp>
 
 using tax::ode::IntegratorConfig;
-using tax::ode::makeTaylorIntegrator;
 
 TEST( OdeIntegratorDense, ExpDenseInside )
 {
@@ -26,7 +25,7 @@ TEST( OdeIntegratorDense, ExpDenseInside )
 
     const auto f = []( const auto& x, const auto& /*t*/ ) { return x; };
 
-    auto integ = makeTaylorIntegrator< N, double, 1, /*Dense=*/true >( f, cfg );
+    tax::ode::Taylor< N, State, tax::ode::controllers::JorbaZou< double >, /*Dense=*/true, decltype( f ) > integ{ f, cfg };
 
     State x0; x0( 0 ) = 1.0;
     auto sol = integ.integrate( x0, 0.0, 1.0 );
@@ -52,7 +51,7 @@ TEST( OdeIntegratorDense, OutOfRangeThrows )
     IntegratorConfig< double > cfg;
     const auto f = []( const auto& x, const auto& /*t*/ ) { return x; };
 
-    auto integ = makeTaylorIntegrator< N, double, 1, /*Dense=*/true >( f, cfg );
+    tax::ode::Taylor< N, State, tax::ode::controllers::JorbaZou< double >, /*Dense=*/true, decltype( f ) > integ{ f, cfg };
 
     State x0; x0( 0 ) = 1.0;
     auto sol = integ.integrate( x0, 0.0, 0.5 );
@@ -79,8 +78,7 @@ TEST( OdeIntegratorDense, TerminatePreservesDenseInvariant )
             tax::ode::Direction::Increasing ),
         tax::ode::Terminate() );
 
-    auto integ = tax::ode::makeTaylorIntegrator<
-        N, double, 1, /*Dense=*/true >( f, cfg, events );
+    tax::ode::Taylor< N, State, tax::ode::controllers::JorbaZou< double >, /*Dense=*/true, decltype( f ) > integ{ f, cfg, events };
 
     State x0; x0( 0 ) = 1.0;
     auto sol = integ.integrate( x0, 0.0, 5.0 );

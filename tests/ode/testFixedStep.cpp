@@ -42,9 +42,7 @@ TEST( OdeFixedStep, Verner78AlwaysAcceptedAtTightTol )
     cfg.initial_step = kH;
     cfg.abstol = cfg.reltol = 1e-30;        // impossibly tight; must still accept
 
-    auto integ = tax::ode::makeVerner78Integrator< double, 1, false,
-                                                    FixedStep< double > >(
-        identity_rhs< State >(), cfg );
+    tax::ode::Verner78< State, FixedStep< double > > integ{ identity_rhs< State >(), cfg };
 
     State x0; x0( 0 ) = 1.0;
     auto sol = integ.integrate( x0, 0.0, 1.0 );
@@ -60,9 +58,7 @@ TEST( OdeFixedStep, Verner89AlwaysAcceptedAtTightTol )
     cfg.initial_step = kH;
     cfg.abstol = cfg.reltol = 1e-30;
 
-    auto integ = tax::ode::makeVerner89Integrator< double, 1, false,
-                                                    FixedStep< double > >(
-        identity_rhs< State >(), cfg );
+    tax::ode::Verner89< State, FixedStep< double > > integ{ identity_rhs< State >(), cfg };
 
     State x0; x0( 0 ) = 1.0;
     auto sol = integ.integrate( x0, 0.0, 1.0 );
@@ -78,9 +74,7 @@ TEST( OdeFixedStep, Fehlberg78AlwaysAcceptedAtTightTol )
     cfg.initial_step = kH;
     cfg.abstol = cfg.reltol = 1e-30;
 
-    auto integ = tax::ode::makeFehlberg78Integrator< double, 1, false,
-                                                      FixedStep< double > >(
-        identity_rhs< State >(), cfg );
+    tax::ode::Fehlberg78< State, FixedStep< double > > integ{ identity_rhs< State >(), cfg };
 
     State x0; x0( 0 ) = 1.0;
     auto sol = integ.integrate( x0, 0.0, 1.0 );
@@ -96,9 +90,7 @@ TEST( OdeFixedStep, Feagin12AlwaysAcceptedAtTightTol )
     cfg.initial_step = kH;
     cfg.abstol = cfg.reltol = 1e-30;
 
-    auto integ = tax::ode::makeFeagin12Integrator< double, 1, false,
-                                                    FixedStep< double > >(
-        identity_rhs< State >(), cfg );
+    tax::ode::Feagin12< State, FixedStep< double > > integ{ identity_rhs< State >(), cfg };
 
     State x0; x0( 0 ) = 1.0;
     auto sol = integ.integrate( x0, 0.0, 1.0 );
@@ -114,9 +106,7 @@ TEST( OdeFixedStep, Feagin14AlwaysAcceptedAtTightTol )
     cfg.initial_step = kH;
     cfg.abstol = cfg.reltol = 1e-30;
 
-    auto integ = tax::ode::makeFeagin14Integrator< double, 1, false,
-                                                    FixedStep< double > >(
-        identity_rhs< State >(), cfg );
+    tax::ode::Feagin14< State, FixedStep< double > > integ{ identity_rhs< State >(), cfg };
 
     State x0; x0( 0 ) = 1.0;
     auto sol = integ.integrate( x0, 0.0, 1.0 );
@@ -134,13 +124,10 @@ TEST( OdeFixedStep, TaylorAlwaysAcceptedAtTightTol )
 
     // TaylorStepper calls f(x_te, t_te) with TE-valued arguments, so the
     // RHS must be a generic lambda (std::function with a fixed signature
-    // would not compose with the TE state). makeTaylorIntegrator does not
-    // expose a Controller template parameter, so we instantiate the
-    // Integrator type manually with FixedStep.
+    // would not compose with the TE state). The F parameter is spelled
+    // explicitly to preserve the zero-indirection path.
     auto rhs = []( const auto& x, const auto& /*t*/ ) { return x; };
-    using Stepper = tax::ode::TaylorStepper< 16, State, FixedStep< double > >;
-    using Integ   = tax::ode::Integrator< Stepper, decltype( rhs ), false >;
-    Integ integ_fs{ rhs, cfg };
+    tax::ode::Taylor< 16, State, FixedStep< double >, false, decltype( rhs ) > integ_fs{ rhs, cfg };
 
     State x0; x0( 0 ) = 1.0;
     auto sol = integ_fs.integrate( x0, 0.0, 1.0 );

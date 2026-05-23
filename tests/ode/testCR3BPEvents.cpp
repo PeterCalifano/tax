@@ -58,8 +58,7 @@ TEST( OdeCR3BPEvents, TaylorRecordsL1MoonL2 )
             Direction::Increasing ),
         Record( "L2" ) );
 
-    auto integ = tax::ode::makeTaylorIntegrator< N, double, 4, false >(
-        cr3bp_rhs(), cfg, std::move( events ) );
+    tax::ode::Taylor< N, State, tax::ode::controllers::JorbaZou< double >, false, decltype( cr3bp_rhs() ) > integ{ cr3bp_rhs(), cfg, std::move( events ) };
     auto sol = integ.integrate( cr3bp_transit_ic(), 0.0, kCR3BPTFinal );
 
     const auto countLabel = [ & ]( const char* lbl ) {
