@@ -104,17 +104,17 @@ template < class Controller >
     double      tol,
     int         order_emb )
 {
+    static_assert(
+        !std::is_same_v< Controller, controllers::JorbaZou< double > >,
+        "JorbaZou is a Taylor-method controller (it needs the last two "
+        "time-Taylor coefficient magnitudes). Use it only with TaylorStepper, "
+        "not with the RK steppers." );
+
     if constexpr ( std::is_same_v< Controller, controllers::FixedStep< double > > )
     {
         (void) controller; (void) err_for_ctrl; (void) err_norm;
         (void) tol; (void) order_emb;
         return { h, true };
-    }
-    else if constexpr ( std::is_same_v< Controller, controllers::JorbaZou< double > > )
-    {
-        (void) controller; (void) err_for_ctrl; (void) order_emb;
-        // JorbaZou is Taylor-only; RK steppers fall back to identity h.
-        return { h, err_norm <= tol };
     }
     else
     {
