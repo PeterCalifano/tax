@@ -35,7 +35,7 @@ TEST( OdeIntegratorStatic, Taylor16ParityWithDynamic )
     tax::ode::IntegratorConfig< double > cfg;
     cfg.abstol = cfg.reltol = 1e-13;
 
-    using SStatic = Eigen::Matrix< double, 2, 1 >;
+    using SStatic = tax::la::VecNT< 2, double >;
     using SDyn    = Eigen::VectorXd;
 
     using RhsT = decltype( harmonic_rhs() );
@@ -58,7 +58,7 @@ TEST( OdeIntegratorStatic, Verner89ParityWithDynamic )
     tax::ode::IntegratorConfig< double > cfg;
     cfg.abstol = cfg.reltol = 1e-13;
 
-    using SStatic = Eigen::Matrix< double, 2, 1 >;
+    using SStatic = tax::la::VecNT< 2, double >;
     using SDyn    = Eigen::VectorXd;
 
     tax::ode::Verner89< SStatic > integ_s{ harmonic_rhs(), cfg };

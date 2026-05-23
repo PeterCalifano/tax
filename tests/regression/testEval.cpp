@@ -29,7 +29,7 @@ TEST( DaceEval, UnivariateAtDx )
     for ( const double dx : { -0.3, -0.1, 0.0, 0.1, 0.3 } )
     {
         const double ref = fr.eval( std::vector< double >{ dx } );
-        const double got = f.eval( Eigen::Matrix< double, 1, 1 >( dx ) );
+        const double got = f.eval( tax::la::VecNT< 1, double >( dx ) );
         EXPECT_NEAR( ref, got, 1e-12 ) << "dx=" << dx;
     }
 }

@@ -6,7 +6,7 @@ TEST( EigenEval, ScalarTE )
 {
     auto x = tax::TE< 3 >::variable( 1.0 );
     auto f = x * x;  // (1 + dx)^2 = 1 + 2*dx + dx^2
-    Eigen::Matrix< double, 1, 1 > dx;
+    tax::la::VecNT< 1, double > dx;
     dx << 0.1;
     double v = tax::la::eval( f, dx );
     EXPECT_NEAR( v, 1.21, 1e-12 );
@@ -25,7 +25,7 @@ TEST( EigenEval, VectorOfTE )
 {
     Eigen::Vector2d x0{ 1.0, 2.0 };
     auto v = tax::la::variables< tax::TE< 3, 2 > >( x0 );
-    Eigen::Matrix< tax::TE< 3, 2 >, 2, 1 > F;
+    tax::la::VecNT< 2, tax::TE< 3, 2 > > F;
     F( 0 ) = v( 0 ) * v( 1 );
     F( 1 ) = v( 0 ) + v( 1 );
     Eigen::Vector2d dx{ 0.1, -0.1 };
@@ -38,7 +38,7 @@ TEST( EigenValue, ElementWise )
 {
     Eigen::Vector2d x0{ 1.0, 2.0 };
     auto v = tax::la::variables< tax::TE< 3, 2 > >( x0 );
-    Eigen::Matrix< tax::TE< 3, 2 >, 2, 1 > F;
+    tax::la::VecNT< 2, tax::TE< 3, 2 > > F;
     F( 0 ) = v( 0 ) * v( 1 );
     F( 1 ) = v( 0 ) + v( 1 );
     auto val = tax::la::value( F );

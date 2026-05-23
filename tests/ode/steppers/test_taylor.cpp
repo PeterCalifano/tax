@@ -18,7 +18,7 @@ using tax::ode::controllers::PI;
 
 TEST( OdeTaylorStepper, ExponentialOneStep )
 {
-    using State = Eigen::Matrix< double, 1, 1 >;
+    using State = tax::la::VecNT< 1, double >;
     TaylorStepper< 12, State > stepper;
 
     State x0;
@@ -45,7 +45,7 @@ TEST( OdeTaylorStepper, ExponentialOneStep )
 
 TEST( OdeTaylorStepper, HarmonicOneStep )
 {
-    using State = Eigen::Matrix< double, 2, 1 >;
+    using State = tax::la::VecNT< 2, double >;
     TaylorStepper< 12, State > stepper;
 
     State x0;
@@ -71,7 +71,7 @@ TEST( OdeTaylorStepper, HarmonicOneStep )
 
 TEST( OdeTaylorStepper, ControllerPIAlsoWorks )
 {
-    using State = Eigen::Matrix< double, 1, 1 >;
+    using State = tax::la::VecNT< 1, double >;
     TaylorStepper< 10, State, PI< double > > stepper;
 
     State x0;

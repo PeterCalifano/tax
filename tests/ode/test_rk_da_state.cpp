@@ -42,8 +42,8 @@ const     double kVPeriapsis = std::sqrt( ( 1.0 + kEcc ) / ( 1.0 - kEcc ) );
 constexpr double kPeriod     = 2.0 * M_PI;
 
 using DAk      = tax::TEn< P, Mk >;
-using StateKD  = Eigen::Matrix< double, 4, 1 >;
-using StateKDA = Eigen::Matrix< DAk,    4, 1 >;
+using StateKD  = tax::la::VecNT< 4, double >;
+using StateKDA = tax::la::VecNT< 4, DAk >;
 
 StateKD make_kepler_ic_double()
 {
@@ -121,8 +121,8 @@ constexpr double kHarmIC_v      = 0.0;
 const     double kHarmT         = M_PI_2;       // quarter period
 
 using DAh      = tax::TEn< P, Mh >;
-using StateHD  = Eigen::Matrix< double, 2, 1 >;
-using StateHDA = Eigen::Matrix< DAh,    2, 1 >;
+using StateHD  = tax::la::VecNT< 2, double >;
+using StateHDA = tax::la::VecNT< 2, DAh >;
 
 StateHDA make_harmonic_ic_da()
 {

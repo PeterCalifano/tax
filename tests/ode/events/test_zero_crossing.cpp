@@ -24,7 +24,7 @@ using tax::ode::ZeroCrossing;
 TEST( OdeEventsZeroCrossing, HarmonicTerminateAtZero )
 {
     constexpr int N = 16;
-    using State = Eigen::Matrix< double, 2, 1 >;
+    using State = tax::la::VecNT< 2, double >;
 
     const auto f = []( const auto& x, const auto& )
     {
@@ -57,7 +57,7 @@ TEST( OdeEventsZeroCrossing, HarmonicTerminateAtZero )
 TEST( OdeEventsZeroCrossing, HarmonicVZeroRecord )
 {
     constexpr int N = 16;
-    using State = Eigen::Matrix< double, 2, 1 >;
+    using State = tax::la::VecNT< 2, double >;
 
     const auto f = []( const auto& x, const auto& )
     {
@@ -101,7 +101,7 @@ TEST( OdeEventsZeroCrossing, HarmonicVZeroRecord )
 TEST( OdeEventsZeroCrossing, EmptyEventListRunsToTmax )
 {
     constexpr int N = 12;
-    using State = Eigen::Matrix< double, 1, 1 >;
+    using State = tax::la::VecNT< 1, double >;
 
     IntegratorConfig< double > cfg;
     cfg.abstol = cfg.reltol = 1e-12;
@@ -122,7 +122,7 @@ TEST( OdeEventsZeroCrossing, EmptyEventListRunsToTmax )
 
 TEST( OdeEventsZeroCrossing, HarmonicTerminateAcrossAllMethods )
 {
-    using State = Eigen::Matrix< double, 2, 1 >;
+    using State = tax::la::VecNT< 2, double >;
     tax::ode::IntegratorConfig< double > cfg;
     cfg.abstol = cfg.reltol = 1e-12;
 

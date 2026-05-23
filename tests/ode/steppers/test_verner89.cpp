@@ -21,7 +21,7 @@ using tax::ode::controllers::PI;
 
 TEST( OdeVerner89Stepper, ExponentialOneStep )
 {
-    using State = Eigen::Matrix< double, 1, 1 >;
+    using State = tax::la::VecNT< 1, double >;
     Verner89Stepper< State > stepper;
 
     State x0; x0( 0 ) = 1.0;
@@ -45,7 +45,7 @@ TEST( OdeVerner89Stepper, ExponentialOneStep )
 
 TEST( OdeVerner89Stepper, HarmonicOneStep )
 {
-    using State = Eigen::Matrix< double, 2, 1 >;
+    using State = tax::la::VecNT< 2, double >;
     Verner89Stepper< State > stepper;
 
     State x0; x0( 0 ) = 1.0; x0( 1 ) = 0.0;
@@ -69,7 +69,7 @@ TEST( OdeVerner89Stepper, HarmonicOneStep )
 
 TEST( OdeVerner89Stepper, ControllerIVariant )
 {
-    using State = Eigen::Matrix< double, 1, 1 >;
+    using State = tax::la::VecNT< 1, double >;
     Verner89Stepper< State, I< double > > stepper;
 
     State x0; x0( 0 ) = 1.0;

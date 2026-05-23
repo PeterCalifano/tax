@@ -17,7 +17,7 @@ TEST( EigenInvert, IdentityMap )
     // F = identity map: F_i(x) = x_i
     Eigen::Vector2d x0{ 0.0, 0.0 };
     auto v = tax::la::variables< tax::TE< 3, 2 > >( x0 );
-    Eigen::Matrix< tax::TE< 3, 2 >, 2, 1 > F;
+    tax::la::VecNT< 2, tax::TE< 3, 2 > > F;
     F( 0 ) = v( 0 );
     F( 1 ) = v( 1 );
     auto Finv = tax::la::invert( F );
@@ -31,10 +31,10 @@ TEST( EigenInvert, IdentityMap )
 TEST( EigenInvert, LinearScaling )
 {
     // F = 2*x (univariate). Inverse = x/2.
-    Eigen::Matrix< double, 1, 1 > x0;
+    tax::la::VecNT< 1, double > x0;
     x0 << 0.0;
     auto v = tax::la::variables< tax::TE< 4, 1 > >( x0 );
-    Eigen::Matrix< tax::TE< 4, 1 >, 1, 1 > F;
+    tax::la::VecNT< 1, tax::TE< 4, 1 > > F;
     F( 0 ) = 2.0 * v( 0 );
     auto Finv = tax::la::invert( F );
     EXPECT_NEAR( Finv( 0 ).value(), 0.0, 1e-12 );
@@ -46,10 +46,10 @@ TEST( EigenInvert, NonlinearMap )
 {
     // F(x) = x + x^2 (univariate). Invert up to order 3.
     // Formal inverse: x - x^2 + 2x^3 - ...
-    Eigen::Matrix< double, 1, 1 > x0;
+    tax::la::VecNT< 1, double > x0;
     x0 << 0.0;
     auto v = tax::la::variables< tax::TE< 4, 1 > >( x0 );
-    Eigen::Matrix< tax::TE< 4, 1 >, 1, 1 > F;
+    tax::la::VecNT< 1, tax::TE< 4, 1 > > F;
     F( 0 ) = v( 0 ) + v( 0 ) * v( 0 );
     auto Finv = tax::la::invert( F );
     // Finv(0): constant = 0, linear = 1, quadratic = -1, cubic = 2

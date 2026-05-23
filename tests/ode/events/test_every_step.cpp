@@ -22,7 +22,7 @@ using tax::ode::TaylorStepper;
 TEST( OdeEventsEveryStep, FiresOncePerStep )
 {
     constexpr int N = 12;
-    using State = Eigen::Matrix< double, 1, 1 >;
+    using State = tax::la::VecNT< 1, double >;
 
     IntegratorConfig< double > cfg;
     cfg.abstol = cfg.reltol = 1e-12;
@@ -49,7 +49,7 @@ TEST( OdeEventsEveryStep, FiresOncePerStep )
 TEST( OdeEventsEveryStep, CustomCanTerminate )
 {
     constexpr int N = 12;
-    using State = Eigen::Matrix< double, 1, 1 >;
+    using State = tax::la::VecNT< 1, double >;
 
     IntegratorConfig< double > cfg;
     cfg.abstol = cfg.reltol = 1e-12;

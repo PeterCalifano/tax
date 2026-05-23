@@ -26,7 +26,7 @@ using tax::ode::controllers::PI;
 
 TEST( OdeFehlberg78Stepper, ExponentialOneStep )
 {
-    using State = Eigen::Matrix< double, 1, 1 >;
+    using State = tax::la::VecNT< 1, double >;
     Fehlberg78Stepper< State > stepper;
 
     State x0; x0( 0 ) = 1.0;
@@ -50,7 +50,7 @@ TEST( OdeFehlberg78Stepper, ExponentialOneStep )
 
 TEST( OdeFehlberg78Stepper, HarmonicOneStep )
 {
-    using State = Eigen::Matrix< double, 2, 1 >;
+    using State = tax::la::VecNT< 2, double >;
     Fehlberg78Stepper< State > stepper;
 
     State x0; x0( 0 ) = 1.0; x0( 1 ) = 0.0;
@@ -74,7 +74,7 @@ TEST( OdeFehlberg78Stepper, HarmonicOneStep )
 
 TEST( OdeFehlberg78Stepper, ControllerIVariant )
 {
-    using State = Eigen::Matrix< double, 1, 1 >;
+    using State = tax::la::VecNT< 1, double >;
     Fehlberg78Stepper< State, I< double > > stepper;
 
     State x0; x0( 0 ) = 1.0;

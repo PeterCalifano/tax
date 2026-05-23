@@ -14,7 +14,7 @@ using tax::ode::IntegratorConfig;
 TEST( OdeIntegrator, ExpEndpointAccurate )
 {
     constexpr int N = 16;
-    using State = Eigen::Matrix< double, 1, 1 >;
+    using State = tax::la::VecNT< 1, double >;
 
     IntegratorConfig< double > cfg;
     cfg.abstol = cfg.reltol = 1e-12;
@@ -34,7 +34,7 @@ TEST( OdeIntegrator, ExpEndpointAccurate )
 TEST( OdeIntegrator, HarmonicQuarterPeriod )
 {
     constexpr int N = 12;
-    using State = Eigen::Matrix< double, 2, 1 >;
+    using State = tax::la::VecNT< 2, double >;
 
     IntegratorConfig< double > cfg;
     cfg.abstol = cfg.reltol = 1e-12;
@@ -48,7 +48,7 @@ TEST( OdeIntegrator, HarmonicQuarterPeriod )
         return out;
     };
 
-    tax::ode::Taylor< N, Eigen::Matrix< double, 2, 1 >, tax::ode::controllers::JorbaZou< double >, false, decltype( f ) > integ{ f, cfg };
+    tax::ode::Taylor< N, tax::la::VecNT< 2, double >, tax::ode::controllers::JorbaZou< double >, false, decltype( f ) > integ{ f, cfg };
 
     State x0; x0( 0 ) = 1.0; x0( 1 ) = 0.0;
     const double T_quarter = M_PI / 2.0;
@@ -85,7 +85,7 @@ TEST( OdeIntegrator, CubicDecayDynamicDim )
 
 TEST( OdeIntegrator, LotkaVolterraCrossMethod )
 {
-    using State = Eigen::Matrix< double, 2, 1 >;
+    using State = tax::la::VecNT< 2, double >;
 
     tax::ode::IntegratorConfig< double > cfg;
     cfg.abstol = cfg.reltol = 1e-12;
@@ -104,7 +104,7 @@ TEST( OdeIntegrator, LotkaVolterraCrossMethod )
     State x0; x0( 0 ) = 10.0; x0( 1 ) = 5.0;
     const double t0 = 0.0, tf = 5.0;
 
-    using S2 = Eigen::Matrix< double, 2, 1 >;
+    using S2 = tax::la::VecNT< 2, double >;
     tax::ode::Taylor< 16, S2, tax::ode::controllers::JorbaZou< double >, false, decltype( f ) > tay{ f, cfg };
     tax::ode::Verner78< S2 >      v78{ f, cfg };
     tax::ode::Verner89< S2 >      v89{ f, cfg };

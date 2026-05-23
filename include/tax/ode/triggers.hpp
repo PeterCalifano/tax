@@ -101,7 +101,7 @@ auto ZeroCrossing( GFn g, Direction dir = Direction::Any )
             using TE = typename DenseData::Scalar;
             constexpr int Order = TE::order_v;
             constexpr int Rows  = State::RowsAtCompileTime;
-            using StateTE       = Eigen::Matrix< TE, Rows, 1 >;
+            using StateTE       = tax::la::VecNT< Rows, TE >;
 
             // Compile-time check that g accepts TE-valued state.
             if constexpr ( std::is_invocable_v< const GFn&, const StateTE&, const TE& > )

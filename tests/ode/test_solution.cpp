@@ -16,7 +16,7 @@
 namespace
 {
 
-using State = Eigen::Matrix< double, 2, 1 >;
+using State = tax::la::VecNT< 2, double >;
 
 struct FakeStepper
 {

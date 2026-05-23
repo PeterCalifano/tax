@@ -21,7 +21,7 @@ using tax::ode::controllers::PI;
 
 TEST( OdeFeagin12Stepper, ExponentialOneStep )
 {
-    using State = Eigen::Matrix< double, 1, 1 >;
+    using State = tax::la::VecNT< 1, double >;
     Feagin12Stepper< State > stepper;
 
     State x0; x0( 0 ) = 1.0;
@@ -45,7 +45,7 @@ TEST( OdeFeagin12Stepper, ExponentialOneStep )
 
 TEST( OdeFeagin12Stepper, HarmonicOneStep )
 {
-    using State = Eigen::Matrix< double, 2, 1 >;
+    using State = tax::la::VecNT< 2, double >;
     Feagin12Stepper< State > stepper;
 
     State x0; x0( 0 ) = 1.0; x0( 1 ) = 0.0;
@@ -69,7 +69,7 @@ TEST( OdeFeagin12Stepper, HarmonicOneStep )
 
 TEST( OdeFeagin12Stepper, ControllerIVariant )
 {
-    using State = Eigen::Matrix< double, 1, 1 >;
+    using State = tax::la::VecNT< 1, double >;
     Feagin12Stepper< State, I< double > > stepper;
 
     State x0; x0( 0 ) = 1.0;

@@ -3,7 +3,7 @@
 // Round-trip the VectorOps<S> trait on the four state shapes we ship:
 //   - scalar double
 //   - scalar TEn<P,M>
-//   - Eigen::Matrix<double, D, 1>
+//   - tax::la::VecNT< D, double >
 //   - Eigen::Matrix<TEn<P,M>, D, 1>
 // For each shape, verify:
 //   norm(x)             == infinity-norm(x)
@@ -48,7 +48,7 @@ TEST( OdeVectorOps, ScalarTaylorExpansion )
 
 TEST( OdeVectorOps, EigenVectorDouble )
 {
-    using V = Eigen::Matrix< double, 3, 1 >;
+    using V = tax::la::VecNT< 3, double >;
     V x; x << 1.0, -2.0, 0.5;
     V y = V::Zero();
 
@@ -68,7 +68,7 @@ TEST( OdeVectorOps, EigenVectorDouble )
 TEST( OdeVectorOps, EigenVectorOfTaylorExpansion )
 {
     using DA = tax::TEn< 2, 2 >;
-    using V  = Eigen::Matrix< DA, 2, 1 >;
+    using V  = tax::la::VecNT< 2, DA >;
 
     V x;
     x( 0 ) = DA::variable( 1.0, 0 );    // coeff[0]=1.0, coeff[e_0]=1.0

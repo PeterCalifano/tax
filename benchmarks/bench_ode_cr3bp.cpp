@@ -37,7 +37,7 @@ void ensure_reference()
     tax::ode::IntegratorConfig< double > cfg;
     cfg.abstol = cfg.reltol = 1e-14;
 
-    using State = Eigen::Matrix< double, 4, 1 >;
+    using State = tax::la::VecNT< 4, double >;
     using Stepper = tax::ode::Fehlberg78Stepper<
         State, tax::ode::controllers::I< double > >;
     auto rhs = cr3bp_rhs();
@@ -60,7 +60,7 @@ CR3BPState run_taylor( double tol )
 {
     tax::ode::IntegratorConfig< double > cfg;
     cfg.abstol = cfg.reltol = tol;
-    using State = Eigen::Matrix< double, 4, 1 >;
+    using State = tax::la::VecNT< 4, double >;
     using Stepper = tax::ode::TaylorStepper< N, State, Controller >;
     auto rhs = cr3bp_rhs();
     using F = decltype( rhs );
@@ -85,7 +85,7 @@ CR3BPState run_rk( double tol )
 static void BM_RefFehlberg78_I_1e12( benchmark::State& s )
 {
     using St = tax::ode::Fehlberg78Stepper<
-        Eigen::Matrix< double, 4, 1 >, tax::ode::controllers::I< double > >;
+        tax::la::VecNT< 4, double >, tax::ode::controllers::I< double > >;
     for ( auto _ : s )
     {
         auto x = run_rk< St >( 1e-12 );
@@ -99,7 +99,7 @@ BENCHMARK( BM_RefFehlberg78_I_1e12 );
 #define BENCH_RK( name, Stepper, ControllerT, tol )                              \
     static void name( benchmark::State& s )                                       \
     {                                                                             \
-        using S = Eigen::Matrix< double, 4, 1 >;                                  \
+        using S = tax::la::VecNT< 4, double >;                                  \
         using St = Stepper< S, tax::ode::controllers::ControllerT< double > >;    \
         for ( auto _ : s )                                                        \
         {                                                                         \

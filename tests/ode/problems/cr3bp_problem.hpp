@@ -36,6 +36,8 @@
 #include <Eigen/Core>
 #include <cmath>
 
+#include <tax/la/types.hpp>
+
 namespace tax::ode::test
 {
 
@@ -43,7 +45,7 @@ constexpr double kCR3BPMu  = 0.01215058560962404;   // Earth–Moon
 constexpr double kCR3BPL1  = 0.8369180073407246;
 constexpr double kCR3BPL2  = 1.1556824692238923;
 
-using CR3BPState = Eigen::Matrix< double, 4, 1 >;
+using CR3BPState = tax::la::VecNT< 4, double >;
 
 inline auto cr3bp_rhs( double mu = kCR3BPMu )
 {

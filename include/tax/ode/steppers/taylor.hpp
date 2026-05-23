@@ -52,7 +52,7 @@ struct TaylorStepper
     // DenseData: per-step Taylor expansion of x(t) in time around the
     // step start. We store one tax::TE<N> per state component.
     using TE        = tax::TE< N, 1 >;
-    using DenseData = Eigen::Matrix< TE, D, 1 >;
+    using DenseData = tax::la::VecNT< D, TE >;
 
     template < class F >
     [[nodiscard]] StepResult< StateT, TaylorStepper > step(
@@ -90,7 +90,7 @@ TaylorStepper< N, StateT, Controller >::step(
     const TE t_te = TE::variable( t );
 
     // --- 2. State TE per component: c[0] = x(i), rest 0.
-    using StateTE = Eigen::Matrix< TE, StateT::RowsAtCompileTime, 1 >;
+    using StateTE = tax::la::VecNT< StateT::RowsAtCompileTime, TE >;
     StateTE x_te{ dim };
     for ( Eigen::Index i = 0; i < dim; ++i )
         x_te( i ) = TE::constant( x( i ) );

@@ -10,6 +10,7 @@
 #include <array>
 #include <cmath>
 
+#include <tax/la/types.hpp>
 #include <tax/ode/detail/adaptive_rk_step.hpp>
 #include <tax/ode/detail/hermite_interp.hpp>
 
@@ -37,7 +38,7 @@ struct RK4Tab
 
 TEST( OdeRKHelpers, RK4OneStepOnExp )
 {
-    using State = Eigen::Matrix< double, 1, 1 >;
+    using State = tax::la::VecNT< 1, double >;
     State x; x( 0 ) = 1.0;
 
     auto f = []( const State& y, double ) { return y; };
@@ -51,7 +52,7 @@ TEST( OdeRKHelpers, RK4OneStepOnExp )
 
 TEST( OdeRKHelpers, HermiteReproducesBoundaries )
 {
-    using State = Eigen::Matrix< double, 2, 1 >;
+    using State = tax::la::VecNT< 2, double >;
     const double h = 1.0;
     State x0; x0( 0 ) = 0.5; x0( 1 ) = -1.0;
     State x1; x1( 0 ) = 0.7; x1( 1 ) = -0.3;

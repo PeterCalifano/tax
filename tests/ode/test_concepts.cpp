@@ -16,7 +16,7 @@
 namespace
 {
 
-using State = Eigen::Matrix< double, 1, 1 >;
+using State = tax::la::VecNT< 1, double >;
 
 // FakeStepper satisfies concepts::Stepper but does NOT declare the
 // `static constexpr bool is_adaptive` marker, so it must not satisfy

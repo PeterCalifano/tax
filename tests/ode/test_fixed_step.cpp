@@ -36,7 +36,7 @@ void check_uniform_grid( const Solution& sol, double h, std::size_t expected_cou
 
 TEST( OdeFixedStep, Verner78AlwaysAcceptedAtTightTol )
 {
-    using State = Eigen::Matrix< double, 1, 1 >;
+    using State = tax::la::VecNT< 1, double >;
 
     IntegratorConfig< double > cfg;
     cfg.initial_step = kH;
@@ -52,7 +52,7 @@ TEST( OdeFixedStep, Verner78AlwaysAcceptedAtTightTol )
 
 TEST( OdeFixedStep, Verner89AlwaysAcceptedAtTightTol )
 {
-    using State = Eigen::Matrix< double, 1, 1 >;
+    using State = tax::la::VecNT< 1, double >;
 
     IntegratorConfig< double > cfg;
     cfg.initial_step = kH;
@@ -68,7 +68,7 @@ TEST( OdeFixedStep, Verner89AlwaysAcceptedAtTightTol )
 
 TEST( OdeFixedStep, Fehlberg78AlwaysAcceptedAtTightTol )
 {
-    using State = Eigen::Matrix< double, 1, 1 >;
+    using State = tax::la::VecNT< 1, double >;
 
     IntegratorConfig< double > cfg;
     cfg.initial_step = kH;
@@ -84,7 +84,7 @@ TEST( OdeFixedStep, Fehlberg78AlwaysAcceptedAtTightTol )
 
 TEST( OdeFixedStep, Feagin12AlwaysAcceptedAtTightTol )
 {
-    using State = Eigen::Matrix< double, 1, 1 >;
+    using State = tax::la::VecNT< 1, double >;
 
     IntegratorConfig< double > cfg;
     cfg.initial_step = kH;
@@ -100,7 +100,7 @@ TEST( OdeFixedStep, Feagin12AlwaysAcceptedAtTightTol )
 
 TEST( OdeFixedStep, Feagin14AlwaysAcceptedAtTightTol )
 {
-    using State = Eigen::Matrix< double, 1, 1 >;
+    using State = tax::la::VecNT< 1, double >;
 
     IntegratorConfig< double > cfg;
     cfg.initial_step = kH;
@@ -116,7 +116,7 @@ TEST( OdeFixedStep, Feagin14AlwaysAcceptedAtTightTol )
 
 TEST( OdeFixedStep, TaylorAlwaysAcceptedAtTightTol )
 {
-    using State = Eigen::Matrix< double, 1, 1 >;
+    using State = tax::la::VecNT< 1, double >;
 
     IntegratorConfig< double > cfg;
     cfg.initial_step = kH;

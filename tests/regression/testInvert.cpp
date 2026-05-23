@@ -33,10 +33,10 @@ TEST( DaceInvert, IdentityPlusPerturbation )
     const Eigen::Vector2d x0{ 0.0, 0.0 };
     auto                  v = tax::variables< tax::TE< N, M > >( x0 );
     using TE                = tax::TE< N, M >;
-    Eigen::Matrix< TE, 2, 1 > F;
+    tax::la::VecNT< 2, TE > F;
     F( 0 ) = v( 0 ) + 0.1 * ( prepareInput( v( 1 ) ) - 1.0 );
     F( 1 ) = v( 1 ) + 0.1 * ( prepareInput( v( 0 ) ) - 1.0 );
-    Eigen::Matrix< TE, 2, 1 > F_inv = tax::la::invert( F );
+    tax::la::VecNT< 2, TE > F_inv = tax::la::invert( F );
 
     for ( int i = 0; i < 2; ++i )
     {

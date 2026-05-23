@@ -5,7 +5,7 @@
 TEST( EigenNumTraits, TaylorAsScalar )
 {
     using TE = tax::TE< 3, 2 >;
-    Eigen::Matrix< TE, 2, 1 > v;
+    tax::la::VecNT< 2, TE > v;
     typename TE::Input p{ 1.0, 2.0 };
     v( 0 ) = TE::variable< 0 >( p );
     v( 1 ) = TE::variable< 1 >( p );
@@ -16,7 +16,7 @@ TEST( EigenNumTraits, TaylorAsScalar )
 TEST( EigenNumTraits, MatrixOfTE )
 {
     using TE = tax::TE< 2, 2 >;
-    Eigen::Matrix< TE, 2, 2 > A;
+    tax::la::MatNMT< 2, 2 , TE > A;
     typename TE::Input p{ 1.0, 0.0 };
     A( 0, 0 ) = TE::variable< 0 >( p );
     A( 0, 1 ) = TE::constant( 2.0 );

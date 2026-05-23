@@ -18,7 +18,7 @@ using tax::ode::IntegratorConfig;
 TEST( OdeIntegratorDense, ExpDenseInside )
 {
     constexpr int N = 16;
-    using State = Eigen::Matrix< double, 1, 1 >;
+    using State = tax::la::VecNT< 1, double >;
 
     IntegratorConfig< double > cfg;
     cfg.abstol = cfg.reltol = 1e-12;
@@ -46,7 +46,7 @@ TEST( OdeIntegratorDense, ExpDenseInside )
 TEST( OdeIntegratorDense, OutOfRangeThrows )
 {
     constexpr int N = 8;
-    using State = Eigen::Matrix< double, 1, 1 >;
+    using State = tax::la::VecNT< 1, double >;
 
     IntegratorConfig< double > cfg;
     const auto f = []( const auto& x, const auto& /*t*/ ) { return x; };
@@ -63,7 +63,7 @@ TEST( OdeIntegratorDense, OutOfRangeThrows )
 TEST( OdeIntegratorDense, TerminatePreservesDenseInvariant )
 {
     constexpr int N = 16;
-    using State = Eigen::Matrix< double, 1, 1 >;
+    using State = tax::la::VecNT< 1, double >;
 
     tax::ode::IntegratorConfig< double > cfg;
     cfg.abstol = cfg.reltol = 1e-12;

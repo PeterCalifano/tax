@@ -51,7 +51,7 @@ TEST( DaceVectorCalc, GradientMatchesDace )
     tax::TE< N, M >       f =
         tax::cos( prepareInput( v( 0 ) ) * prepareInput( v( 1 ) ) + prepareInput( v( 2 ) ) );
 
-    Eigen::Matrix< double, M, 1 > g = tax::la::gradient( f );
+    tax::la::VecNT< M, double > g = tax::la::gradient( f );
     for ( int i = 0; i < M; ++i )
     {
         const double ref = daceCoeff1( fr, M, i );  // = ∂f/∂x_i at x0
@@ -73,7 +73,7 @@ TEST( DaceVectorCalc, HessianMatchesDace )
     tax::TE< N, M >       f =
         prepareInput( v( 0 ) ) * prepareInput( v( 1 ) ) * prepareInput( v( 2 ) );
 
-    Eigen::Matrix< double, M, M > H = tax::la::hessian( f );
+    tax::la::MatNMT< M, M , double > H = tax::la::hessian( f );
     for ( int i = 0; i < M; ++i )
     {
         for ( int j = 0; j < M; ++j )
@@ -100,11 +100,11 @@ TEST( DaceVectorCalc, JacobianMatchesDace )
     const Eigen::Vector2d x0{ 0.0, 0.0 };
     auto                  v = tax::variables< tax::TE< N, M > >( x0 );
     using TE                = tax::TE< N, M >;
-    Eigen::Matrix< TE, 2, 1 > F;
+    tax::la::VecNT< 2, TE > F;
     F( 0 ) = tax::sin( prepareInput( v( 0 ) ) + prepareInput( v( 1 ) ) );
     F( 1 ) = tax::cos( prepareInput( v( 0 ) ) * prepareInput( v( 1 ) ) );
 
-    Eigen::Matrix< double, 2, M > J       = tax::la::jacobian( F );
+    tax::la::MatNMT< 2, M , double > J       = tax::la::jacobian( F );
     const DACE::DA                refs[2] = { fr0, fr1 };
     for ( int row = 0; row < 2; ++row )
     {

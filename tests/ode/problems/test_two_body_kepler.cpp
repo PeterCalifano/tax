@@ -24,7 +24,7 @@ constexpr double kPeriapsis  = 1.0 - kEcc;   // a(1-e), a=1
 const     double kVPeriapsis = std::sqrt( 1.0 / 1.0 * ( 1.0 + kEcc ) / ( 1.0 - kEcc ) );
 constexpr double kPeriod     = 2.0 * M_PI;
 
-using State = Eigen::Matrix< double, 4, 1 >;
+using State = tax::la::VecNT< 4, double >;
 
 inline State make_ic()
 {
