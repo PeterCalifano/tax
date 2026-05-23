@@ -1,7 +1,7 @@
 # Events
 
 Events in `tax::ode` are expressed as a **Trigger + Action** pair. The trigger
-decides *when* an event fires (returning the local time \(\tau \in [0, h]\)
+decides *when* an event fires (returning the local time $\tau \in [0, h]$
 within the most recent step) and the action decides *what to do* at that time.
 The factoring keeps `record an apoapsis` and `terminate at the moon's surface`
 on the same machinery without re-architecting.
@@ -35,7 +35,7 @@ A trigger has signature
 std::optional<T>(const StepperCtx<…>&)
 ```
 
-returning the \(\tau \in [0, h_{\text{used}}]\) at which the event fires, or
+returning the $\tau \in [0, h_{\text{used}}]$ at which the event fires, or
 `std::nullopt` to indicate "did not fire on this step".
 
 ### `EveryStep()`
@@ -59,8 +59,8 @@ inside the most recent step. `dir` is one of:
 
 | `Direction` | Fires when |
 |---|---|
-| `Increasing` | \(g\) goes from negative to positive |
-| `Decreasing` | \(g\) goes from positive to negative |
+| `Increasing` | $g$ goes from negative to positive |
+| `Decreasing` | $g$ goes from positive to negative |
 | `Any`        | either of the above |
 
 **Root finding strategy** is method-specific (see

@@ -10,7 +10,7 @@ above the public API that make the library both fast and ergonomic.
 
 The headline ideas:
 
-1. **Compile-time shape.** \((N, M)\) drive every loop bound. The optimizer
+1. **Compile-time shape.** $(N, M)$ drive every loop bound. The optimizer
    sees through the storage container, the recurrences, and the Eigen matrix
    wrappers because none of them allocate at runtime.
 

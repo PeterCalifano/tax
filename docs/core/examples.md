@@ -168,7 +168,7 @@ tax::TE<10> h = tax::atan(x) / (1.0 + x*x);
 ## Polynomial evaluation
 
 `eval()` Horner-evaluates the truncated Taylor polynomial at a displacement
-\(\delta x\) from the expansion point.
+$\delta x$ from the expansion point.
 
 ```cpp
 auto x = tax::TE<15>::variable(0.0);

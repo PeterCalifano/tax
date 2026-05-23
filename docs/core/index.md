@@ -3,7 +3,7 @@
 The core module provides truncated multivariate Taylor polynomials as
 first-class C++ objects. A single evaluation pass through any supported
 mathematical expression yields the function value and all partial derivatives up
-to a compile-time truncation order \(N\).
+to a compile-time truncation order $N$.
 
 The library uses **expression templates** for lazy evaluation: arithmetic and
 transcendental operations build a lightweight expression tree that is
@@ -11,7 +11,7 @@ materialised only on assignment, eliminating intermediate temporary objects and
 enabling automatic sum/product flattening.
 
 The central type, `TaylorExpansion<T, N, M, Storage>`, stores
-\(\binom{N+M}{M}\) Taylor coefficients in **graded-lexicographic order**. With
+$\binom{N+M}{M}$ Taylor coefficients in **graded-lexicographic order**. With
 `Storage = Dense` the coefficients live in a fixed-size `std::array` with zero
 heap allocation; with `Storage = Sparse` only nonzero monomials are stored as
 two parallel sorted vectors.

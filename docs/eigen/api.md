@@ -42,7 +42,7 @@ template <typename TE, typename Derived>
 [[nodiscard]] auto variables(const Eigen::MatrixBase<Derived>& x0);
 ```
 
-Returns `Eigen::Matrix<TE, TE::vars_v, 1>` with entry \(i\) equal to
+Returns `Eigen::Matrix<TE, TE::vars_v, 1>` with entry $i$ equal to
 `TE::variable<i>(x0)`.
 
 ---

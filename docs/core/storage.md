@@ -5,8 +5,8 @@
 
 | Tag | Container | API alias | When it shines |
 |---|---|---|---|
-| `tax::storage::Dense`  | `std::array<T, C(N+M, M)>` — stack-allocated | `TE<N, M>` | Hot computational paths, low \(N\) and \(M\), most TE coefficients are nonzero |
-| `tax::storage::Sparse` | Two parallel `std::vector`: sorted flat indices + values | `STE<N, M>` | High \(N\) or \(M\) with most coefficients = 0, structured polynomials |
+| `tax::storage::Dense`  | `std::array<T, C(N+M, M)>` — stack-allocated | `TE<N, M>` | Hot computational paths, low $N$ and $M$, most TE coefficients are nonzero |
+| `tax::storage::Sparse` | Two parallel `std::vector`: sorted flat indices + values | `STE<N, M>` | High $N$ or $M$ with most coefficients = 0, structured polynomials |
 
 Both share **identical user-facing API** — `value()`, `coeff()`,
 `derivative()`, `eval()`, `deriv()`, `integ()`, arithmetic operators,
@@ -17,16 +17,16 @@ parameter change.
 
 ## The shape
 
-\[
+$$
 S = \binom{N + M}{M}
-\]
+$$
 
-is the *maximum* number of coefficients. Dense always allocates \(S\) slots;
+is the *maximum* number of coefficients. Dense always allocates $S$ slots;
 sparse allocates only the actual nonzeros (`nnz()`).
 
 Reference table:
 
-| \(N \backslash M\) | 1 | 2 | 3 | 4 | 5 | 6 |
+| $N \backslash M$ | 1 | 2 | 3 | 4 | 5 | 6 |
 |:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 | 1  | 2  | 3  | 4   | 5    | 6    | 7    |
 | 3  | 4  | 10 | 20  | 35   | 56   | 84   |
@@ -34,7 +34,7 @@ Reference table:
 | 8  | 9  | 45 | 165 | 495  | 1287 | 3003 |
 | 10 | 11 | 66 | 286 | 1001 | 3003 | 8008 |
 
-For \(N \ge 8\) and \(M \ge 4\), Dense storage starts to push the stack frame
+For $N \ge 8$ and $M \ge 4$, Dense storage starts to push the stack frame
 budget; sparse becomes attractive precisely when monomial population stays
 low.
 
@@ -57,7 +57,7 @@ class TaylorExpansion<T, N, M, storage::Dense>;
 
 Use Dense when:
 
-- \(N \cdot M\) is small enough that the stack frame fits;
+- $N \cdot M$ is small enough that the stack frame fits;
 - Almost every coefficient ends up nonzero (typical for general
   transcendental expressions);
 - You want `constexpr` evaluation or strictest control over per-step cost.
@@ -75,8 +75,8 @@ class TaylorExpansion<T, N, M, storage::Sparse>;
   kept strictly sorted by flat index.
 - `nnz()` returns the current support size; `support()` and `values()` expose
   read-only `std::span`s.
-- Addition / subtraction is an \(O(\text{nnz}_a + \text{nnz}_b)\) two-pointer
-  merge; element lookup is \(O(\log \text{nnz})\) via binary search.
+- Addition / subtraction is an $O(\text{nnz}_a + \text{nnz}_b)$ two-pointer
+  merge; element lookup is $O(\log \text{nnz})$ via binary search.
 - Multiplication uses the dedicated sparse Cauchy kernel
   (`tax/kernels/sparse_cauchy.hpp`).
 - A conversion helper is provided:
@@ -88,9 +88,9 @@ auto d = s.dense();   // → TaylorExpansion<T, N, M, storage::Dense>
 
 Use Sparse when:
 
-- The polynomial is dominated by zeros — e.g. a single monomial \(x^k\),
+- The polynomial is dominated by zeros — e.g. a single monomial $x^k$,
   bilinear forms, or polynomials engineered to stay sparse;
-- \(N\) or \(M\) is large enough that Dense storage exceeds a few kilobytes
+- $N$ or $M$ is large enough that Dense storage exceeds a few kilobytes
   per object;
 - You're storing many polynomials in memory and total RAM matters more than
   per-op cost.
@@ -100,7 +100,7 @@ Use Sparse when:
 ## Numerical agreement
 
 The Sparse and Dense kernels implement the same recurrences. Round-off
-differences on the order of \(10^{-12}\) (double precision) are expected from
+differences on the order of $10^{-12}$ (double precision) are expected from
 ordering effects in the Cauchy sum but the agreement is tested via the
 `testCauchyStencilDiff` and `test_sparse_*` suites.
 
@@ -111,10 +111,10 @@ ordering effects in the Cauchy sum but the agreement is tested via the
 | You're doing | Use |
 |---|---|
 | ODE integration (`tax::ode`)              | Dense (`TE<N>`) — kernels are tuned for it |
-| One-off symbolic derivatives, low \(N\)   | Dense |
+| One-off symbolic derivatives, low $N$   | Dense |
 | Reading polynomials produced elsewhere with structural zeros | Sparse |
-| Storing thousands of polynomials in memory at \(N \ge 8\) | Sparse |
-| Building a polynomial map of a sparse system (e.g. \(f = x_1 \cdot x_7\)) | Sparse |
+| Storing thousands of polynomials in memory at $N \ge 8$ | Sparse |
+| Building a polynomial map of a sparse system (e.g. $f = x_1 \cdot x_7$) | Sparse |
 
 When in doubt, write the code template-generic on the storage tag and switch
 between `TE` and `STE` to compare wall time on your actual problem.

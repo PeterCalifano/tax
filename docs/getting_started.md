@@ -31,8 +31,8 @@ ctest --test-dir build --output-on-failure
 |---|:-:|---|
 | `TAX_BUILD_UNITTESTS` | `ON`  | Build the GoogleTest unit-test suite |
 | `TAX_BUILD_BENCHMARK` | `OFF` | Build the Google Benchmark suite |
-| `TAX_USE_UNROLL`      | `ON`  | Compile-time-unrolled Cauchy kernels for \(M=1\) |
-| `TAX_USE_STENCIL`     | `ON`  | Precomputed Cauchy stencils for \(M \ge 2\) |
+| `TAX_USE_UNROLL`      | `ON`  | Compile-time-unrolled Cauchy kernels for $M=1$ |
+| `TAX_USE_STENCIL`     | `ON`  | Precomputed Cauchy stencils for $M \ge 2$ |
 
 ### Install and consume from another CMake project
 
@@ -79,8 +79,8 @@ namespace tax {
 | Parameter | Meaning |
 |---|---|
 | `T`       | Scalar coefficient type (`double`, `float`) |
-| `N`       | Maximum total polynomial order, \(N \ge 0\) |
-| `M`       | Number of independent variables, \(M \ge 1\) (default `1`) |
+| `N`       | Maximum total polynomial order, $N \ge 0$ |
+| `M`       | Number of independent variables, $M \ge 1$ (default `1`) |
 | `Storage` | `tax::storage::Dense` (default) or `tax::storage::Sparse` |
 
 ### Convenience aliases
@@ -168,22 +168,22 @@ g.coeff<1, 1>();        // compile-time index access
 
 A Taylor expansion stores **coefficients** of the monomial basis:
 
-\[
+$$
 f(\mathbf{x}_0 + \delta\mathbf{x})
   = \sum_{|\alpha| \le N} f_\alpha \, \delta\mathbf{x}^\alpha
-\]
+$$
 
 The relationship to partial derivatives is
 
-\[
+$$
 f_\alpha
   = \frac{1}{\alpha!} \,
     \frac{\partial^{|\alpha|} f}
          {\partial x_1^{\alpha_1} \cdots \partial x_M^{\alpha_M}}
     \bigg|_{\mathbf{x}_0}
-\]
+$$
 
-so `derivative()` returns `coeff()` multiplied by \(\alpha!\).
+so `derivative()` returns `coeff()` multiplied by $\alpha!$.
 
 ---
 

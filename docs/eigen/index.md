@@ -47,7 +47,7 @@ Dense and Sparse TE scalars.
 
 The specialisation in `tax/eigen.hpp` reports `IsComplex = 0`, `IsInteger = 0`,
 `IsSigned = 1`, `RequireInitialization = 1`, and cost estimates proportional to
-the monomial count \(\binom{N+M}{M}\). This makes Eigen prefer cache-friendly
+the monomial count $\binom{N+M}{M}$. This makes Eigen prefer cache-friendly
 algorithms when working with TE-valued matrices.
 
 You can use any Eigen routine that does not require additional traits

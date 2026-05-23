@@ -9,12 +9,12 @@ controllers.
 
 | Method | Strength | Pay attention to | Default controller |
 |---|---|---|---|
-| **Verner 8(7)**   | Best speed/accuracy balance in the RK family for smooth problems at \(10^{-12}\) | Cubic-Hermite dense output | `PI` |
+| **Verner 8(7)**   | Best speed/accuracy balance in the RK family for smooth problems at $10^{-12}$ | Cubic-Hermite dense output | `PI` |
 | **Verner 9(8)**   | Precision champion at moderate cost | 16 stages — more RHS evals per step | `PI` |
 | **Fehlberg 7(8)** | Classical baseline, well understood | The "Fehlberg coincidence" can zero the embedded estimate on certain steps | `PI` |
-| **Feagin 12(10)** | Very high order for smooth astrodynamics | Sparse error indicator — only stages 2 and \(n-1\) contribute | `PI` |
+| **Feagin 12(10)** | Very high order for smooth astrodynamics | Sparse error indicator — only stages 2 and $n-1$ contribute | `PI` |
 | **Feagin 14(12)** | Highest order available | Even more sparse error contribution; expensive | `PI` |
-| **Taylor (`N`)**  | Exact polynomial-Newton event location, exact dense output | Per-step cost grows roughly \(\mathcal{O}(N^2)\); 30–100× slower than RK on smooth astro problems | `JorbaZou` |
+| **Taylor (`N`)**  | Exact polynomial-Newton event location, exact dense output | Per-step cost grows roughly $\mathcal{O}(N^2)$; 30–100× slower than RK on smooth astro problems | `JorbaZou` |
 
 ---
 
@@ -48,11 +48,11 @@ auto integ = tax::ode::makeVerner89Integrator<double, 2, /*Dense=*/false,
 
 ## CR3BP benchmark
 
-The planar circular restricted three-body problem (Earth–Moon \(\mu = 0.01215\))
+The planar circular restricted three-body problem (Earth–Moon $\mu = 0.01215$)
 is a stable proxy for smooth astrodynamics propagation. The benchmark suite
 (`benchmarks/bench_ode_cr3bp`) propagates a transit trajectory through L1,
-past the Moon, and out via L2 over \(t \in [0, 7]\) with
-`abstol = reltol = 1e-12`. Reference: Fehlberg 7(8) + I at \(10^{-14}\).
+past the Moon, and out via L2 over $t \in [0, 7]$ with
+`abstol = reltol = 1e-12`. Reference: Fehlberg 7(8) + I at $10^{-14}$.
 
 ### RK methods with default PI controller
 
@@ -76,7 +76,7 @@ better default. H211b only earns its keep on non-smooth dynamics.
 
 ### Taylor method, JorbaZou order sweep
 
-| Order \(N\) | Time | Endpoint error |
+| Order $N$ | Time | Endpoint error |
 |---:|---:|---:|
 | 8  | 3.23 ms  | 753 fm  |
 | 10 | 2.77 ms  | 11.7 pm |
@@ -86,11 +86,11 @@ better default. H211b only earns its keep on non-smooth dynamics.
 | 24 | 8.81 ms  | 18.4 pm |
 | 30 | 14.03 ms | 23.4 pm |
 
-Cost grows roughly linearly with \(N\) (~0.45 ms / order beyond \(N=12\)).
+Cost grows roughly linearly with $N$ (~0.45 ms / order beyond $N=12$).
 Endpoint error becomes dominated by the abstol-tied step-size controller
-rather than truncation around \(N=16\). The Taylor method is 30–100× slower
+rather than truncation around $N=16$. The Taylor method is 30–100× slower
 than RK on this problem at this tolerance — its advantage is qualitative:
-exact polynomial-Newton event location and exact \(N\)-th-order dense
+exact polynomial-Newton event location and exact $N$-th-order dense
 output. None of those features show up in raw wall-time.
 
 ### Taylor + alternate controllers

@@ -3,9 +3,9 @@
 The ODE module provides **adaptive initial-value problem solvers** for
 arbitrary first-order systems
 
-\[
+$$
 \dot{\mathbf{x}} = \mathbf{f}(\mathbf{x}, t), \qquad \mathbf{x}(t_0) = \mathbf{x}_0
-\]
+$$
 
 over `Eigen::Matrix<T, D, 1>` state, with `D` static or `Eigen::Dynamic`.
 
@@ -52,7 +52,7 @@ other factory to swap methods. The user-side code is otherwise identical.
 
 | Stepper | Order | Embedded order | Stages | Dense output | Default controller |
 |---|:-:|:-:|:-:|---|---|
-| `TaylorStepper<N>`      | \(N\) | \(N-1\) | \(N\) RHS evals | exact (polynomial) | `JorbaZou` |
+| `TaylorStepper<N>`      | $N$ | $N-1$ | $N$ RHS evals | exact (polynomial) | `JorbaZou` |
 | `Verner78Stepper`       | 8  | 7  | 13 | cubic-Hermite | `PI` |
 | `Verner89Stepper`       | 9  | 8  | 16 | cubic-Hermite | `PI` |
 | `Fehlberg78Stepper`     | 7  | 8  | 13 | cubic-Hermite | `PI` |

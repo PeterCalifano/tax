@@ -10,7 +10,7 @@ truncated multivariate Taylor polynomials as first-class numerical objects.
 
 Write a natural mathematical expression and tax propagates the full Taylor
 series through it, yielding the function value **and** every partial derivative
-up to order \(N\) in a single evaluation pass.
+up to order $N$ in a single evaluation pass.
 
 ```cpp
 #include <tax/tax.hpp>
@@ -77,12 +77,12 @@ f.eval(0.3);        // sin(0.3) within machine precision
 
 | What you write | What you get |
 |---|---|
-| `tax::TE<N>::variable(x0)` | univariate TE at \(x_0\), order \(N\) |
-| `tax::TE<N, M>::variable<I>(x0)` | \(I\)-th coordinate variable, others as parameters |
-| `tax::variables<TE<N,M>>(x0)` | Eigen column vector of all \(M\) coordinate variables |
+| `tax::TE<N>::variable(x0)` | univariate TE at $x_0$, order $N$ |
+| `tax::TE<N, M>::variable<I>(x0)` | $I$-th coordinate variable, others as parameters |
+| `tax::variables<TE<N,M>>(x0)` | Eigen column vector of all $M$ coordinate variables |
 | `tax::sin(x) * tax::exp(y)` | lazy expression, materialized on assignment |
-| `f.derivative<2, 1>()` | \(\partial^3 f / \partial x^2 \partial y\) at \(x_0\) |
-| `f.eval(dx)` | Horner evaluation of the polynomial at \(x_0 + \delta x\) |
+| `f.derivative<2, 1>()` | $\partial^3 f / \partial x^2 \partial y$ at $x_0$ |
+| `f.eval(dx)` | Horner evaluation of the polynomial at $x_0 + \delta x$ |
 | `tax::jacobian(F, M)` | Eigen Jacobian of a vector function |
 | `tax::ode::makeTaylorIntegrator<25>(f)` | adaptive Taylor IVP integrator |
 | `tax::ode::makeVerner89Integrator(f)` | adaptive Verner 9(8) integrator |

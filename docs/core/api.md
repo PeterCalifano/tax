@@ -27,8 +27,8 @@ class TaylorExpansion;
 | Parameter | Description |
 |---|---|
 | `T`       | Scalar coefficient type — must satisfy `tax::Scalar` (`std::floating_point`) |
-| `N`       | Maximum total polynomial order, \(N \ge 0\) |
-| `M`       | Number of independent variables, \(M \ge 1\) (default `1`) |
+| `N`       | Maximum total polynomial order, $N \ge 0$ |
+| `M`       | Number of independent variables, $M \ge 1$ (default `1`) |
 | `Storage` | Storage policy: `tax::storage::Dense` (default) or `tax::storage::Sparse` |
 
 ### Convenience aliases
@@ -45,9 +45,9 @@ using STE = TaylorExpansion<double, N, M, storage::Sparse>;
 
 | Member | Type | Description |
 |---|---|---|
-| `nCoefficients` | `std::size_t` | Total monomials: \(\binom{N+M}{M}\) |
-| `order_v`       | `int` | Truncation order \(N\) |
-| `vars_v`        | `int` | Variable count \(M\) |
+| `nCoefficients` | `std::size_t` | Total monomials: $\binom{N+M}{M}$ |
+| `order_v`       | `int` | Truncation order $N$ |
+| `vars_v`        | `int` | Variable count $M$ |
 | `scalar_type`   | type alias | `T` |
 | `Input`         | type alias | `std::array<T, M>` — expansion-point / displacement vector |
 
@@ -85,7 +85,7 @@ template <int I>
 [[nodiscard]] static constexpr TaylorExpansion variable(const Input& p) noexcept;
 ```
 
-For an Eigen column-vector of all \(M\) coordinate variables at once, use the
+For an Eigen column-vector of all $M$ coordinate variables at once, use the
 free function `tax::variables<TE>(x0)` from
 [Eigen integration](../eigen/index.md).
 
@@ -123,7 +123,7 @@ Dense and Sparse expose the same shape. Sparse additionally exposes:
 
 ## Derivative access
 
-Derivatives are related to coefficients by \(\partial^\alpha f = \alpha! \cdot f_\alpha\).
+Derivatives are related to coefficients by $\partial^\alpha f = \alpha! \cdot f_\alpha$.
 
 ```cpp
 // Partial derivative at x0 by runtime multi-index
@@ -140,7 +140,7 @@ template <int... Alpha>
 
 ## Differentiation and integration
 
-These return new `TaylorExpansion` objects with the same shape \((N, M)\).
+These return new `TaylorExpansion` objects with the same shape $(N, M)$.
 
 ```cpp
 // ∂/∂x_I   compile-time index
@@ -229,26 +229,26 @@ shape, using degree-by-degree recurrences (see
 
 | Function     | Domain restriction | Recurrence helper |
 |---|---|---|
-| `square(f)`  | none | \(f \cdot f\) via Cauchy self-product |
+| `square(f)`  | none | $f \cdot f$ via Cauchy self-product |
 | `cube(f)`    | none | two Cauchy products |
-| `reciprocal(f)` | \(f_0 \ne 0\) | solve \(f \cdot g = 1\) |
-| `sqrt(f)`    | \(f_0 > 0\) | solve \(g^2 = f\) |
-| `cbrt(f)`    | \(f_0 \ne 0\) | solve \(g^3 = f\) with incremental \(g^2\) |
+| `reciprocal(f)` | $f_0 \ne 0$ | solve $f \cdot g = 1$ |
+| `sqrt(f)`    | $f_0 > 0$ | solve $g^2 = f$ |
+| `cbrt(f)`    | $f_0 \ne 0$ | solve $g^3 = f$ with incremental $g^2$ |
 | `sin(f)`     | none | coupled sin/cos |
 | `cos(f)`     | none | coupled sin/cos |
-| `tan(f)`     | \(\cos(f_0) \ne 0\) | solve \(\cos\cdot t = \sin\) |
-| `asin(f)`    | \(|f_0| < 1\) | via \(h = \sqrt{1-f^2}\) |
-| `acos(f)`    | \(|f_0| < 1\) | \(\pi/2 - \arcsin\) |
-| `atan(f)`    | none | via \(h = 1 + f^2\) |
+| `tan(f)`     | $\cos(f_0) \ne 0$ | solve $\cos\cdot t = \sin$ |
+| `asin(f)`    | $|f_0| < 1$ | via $h = \sqrt{1-f^2}$ |
+| `acos(f)`    | $|f_0| < 1$ | $\pi/2 - \arcsin$ |
+| `atan(f)`    | none | via $h = 1 + f^2$ |
 | `sinh(f)`    | none | coupled sinh/cosh |
 | `cosh(f)`    | none | coupled sinh/cosh |
-| `tanh(f)`    | none | solve \(\cosh\cdot t = \sinh\) |
-| `asinh(f)`   | none | via \(h = \sqrt{1+f^2}\) |
-| `acosh(f)`   | \(f_0 > 1\) | via \(h = \sqrt{f^2-1}\) |
-| `atanh(f)`   | \(|f_0| < 1\) | via \(h = 1-f^2\) |
+| `tanh(f)`    | none | solve $\cosh\cdot t = \sinh$ |
+| `asinh(f)`   | none | via $h = \sqrt{1+f^2}$ |
+| `acosh(f)`   | $f_0 > 1$ | via $h = \sqrt{f^2-1}$ |
+| `atanh(f)`   | $|f_0| < 1$ | via $h = 1-f^2$ |
 | `exp(f)`     | none | derivative-driven |
-| `log(f)`     | \(f_0 > 0\) | derivative-driven |
-| `erf(f)`     | none | via \(h = \tfrac{2}{\sqrt\pi}\exp(-f^2)\) |
+| `log(f)`     | $f_0 > 0$ | derivative-driven |
+| `erf(f)`     | none | via $h = \tfrac{2}{\sqrt\pi}\exp(-f^2)$ |
 
 ---
 
@@ -277,7 +277,7 @@ friend std::ostream& operator<<(std::ostream& os, const TaylorExpansion& a);
 ```
 
 Outputs the polynomial in human-readable form: zero coefficients suppressed,
-truncation remainder \(\mathcal{O}(\delta\mathbf{x}^{N+1})\) appended.
+truncation remainder $\mathcal{O}(\delta\mathbf{x}^{N+1})$ appended.
 
 ---
 

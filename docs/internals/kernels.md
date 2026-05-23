@@ -33,7 +33,7 @@ Every recurrence picks one of two paths via `if constexpr (M == 1)`:
   (`TAX_USE_UNROLL`) is what runs here.
 - **Multivariate** (`M ≥ 2`) — routes through
   `forEachSubIndex<M>(alpha, lo, hi, callback)`, which enumerates all
-  sub-multi-indices \(\beta \le \alpha\) with \(\text{lo} \le |\beta| \le \text{hi}\)
+  sub-multi-indices $\beta \le \alpha$ with $\text{lo} \le |\beta| \le \text{hi}$
   and calls `callback(flatIndex(beta), flatIndex(alpha - beta), |beta|)`. The
   callback shape is exactly what every recurrence in
   [Mathematical Foundations](../core/math.md) needs.
@@ -47,12 +47,12 @@ validated by `tests/kernels/testCauchyStencilDiff`.
 
 ## Recurrence shape — anatomy of `seriesExp`
 
-For \(g = \exp(f)\) the closed-form recurrence is
+For $g = \exp(f)$ the closed-form recurrence is
 
-\[
+$$
 g_\alpha \;=\; \frac{1}{|\alpha|} \sum_{\substack{\beta \le \alpha \\ 1 \le |\beta| \le |\alpha|}} |\beta| \, f_\beta \, g_{\alpha - \beta},
 \qquad g_0 = \exp(f_0)
-\]
+$$
 
 which the kernel implements (in pseudocode) as
 
@@ -72,12 +72,12 @@ for (int d = 1; d <= N; ++d) {
 ```
 
 Every other recurrence has the same skeleton: initialise the
-constant-term value with the scalar math, then walk degrees \(d = 1, \ldots, N\)
+constant-term value with the scalar math, then walk degrees $d = 1, \ldots, N$
 applying the appropriate sub-multi-index sum.
 
 For *coupled* recurrences (sin/cos, sinh/cosh) the kernel maintains both
 arrays in lockstep — see `seriesSinCos`. For *helper-driven* recurrences
-(asin via \(h = \sqrt{1 - f^2}\), tan via \(\cos \cdot t = \sin\)) the helper is
+(asin via $h = \sqrt{1 - f^2}$, tan via $\cos \cdot t = \sin$) the helper is
 materialised first by an inner kernel call, then the outer recurrence runs.
 
 ---
@@ -86,11 +86,11 @@ materialised first by an inner kernel call, then the outer recurrence runs.
 
 A few recurrences appear with explicit factor-of-two savings:
 
-- `seriesSquare` enumerates only unordered pairs \((\beta, \alpha - \beta)\)
-  with \(\beta \le \alpha - \beta\) in flat-index order, doubling pairs and
+- `seriesSquare` enumerates only unordered pairs $(\beta, \alpha - \beta)$
+  with $\beta \le \alpha - \beta$ in flat-index order, doubling pairs and
   counting diagonals once.
-- `seriesCbrt` maintains \(q = g^2\) incrementally, dropping the worst-case
-  cost from \(\mathcal{O}(N^3)\) to \(\mathcal{O}(N^2)\).
+- `seriesCbrt` maintains $q = g^2$ incrementally, dropping the worst-case
+  cost from $\mathcal{O}(N^3)$ to $\mathcal{O}(N^2)$.
 - `seriesSqrt` uses the same symmetric self-product enumeration as
   `seriesSquare` inside its outer recurrence.
 
@@ -104,13 +104,13 @@ ordering of the flat index.
 
 `sparse_cauchy` exploits the parallel-sorted-vector representation of
 `storage::Sparse`. For inputs with `nnz_a` and `nnz_b` nonzeros, the kernel
-enumerates pairs in roughly \(\mathcal{O}(\text{nnz}_a \cdot \text{nnz}_b)\)
-operations (rather than the dense \(\mathcal{O}(\binom{N+M}{M}^2)\)) and
+enumerates pairs in roughly $\mathcal{O}(\text{nnz}_a \cdot \text{nnz}_b)$
+operations (rather than the dense $\mathcal{O}(\binom{N+M}{M}^2)$) and
 inserts each contribution into a result buffer keyed by flat index. The result
 is materialised into a sorted-index representation at the end.
 
 Sparse add/sub uses the standard two-pointer merge over the sorted index
-arrays — \(\mathcal{O}(\text{nnz}_a + \text{nnz}_b)\).
+arrays — $\mathcal{O}(\text{nnz}_a + \text{nnz}_b)$.
 
 ---
 

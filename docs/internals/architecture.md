@@ -55,7 +55,7 @@ in `tax/core/enumeration.hpp` are storage-agnostic.
 
 Every mathematical recurrence lives in `tax/kernels/`. A kernel takes raw
 coefficient buffers — `T*` for dense, sorted index/value pairs for sparse —
-plus the compile-time shape \((N, M)\) and writes directly into the result.
+plus the compile-time shape $(N, M)$ and writes directly into the result.
 The kernel layer is the one place where the math of
 [Mathematical Foundations](../core/math.md) lives in code.
 
@@ -71,7 +71,7 @@ See [Kernels & Recurrences](kernels.md) for the file-by-file map.
 
 | CMake option | What it changes |
 |---|---|
-| `TAX_USE_UNROLL`  | Switches the Dense `M == 1` Cauchy kernel to a compile-time-unrolled variant — faster for small \(N\). |
+| `TAX_USE_UNROLL`  | Switches the Dense `M == 1` Cauchy kernel to a compile-time-unrolled variant — faster for small $N$. |
 | `TAX_USE_STENCIL` | For Dense `M ≥ 2`, precomputes the sub-multi-index stencil at compile time and reuses it across every Cauchy call. |
 
 Both default to `ON`. The non-stencil and non-unroll paths remain in the tree
