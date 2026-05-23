@@ -59,7 +59,7 @@ struct TaylorStepper
         const F& f, const StateT& x, T t, T h, const Config& cfg );
 
     [[nodiscard]] static StateT eval_dense(
-        const DenseData& d, const T& t0, const T& /*t1*/, const T& tq );
+        const DenseData& d, const T& t0, const T& tq );
 
 private:
     Controller controller_{};
@@ -69,7 +69,7 @@ private:
 // x(tq) = sum_k d_i.coeff(k) * (tq - t0)^k
 template < int N, class StateT, class Controller >
 StateT TaylorStepper< N, StateT, Controller >::eval_dense(
-    const DenseData& d, const T& t0, const T& /*t1*/, const T& tq )
+    const DenseData& d, const T& t0, const T& tq )
 {
     return tax::eval( d, T( tq - t0 ) );
 }

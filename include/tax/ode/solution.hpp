@@ -78,7 +78,7 @@ public:
         const auto i  = static_cast< std::size_t >( std::max< std::ptrdiff_t >(
             0, std::distance( t.begin(), it ) - 1 ) );
         const std::size_t idx = std::min( i, dense.size() - 1 );
-        return Stepper::eval_dense( dense[idx], t[idx], t[idx + 1], t_query );
+        return Stepper::eval_dense( dense[idx], t[idx], t_query );
     }
 };
 

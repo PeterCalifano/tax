@@ -42,13 +42,15 @@ struct Feagin14Stepper
     static constexpr int  order_emb_v      = Tab::order_emb;
 
     // DenseData: boundary samples + their derivatives for the
-    // cubic-Hermite continuous extension.
+    // cubic-Hermite continuous extension, plus the step length so the
+    // interpolation knows the [0, h_step] domain it lives on.
     struct DenseData
     {
         State x0{};
         State x1{};
         State f0{};
         State f1{};
+        T     h_step{};
     };
 
     template < class F >
@@ -77,10 +79,11 @@ struct Feagin14Stepper
             controller_, h, err_for_ctrl, out.err_norm, tol, Tab::order_emb );
 
         DenseData dd;
-        dd.x0 = x;
-        dd.x1 = out.x_new;
-        dd.f0 = work.k[ 0 ];  // f(x, t + c[0]*h) == f(x, t)
-        dd.f1 = f( out.x_new, t + h );
+        dd.x0     = x;
+        dd.x1     = out.x_new;
+        dd.f0     = work.k[ 0 ];  // f(x, t + c[0]*h) == f(x, t)
+        dd.f1     = f( out.x_new, t + h );
+        dd.h_step = h;
 
         StepResult< State, Feagin14Stepper > r;
         r.x_new    = std::move( out.x_new );
@@ -93,10 +96,10 @@ struct Feagin14Stepper
     }
 
     [[nodiscard]] static State eval_dense(
-        const DenseData& d, const T& t0, const T& t1, const T& tq )
+        const DenseData& d, const T& t0, const T& tq )
     {
         return detail::hermite_interp< State, T >(
-            d.x0, d.x1, d.f0, d.f1, t0, t1, tq );
+            d.x0, d.x1, d.f0, d.f1, d.h_step, tq - t0 );
     }
 
 private:

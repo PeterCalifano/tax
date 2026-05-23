@@ -22,19 +22,18 @@ template < class State, class T >
 [[nodiscard]] State hermite_interp(
     const State& x0, const State& x1,
     const State& f0, const State& f1,
-    const T& t0, const T& t1, const T& tq )
+    const T& h_step, const T& tau )
 {
     using Ops = VectorOps< State >;
 
-    const T h     = t1 - t0;
-    const T theta = ( tq - t0 ) / h;
+    const T theta = tau / h_step;
     const T om    = T{ 1 } - theta;
 
     const double h00 = static_cast< double >( ( T{ 1 } + T{ 2 } * theta ) * om * om );
     const double h10 = static_cast< double >( theta * om * om );
     const double h01 = static_cast< double >( theta * theta * ( T{ 3 } - T{ 2 } * theta ) );
     const double h11 = static_cast< double >( -theta * theta * om );
-    const double hd  = static_cast< double >( h );
+    const double hd  = static_cast< double >( h_step );
 
     State out;
     Ops::scale_assign( out, h00,       x0 );

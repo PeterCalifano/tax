@@ -171,8 +171,7 @@ Integrator< Stepper, F, Dense >::integrate(
                 {
                     const T tau_term = fired.front().tau;
                     State x_term = Stepper::eval_dense(
-                        ctx.dense, ctx.t_old, ctx.t_old + ctx.h_used,
-                        ctx.t_old + tau_term );
+                        ctx.dense, ctx.t_old, ctx.t_old + tau_term );
                     sol.t.push_back( ctx.t_old + tau_term );
                     sol.x.push_back( std::move( x_term ) );
                     if constexpr ( Dense )

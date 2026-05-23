@@ -73,7 +73,6 @@ inline auto Record( std::string label )
         StorageState x_event = Ctx::Stepper_type::eval_dense(
             ctx.dense,
             ctx.t_old,
-            ctx.t_old + ctx.h_used,
             ctx.t_old + tau );
         storage.push( { lbl, ctx.t_old + tau, std::move( x_event ) } );
         return ControlFlow::Continue;

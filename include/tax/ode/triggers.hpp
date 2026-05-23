@@ -188,7 +188,6 @@ auto ZeroCrossing( GFn g, Direction dir = Direction::Any )
         {
             auto x_at = Stepper::eval_dense( ctx.dense,
                                              ctx.t_old,
-                                             ctx.t_old + ctx.h_used,
                                              ctx.t_old + tau );
             return T( g( x_at, ctx.t_old + tau ) );
         };

@@ -36,9 +36,9 @@ TEST( OdeFeagin14Stepper, ExponentialOneStep )
     EXPECT_NEAR( r.x_new( 0 ), std::exp( 0.1 ), 1e-13 );
 
     auto x_at_t0 = Feagin14Stepper< State >::eval_dense(
-        r.dense, 0.0, r.h_used, 0.0 );
+        r.dense, 0.0, 0.0 );
     auto x_at_t1 = Feagin14Stepper< State >::eval_dense(
-        r.dense, 0.0, r.h_used, r.h_used );
+        r.dense, 0.0, r.h_used );
     EXPECT_NEAR( x_at_t0( 0 ), x0( 0 ),       1e-14 );
     EXPECT_NEAR( x_at_t1( 0 ), r.x_new( 0 ),  1e-14 );
 }

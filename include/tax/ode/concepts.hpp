@@ -41,7 +41,6 @@ concept Stepper = requires(
 
     { S::eval_dense( std::declval< typename S::DenseData >(),
                      std::declval< typename S::T >(),
-                     std::declval< typename S::T >(),
                      std::declval< typename S::T >() ) }
         -> std::same_as< typename S::State >;
 };

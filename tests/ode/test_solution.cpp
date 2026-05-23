@@ -35,7 +35,7 @@ struct FakeStepper
         r.x_new = x; r.h_used = h; r.dense = x;
         return r;
     }
-    static State eval_dense( const DenseData& d, const T&, const T&, const T& )
+    static State eval_dense( const DenseData& d, const T&, const T& )
     {
         return d;
     }

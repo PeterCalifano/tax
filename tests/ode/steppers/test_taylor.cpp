@@ -35,11 +35,11 @@ TEST( OdeTaylorStepper, ExponentialOneStep )
     EXPECT_NEAR( r.x_new( 0 ), std::exp( 0.1 ), 1e-12 );
     // eval_dense at the step start reproduces x0.
     auto x_at_t0 = TaylorStepper< 12, State >::eval_dense(
-        r.dense, 0.0, r.h_used, 0.0 );
+        r.dense, 0.0, 0.0 );
     EXPECT_NEAR( x_at_t0( 0 ), x0( 0 ), 1e-14 );
     // eval_dense at the step end reproduces x_new.
     auto x_at_t1 = TaylorStepper< 12, State >::eval_dense(
-        r.dense, 0.0, r.h_used, r.h_used );
+        r.dense, 0.0, r.h_used );
     EXPECT_NEAR( x_at_t1( 0 ), r.x_new( 0 ), 1e-14 );
 }
 

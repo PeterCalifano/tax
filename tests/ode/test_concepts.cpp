@@ -39,8 +39,7 @@ struct FakeStepper
         return r;
     }
 
-    static State eval_dense( const DenseData& d, const T& /*t0*/, const T& /*t1*/,
-                             const T& /*tq*/ )
+    static State eval_dense( const DenseData& d, const T& /*t0*/, const T& /*tq*/ )
     {
         return d;
     }
@@ -76,7 +75,7 @@ struct FakeAdaptiveStepper
         return r;
     }
 
-    static State eval_dense( const DenseData& d, const T&, const T&, const T& )
+    static State eval_dense( const DenseData& d, const T&, const T& )
     {
         return d;
     }

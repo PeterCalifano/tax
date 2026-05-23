@@ -52,14 +52,14 @@ TEST( OdeRKHelpers, RK4OneStepOnExp )
 TEST( OdeRKHelpers, HermiteReproducesBoundaries )
 {
     using State = Eigen::Matrix< double, 2, 1 >;
-    const double t0 = 1.0, t1 = 2.0;
+    const double h = 1.0;
     State x0; x0( 0 ) = 0.5; x0( 1 ) = -1.0;
     State x1; x1( 0 ) = 0.7; x1( 1 ) = -0.3;
     State f0; f0( 0 ) = 0.2; f0( 1 ) =  0.8;
     State f1; f1( 0 ) = 0.1; f1( 1 ) = -0.4;
 
-    const State at_t0 = tax::ode::detail::hermite_interp( x0, x1, f0, f1, t0, t1, t0 );
-    const State at_t1 = tax::ode::detail::hermite_interp( x0, x1, f0, f1, t0, t1, t1 );
+    const State at_t0 = tax::ode::detail::hermite_interp( x0, x1, f0, f1, h, 0.0 );
+    const State at_t1 = tax::ode::detail::hermite_interp( x0, x1, f0, f1, h, h );
     EXPECT_NEAR( ( at_t0 - x0 ).norm(), 0.0, 1e-14 );
     EXPECT_NEAR( ( at_t1 - x1 ).norm(), 0.0, 1e-14 );
 }
