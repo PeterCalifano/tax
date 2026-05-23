@@ -105,6 +105,12 @@ Integrator< Stepper, F, Dense >::integrate(
 
     while ( t < tmax && !terminate )
     {
+        // Floating-point accumulation in t can leave a sub-h_min remainder
+        // to tmax. Treat that as "we are at tmax" and stop, rather than
+        // throwing on the inevitable final-step underflow.
+        if ( tmax - t < h_min )
+            break;
+
         if ( ++total_steps > cfg_.max_steps )
             throw std::runtime_error(
                 "Integrator::integrate: max_steps exceeded" );
