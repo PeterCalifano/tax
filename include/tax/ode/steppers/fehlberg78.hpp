@@ -21,6 +21,7 @@
 #include <tax/ode/detail/fehlberg_tableaus.hpp>
 #include <tax/ode/detail/hermite_interp.hpp>
 #include <tax/ode/step_result.hpp>
+#include <tax/ode/vector_ops.hpp>
 
 namespace tax::ode
 {
@@ -30,8 +31,8 @@ template < class StateT,
 struct Fehlberg78Stepper
 {
     using State  = StateT;
-    using T      = typename State::Scalar;
-    using Config = IntegratorConfig< T >;
+    using T      = double;
+    using Config = IntegratorConfig< double >;
     using Rhs    = std::function< State( const State&, T ) >;
     using Tab    = detail::Fehlberg78Tab;
 
@@ -60,14 +61,8 @@ struct Fehlberg78Stepper
         RKStepData< State, Tab::n_stages > work;
         auto out = adaptive_rk_step< Tab >( f, x, t, h, work );
 
-        T x_norm{ 0 };
-        for ( Eigen::Index i = 0; i < x.size(); ++i )
-        {
-            using std::abs;
-            const T a = T( abs( out.x_new( i ) ) );
-            if ( a > x_norm ) x_norm = a;
-        }
-        const T tol = cfg.abstol + cfg.reltol * x_norm;
+        const double x_norm = VectorOps< State >::norm( out.x_new );
+        const double tol    = cfg.abstol + cfg.reltol * x_norm;
 
         T    h_next;
         bool accepted;

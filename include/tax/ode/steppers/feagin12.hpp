@@ -21,6 +21,7 @@
 #include <tax/ode/detail/feagin_tableaus.hpp>
 #include <tax/ode/detail/hermite_interp.hpp>
 #include <tax/ode/step_result.hpp>
+#include <tax/ode/vector_ops.hpp>
 
 namespace tax::ode
 {
@@ -30,8 +31,8 @@ template < class StateT,
 struct Feagin12Stepper
 {
     using State  = StateT;
-    using T      = typename State::Scalar;
-    using Config = IntegratorConfig< T >;
+    using T      = double;
+    using Config = IntegratorConfig< double >;
     using Rhs    = std::function< State( const State&, T ) >;
     using Tab    = detail::Feagin12Tab;
 
@@ -60,23 +61,17 @@ struct Feagin12Stepper
         RKStepData< State, Tab::n_stages > work;
         auto out = adaptive_rk_step< Tab >( f, x, t, h, work );
 
-        T x_norm{ 0 };
-        for ( Eigen::Index i = 0; i < x.size(); ++i )
-        {
-            using std::abs;
-            const T a = T( abs( out.x_new( i ) ) );
-            if ( a > x_norm ) x_norm = a;
-        }
-        const T tol = cfg.abstol + cfg.reltol * x_norm;
+        const double x_norm = VectorOps< State >::norm( out.x_new );
+        const double tol    = cfg.abstol + cfg.reltol * x_norm;
 
         // Feagin's `(k_2 - k_{n-1})` error indicator can underflow to
         // exactly zero on benign integrands at small h. Floor the error
         // norm at machine eps * tol so the controller can grow the step
         // instead of treating zero error as "use default factor".
-        const T err_for_ctrl =
-            ( out.err_norm > T{ 0 } )
+        const double err_for_ctrl =
+            ( out.err_norm > 0.0 )
                 ? out.err_norm
-                : tol * std::numeric_limits< T >::epsilon();
+                : tol * std::numeric_limits< double >::epsilon();
 
         T    h_next;
         bool accepted;
