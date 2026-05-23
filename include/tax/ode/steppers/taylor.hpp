@@ -70,18 +70,9 @@ template < int N, class StateT, class Controller >
 StateT TaylorStepper< N, StateT, Controller >::eval_dense(
     const DenseData& d, const T& t0, const T& /*t1*/, const T& tq )
 {
-    const T dt = tq - t0;
-    const Eigen::Index dim = d.size();
-    StateT out{ dim };
-    for ( Eigen::Index i = 0; i < dim; ++i )
-    {
-        // Horner-style evaluation of d(i) at dt.
-        T acc = d( i )[ static_cast< std::size_t >( N ) ];
-        for ( int k = N - 1; k >= 0; --k )
-            acc = acc * dt + d( i )[ static_cast< std::size_t >( k ) ];
-        out( i ) = acc;
-    }
-    return out;
+    Eigen::Matrix< T, 1, 1 > dx;
+    dx[ 0 ] = tq - t0;
+    return tax::eval( d, dx );
 }
 
 // -------- step (real Taylor expansion — Task 6) --------
@@ -96,45 +87,28 @@ TaylorStepper< N, StateT, Controller >::step(
 
     const Eigen::Index dim = x.size();
 
-    // --- 1. Time variable as a TE in t: value = t, c_1 = 1, rest 0.
-    TE t_te;
-    t_te[ 0 ] = t;
-    t_te[ 1 ] = T{ 1 };
-    for ( int k = 2; k <= N; ++k ) t_te[ static_cast< std::size_t >( k ) ] = T{ 0 };
+    // --- 1. Time as a univariate TE: c[0] = t, c[1] = 1, rest 0.
+    const TE t_te = TE::variable( t );
 
-    // --- 2. State TE per component: start with c_0 = x(i), rest 0.
+    // --- 2. State TE per component: c[0] = x(i), rest 0.
     using StateTE = Eigen::Matrix< TE, StateT::RowsAtCompileTime, 1 >;
     StateTE x_te{ dim };
     for ( Eigen::Index i = 0; i < dim; ++i )
-    {
-        x_te( i )[ 0 ] = x( i );
-        for ( int k = 1; k <= N; ++k )
-            x_te( i )[ static_cast< std::size_t >( k ) ] = T{ 0 };
-    }
+        x_te( i ) = TE::constant( x( i ) );
 
     // --- 3. Iterate to fill coefficients k = 1 .. N.
     for ( int order = 0; order < N; ++order )
     {
         StateTE f_te = f( x_te, t_te );
         for ( Eigen::Index i = 0; i < dim; ++i )
-        {
-            const T c_next = f_te( i )[ static_cast< std::size_t >( order ) ]
-                             / T( order + 1 );
-            x_te( i )[ static_cast< std::size_t >( order + 1 ) ] = c_next;
-        }
+            x_te( i )[ static_cast< std::size_t >( order + 1 ) ] =
+                f_te( i )[ static_cast< std::size_t >( order ) ] / T( order + 1 );
     }
 
-    // --- 4. Build DenseData and x_new = x(t + h) via Horner.
-    DenseData dense{ dim };
-    StateT    x_new{ dim };
-    for ( Eigen::Index i = 0; i < dim; ++i )
-    {
-        dense( i ) = x_te( i );
-        T acc = x_te( i )[ static_cast< std::size_t >( N ) ];
-        for ( int k = N - 1; k >= 0; --k )
-            acc = acc * h + x_te( i )[ static_cast< std::size_t >( k ) ];
-        x_new( i ) = acc;
-    }
+    // --- 4. x_new = x(t + h) via the TE Eigen-eval helper.
+    Eigen::Matrix< T, 1, 1 > dx;
+    dx[ 0 ] = h;
+    StateT x_new = tax::eval( x_te, dx );
 
     // --- 5. Truncation indicator and last-two coefficient norms.
     T c_N_norm = T{ 0 }, c_Nm1_norm = T{ 0 };
@@ -180,7 +154,7 @@ TaylorStepper< N, StateT, Controller >::step(
     r.h_next   = h_next;
     r.err_norm = err_norm;
     r.accepted = accepted;
-    r.dense    = std::move( dense );
+    r.dense    = std::move( x_te );
     return r;
 }
 
