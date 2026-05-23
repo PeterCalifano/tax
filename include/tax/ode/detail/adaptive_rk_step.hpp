@@ -9,8 +9,10 @@
 
 #include <array>
 #include <cstddef>
+#include <type_traits>
 #include <utility>
 
+#include <tax/ode/controllers.hpp>
 #include <tax/ode/vector_ops.hpp>
 
 namespace tax::ode::detail
@@ -70,6 +72,55 @@ template < class Tab, class F, class State, int NStages >
     Ops::axpy        ( diff, -1.0, y_emb );
 
     return { std::move( x_new ), std::move( y_emb ), Ops::norm( diff ) };
+}
+
+/**
+ * @brief Resolve `(h_next, accepted)` for the next RK step.
+ *
+ * Centralises the three-arm controller dispatch shared by every
+ * Stage 2a RK stepper:
+ *   - `FixedStep` ............ always accepted, h_next = h.
+ *   - `JorbaZou` ............. Taylor-only; no-op fallback for RK.
+ *   - any other controller ... `controller.next_step(...)` + tolerance check.
+ *
+ * Feagin pairs feed their floored error to the controller via
+ * `err_for_ctrl` while still using the raw `err_norm` for the
+ * acceptance decision; all other RK steppers pass the same value for
+ * both arguments.
+ *
+ * @param controller     Controller instance (state-mutating for PI/H211b).
+ * @param h              Step size that was just taken.
+ * @param err_for_ctrl   Error magnitude handed to the controller.
+ * @param err_norm       Raw error magnitude compared against `tol`.
+ * @param tol            Acceptance threshold.
+ * @param order_emb      Embedded estimator order (Tab::order_emb).
+ */
+template < class Controller >
+[[nodiscard]] inline std::pair< double, bool > select_rk_step(
+    Controller& controller,
+    double      h,
+    double      err_for_ctrl,
+    double      err_norm,
+    double      tol,
+    int         order_emb )
+{
+    if constexpr ( std::is_same_v< Controller, controllers::FixedStep< double > > )
+    {
+        (void) controller; (void) err_for_ctrl; (void) err_norm;
+        (void) tol; (void) order_emb;
+        return { h, true };
+    }
+    else if constexpr ( std::is_same_v< Controller, controllers::JorbaZou< double > > )
+    {
+        (void) controller; (void) err_for_ctrl; (void) order_emb;
+        // JorbaZou is Taylor-only; RK steppers fall back to identity h.
+        return { h, err_norm <= tol };
+    }
+    else
+    {
+        return { controller.next_step( h, err_for_ctrl, tol, order_emb ),
+                 err_norm <= tol };
+    }
 }
 
 }  // namespace tax::ode::detail
