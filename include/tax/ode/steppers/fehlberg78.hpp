@@ -69,13 +69,23 @@ struct Fehlberg78Stepper
         }
         const T tol = cfg.abstol + cfg.reltol * x_norm;
 
-        T h_next;
-        if constexpr ( std::is_same_v< Controller, controllers::JorbaZou< T > > )
-            h_next = h;  // JorbaZou is Taylor-only; no-op fallback.
+        T    h_next;
+        bool accepted;
+        if constexpr ( std::is_same_v< Controller, controllers::FixedStep< T > > )
+        {
+            h_next   = h;
+            accepted = true;
+        }
+        else if constexpr ( std::is_same_v< Controller, controllers::JorbaZou< T > > )
+        {
+            h_next   = h;  // JorbaZou is Taylor-only; no-op fallback.
+            accepted = out.err_norm <= tol;
+        }
         else
-            h_next = controller_.next_step( h, out.err_norm, tol, Tab::order_emb );
-
-        const bool accepted = out.err_norm <= tol;
+        {
+            h_next   = controller_.next_step( h, out.err_norm, tol, Tab::order_emb );
+            accepted = out.err_norm <= tol;
+        }
 
         DenseData dd;
         dd.x0 = x;
