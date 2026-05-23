@@ -20,7 +20,7 @@
 #include <functional>
 
 #include <tax/core/taylor_expansion.hpp>
-#include <tax/eigen.hpp>
+#include <tax/la.hpp>
 #include <tax/operators/arithmetic.hpp>
 #include <tax/operators/math_unary.hpp>
 #include <tax/operators/math_binary.hpp>
@@ -71,7 +71,7 @@ template < int N, class StateT, class Controller >
 StateT TaylorStepper< N, StateT, Controller >::eval_dense(
     const DenseData& d, const T& t0, const T& tq )
 {
-    return tax::eval( d, T( tq - t0 ) );
+    return tax::la::eval( d, T( tq - t0 ) );
 }
 
 // -------- step (real Taylor expansion — Task 6) --------
@@ -105,7 +105,7 @@ TaylorStepper< N, StateT, Controller >::step(
     }
 
     // --- 4. x_new = x(t + h) via the TE Eigen-eval helper.
-    StateT x_new = tax::eval( x_te, h );
+    StateT x_new = tax::la::eval( x_te, h );
 
     // --- 5. Truncation indicator and last-two coefficient norms.
     T c_N_norm = T{ 0 }, c_Nm1_norm = T{ 0 };

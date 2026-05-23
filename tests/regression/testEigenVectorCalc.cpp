@@ -2,10 +2,10 @@
 //
 // DACE-vs-tax parity for vector-calculus extractors built on top of the
 // Stage 1 Eigen helpers:
-//   tax::gradient(f)   vs  DACE getCoefficient at unit multi-indices
-//   tax::hessian(f)    vs  DACE getCoefficient at 2nd-order multi-indices,
+//   tax::la::gradient(f)   vs  DACE getCoefficient at unit multi-indices
+//   tax::la::hessian(f)    vs  DACE getCoefficient at 2nd-order multi-indices,
 //                          with symmetry handling (factor 2 on diagonal)
-//   tax::jacobian(F)   vs  the row-wise gradient of each component
+//   tax::la::jacobian(F)   vs  the row-wise gradient of each component
 
 #include <dace/dace.h>
 #include <gtest/gtest.h>
@@ -51,7 +51,7 @@ TEST( DaceVectorCalc, GradientMatchesDace )
     tax::TE< N, M >       f =
         tax::cos( prepareInput( v( 0 ) ) * prepareInput( v( 1 ) ) + prepareInput( v( 2 ) ) );
 
-    Eigen::Matrix< double, M, 1 > g = tax::gradient( f );
+    Eigen::Matrix< double, M, 1 > g = tax::la::gradient( f );
     for ( int i = 0; i < M; ++i )
     {
         const double ref = daceCoeff1( fr, M, i );  // = ∂f/∂x_i at x0
@@ -73,7 +73,7 @@ TEST( DaceVectorCalc, HessianMatchesDace )
     tax::TE< N, M >       f =
         prepareInput( v( 0 ) ) * prepareInput( v( 1 ) ) * prepareInput( v( 2 ) );
 
-    Eigen::Matrix< double, M, M > H = tax::hessian( f );
+    Eigen::Matrix< double, M, M > H = tax::la::hessian( f );
     for ( int i = 0; i < M; ++i )
     {
         for ( int j = 0; j < M; ++j )
@@ -104,7 +104,7 @@ TEST( DaceVectorCalc, JacobianMatchesDace )
     F( 0 ) = tax::sin( prepareInput( v( 0 ) ) + prepareInput( v( 1 ) ) );
     F( 1 ) = tax::cos( prepareInput( v( 0 ) ) * prepareInput( v( 1 ) ) );
 
-    Eigen::Matrix< double, 2, M > J       = tax::jacobian( F );
+    Eigen::Matrix< double, 2, M > J       = tax::la::jacobian( F );
     const DACE::DA                refs[2] = { fr0, fr1 };
     for ( int row = 0; row < 2; ++row )
     {

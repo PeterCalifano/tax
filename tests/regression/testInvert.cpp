@@ -1,7 +1,7 @@
 // tests/regression/testInvert.cpp
 //
 // DACE-vs-tax parity for polynomial map inversion:
-//   tax::invert(F)                      (Eigen<TE,M,1>)
+//   tax::la::invert(F)                      (Eigen<TE,M,1>)
 //   DACE::AlgebraicVector<DA>::invert() (vector of DA)
 
 #include <dace/AlgebraicVector.h>
@@ -36,7 +36,7 @@ TEST( DaceInvert, IdentityPlusPerturbation )
     Eigen::Matrix< TE, 2, 1 > F;
     F( 0 ) = v( 0 ) + 0.1 * ( prepareInput( v( 1 ) ) - 1.0 );
     F( 1 ) = v( 1 ) + 0.1 * ( prepareInput( v( 0 ) ) - 1.0 );
-    Eigen::Matrix< TE, 2, 1 > F_inv = tax::invert( F );
+    Eigen::Matrix< TE, 2, 1 > F_inv = tax::la::invert( F );
 
     for ( int i = 0; i < 2; ++i )
     {

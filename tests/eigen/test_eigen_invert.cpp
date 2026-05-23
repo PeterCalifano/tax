@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 #include "../testUtils.hpp"
-#include <tax/eigen.hpp>
+#include <tax/la.hpp>
 
 // The invert() algorithm:
 //   - Drops the constant term of each component of the input map.
@@ -16,11 +16,11 @@ TEST( EigenInvert, IdentityMap )
 {
     // F = identity map: F_i(x) = x_i
     Eigen::Vector2d x0{ 0.0, 0.0 };
-    auto v = tax::variables< tax::TE< 3, 2 > >( x0 );
+    auto v = tax::la::variables< tax::TE< 3, 2 > >( x0 );
     Eigen::Matrix< tax::TE< 3, 2 >, 2, 1 > F;
     F( 0 ) = v( 0 );
     F( 1 ) = v( 1 );
-    auto Finv = tax::invert( F );
+    auto Finv = tax::la::invert( F );
     // inverse of identity is identity
     EXPECT_NEAR( Finv( 0 ).value(), 0.0, 1e-12 );
     EXPECT_NEAR( Finv( 1 ).value(), 0.0, 1e-12 );
@@ -33,10 +33,10 @@ TEST( EigenInvert, LinearScaling )
     // F = 2*x (univariate). Inverse = x/2.
     Eigen::Matrix< double, 1, 1 > x0;
     x0 << 0.0;
-    auto v = tax::variables< tax::TE< 4, 1 > >( x0 );
+    auto v = tax::la::variables< tax::TE< 4, 1 > >( x0 );
     Eigen::Matrix< tax::TE< 4, 1 >, 1, 1 > F;
     F( 0 ) = 2.0 * v( 0 );
-    auto Finv = tax::invert( F );
+    auto Finv = tax::la::invert( F );
     EXPECT_NEAR( Finv( 0 ).value(), 0.0, 1e-12 );
     // Linear coefficient of inverse should be 1/2
     EXPECT_NEAR( ( Finv( 0 ).coeff< 1 >() ), 0.5, 1e-12 );
@@ -48,10 +48,10 @@ TEST( EigenInvert, NonlinearMap )
     // Formal inverse: x - x^2 + 2x^3 - ...
     Eigen::Matrix< double, 1, 1 > x0;
     x0 << 0.0;
-    auto v = tax::variables< tax::TE< 4, 1 > >( x0 );
+    auto v = tax::la::variables< tax::TE< 4, 1 > >( x0 );
     Eigen::Matrix< tax::TE< 4, 1 >, 1, 1 > F;
     F( 0 ) = v( 0 ) + v( 0 ) * v( 0 );
-    auto Finv = tax::invert( F );
+    auto Finv = tax::la::invert( F );
     // Finv(0): constant = 0, linear = 1, quadratic = -1, cubic = 2
     EXPECT_NEAR( Finv( 0 ).value(), 0.0, 1e-12 );
     EXPECT_NEAR( ( Finv( 0 ).coeff< 1 >() ), 1.0, 1e-10 );

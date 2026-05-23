@@ -1,0 +1,109 @@
+// include/tax/la/derivatives.hpp
+//
+// Differential operators on TaylorExpansion objects, exposed as
+// free functions that consume scalar TEs or Eigen matrices of TEs:
+//
+//   derivative<Alpha...>(F)  — element-wise mixed partial derivative.
+//   gradient(f)              — gradient vector (scalar TE).
+//   hessian(f)               — Hessian matrix (scalar TE).
+//   jacobian(F)              — Jacobian matrix (vector-valued TE).
+
+#pragma once
+
+#include <Eigen/Core>
+
+#include <tax/core/multi_index.hpp>
+#include <tax/la/num_traits.hpp>
+
+namespace tax::la
+{
+
+// -----------------------------------------------------------------------------
+// derivative — element-wise partial derivative extraction
+// -----------------------------------------------------------------------------
+
+/**
+ * @brief Extract a compile-time partial derivative from each element of an Eigen
+ *        matrix/vector of `TaylorExpansion` objects.
+ *
+ * Usage: `tax::la::derivative<1, 0>(F)` extracts `dF/dx_0` from a 2-variable TE matrix.
+ *
+ * @tparam Alpha  Derivative orders (one per variable, must sum to <= N).
+ * @param  F      Eigen matrix/vector of `TaylorExpansion` objects.
+ * @return        Eigen matrix/vector of the underlying scalar type.
+ */
+template < int... Alpha, typename Derived >
+    requires( detail::is_te_v< typename Derived::Scalar > )
+[[nodiscard]] auto derivative( const Eigen::MatrixBase< Derived >& F )
+{
+    using TE = typename Derived::Scalar;
+    using T  = typename detail::te_traits< TE >::scalar_type;
+    Eigen::Matrix< T, Derived::RowsAtCompileTime, Derived::ColsAtCompileTime >
+        out( F.rows(), F.cols() );
+    for ( Eigen::Index i = 0; i < F.size(); ++i )
+        out( i ) = F.derived().coeff( i ).template derivative< Alpha... >();
+    return out;
+}
+
+// -----------------------------------------------------------------------------
+// gradient — free-function wrapper around TaylorExpansion::gradient()
+// -----------------------------------------------------------------------------
+
+/**
+ * @brief Compute the gradient of a scalar `TaylorExpansion` at its expansion point.
+ * @return `Eigen::Matrix<T, M, 1>` of first-order partial derivatives.
+ */
+template < typename T, int N, int M, typename S >
+[[nodiscard]] Eigen::Matrix< T, M, 1 > gradient( const TaylorExpansion< T, N, M, S >& f ) noexcept
+{
+    return f.gradient();
+}
+
+// -----------------------------------------------------------------------------
+// hessian — free-function wrapper around TaylorExpansion::hessian()
+// -----------------------------------------------------------------------------
+
+/**
+ * @brief Compute the Hessian matrix of a scalar `TaylorExpansion` at its expansion point.
+ * @return `Eigen::Matrix<T, M, M>` of second-order mixed partial derivatives.
+ */
+template < typename T, int N, int M, typename S >
+[[nodiscard]] Eigen::Matrix< T, M, M > hessian( const TaylorExpansion< T, N, M, S >& f ) noexcept
+{
+    return f.hessian();
+}
+
+// -----------------------------------------------------------------------------
+// jacobian — Jacobian of a vector-valued TE function
+// -----------------------------------------------------------------------------
+
+/**
+ * @brief Compute the Jacobian matrix of a vector-valued `TaylorExpansion` function.
+ *
+ * @param F  Eigen matrix/vector of `TaylorExpansion` objects with `K` components.
+ * @return   Eigen matrix of shape `(K, M)` where `J(i, j) = dF_i / dx_j`.
+ */
+template < typename Derived >
+    requires( detail::is_te_v< typename Derived::Scalar > )
+[[nodiscard]] auto jacobian( const Eigen::MatrixBase< Derived >& F )
+{
+    using TE = typename Derived::Scalar;
+    using tr = detail::te_traits< TE >;
+    using T  = typename tr::scalar_type;
+    constexpr int M = tr::vars_v;
+    constexpr int K = Derived::SizeAtCompileTime;
+    Eigen::Matrix< T, K, M > out( F.size(), M );
+    for ( Eigen::Index r = 0; r < F.size(); ++r )
+    {
+        MultiIndex< M > alpha{};
+        for ( int j = 0; j < M; ++j )
+        {
+            alpha[std::size_t( j )] = 1;
+            out( r, j ) = F.derived().coeff( r ).derivative( alpha );
+            alpha[std::size_t( j )] = 0;
+        }
+    }
+    return out;
+}
+
+}  // namespace tax::la
