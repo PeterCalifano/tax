@@ -145,4 +145,22 @@ struct JorbaZou
     }
 };
 
+// -------- FixedStep --------
+// No-op controller: returns the previously-used step size unchanged,
+// regardless of error or tolerance. Used to force a user-prescribed
+// step grid; steppers also treat this controller as a signal to mark
+// every step accepted (so adaptive retry never kicks in).
+template < class T = double >
+struct FixedStep
+{
+    [[nodiscard]] T next_step( T h_used, T /*err_norm*/, T /*tol*/,
+                                int /*p_emb*/ ) const noexcept
+    { return h_used; }
+
+    // Overload matching JorbaZou's call signature, used by TaylorStepper.
+    [[nodiscard]] T next_step( T h_used, T /*c_N_norm*/, T /*c_Nm1_norm*/,
+                                T /*tol*/, int /*N_order*/ ) const noexcept
+    { return h_used; }
+};
+
 }  // namespace tax::ode::controllers
