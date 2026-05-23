@@ -12,7 +12,8 @@
 using tax::ode::IntegratorConfig;
 using tax::ode::controllers::FixedStep;
 
-namespace {
+namespace
+{
 
 constexpr double kH = 0.1;
 
