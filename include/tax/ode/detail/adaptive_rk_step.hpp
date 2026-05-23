@@ -123,4 +123,46 @@ template < class Controller >
     }
 }
 
+/**
+ * @brief Resolve `(h_next, accepted)` for the next Taylor step.
+ *
+ * Mirrors @ref select_rk_step, but covers the two Taylor-specific
+ * controller signatures:
+ *   - `FixedStep` ....... always accepted, h_next = h.
+ *   - `JorbaZou`  ....... 5-arg call `(h, c_N_norm, c_Nm1_norm, tol, N)`
+ *                         that uses the last two time-Taylor coefficient
+ *                         magnitudes directly.
+ *   - any other ......... 4-arg call `(h, err_norm, tol, p_emb=N-1)`
+ *                         consuming the truncation-indicator residual.
+ *
+ * `N` is the Taylor stepper's compile-time time order.
+ */
+template < int N, class Controller >
+[[nodiscard]] inline std::pair< double, bool > select_taylor_step(
+    Controller& controller,
+    double      h,
+    double      c_N_norm,
+    double      c_Nm1_norm,
+    double      err_norm,
+    double      tol )
+{
+    if constexpr ( std::is_same_v< Controller, controllers::FixedStep< double > > )
+    {
+        (void) controller; (void) c_N_norm; (void) c_Nm1_norm;
+        (void) err_norm;   (void) tol;
+        return { h, true };
+    }
+    else if constexpr ( std::is_same_v< Controller, controllers::JorbaZou< double > > )
+    {
+        return { controller.next_step( h, c_N_norm, c_Nm1_norm, tol, N ),
+                 err_norm <= tol };
+    }
+    else
+    {
+        (void) c_N_norm; (void) c_Nm1_norm;
+        return { controller.next_step( h, err_norm, tol, /*p_emb=*/N - 1 ),
+                 err_norm <= tol };
+    }
+}
+
 }  // namespace tax::ode::detail

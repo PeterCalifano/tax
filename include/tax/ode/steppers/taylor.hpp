@@ -26,6 +26,7 @@
 #include <tax/operators/math_binary.hpp>
 #include <tax/ode/config.hpp>
 #include <tax/ode/controllers.hpp>
+#include <tax/ode/detail/adaptive_rk_step.hpp>
 #include <tax/ode/step_result.hpp>
 
 namespace tax::ode
@@ -122,27 +123,9 @@ TaylorStepper< N, StateT, Controller >::step(
         x_norm = std::max( x_norm, T( abs( x_new( i ) ) ) );
     const T tol = cfg.abstol + cfg.reltol * x_norm;
 
-    // --- 6. Step-size control:
-    //   FixedStep  — always accept, return h unchanged.
-    //   JorbaZou   — uses (c_N, c_{N-1}) directly.
-    //   any other  — uses err_norm via next_step(h, err, tol, p_emb).
-    T    h_next;
-    bool accepted;
-    if constexpr ( std::is_same_v< Controller, controllers::FixedStep< T > > )
-    {
-        h_next   = h;
-        accepted = true;
-    }
-    else if constexpr ( std::is_same_v< Controller, controllers::JorbaZou< T > > )
-    {
-        h_next   = controller_.next_step( h, c_N_norm, c_Nm1_norm, tol, N );
-        accepted = err_norm <= tol;
-    }
-    else
-    {
-        h_next   = controller_.next_step( h, err_norm, tol, /*p_emb=*/N - 1 );
-        accepted = err_norm <= tol;
-    }
+    // --- 6. Step-size control via the Taylor dispatch helper.
+    const auto [ h_next, accepted ] = detail::select_taylor_step< N >(
+        controller_, h, c_N_norm, c_Nm1_norm, err_norm, tol );
 
     StepResult< StateT, TaylorStepper > r;
     r.x_new    = std::move( x_new );
