@@ -33,10 +33,9 @@
 
 #pragma once
 
-#include <Eigen/Core>
+#include <tax/la/types.hpp>
 #include <cmath>
 
-#include <tax/la/types.hpp>
 
 namespace tax::ode::test
 {

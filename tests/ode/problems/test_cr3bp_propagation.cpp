@@ -7,7 +7,7 @@
 
 #include <gtest/gtest.h>
 
-#include <Eigen/Core>
+#include <tax/la/types.hpp>
 #include <cmath>
 
 #include "cr3bp_problem.hpp"

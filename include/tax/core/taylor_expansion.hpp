@@ -8,7 +8,7 @@
 #include <tax/core/multi_index.hpp>
 #include <tax/core/storage/dense.hpp>
 #include <tax/core/storage/sparse.hpp>
-#include <Eigen/Core>
+#include <tax/la/types.hpp>
 
 namespace tax
 {
@@ -410,9 +410,9 @@ public:
      * @brief Compute the gradient vector `[df/dx_0, ..., df/dx_{M-1}]` at the expansion point.
      * @return `Eigen::Matrix<T, M, 1>` of first-order partial derivatives.
      */
-    [[nodiscard]] Eigen::Matrix< T, M, 1 > gradient() const noexcept
+    [[nodiscard]] tax::la::VecNT< M, T > gradient() const noexcept
     {
-        Eigen::Matrix< T, M, 1 > g;
+        tax::la::VecNT< M, T > g;
         MultiIndex< M > alpha{};
         for ( int i = 0; i < M; ++i )
         {
@@ -427,9 +427,9 @@ public:
      * @brief Compute the Hessian matrix `H(i,j) = d^2 f / (dx_i dx_j)` at the expansion point.
      * @return `Eigen::Matrix<T, M, M>` of second-order mixed partial derivatives.
      */
-    [[nodiscard]] Eigen::Matrix< T, M, M > hessian() const noexcept
+    [[nodiscard]] tax::la::MatNT< M, T > hessian() const noexcept
     {
-        Eigen::Matrix< T, M, M > H;
+        tax::la::MatNT< M, T > H;
         for ( int i = 0; i < M; ++i )
         {
             for ( int j = 0; j < M; ++j )

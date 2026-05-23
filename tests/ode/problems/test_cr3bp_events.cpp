@@ -11,7 +11,7 @@
 
 #include <gtest/gtest.h>
 
-#include <Eigen/Core>
+#include <tax/la/types.hpp>
 #include <algorithm>
 #include <cmath>
 #include <vector>

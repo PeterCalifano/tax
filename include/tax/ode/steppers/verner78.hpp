@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include <Eigen/Core>
+#include <tax/la/types.hpp>
 #include <functional>
 #include <type_traits>
 #include <utility>

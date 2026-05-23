@@ -11,7 +11,7 @@
 
 #pragma once
 
-#include <Eigen/Core>
+#include <tax/la/types.hpp>
 
 #include <tax/ode/vector_ops.hpp>
 

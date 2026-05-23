@@ -18,7 +18,7 @@
 
 #include <benchmark/benchmark.h>
 
-#include <Eigen/Core>
+#include <tax/la/types.hpp>
 
 #include "../tests/ode/cr3bp_problem.hpp"
 #include <tax/ode.hpp>

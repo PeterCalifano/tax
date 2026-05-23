@@ -10,7 +10,7 @@
 #include <dace/dace.h>
 #include <gtest/gtest.h>
 
-#include <Eigen/Core>
+#include <tax/la/types.hpp>
 #include <tax/tax.hpp>
 
 #include "regressionUtils.hpp"

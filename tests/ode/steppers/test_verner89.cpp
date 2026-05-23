@@ -9,7 +9,7 @@
 
 #include <gtest/gtest.h>
 
-#include <Eigen/Core>
+#include <tax/la/types.hpp>
 #include <cmath>
 
 #include <tax/ode.hpp>

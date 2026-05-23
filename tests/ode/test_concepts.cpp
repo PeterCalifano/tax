@@ -8,7 +8,7 @@
 
 #include <gtest/gtest.h>
 
-#include <Eigen/Core>
+#include <tax/la/types.hpp>
 #include <functional>
 
 #include <tax/ode.hpp>

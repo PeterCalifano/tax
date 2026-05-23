@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 #include "../testUtils.hpp"
-#include <Eigen/Core>
+#include <tax/la/types.hpp>
 
 TEST( EigenNumTraits, TaylorAsScalar )
 {

@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <Eigen/Core>
+#include <tax/la/types.hpp>
 #include <cmath>
 #include <cstddef>
 #include <limits>

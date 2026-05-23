@@ -6,11 +6,10 @@
 
 #include <gtest/gtest.h>
 
-#include <Eigen/Core>
+#include <tax/la/types.hpp>
 #include <array>
 #include <cmath>
 
-#include <tax/la/types.hpp>
 #include <tax/ode/detail/adaptive_rk_step.hpp>
 #include <tax/ode/detail/hermite_interp.hpp>
 
