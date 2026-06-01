@@ -68,7 +68,11 @@ class AdsDriver
                                                                       std::move( events ) };
             auto sol = integ.integrate( l.payload, l.tEntry, t1 );
 
-            if ( req.fired )
+            // Guard against a split fired at (or beyond) the final time —
+            // splitting would queue two children with tEntry == t1, and the
+            // integrator rejects empty intervals.
+            const bool atFinal = req.fired && !( req.t < t1 );
+            if ( req.fired && !atFinal )
             {
                 const T splitValue = l.box.center[static_cast< std::size_t >( req.dim )];
                 auto pr_state = tax::ads::split( sol.x.back(), l.box, req.dim );
