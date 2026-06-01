@@ -173,7 +173,7 @@ struct Leaf
 
 A retired leaf is the *parent* of two active or done leaves; it stays in
 the arena because the merger may collapse the pair back onto it.
-`AdsTree::leaves()` and `findLeaf` skip retired leaves.
+`AdsTree::leaves()` and `leaf` skip retired leaves.
 
 ### `AdsTree<Payload, M, T>`
 
@@ -184,7 +184,7 @@ class AdsTree
 public:
     using LeafT = Leaf<Payload, M, T>;
 
-    int  addRoot(Box<T, M> box, Payload payload, T tEntry = T{0});
+    int  init(Box<T, M> box, Payload payload, T tEntry = T{0});
 
     // Work-queue interface.
     [[nodiscard]] bool empty() const noexcept;
@@ -198,10 +198,10 @@ public:
                               T tEntry);
 
     // Mark a leaf done; moves it from active to done list.
-    void markDone(int idx);
+    void finalize(int idx);
 
     // Merger: collapse a sibling pair back onto their parent.
-    void collapsePair(int leftIdx, int rightIdx, Payload mergedPayload);
+    void merge(int leftIdx, int rightIdx, Payload mergedPayload);
 
     [[nodiscard]] const LeafT& leaf(int idx) const noexcept;
     [[nodiscard]] LeafT&       leaf(int idx)       noexcept;
@@ -211,13 +211,13 @@ public:
     [[nodiscard]] std::span<const int> roots()  const noexcept;
 
     // Linear scan over active + done; skips retired.
-    [[nodiscard]] std::optional<int> findLeaf(const std::array<T, M>& pt) const;
+    [[nodiscard]] std::optional<int> leaf(const std::array<T, M>& pt) const;
     template <class Derived>
-    [[nodiscard]] std::optional<int> findLeaf(const Eigen::MatrixBase<Derived>& pt) const;
+    [[nodiscard]] std::optional<int> leaf(const Eigen::MatrixBase<Derived>& pt) const;
 
 private:
     std::vector<LeafT>     leaves_;
-    std::vector<int>       activeList_;   // O(1) swap-pop on markDone/split
+    std::vector<int>       activeList_;   // O(1) swap-pop on finalize/split
     std::vector<int>       doneList_;
     std::vector<int>       roots_;
     std::deque<int>        workQueue_;    // BFS order
@@ -237,9 +237,9 @@ private:
 
 **Complexity**
 
-- `addRoot`, `split`, `markDone`: O(1) amortised (vector pushes + swap-pop).
-- `findLeaf`: O(active+done) linear scan. Typical N = 10–1000; acceptable.
-- `collapsePair`: O(1).
+- `init`, `split`, `finalize`: O(1) amortised (vector pushes + swap-pop).
+- `leaf`: O(active+done) linear scan. Typical N = 10–1000; acceptable.
+- `merge`: O(1).
 
 ### `criteria.hpp` — split decision
 
@@ -378,7 +378,7 @@ Internal loop (paraphrased):
 ```cpp
 auto state0 = create<P, M>(ic_box, ic_center);
 Tree tree;
-int root = tree.addRoot(ic_box, state0, t0);
+int root = tree.init(ic_box, state0, t0);
 
 while (!tree.empty()) {
     int idx = tree.popFront();
@@ -402,7 +402,7 @@ while (!tree.empty()) {
     } else {
         // store the final-time DA state in the leaf payload
         l.payload = std::move(sol.x.back());
-        tree.markDone(idx);
+        tree.finalize(idx);
     }
 }
 return tree;
@@ -441,7 +441,7 @@ Algorithm: in each pass, scan `tree.done()` for sibling pairs (both done,
 shared `parentIdx`). For each pair, build a candidate merged state on the
 parent's box (re-identify the two halves into the parent's coordinates and
 take the polynomial that matches the higher-quality of the two). Check
-`!crit.shouldSplit(merged, parent_depth)`; if so, `collapsePair`. Repeat
+`!crit.shouldSplit(merged, parent_depth)`; if so, `merge`. Repeat
 until a pass makes no merges.
 
 Notes:
@@ -476,7 +476,7 @@ Notes:
 | File | Coverage |
 |---|---|
 | `test_box.cpp`               | constructors, `contains` (incl. boundary), `split` halves only the requested axis, `denormalize` round-trip, Eigen-overload parity |
-| `test_leaf_tree.cpp`         | `addRoot`/`split`/`markDone` invariants, `popFront` BFS order, retired-leaf accounting, `findLeaf` correctness, `collapsePair` |
+| `test_leaf_tree.cpp`         | `init`/`split`/`finalize` invariants, `popFront` BFS order, retired-leaf accounting, `leaf` correctness, `merge` |
 | `test_nonlinearity_index.cpp`| `jacobianVariationBound` matches analytical bound on small polys; `linRowBound`; `nliSplitDim` picks dominant axis on anisotropic input |
 | `test_criteria.cpp`          | `TruncationCriterion` triggers on crafted leaves; respects `maxDepth`; `NliCriterion` triggers above tol; `splitDim` picks max-error axis |
 | `test_split_event.cpp`       | `SplitTrigger` returns `h_used` on shouldSplit / nullopt otherwise; `SplitAction` writes correct request and terminates |
@@ -495,7 +495,7 @@ Harmonic-ish oscillator with mild nonlinearity:
 IC box centered at `(1, 0)` with half-width `(0.5, 0.5)`,
 propagate to `t = 2π` with `P = 6`, `M = 2`, `D = 2`.
 Sample 20 points in the IC box, integrate each numerically to `t = 2π` with
-high-accuracy Verner89, compare against `tree.findLeaf(ic).payload` evaluated
+high-accuracy Verner89, compare against `tree.leaf(ic).payload` evaluated
 at the displacement. Expect agreement to within `1e-4`.
 
 ## Dependencies

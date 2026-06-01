@@ -352,7 +352,7 @@ EOF
 // tests/ads/test_leaf_tree.cpp
 //
 // AdsTree<Payload, M, T> — arena layout, BFS work queue, sibling links,
-// findLeaf linear scan, collapsePair.
+// leaf linear scan, merge.
 
 #include <gtest/gtest.h>
 
@@ -378,7 +378,7 @@ BoxT unitBox()
 TEST( AdsTree, AddRootMakesActiveLeaf )
 {
     Tree tree;
-    int idx = tree.addRoot( unitBox(), /*payload=*/42, /*tEntry=*/0.0 );
+    int idx = tree.init( unitBox(), /*payload=*/42, /*tEntry=*/0.0 );
     EXPECT_EQ( idx, 0 );
     EXPECT_EQ( tree.roots().size(),  1u );
     EXPECT_EQ( tree.active().size(), 1u );
@@ -394,8 +394,8 @@ TEST( AdsTree, AddRootMakesActiveLeaf )
 TEST( AdsTree, PopFrontIsBfsOrder )
 {
     Tree tree;
-    const int a = tree.addRoot( unitBox(), 1 );
-    const int b = tree.addRoot( unitBox(), 2 );
+    const int a = tree.init( unitBox(), 1 );
+    const int b = tree.init( unitBox(), 2 );
     EXPECT_EQ( tree.popFront(), a );
     EXPECT_EQ( tree.popFront(), b );
     EXPECT_TRUE( tree.empty() );
@@ -404,7 +404,7 @@ TEST( AdsTree, PopFrontIsBfsOrder )
 TEST( AdsTree, SplitRetiresParentAndAppendsChildren )
 {
     Tree tree;
-    const int root = tree.addRoot( unitBox(), 7 );
+    const int root = tree.init( unitBox(), 7 );
     tree.popFront();   // simulate driver dequeue
 
     auto pr = tree.split( root, /*dim=*/0, /*splitValue=*/0.0,
@@ -434,9 +434,9 @@ TEST( AdsTree, SplitRetiresParentAndAppendsChildren )
 TEST( AdsTree, MarkDoneMovesToDoneList )
 {
     Tree tree;
-    const int root = tree.addRoot( unitBox(), 7 );
+    const int root = tree.init( unitBox(), 7 );
     tree.popFront();
-    tree.markDone( root );
+    tree.finalize( root );
     EXPECT_TRUE(  tree.leaf( root ).done );
     EXPECT_FALSE( tree.leaf( root ).retired );
     EXPECT_EQ( tree.active().size(), 0u );
@@ -447,14 +447,14 @@ TEST( AdsTree, MarkDoneMovesToDoneList )
 TEST( AdsTree, FindLeafSkipsRetired )
 {
     Tree tree;
-    const int root = tree.addRoot( unitBox(), 7 );
+    const int root = tree.init( unitBox(), 7 );
     tree.popFront();
     auto pr = tree.split( root, 0, 0.0, 10, 20, 0.0 );
     const int L = pr.first;
     const int R = pr.second;
 
-    auto fl = tree.findLeaf( std::array< double, 2 >{ -0.5, 0.0 } );
-    auto fr = tree.findLeaf( std::array< double, 2 >{  0.5, 0.0 } );
+    auto fl = tree.leaf( std::array< double, 2 >{ -0.5, 0.0 } );
+    auto fr = tree.leaf( std::array< double, 2 >{  0.5, 0.0 } );
     ASSERT_TRUE( fl.has_value() );
     ASSERT_TRUE( fr.has_value() );
     EXPECT_EQ( *fl, L );
@@ -464,23 +464,23 @@ TEST( AdsTree, FindLeafSkipsRetired )
 TEST( AdsTree, FindLeafNoneOutside )
 {
     Tree tree;
-    tree.addRoot( unitBox(), 7 );
-    auto miss = tree.findLeaf( std::array< double, 2 >{ 2.0, 0.0 } );
+    tree.init( unitBox(), 7 );
+    auto miss = tree.leaf( std::array< double, 2 >{ 2.0, 0.0 } );
     EXPECT_FALSE( miss.has_value() );
 }
 
 TEST( AdsTree, CollapsePairRevivesParent )
 {
     Tree tree;
-    const int root = tree.addRoot( unitBox(), 7 );
+    const int root = tree.init( unitBox(), 7 );
     tree.popFront();
     auto pr = tree.split( root, 0, 0.0, 10, 20, 0.0 );
     tree.popFront();   // dequeue L
-    tree.markDone( pr.first );
+    tree.finalize( pr.first );
     tree.popFront();   // dequeue R
-    tree.markDone( pr.second );
+    tree.finalize( pr.second );
 
-    tree.collapsePair( pr.first, pr.second, /*mergedPayload=*/99 );
+    tree.merge( pr.first, pr.second, /*mergedPayload=*/99 );
 
     EXPECT_FALSE( tree.leaf( root ).retired );
     EXPECT_TRUE(  tree.leaf( root ).done );
@@ -521,7 +521,7 @@ Expected: `tax/ads/leaf.hpp: No such file or directory`.
 // its Box subdomain and a Payload, plus parent / sibling indices and
 // the dim/value that separated it from its sibling. A retired leaf is
 // the parent of an active or done sibling pair; it stays in the arena
-// so the merger can revive it via AdsTree::collapsePair.
+// so the merger can revive it via AdsTree::merge.
 
 #pragma once
 
@@ -562,9 +562,9 @@ struct Leaf
 // reconstructed from parentIdx / siblingIdx links.
 //
 // Work queue: std::deque<int> driven in BFS order via popFront. The
-// driver pops a leaf, integrates, and either splits or markDone-s it.
+// driver pops a leaf, integrates, and either splits or finalize-s it.
 //
-// Lookup: findLeaf does a linear scan over active+done (skipping
+// Lookup: leaf does a linear scan over active+done (skipping
 // retired). At ADS-typical sizes (10..1000 leaves) this is faster than
 // a tree walk in practice and avoids the variant-node bookkeeping.
 
@@ -593,7 +593,7 @@ public:
     using LeafT = Leaf< Payload, M, T >;
     using BoxT  = Box< T, M >;
 
-    int addRoot( BoxT box, Payload payload, T tEntry = T{ 0 } )
+    int init( BoxT box, Payload payload, T tEntry = T{ 0 } )
     {
         LeafT l{};
         l.box     = std::move( box );
@@ -676,7 +676,7 @@ public:
         return { lIdx, rIdx };
     }
 
-    void markDone( int idx )
+    void finalize( int idx )
     {
         assert( idx >= 0 && idx < static_cast< int >( leaves_.size() ) );
         assert( !leaves_[ idx ].done && !leaves_[ idx ].retired );
@@ -685,7 +685,7 @@ public:
         doneList_.push_back( idx );
     }
 
-    void collapsePair( int leftIdx, int rightIdx, Payload mergedPayload )
+    void merge( int leftIdx, int rightIdx, Payload mergedPayload )
     {
         assert( leftIdx  >= 0 && leftIdx  < static_cast< int >( leaves_.size() ) );
         assert( rightIdx >= 0 && rightIdx < static_cast< int >( leaves_.size() ) );
@@ -735,7 +735,7 @@ public:
         return { roots_.data(), roots_.size() };
     }
 
-    [[nodiscard]] std::optional< int > findLeaf(
+    [[nodiscard]] std::optional< int > leaf(
         const std::array< T, M >& pt ) const
     {
         for ( int idx : activeList_ )
@@ -746,7 +746,7 @@ public:
     }
 
     template < class Derived >
-    [[nodiscard]] std::optional< int > findLeaf(
+    [[nodiscard]] std::optional< int > leaf(
         const Eigen::MatrixBase< Derived >& pt ) const
     {
         for ( int idx : activeList_ )
@@ -813,9 +813,9 @@ ads: add Leaf POD + AdsTree arena with sibling links
 AdsTree<Payload, M, T> is a leaf-only binary tree: every arena entry is
 a Leaf with parentIdx, siblingIdx, splitDim, splitValue. Splits retire
 the parent in place, append two children with sibling cross-links, and
-push both onto a BFS work queue. markDone moves an active leaf into the
-done list; collapsePair (used later by the merger) revives the parent
-and retires the pair. findLeaf is a linear scan over active+done,
+push both onto a BFS work queue. finalize moves an active leaf into the
+done list; merge (used later by the merger) revives the parent
+and retires the pair. leaf is a linear scan over active+done,
 skipping retired entries — appropriate for the typical 10..1000 leaves.
 
 Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>
@@ -1902,7 +1902,7 @@ Mildly nonlinear oscillator
 dx/dt = v
 dv/dt = -x - 0.1 * x^3
 ```
-IC box centered at `(1, 0)` with half-width `(0.5, 0.5)`. Propagate to `t = 2π` with `P = 6`, `M = 2`, `D = 2`. Sample 5 points in the IC box, integrate each scalar IC with a tight scalar Verner89 reference, and compare against `tree.findLeaf(ic).payload` evaluated at the displacement. Expect agreement to within `1e-3`.
+IC box centered at `(1, 0)` with half-width `(0.5, 0.5)`. Propagate to `t = 2π` with `P = 6`, `M = 2`, `D = 2`. Sample 5 points in the IC box, integrate each scalar IC with a tight scalar Verner89 reference, and compare against `tree.leaf(ic).payload` evaluated at the displacement. Expect agreement to within `1e-3`.
 
 - [ ] **Step 7.1: Write the failing test file**
 
@@ -2001,7 +2001,7 @@ TEST( AdsDriver, MildlyNonlinearOscillatorMatchesReference )
 
     for ( const auto& xi : samples )
     {
-        auto idx = tree.findLeaf( xi );
+        auto idx = tree.leaf( xi );
         ASSERT_TRUE( idx.has_value() );
         const auto& leaf = tree.leaf( *idx );
 
@@ -2172,7 +2172,7 @@ public:
     {
         Tree tree;
         State root_state = create< N, M >( ic_box, ic_center );
-        tree.addRoot( ic_box, std::move( root_state ), t0 );
+        tree.init( ic_box, std::move( root_state ), t0 );
 
         while ( !tree.empty() )
         {
@@ -2203,7 +2203,7 @@ public:
             else
             {
                 l.payload = std::move( sol.x.back() );
-                tree.markDone( idx );
+                tree.finalize( idx );
             }
         }
         return tree;
@@ -2270,7 +2270,7 @@ EOF
 - Create: `tests/ads/test_merge.cpp`
 - Modify: `tests/CMakeLists.txt`
 
-**Algorithm:** In each pass, scan `tree.done()` for sibling pairs (both done, shared `parentIdx`). For each pair, build the candidate merged state on the parent's normalized coordinates and check `!crit.shouldSplit(merged, parent_depth)`. If the candidate passes, `collapsePair`.
+**Algorithm:** In each pass, scan `tree.done()` for sibling pairs (both done, shared `parentIdx`). For each pair, build the candidate merged state on the parent's normalized coordinates and check `!crit.shouldSplit(merged, parent_depth)`. If the candidate passes, `merge`.
 
 The candidate-merged state is constructed by undoing the substitutions in `split`. Concretely: the left child carries `f_L(ξ') = f_parent(-0.5 + 0.5 ξ')`; we recover `f_parent(ξ) = f_L(2 ξ + 1)` on `ξ ∈ [-1, 0]` and `f_R(2 ξ - 1)` on `ξ ∈ [0, 1]`. If `f_L` and `f_R` agree (as polynomials of fixed truncation order they cannot exactly agree on the whole interval unless the original parent was already low-order), we synthesise a merged polynomial by Chebyshev-style averaging: pick the higher-quality of the two child polynomials (lower truncation residual) and re-substitute it onto the parent. The criterion-check then validates whether this merged polynomial is a faithful representation of the parent.
 
@@ -2327,7 +2327,7 @@ TEST( AdsMerge, CollapsesUnnecessarySplit )
     State F = create< P, M >( parent, x0 );
 
     Tree tree;
-    const int root = tree.addRoot( parent, F, /*t=*/0.0 );
+    const int root = tree.init( parent, F, /*t=*/0.0 );
     tree.popFront();
     auto child_states = split( F, parent, /*dim=*/0 );
     auto pr = tree.split( root, /*dim=*/0, /*splitValue=*/0.0,
@@ -2335,9 +2335,9 @@ TEST( AdsMerge, CollapsesUnnecessarySplit )
                           std::move( child_states.second ),
                           /*tEntry=*/0.0 );
     tree.popFront();
-    tree.markDone( pr.first );
+    tree.finalize( pr.first );
     tree.popFront();
-    tree.markDone( pr.second );
+    tree.finalize( pr.second );
 
     TruncationCriterion crit{ /*tol=*/1e-10 };
     const auto stats = merge< /*Stepper=*/void >( tree, crit );
@@ -2357,15 +2357,15 @@ TEST( AdsMerge, RejectsWhenChildrenDoNotMatch )
     State F = create< P, M >( parent, x0 );
 
     Tree tree;
-    const int root = tree.addRoot( parent, F, 0.0 );
+    const int root = tree.init( parent, F, 0.0 );
     tree.popFront();
     auto cs = split( F, parent, /*dim=*/0 );
     // Perturb the right child to break agreement.
     cs.second( 0 ).coeffRef( 0 ) += 1.0;
     auto pr = tree.split( root, 0, 0.0, std::move( cs.first  ),
                           std::move( cs.second ), 0.0 );
-    tree.popFront(); tree.markDone( pr.first  );
-    tree.popFront(); tree.markDone( pr.second );
+    tree.popFront(); tree.finalize( pr.first  );
+    tree.popFront(); tree.finalize( pr.second );
 
     TruncationCriterion crit{ /*tol=*/1e-10 };
     const auto stats = merge< void >( tree, crit );
@@ -2500,7 +2500,7 @@ MergeStats merge( AdsTree< Payload, M, T >& tree, Criterion crit )
         ++stats.passes;
         bool changed = false;
 
-        // Snapshot done indices because collapsePair mutates the list.
+        // Snapshot done indices because merge mutates the list.
         std::vector< int > snapshot( tree.done().begin(), tree.done().end() );
         for ( std::size_t i = 0; i + 1 < snapshot.size(); ++i )
         {
@@ -2536,7 +2536,7 @@ MergeStats merge( AdsTree< Payload, M, T >& tree, Criterion crit )
                 // top-degree mass"; here they agree within tol, so use L.
                 const int leftIdx  = li;
                 const int rightIdx = sib;
-                tree.collapsePair( leftIdx, rightIdx, std::move( fromL ) );
+                tree.merge( leftIdx, rightIdx, std::move( fromL ) );
                 ++stats.merges;
                 changed = true;
             }
@@ -2573,7 +2573,7 @@ ads: merge() — bottom-up sibling collapse with MergeStats
 Reconstruct a candidate parent payload from each child via the inverse
 of split's substitution (ξ_dim → ±1 + 2·ξ_dim). If the two
 reconstructions agree within criterion tol and the criterion does not
-flag the merged payload, collapsePair via tree. Repeats until no
+flag the merged payload, merge via tree. Repeats until no
 further merges happen in a pass.
 
 Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>

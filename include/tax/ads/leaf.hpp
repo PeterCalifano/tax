@@ -4,7 +4,7 @@
 // its Box subdomain and a Payload, plus parent / sibling indices and
 // the dim/value that separated it from its sibling. A retired leaf is
 // the parent of an active or done sibling pair; it stays in the arena
-// so the merger can revive it via AdsTree::collapsePair.
+// so the merger can revive it via AdsTree::merge.
 
 #pragma once
 

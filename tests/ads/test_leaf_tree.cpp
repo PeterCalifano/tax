@@ -1,7 +1,7 @@
 // tests/ads/test_leaf_tree.cpp
 //
 // AdsTree<Payload, M, T> — arena layout, BFS work queue, sibling links,
-// findLeaf linear scan, collapsePair.
+// point-lookup linear scan, sibling merge.
 
 #include <gtest/gtest.h>
 
@@ -24,10 +24,10 @@ BoxT unitBox()
 }
 }  // namespace
 
-TEST( AdsTree, AddRootMakesActiveLeaf )
+TEST( AdsTree, InitMakesActiveLeaf )
 {
     Tree tree;
-    int idx = tree.addRoot( unitBox(), /*payload=*/42, /*tEntry=*/0.0 );
+    int idx = tree.init( unitBox(), /*payload=*/42, /*tEntry=*/0.0 );
     EXPECT_EQ( idx, 0 );
     EXPECT_EQ( tree.roots().size(),  1u );
     EXPECT_EQ( tree.active().size(), 1u );
@@ -43,8 +43,9 @@ TEST( AdsTree, AddRootMakesActiveLeaf )
 TEST( AdsTree, PopFrontIsBfsOrder )
 {
     Tree tree;
-    const int a = tree.addRoot( unitBox(), 1 );
-    const int b = tree.addRoot( unitBox(), 2 );
+    const int a = tree.init( unitBox(), 1 );
+    const int b = tree.init( unitBox(), 2 );
+    EXPECT_EQ( tree.front(), a );        // peek matches first popFront
     EXPECT_EQ( tree.popFront(), a );
     EXPECT_EQ( tree.popFront(), b );
     EXPECT_TRUE( tree.empty() );
@@ -53,7 +54,7 @@ TEST( AdsTree, PopFrontIsBfsOrder )
 TEST( AdsTree, SplitRetiresParentAndAppendsChildren )
 {
     Tree tree;
-    const int root = tree.addRoot( unitBox(), 7 );
+    const int root = tree.init( unitBox(), 7 );
     (void)tree.popFront();   // simulate driver dequeue
 
     auto pr = tree.split( root, /*dim=*/0, /*splitValue=*/0.0,
@@ -80,12 +81,12 @@ TEST( AdsTree, SplitRetiresParentAndAppendsChildren )
     EXPECT_EQ( tree.popFront(), R );
 }
 
-TEST( AdsTree, MarkDoneMovesToDoneList )
+TEST( AdsTree, FinalizeMovesToDoneList )
 {
     Tree tree;
-    const int root = tree.addRoot( unitBox(), 7 );
+    const int root = tree.init( unitBox(), 7 );
     (void)tree.popFront();
-    tree.markDone( root );
+    tree.finalize( root );
     EXPECT_TRUE(  tree.leaf( root ).done );
     EXPECT_FALSE( tree.leaf( root ).retired );
     EXPECT_EQ( tree.active().size(), 0u );
@@ -93,43 +94,43 @@ TEST( AdsTree, MarkDoneMovesToDoneList )
     EXPECT_EQ( tree.done()[ 0 ],  root );
 }
 
-TEST( AdsTree, FindLeafSkipsRetired )
+TEST( AdsTree, LeafLookupSkipsRetired )
 {
     Tree tree;
-    const int root = tree.addRoot( unitBox(), 7 );
+    const int root = tree.init( unitBox(), 7 );
     (void)tree.popFront();
     auto pr = tree.split( root, 0, 0.0, 10, 20, 0.0 );
     const int L = pr.first;
     const int R = pr.second;
 
-    auto fl = tree.findLeaf( std::array< double, 2 >{ -0.5, 0.0 } );
-    auto fr = tree.findLeaf( std::array< double, 2 >{  0.5, 0.0 } );
+    auto fl = tree.leaf( std::array< double, 2 >{ -0.5, 0.0 } );
+    auto fr = tree.leaf( std::array< double, 2 >{  0.5, 0.0 } );
     ASSERT_TRUE( fl.has_value() );
     ASSERT_TRUE( fr.has_value() );
     EXPECT_EQ( *fl, L );
     EXPECT_EQ( *fr, R );
 }
 
-TEST( AdsTree, FindLeafNoneOutside )
+TEST( AdsTree, LeafLookupNoneOutside )
 {
     Tree tree;
-    (void)tree.addRoot( unitBox(), 7 );
-    auto miss = tree.findLeaf( std::array< double, 2 >{ 2.0, 0.0 } );
+    (void)tree.init( unitBox(), 7 );
+    auto miss = tree.leaf( std::array< double, 2 >{ 2.0, 0.0 } );
     EXPECT_FALSE( miss.has_value() );
 }
 
-TEST( AdsTree, CollapsePairRevivesParent )
+TEST( AdsTree, MergeRevivesParent )
 {
     Tree tree;
-    const int root = tree.addRoot( unitBox(), 7 );
+    const int root = tree.init( unitBox(), 7 );
     (void)tree.popFront();
     auto pr = tree.split( root, 0, 0.0, 10, 20, 0.0 );
     (void)tree.popFront();   // dequeue L
-    tree.markDone( pr.first );
+    tree.finalize( pr.first );
     (void)tree.popFront();   // dequeue R
-    tree.markDone( pr.second );
+    tree.finalize( pr.second );
 
-    tree.collapsePair( pr.first, pr.second, /*mergedPayload=*/99 );
+    tree.merge( pr.first, pr.second, /*mergedPayload=*/99 );
 
     EXPECT_FALSE( tree.leaf( root ).retired );
     EXPECT_TRUE(  tree.leaf( root ).done );

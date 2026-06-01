@@ -7,9 +7,9 @@
 // reconstructed from parentIdx / siblingIdx links.
 //
 // Work queue: std::deque<int> driven in BFS order via popFront. The
-// driver pops a leaf, integrates, and either splits or markDone-s it.
+// driver pops a leaf, integrates, and either splits or finalize-s it.
 //
-// Lookup: findLeaf does a linear scan over active+done (skipping
+// Point lookup: leaf(pt) does a linear scan over active+done (skipping
 // retired). At ADS-typical sizes (10..1000 leaves) this is faster than
 // a tree walk in practice and avoids the variant-node bookkeeping.
 
@@ -36,7 +36,7 @@ class AdsTree
     using LeafT = Leaf< Payload, M, T >;
     using BoxT = Box< T, M >;
 
-    [[nodiscard]] int addRoot( BoxT box, Payload payload, T tEntry = T{ 0 } )
+    [[nodiscard]] int init( BoxT box, Payload payload, T tEntry = T{ 0 } )
     {
         LeafT l{};
         l.box = std::move( box );
@@ -119,7 +119,7 @@ class AdsTree
         return { lIdx, rIdx };
     }
 
-    void markDone( int idx )
+    void finalize( int idx )
     {
         assert( idx >= 0 && idx < static_cast< int >( leaves_.size() ) );
         assert( !leaves_[idx].done && !leaves_[idx].retired );
@@ -128,7 +128,7 @@ class AdsTree
         doneList_.push_back( idx );
     }
 
-    void collapsePair( int leftIdx, int rightIdx, Payload mergedPayload )
+    void merge( int leftIdx, int rightIdx, Payload mergedPayload )
     {
         assert( leftIdx >= 0 && leftIdx < static_cast< int >( leaves_.size() ) );
         assert( rightIdx >= 0 && rightIdx < static_cast< int >( leaves_.size() ) );
@@ -177,7 +177,7 @@ class AdsTree
         return { roots_.data(), roots_.size() };
     }
 
-    [[nodiscard]] std::optional< int > findLeaf( const std::array< T, M >& pt ) const
+    [[nodiscard]] std::optional< int > leaf( const std::array< T, M >& pt ) const
     {
         for ( int idx : activeList_ )
             if ( leaves_[idx].box.contains( pt ) ) return idx;
@@ -187,7 +187,7 @@ class AdsTree
     }
 
     template < class Derived >
-    [[nodiscard]] std::optional< int > findLeaf( const Eigen::MatrixBase< Derived >& pt ) const
+    [[nodiscard]] std::optional< int > leaf( const Eigen::MatrixBase< Derived >& pt ) const
     {
         for ( int idx : activeList_ )
             if ( leaves_[idx].box.contains( pt ) ) return idx;
