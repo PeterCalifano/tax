@@ -96,7 +96,7 @@ struct Box
     }
 
     template < class Derived >
-    [[nodiscard]] bool contains( const Eigen::MatrixBase< Derived >& pt ) const
+    [[nodiscard]] bool contains( const Eigen::MatrixBase< Derived >& pt ) const noexcept
     {
         for ( int i = 0; i < M; ++i )
         {
@@ -108,7 +108,7 @@ struct Box
     }
 
     template < class Derived >
-    [[nodiscard]] tax::la::VecNT< M, T > denormalize( const Eigen::MatrixBase< Derived >& d ) const
+    [[nodiscard]] tax::la::VecNT< M, T > denormalize( const Eigen::MatrixBase< Derived >& d ) const noexcept
     {
         tax::la::VecNT< M, T > out;
         for ( int i = 0; i < M; ++i )
