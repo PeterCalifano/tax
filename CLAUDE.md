@@ -357,87 +357,102 @@ Eigen::Vector2d x0{1.0, 0.0};
 auto sol = tax::ode::integrate<25>(f, x0, 0.0, 2*M_PI, 1e-16);
 ```
 
-### ADS-Integrated ODE Propagation
-
-Propagate a set of initial conditions with automatic domain splitting:
-
-```cpp
-// Propagate an initial-condition box with ADS
-tax::Box<double, 2> ic_box{
-    .center = {1.0, 0.0},
-    .halfWidth = {0.1, 0.1}
-};
-
-auto tree = tax::ode::integrateAds<25, 6>(f, ic_box, 0.0, 10.0,
-    1e-16,   // step tolerance
-    1e-3,    // ADS splitting tolerance
-    30,      // max split depth
-    500      // max steps per subdomain
-);
-
-// Iterate results
-for (int i : tree.doneLeaves()) {
-    const auto& leaf = tree.node(i).leaf();
-    // leaf.tte.state — DA polynomial flow map
-    // leaf.box       — subdomain of initial conditions
-}
-```
-
 ### Key Files in `ode/`
 
 | File | Purpose |
 |------|---------|
-| `taylor_integrator.hpp` | Umbrella header |
-| `step.hpp` | Single Taylor step (scalar + vector) |
-| `stepsize.hpp` | Jorba-Zou adaptive step-size control |
-| `integrate.hpp` | Full integration loop with dense output |
-| `solution.hpp` | `TaylorSolution` container with `operator()` dense output |
-| `integrate_ads.hpp` | ADS-integrated ODE propagation (`integrateAds`, `propagateBox`, `stepDa`, `makeDaState`) |
+| `integrator.hpp`         | `Integrator<Stepper, F, Dense>` driver + method type aliases (Taylor, Verner78/89, Fehlberg78, Feagin12/14) |
+| `config.hpp`             | `IntegratorConfig<T>` (abstol/reltol/initial_step/min_step/max_step/max_steps/max_rejects_per_step) |
+| `controllers.hpp`        | I, PI (Gustafsson), H211b (Söderlind), JorbaZou (Taylor-only), FixedStep |
+| `steppers/`              | One stepper per file: `taylor.hpp`, `verner78.hpp`, `verner89.hpp`, `fehlberg78.hpp`, `feagin12.hpp`, `feagin14.hpp` |
+| `solution.hpp`           | `Solution<Stepper, State, Dense>` (continuous-extension dense output via `operator()`) |
+| `event.hpp`              | `Event<Stepper>`, `TriggerContext`, `StepperCtx`, `Direction`, `ControlFlow` |
+| `triggers.hpp`           | `EveryStep`, `ZeroCrossing` (poly-Newton or Brent) |
+| `actions.hpp`            | `Continue`, `Terminate`, `Record`, `Custom`, `EventStorage` |
+| `vector_ops.hpp`         | `VectorOps<S>` trait — norm/axpy/scale for scalar / TaylorExpansion / Eigen states |
 
 ---
 
 ## Automatic Domain Splitting (ADS)
 
-Located in `include/tax/ads/`. Implements the algorithm from Wittig et al. (2015) for adaptive polynomial approximation over large domains.
+Located in `include/tax/ads/`. Implements Wittig 2015's ADS and the LOADS
+variant (Losacco/Fossà/Armellin 2024) by composing with the existing
+`tax::ode` event infrastructure — `tax::ode` itself is not modified.
 
-### Standalone Function Approximation
+### ODE Propagation with ADS
 
 ```cpp
 #include <tax/ads.hpp>
+#include <tax/ode.hpp>
 
-// Approximate f(x) = exp(-x^2) on [-3, 3]
-auto f = [](const auto& x) { return exp(-x * x); };
+using TE      = tax::TE</*N=*/6, /*M=*/2>;
+using State   = tax::la::VecNT</*D=*/2, TE>;
+using Stepper = tax::ode::Verner89Stepper<State>;
 
-tax::Box<double, 1> domain{.center = {0.0}, .halfWidth = {3.0}};
-auto runner = tax::makeAdsRunner<10, 1>(f, 1e-5);
-auto tree = runner.run(domain);
+auto f = [](const auto& x, double) {
+    using S = std::decay_t<decltype(x)>;
+    S out{x.size()};
+    out(0) =  x(1);
+    out(1) = -x(0) - 0.1 * x(0) * x(0) * x(0);
+    return out;
+};
 
-// Each done leaf contains a polynomial valid on its subdomain
-for (int i : tree.doneLeaves()) {
-    const auto& leaf = tree.node(i).leaf();
-    // leaf.tte — polynomial approximation
-    // leaf.box — subdomain
+tax::ads::Box<double, 2> ic_box{{1.0, 0.0}, {0.5, 0.5}};
+tax::la::VecNT<2, double> center; center << 1.0, 0.0;
+
+tax::ode::IntegratorConfig<double> cfg;
+cfg.abstol = cfg.reltol = 1e-12;
+
+tax::ads::AdsDriver<Stepper, tax::ads::TruncationCriterion> driver{
+    tax::ads::TruncationCriterion{/*tol=*/1e-4},
+    cfg
+};
+auto tree = driver.run(f, ic_box, center, /*t0=*/0.0, /*t1=*/2.0 * M_PI);
+
+for (int i : tree.done()) {
+    const auto& l = tree.leaf(i);
+    // l.payload — DA-valued flow map at t = t1 on l.box
 }
-
-// Point lookup: O(depth) binary tree walk
-int idx = tree.findLeaf({1.5});
 ```
 
-### Key Files in `ads/`
+### LOADS — Nonlinearity-Index Criterion
 
-| File | Purpose |
-|------|---------|
-| `box.hpp` | `Box<T,M>` axis-aligned hyperrectangle |
-| `ads_node.hpp` | `AdsNode<TTE>` — leaf/internal variant node |
-| `ads_tree.hpp` | `AdsTree<TTE>` — arena-based binary tree with work queue |
-| `ads_runner.hpp` | `AdsRunner<N,M,F>` — the ADS algorithm driver |
+Same setup, swap criterion:
+
+```cpp
+tax::ads::AdsDriver<Stepper, tax::ads::NliCriterion> driver{
+    tax::ads::NliCriterion{/*tol=*/0.1}, cfg
+};
+```
+
+### Post-pass Merger
+
+```cpp
+auto stats = tax::ads::merge(tree, tax::ads::TruncationCriterion{1e-4});
+// stats.passes / stats.merges / stats.rejected
+```
 
 ### Architecture
 
-- **Arena-based tree:** All nodes live in a contiguous `std::vector`, referenced by index (no pointer invalidation)
-- **Work queue:** BFS processing via `std::deque`
-- **O(1) leaf removal:** Swap-and-pop in the leaf list
-- **Split-dimension selection:** Variable contributing most to degree-N truncation error
+- **Leaf-only arena tree** (`AdsTree<Payload, M, T>`): single `std::vector<Leaf>` with `parentIdx`/`siblingIdx` on each leaf. Splits retire the parent in place; merges revive it.
+- **Event interop**: `(SplitTrigger, SplitAction)` is appended to the user's event list and passed to `tax::ode::Integrator`. The trigger fires at accepted-step boundaries when the criterion says split; the action records `{dim, t}` into a `SplitRequest` and returns `ControlFlow::Terminate`. The driver consumes the request to decide split vs. mark-done.
+- **Templated on Stepper**: any `tax::ode::Stepper` works as long as the state type is `tax::la::VecNT<D, tax::TaylorExpansion<T, N, M, Storage>>` with `N >= 1`, `M >= 1`.
+- **Boundary-only splits**: triggers fire only at accepted-step boundaries (matches Wittig's original ADS).
+- **Post-pass merger**: `tax::ads::merge(tree, criterion)` walks done sibling pairs bottom-up and collapses any pair whose reconstructed parent payload satisfies the criterion within `tol`.
+
+### Key files in `ads/`
+
+| File                       | Purpose |
+|----------------------------|---------|
+| `box.hpp`                  | `Box<T, M>` axis-aligned subdomain |
+| `leaf.hpp`                 | `Leaf<Payload, M, T>` POD record |
+| `tree.hpp`                 | `AdsTree<Payload, M, T>` arena + BFS queue |
+| `criteria.hpp`             | `SplitCriterion` concept + `TruncationCriterion` + `NliCriterion` |
+| `nonlinearity_index.hpp`   | LOADS NLI math (`tax::ads::detail`) |
+| `split_event.hpp`          | `SplitRequest`, `SplitTrigger`, `SplitAction` |
+| `da_state.hpp`             | `create(box, x0)`, `split(state, parent_box, dim)` |
+| `driver.hpp`               | `AdsDriver<Stepper, Criterion>` BFS driver |
+| `merge.hpp`                | `merge(tree, criterion)` + `MergeStats` |
 
 ---
 
