@@ -53,6 +53,7 @@ tax_add_test(test_eigen_invert      SOURCES eigen/test_eigen_invert.cpp)
 
 # ADS — Stage 3a
 tax_add_test(test_ads_box SOURCES ads/test_box.cpp)
+tax_add_test(test_ads_leaf_tree SOURCES ads/test_leaf_tree.cpp)
 
 # ODE integrator — Stage 2a
 add_subdirectory(ode)
