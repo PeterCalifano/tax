@@ -54,7 +54,7 @@ TEST( AdsTree, SplitRetiresParentAndAppendsChildren )
 {
     Tree tree;
     const int root = tree.addRoot( unitBox(), 7 );
-    tree.popFront();   // simulate driver dequeue
+    (void)tree.popFront();   // simulate driver dequeue
 
     auto pr = tree.split( root, /*dim=*/0, /*splitValue=*/0.0,
                           /*leftPayload=*/10, /*rightPayload=*/20,
@@ -84,7 +84,7 @@ TEST( AdsTree, MarkDoneMovesToDoneList )
 {
     Tree tree;
     const int root = tree.addRoot( unitBox(), 7 );
-    tree.popFront();
+    (void)tree.popFront();
     tree.markDone( root );
     EXPECT_TRUE(  tree.leaf( root ).done );
     EXPECT_FALSE( tree.leaf( root ).retired );
@@ -97,7 +97,7 @@ TEST( AdsTree, FindLeafSkipsRetired )
 {
     Tree tree;
     const int root = tree.addRoot( unitBox(), 7 );
-    tree.popFront();
+    (void)tree.popFront();
     auto pr = tree.split( root, 0, 0.0, 10, 20, 0.0 );
     const int L = pr.first;
     const int R = pr.second;
@@ -113,7 +113,7 @@ TEST( AdsTree, FindLeafSkipsRetired )
 TEST( AdsTree, FindLeafNoneOutside )
 {
     Tree tree;
-    tree.addRoot( unitBox(), 7 );
+    (void)tree.addRoot( unitBox(), 7 );
     auto miss = tree.findLeaf( std::array< double, 2 >{ 2.0, 0.0 } );
     EXPECT_FALSE( miss.has_value() );
 }
@@ -122,11 +122,11 @@ TEST( AdsTree, CollapsePairRevivesParent )
 {
     Tree tree;
     const int root = tree.addRoot( unitBox(), 7 );
-    tree.popFront();
+    (void)tree.popFront();
     auto pr = tree.split( root, 0, 0.0, 10, 20, 0.0 );
-    tree.popFront();   // dequeue L
+    (void)tree.popFront();   // dequeue L
     tree.markDone( pr.first );
-    tree.popFront();   // dequeue R
+    (void)tree.popFront();   // dequeue R
     tree.markDone( pr.second );
 
     tree.collapsePair( pr.first, pr.second, /*mergedPayload=*/99 );

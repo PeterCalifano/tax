@@ -36,7 +36,7 @@ class AdsTree
     using LeafT = Leaf< Payload, M, T >;
     using BoxT = Box< T, M >;
 
-    int addRoot( BoxT box, Payload payload, T tEntry = T{ 0 } )
+    [[nodiscard]] int addRoot( BoxT box, Payload payload, T tEntry = T{ 0 } )
     {
         LeafT l{};
         l.box = std::move( box );
@@ -58,7 +58,7 @@ class AdsTree
         return workQueue_.front();
     }
 
-    int popFront()
+    [[nodiscard]] int popFront()
     {
         assert( !workQueue_.empty() );
         const int idx = workQueue_.front();
@@ -66,8 +66,9 @@ class AdsTree
         return idx;
     }
 
-    std::pair< int, int > split( int idx, int dim, T splitValue, Payload leftPayload,
-                                 Payload rightPayload, T tEntry )
+    [[nodiscard]] std::pair< int, int > split( int idx, int dim, T splitValue,
+                                               Payload leftPayload, Payload rightPayload,
+                                               T tEntry )
     {
         assert( idx >= 0 && idx < static_cast< int >( leaves_.size() ) );
         assert( !leaves_[idx].done && !leaves_[idx].retired );
@@ -138,8 +139,9 @@ class AdsTree
         assert( parent >= 0 );
         assert( leaves_[parent].retired );
 
-        // Both children move out of the done list (or active, defensively),
-        // and become retired themselves. The parent revives as done.
+        // Both children become retired; the parent revives as done.
+        // Preconditions above guarantee the children are in doneList_, not
+        // activeList_, so only removeFromDone is needed.
         leaves_[leftIdx].done = false;
         leaves_[rightIdx].done = false;
         leaves_[leftIdx].retired = true;
