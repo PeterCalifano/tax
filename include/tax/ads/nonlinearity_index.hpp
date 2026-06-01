@@ -1,8 +1,8 @@
 // include/tax/ads/nonlinearity_index.hpp
 //
 // LOADS nonlinearity-index math. All helpers live in tax::ads::detail
-// and operate on TaylorExpansionT<T, N, M> over the normalized box
-// [-1, 1]^M (the basis in which DA states built from a Box live).
+// and operate on TaylorExpansion<T, N, M, Storage> over the normalized
+// box [-1, 1]^M (the basis in which DA states built from a Box live).
 //
 //   linRowBound(f)            = Σ_{|α|=1} |coeff(α)|
 //   jacobianVariationBound(f) = vector v ∈ R^M with
