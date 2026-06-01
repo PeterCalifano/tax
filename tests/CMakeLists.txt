@@ -58,6 +58,7 @@ tax_add_test(test_ads_nonlinearity_index SOURCES ads/test_nonlinearity_index.cpp
 tax_add_test(test_ads_criteria SOURCES ads/test_criteria.cpp)
 tax_add_test(test_ads_split_event SOURCES ads/test_split_event.cpp)
 tax_add_test(test_ads_da_state SOURCES ads/test_da_state.cpp)
+tax_add_test(test_ads_driver SOURCES ads/test_driver.cpp)
 
 # ODE integrator — Stage 2a
 add_subdirectory(ode)
