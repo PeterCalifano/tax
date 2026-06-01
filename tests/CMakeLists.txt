@@ -51,5 +51,8 @@ tax_add_test(test_eigen_hessian     SOURCES eigen/test_eigen_hessian.cpp)
 tax_add_test(test_eigen_jacobian    SOURCES eigen/test_eigen_jacobian.cpp)
 tax_add_test(test_eigen_invert      SOURCES eigen/test_eigen_invert.cpp)
 
+# ADS — Stage 3a
+tax_add_test(test_ads_box SOURCES ads/test_box.cpp)
+
 # ODE integrator — Stage 2a
 add_subdirectory(ode)
