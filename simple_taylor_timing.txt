@@ -1,5 +1,0 @@
-method=simple_taylor
-elapsed_ms=1.48562
-n_steps=119
-t_final=18.8496
-n_orbits=3

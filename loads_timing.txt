@@ -1,8 +1,0 @@
-method=loads
-criterion=nli
-P=6
-M=4
-elapsed_ms=93872.3
-n_done=256
-t_final=18.8496
-n_orbits=3
