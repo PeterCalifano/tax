@@ -1,0 +1,8 @@
+method=ads
+criterion=truncation
+P=6
+M=4
+elapsed_ms=2941.68
+n_done=26
+t_final=18.8496
+n_orbits=3

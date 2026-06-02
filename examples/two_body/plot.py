@@ -60,6 +60,11 @@ def load_boxcount(prefix: str) -> pd.DataFrame | None:
     return pd.read_csv(p) if p.exists() else None
 
 
+def load_distribution() -> pd.DataFrame | None:
+    p = HERE / "two_body_distribution.csv"
+    return pd.read_csv(p) if p.exists() else None
+
+
 # ----- Figure 1: orbit comparison -----------------------------------------
 def plot_orbits():
     fig, ax = plt.subplots(1, 1, figsize=(6, 6))
@@ -186,8 +191,47 @@ def print_timing_summary():
         print(f"{label:<18} {elapsed:>12} {extra:>20}")
 
 
+# ----- Figure 4: distribution snapshots in the (x, y) plane ----------------
+def plot_distribution_snapshots():
+    df = load_distribution()
+    if df is None:
+        return
+    # Overlay the reference orbit (from simple_taylor or ads).
+    ref = None
+    for prefix in ("simple_taylor", "ads", "loads"):
+        df_ref = load_traj(prefix)
+        if df_ref is not None:
+            ref = df_ref
+            break
+
+    times = sorted(df["t"].unique())
+    n = len(times)
+    cols = 3
+    rows = (n + cols - 1) // cols
+    fig, axes = plt.subplots(rows, cols, figsize=(4 * cols, 4 * rows), squeeze=False)
+    for i, t in enumerate(times):
+        ax = axes[i // cols, i % cols]
+        snap = df[df["t"] == t]
+        if ref is not None:
+            ax.plot(ref["x0"], ref["x1"], color="gray", lw=0.6, alpha=0.5, zorder=0)
+        ax.scatter(snap["x0"], snap["x1"], s=10, c="tab:blue", alpha=0.6, edgecolor="none")
+        ax.plot(0, 0, "k*", markersize=10, zorder=3)
+        ax.set_aspect("equal", "box")
+        ax.set_title(f"t = {t:.2f}")
+        ax.set_xlabel("x")
+        ax.set_ylabel("y")
+        ax.grid(True, alpha=0.3)
+    for i in range(n, rows * cols):
+        axes[i // cols, i % cols].set_visible(False)
+    fig.suptitle(f"State distribution snapshots ({len(df['sample'].unique())} samples in IC box)")
+    fig.tight_layout()
+    fig.savefig("two_body_distribution.png", dpi=140)
+    print("wrote two_body_distribution.png")
+
+
 if __name__ == "__main__":
     plot_orbits()
     plot_box_count()
     plot_subdivisions()
+    plot_distribution_snapshots()
     print_timing_summary()

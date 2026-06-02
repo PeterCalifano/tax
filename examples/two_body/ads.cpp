@@ -6,6 +6,7 @@
 #include <chrono>
 #include <fstream>
 #include <iostream>
+#include <random>
 
 #include <tax/ads.hpp>
 #include <tax/ads/io.hpp>
@@ -50,6 +51,33 @@ int main()
     tax::ode::writeCsv( ref_sol, times, "ads_traj.csv" );
     tax::ads::writeTreeCsv( tree, tFinal, "ads_tree.csv" );
     tax::ads::writeBoxCountCsv( tree, tFinal, times, "ads_boxcount.csv" );
+
+    // Ground-truth distribution snapshots: scalar-propagate kNSamples
+    // uniform-random ICs in the box and dump (sample, t, x0..x3) rows
+    // at kNDistSnaps times. Used by plot.py to render a 2x3 panel of
+    // scatter snapshots showing how the cloud spreads.
+    constexpr int       kNSamples   = 200;
+    constexpr int       kNDistSnaps = 6;
+    const auto          dist_times  = tax::ode::linspace( 0.0, tFinal, kNDistSnaps );
+    std::mt19937                          rng( 42 );
+    std::uniform_real_distribution< double > uni( -1.0, 1.0 );
+    std::ofstream                         dist( "two_body_distribution.csv" );
+    dist << "sample,t,x0,x1,x2,x3\n";
+    for ( int s = 0; s < kNSamples; ++s )
+    {
+        tax::la::VecNT< M, double > xi_local;
+        for ( int j = 0; j < M; ++j ) xi_local( j ) = uni( rng );
+        const auto ic_sample = ic_box.denormalize( xi_local );
+        auto sample_sol = tax::ode::propagate< /*Dense=*/true >(
+            Taylor< 16 >{}, rhs(), ic_sample, 0.0, tFinal, ref_cfg );
+        for ( double t : dist_times )
+        {
+            const auto x = sample_sol( t );
+            dist << s << ',' << t;
+            for ( int j = 0; j < 4; ++j ) dist << ',' << x( j );
+            dist << '\n';
+        }
+    }
 
     std::cout << "[ads] " << elapsed_ms << " ms, " << tree.done().size()
               << " done leaves\n";
