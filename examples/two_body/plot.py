@@ -2,21 +2,11 @@
 """
 examples/two_body/plot.py
 
-Render the JSON output of the three two-body examples (taylor / ads /
-loads) as a single comparison figure intended for publication-style
-presentation.
+Render the three example JSONs (taylor / ads / loads) into a minimal,
+Nature-style 3-panel figure: thin axes, no top/right spines, no grid,
+sans-serif labels, single shared colour bar at the bottom.
 
-Usage:
-
-    cd /tmp/two_body_run                  # or any working dir
-    /path/to/build/examples/two_body_taylor
-    /path/to/build/examples/two_body_ads
-    /path/to/build/examples/two_body_loads
-    python3 /path/to/tax/examples/two_body/plot.py
-
-Output: two_body_box_evolution.png — three side-by-side panels showing
-the IC box pushed forward in time, colour-coded by snapshot time via a
-shared horizontal colour bar.
+Output: two_body_box_evolution.png
 """
 
 from __future__ import annotations
@@ -29,47 +19,45 @@ from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize
 
 HERE = Path.cwd()
-
 METHODS = ("taylor", "ads", "loads")
-TITLES  = {
-    "taylor": "Single Taylor flow polynomial",
-    "ads":    "ADS — truncation criterion",
-    "loads":  "LOADS — NLI criterion",
-}
+LABELS  = {"taylor": "taylor", "ads": "ads", "loads": "loads"}
 
-# ---- Publication-style matplotlib defaults ---------------------------------
+# ---- Minimal Nature-style rcParams ----------------------------------------
 plt.rcParams.update({
-    "font.family":          "serif",
-    "font.size":            10.0,
-    "axes.titlesize":       11.0,
-    "axes.labelsize":       10.0,
-    "axes.titleweight":     "regular",
-    "axes.linewidth":       0.8,
-    "xtick.major.width":    0.7,
-    "ytick.major.width":    0.7,
-    "xtick.direction":      "in",
-    "ytick.direction":      "in",
-    "legend.fontsize":      8.5,
+    "font.family":          "sans-serif",
+    "font.sans-serif":      ["Helvetica", "Arial", "DejaVu Sans"],
+    "font.size":            8.0,
+    "axes.labelsize":       8.0,
+    "axes.titlesize":       9.0,
+    "axes.titlepad":        4.0,
+    "axes.linewidth":       0.55,
+    "xtick.major.size":     2.5,
+    "ytick.major.size":     2.5,
+    "xtick.minor.size":     1.5,
+    "ytick.minor.size":     1.5,
+    "xtick.major.width":    0.5,
+    "ytick.major.width":    0.5,
+    "xtick.labelsize":      7.0,
+    "ytick.labelsize":      7.0,
+    "xtick.direction":      "out",
+    "ytick.direction":      "out",
     "legend.frameon":       False,
-    "figure.titlesize":     12.5,
+    "legend.fontsize":      7.0,
+    "axes.grid":            False,
+    "axes.spines.top":      False,
+    "axes.spines.right":    False,
     "figure.dpi":           120,
-    "savefig.dpi":          240,
+    "savefig.dpi":          400,
     "savefig.bbox":         "tight",
-    "axes.grid":            True,
-    "grid.linewidth":       0.4,
-    "grid.alpha":           0.25,
-    "grid.linestyle":       ":",
 })
 
 
-# ---- IO --------------------------------------------------------------------
 def load(method: str) -> dict | None:
     p = HERE / f"{method}.json"
     return json.loads(p.read_text()) if p.exists() else None
 
 
 def panel_xy_limits(*datasets: dict) -> tuple[tuple[float, float], tuple[float, float]]:
-    """Union x/y bounds across reference orbits and polygons of all panels."""
     xs, ys = [], []
     for d in datasets:
         ref = d.get("reference_orbit", {})
@@ -90,81 +78,48 @@ def panel_xy_limits(*datasets: dict) -> tuple[tuple[float, float], tuple[float, 
     return (xa - px, xb + px), (ya - py, yb + py)
 
 
-# ---- Drawing ---------------------------------------------------------------
-def _criterion_subtitle(data: dict) -> str:
-    """Compact criterion summary for the panel subtitle."""
-    crit = data.get("criterion")
-    if not crit:
-        # The taylor example has no criterion → single polynomial path.
-        return r"single multivariate Taylor polynomial"
-    label = {"truncation": "trunc.", "nli": "NLI"}.get(crit["type"], crit["type"])
-    return rf"{label}: tol = {crit['tol']:.0e},  depth $\leq$ {crit['maxDepth']}"
-
-
-def _leaves_summary(polygons: list[dict]) -> str:
-    """Like '1 → 4 leaves' showing first vs last snapshot leaf count."""
-    if "leaves" not in polygons[0]:
-        return ""
-    first = len(polygons[0]["leaves"])
-    last  = len(polygons[-1]["leaves"])
-    if first == last:
-        return f"{last} leaves throughout"
-    return rf"leaves: {first} $\rightarrow$ {last}"
-
-
 def draw_panel(ax: plt.Axes, data: dict, *,
-               xlim, ylim, title: str, cmap, norm) -> None:
+               panel_letter: str, panel_label: str,
+               xlim, ylim, cmap, norm) -> None:
     polygons = data["polygons"]
 
-    # ---- Reference orbit (thin grey backdrop) ----
+    # ---- Reference orbit (very subtle backdrop) ----
     ref = data.get("reference_orbit")
     if ref is not None:
-        ax.plot(ref["x0"], ref["x1"], color="#404040",
-                lw=0.6, alpha=0.65, zorder=1)
+        ax.plot(ref["x0"], ref["x1"], color="#9a9a9a",
+                lw=0.45, alpha=0.85, zorder=1)
 
     # ---- Polygon snapshots ----
     for snap in polygons:
         color = cmap(norm(snap["t"]))
         if "leaves" in snap:
             for lf in snap["leaves"]:
-                ax.fill(lf["x"], lf["y"], color=color, alpha=0.65,
-                        edgecolor="black", linewidth=0.35, zorder=2)
+                ax.fill(lf["x"], lf["y"], color=color, alpha=0.70,
+                        edgecolor="black", linewidth=0.25, zorder=2)
         else:
-            ax.fill(snap["x"], snap["y"], color=color, alpha=0.65,
-                    edgecolor="black", linewidth=0.35, zorder=2)
+            ax.fill(snap["x"], snap["y"], color=color, alpha=0.70,
+                    edgecolor="black", linewidth=0.25, zorder=2)
 
-    # ---- Primary (Sun-like star at origin) ----
-    ax.plot(0.0, 0.0, marker="*", color="#f1c40f",
-            markersize=15, markeredgecolor="black", markeredgewidth=0.6,
-            zorder=10)
+    # ---- Primary at origin (single black dot) ----
+    ax.plot(0.0, 0.0, marker="o", color="black",
+            markersize=3.0, zorder=10)
 
-    # ---- Frame, axes, title ----
+    # ---- Frame, axes ----
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
     ax.set_aspect("equal", "box")
     ax.set_xlabel(r"$x$")
     ax.set_ylabel(r"$y$")
+    ax.tick_params(length=2.5, width=0.5)
 
-    subtitle = _criterion_subtitle(data)
-    ax.set_title(f"{title}\n{subtitle}", linespacing=1.25)
-
-    # ---- Inset annotation: elapsed + leaf summary ----
-    timing = data.get("timing", {}).get("elapsed_ms")
-    leaves = _leaves_summary(polygons)
-    lines = []
-    if timing is not None:
-        lines.append(f"elapsed: {timing/1e3:.2f} s")
-    if leaves:
-        lines.append(leaves)
-    if lines:
-        ax.text(0.025, 0.975, "\n".join(lines), transform=ax.transAxes,
-                ha="left", va="top", fontsize=8,
-                bbox=dict(boxstyle="round,pad=0.35",
-                          facecolor="white", edgecolor="#d0d0d0",
-                          linewidth=0.6, alpha=0.92))
+    # ---- Panel letter (a, b, c) — bold, upper-left of axes box ----
+    ax.text(-0.18, 1.04, panel_letter, transform=ax.transAxes,
+            fontsize=11, fontweight="bold", va="bottom", ha="left")
+    # ---- Panel label (method name) ----
+    ax.text(0.0, 1.04, panel_label, transform=ax.transAxes,
+            fontsize=9, va="bottom", ha="left")
 
 
-# ---- Main ------------------------------------------------------------------
 def main() -> None:
     loaded = [(m, load(m)) for m in METHODS]
     loaded = [(m, d) for m, d in loaded if d is not None]
@@ -172,34 +127,31 @@ def main() -> None:
         print("No JSON outputs found. Run two_body_taylor / two_body_ads / two_body_loads first.")
         return
 
-    # Shared colour normalisation across panels (t in [0, t_final]).
     t_final = max(d["config"]["t_final"] for _, d in loaded)
-    cmap    = plt.cm.plasma
+    cmap    = plt.cm.viridis
     norm    = Normalize(vmin=0.0, vmax=t_final)
-
     xlim, ylim = panel_xy_limits(*(d for _, d in loaded))
 
-    n_panels = len(loaded)
-    fig      = plt.figure(figsize=(5.6 * n_panels, 6.2),
-                          constrained_layout=True)
-    gs       = fig.add_gridspec(2, n_panels, height_ratios=[1.0, 0.05])
+    n        = len(loaded)
+    fig      = plt.figure(figsize=(2.6 * n, 3.1), constrained_layout=True)
+    gs       = fig.add_gridspec(2, n, height_ratios=[1.0, 0.03])
 
+    letters = "abcdef"
     for col, (m, d) in enumerate(loaded):
         ax = fig.add_subplot(gs[0, col])
-        draw_panel(ax, d, xlim=xlim, ylim=ylim, title=TITLES[m],
+        draw_panel(ax, d,
+                   panel_letter=letters[col],
+                   panel_label=LABELS[m],
+                   xlim=xlim, ylim=ylim,
                    cmap=cmap, norm=norm)
 
     # ---- Shared horizontal colour bar ----
-    cbar_ax = fig.add_subplot(gs[1, :])
-    sm      = ScalarMappable(norm=norm, cmap=cmap); sm.set_array([])
-    cbar    = fig.colorbar(sm, cax=cbar_ax, orientation="horizontal")
-    cbar.set_label(r"snapshot time $t$  (one orbital period at $t = 2\pi$)")
-    cbar.outline.set_linewidth(0.6)
-
-    fig.suptitle(
-        r"IC box pushed forward in time — Kepler orbit ($a = 1$, $e = 0.5$)",
-        y=1.02,
-    )
+    cax  = fig.add_subplot(gs[1, :])
+    sm   = ScalarMappable(norm=norm, cmap=cmap); sm.set_array([])
+    cbar = fig.colorbar(sm, cax=cax, orientation="horizontal")
+    cbar.set_label(r"$t$", labelpad=1.5)
+    cbar.outline.set_linewidth(0.4)
+    cbar.ax.tick_params(length=2.0, width=0.4, labelsize=6.5)
 
     out_path = HERE / "two_body_box_evolution.png"
     fig.savefig(out_path)
@@ -207,8 +159,8 @@ def main() -> None:
 
     # ---- Terminal summary ----
     print()
-    print(f"  {'method':<8}  {'elapsed':>9}   {'snaps':>5}   {'leaves (per snap)':<32}")
-    print(f"  {'-'*8:<8}  {'-'*9:>9}   {'-'*5:>5}   {'-'*32:<32}")
+    print(f"  {'method':<8}  {'elapsed':>9}   {'snaps':>5}   leaves (per snap)")
+    print(f"  {'-'*8:<8}  {'-'*9:>9}   {'-'*5:>5}   {'-'*32}")
     for m, d in loaded:
         elapsed = d.get("timing", {}).get("elapsed_ms", float("nan")) / 1e3
         polys   = d["polygons"]
@@ -216,7 +168,7 @@ def main() -> None:
             leaves = [len(s["leaves"]) for s in polys]
         else:
             leaves = [1] * len(polys)
-        print(f"  {m:<8}  {elapsed:>7.2f} s   {len(polys):>5}   {str(leaves):<32}")
+        print(f"  {m:<8}  {elapsed:>7.2f} s   {len(polys):>5}   {leaves}")
 
 
 if __name__ == "__main__":
