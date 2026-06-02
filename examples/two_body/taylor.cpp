@@ -51,11 +51,8 @@ int main()
     constexpr int    kNPerEdge = 24;       // boundary samples per square edge
     const     double tFinal    = kNOrbits * kPeriod;
 
-    // ---- IC box: vary only the y position and the y-velocity ---------------
-    tax::ads::Box< double, M > ic_box{
-        icCenter(),
-        tax::la::VecNT< M, double >{ 0.0, 5e-3, 0.0, 8e-3 }
-    };
+    // ---- IC box (configured in common.hpp) ---------------------------------
+    auto ic_box = icBox();
 
     // ---- Stepper config -----------------------------------------------------
     tax::ode::IntegratorConfig< double > cfg;

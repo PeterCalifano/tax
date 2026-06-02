@@ -40,10 +40,8 @@ int main()
     constexpr int    kNPerEdge = 24;
     const     double tFinal    = kNOrbits * kPeriod;
 
-    tax::ads::Box< double, M > ic_box{
-        icCenter(),
-        tax::la::VecNT< M, double >{ 0.0, 5e-3, 0.0, 8e-3 }
-    };
+    // ---- IC box (configured in common.hpp) ---------------------------------
+    auto ic_box = icBox();
 
     tax::ode::IntegratorConfig< double > cfg;
     cfg.abstol = cfg.reltol = 1e-12;

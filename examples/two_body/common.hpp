@@ -38,6 +38,7 @@
 #include <utility>
 #include <vector>
 
+#include <tax/ads/box.hpp>
 #include <tax/la/types.hpp>
 #include <tax/tax.hpp>
 
@@ -79,6 +80,22 @@ inline auto rhs()
 inline tax::la::VecNT< 4, double > icCenter()
 {
     return tax::la::VecNT< 4, double >{ kPeriapsis, 0.0, 0.0, kVPeriapsis };
+}
+
+// ---- IC box configuration --------------------------------------------------
+//
+// Edit kIcBoxHalfWidth to change the size of the initial-condition box used
+// by all three examples (taylor / ads / loads). Zero-half-width components
+// pin the corresponding state axis to its centerpoint value.
+//
+// The defaults vary only the y position and the y-velocity — that's enough
+// to produce visible distortion in one orbit at e = 0.5 without triggering
+// excessive ADS subdivisions.
+inline const tax::la::VecNT< 4, double > kIcBoxHalfWidth{ 0.0, 5e-3, 0.0, 8e-3 };
+
+inline tax::ads::Box< double, 4 > icBox()
+{
+    return tax::ads::Box< double, 4 >{ icCenter(), kIcBoxHalfWidth };
 }
 
 // ---- Boundary of [-1, 1]^2 -------------------------------------------------
