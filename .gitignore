@@ -5,11 +5,7 @@ site/
 __pycache__/
 
 # Example output files (written to cwd by examples/two_body/*)
-/ads_*.csv
-/ads_*.txt
-/loads_*.csv
-/loads_*.txt
-/simple_taylor_*.csv
-/simple_taylor_*.txt
-/two_body_*.csv
+/taylor.json
+/ads.json
+/loads.json
 /two_body_*.png
