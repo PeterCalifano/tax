@@ -46,7 +46,7 @@ int main()
     tax::ode::IntegratorConfig< double > cfg;
     cfg.abstol = cfg.reltol = 1e-12;
 
-    const tax::ads::NliCriterion criterion{ /*tol=*/0.1, /*maxDepth=*/6 };
+    const tax::ads::NliCriterion criterion{ /*tol=*/1, /*maxDepth=*/6 };
 
     tax::ode::IntegratorConfig< double > ref_cfg;
     ref_cfg.abstol = ref_cfg.reltol = 1e-13;

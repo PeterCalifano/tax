@@ -54,7 +54,7 @@ int main()
 
     // Truncation criterion (Wittig): split when sum |coeff(alpha)| over
     // alpha at total degree P exceeds `tol`.
-    const tax::ads::TruncationCriterion criterion{ /*tol=*/1e-4, /*maxDepth=*/8 };
+    const tax::ads::TruncationCriterion criterion{ /*tol=*/1e-6, /*maxDepth=*/8 };
 
     // ---- Scalar centerpoint reference --------------------------------------
     tax::ode::IntegratorConfig< double > ref_cfg;

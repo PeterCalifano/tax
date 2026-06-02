@@ -91,7 +91,7 @@ inline tax::la::VecNT< 4, double > icCenter()
 // The defaults vary only the y position and the y-velocity — that's enough
 // to produce visible distortion in one orbit at e = 0.5 without triggering
 // excessive ADS subdivisions.
-inline const tax::la::VecNT< 4, double > kIcBoxHalfWidth{ 0.0, 5e-3, 0.0, 8e-3 };
+inline const tax::la::VecNT< 4, double > kIcBoxHalfWidth{ 0.0, 8e-3, 0.0, 2e-2 };
 
 inline tax::ads::Box< double, 4 > icBox()
 {
