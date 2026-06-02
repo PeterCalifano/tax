@@ -10,6 +10,6 @@ function(tax_add_example name)
     target_link_libraries(${name} PRIVATE tax)
 endfunction()
 
-tax_add_example(two_body_simple_taylor SOURCES two_body/simple_taylor.cpp)
+tax_add_example(two_body_taylor SOURCES two_body/taylor.cpp)
 tax_add_example(two_body_ads           SOURCES two_body/ads.cpp)
 tax_add_example(two_body_loads         SOURCES two_body/loads.cpp)
