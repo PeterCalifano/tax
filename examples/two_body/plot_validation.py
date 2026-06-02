@@ -80,10 +80,13 @@ def load_validation() -> dict | None:
     return json.loads(p.read_text()) if p.exists() else None
 
 
-# ---- Figure 1: orbit + envelope + MC scatter -------------------------------
+# ---- Figure 1: orbit + ADS envelope + MC scatter ---------------------------
 def figure_envelope(data: dict) -> None:
     snapshots = data["snapshots"]
     ref       = data["reference_orbit"]
+    cfg       = data["config"]
+    env_P     = cfg.get("envelope_P", 6)
+    env_tol   = cfg.get("envelope_tol", 1e-4)
 
     cmap = plt.cm.twilight
     norm = Normalize(vmin=0.0, vmax=2.0 * math.pi)
@@ -93,20 +96,24 @@ def figure_envelope(data: dict) -> None:
     # ---- Reference orbit ----
     ax.plot(ref["x0"], ref["x1"], color="#7c7c7c", lw=0.55, alpha=0.85, zorder=1)
 
-    # ---- Envelope polygons + MC scatter ----
+    # ---- ADS leaf polygons + MC scatter ----
     for snap in snapshots:
         nu    = true_anomaly(snap["t"])
         color = cmap(norm(nu))
-        ax.fill(snap["env_x"], snap["env_y"], facecolor="none",
-                edgecolor=color, linewidth=0.9, zorder=2)
-        ax.scatter(snap["mc_x"], snap["mc_y"], color=color, s=3.5,
-                   edgecolor="none", alpha=0.85, zorder=3)
+        for leaf in snap.get("ads_leaves", []):
+            ax.fill(leaf["x"], leaf["y"], facecolor=color, alpha=0.30,
+                    edgecolor=color, linewidth=0.7, zorder=2)
+        ax.scatter(snap["mc_x"], snap["mc_y"], color=color, s=4.5,
+                   edgecolor="black", linewidths=0.15, alpha=0.95, zorder=3)
 
     ax.plot(0.0, 0.0, marker="o", color="black", markersize=3.2, zorder=10)
     ax.set_xlabel(r"$x$")
     ax.set_ylabel(r"$y$")
     ax.set_aspect("equal", "box")
-    ax.set_title("MC samples + single-Taylor envelope", loc="left")
+    ax.set_title(
+        rf"MC samples + ADS envelope  ($P = {env_P}$, tol $= {env_tol:.0e}$)",
+        loc="left",
+    )
 
     # Shared colour bar.
     cbar = fig.colorbar(ScalarMappable(norm=norm, cmap=cmap), ax=ax,

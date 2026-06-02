@@ -282,29 +282,70 @@ int main()
     auto ref_sol = tax::ode::propagate< /*Dense=*/true >(
         Taylor< 16 >{}, rhs(), icCenter(), 0.0, tFinal, ref_cfg );
 
-    // ---- Envelope polygon (single Taylor flow polynomial at P = 6) ---------
-    constexpr int kEnvP = 6;
-    using EnvTE      = tax::TE< kEnvP, 4 >;
-    using EnvDAState = tax::la::VecNT< 4, EnvTE >;
-    EnvDAState env_x0  = tax::ads::create< kEnvP, 4 >( ic_box, icCenter() );
-    auto       env_sol = tax::ode::propagate< /*Dense=*/true >(
-        Verner89{}, rhs(), env_x0, 0.0, tFinal, cfg );
+    // ---- ADS envelope polygons per snapshot --------------------------------
+    //
+    // For each snapshot time t_snap we run an independent ADS propagation
+    // (truncation criterion, P=6, tol=1e-4) and dump the (x, y) boundary
+    // image of every done leaf. The collection of polygons is what the
+    // envelope figure renders against the MC samples.
+    constexpr int    kEnvP   = 6;
+    constexpr double kEnvTol = 1e-4;
 
     const auto boundary = unitSquareBoundary( kNPerEdge );
-    std::vector< std::vector< double > > env_xs( kNSnaps ), env_ys( kNSnaps );
+
+    struct LeafPolygon
+    {
+        std::vector< double > xs, ys;
+    };
+    std::vector< std::vector< LeafPolygon > > ads_leaves_per_snap( kNSnaps );
+
+    std::cout << "[validation] computing per-snapshot ADS envelopes..." << std::flush;
     for ( int s = 0; s < kNSnaps; ++s )
     {
-        const double t      = times[ static_cast< std::size_t >( s ) ];
-        const auto   x_at_t = env_sol( t );
-        env_xs[ static_cast< std::size_t >( s ) ].resize( boundary.size() );
-        env_ys[ static_cast< std::size_t >( s ) ].resize( boundary.size() );
-        for ( std::size_t v = 0; v < boundary.size(); ++v )
+        const double t_snap = times[ static_cast< std::size_t >( s ) ];
+
+        if ( t_snap <= 0.0 )
         {
-            const std::array< double, 4 > d{
-                0.0, boundary[ v ][ 0 ], 0.0, boundary[ v ][ 1 ]
-            };
-            env_xs[ static_cast< std::size_t >( s ) ][ v ] = x_at_t( 0 ).eval( d );
-            env_ys[ static_cast< std::size_t >( s ) ][ v ] = x_at_t( 1 ).eval( d );
+            // Trivial: one polygon equal to the IC box image (in state space
+            // this is the box itself).
+            LeafPolygon poly{};
+            poly.xs.resize( boundary.size() );
+            poly.ys.resize( boundary.size() );
+            for ( std::size_t v = 0; v < boundary.size(); ++v )
+            {
+                const tax::la::VecNT< 4, double > d{
+                    0.0, boundary[ v ][ 0 ], 0.0, boundary[ v ][ 1 ]
+                };
+                const auto pt = ic_box.denormalize( d );
+                poly.xs[ v ] = pt( 0 );
+                poly.ys[ v ] = pt( 1 );
+            }
+            ads_leaves_per_snap[ static_cast< std::size_t >( s ) ].push_back(
+                std::move( poly ) );
+            continue;
+        }
+
+        auto tree = tax::ads::propagate< kEnvP >(
+            Verner89{},
+            tax::ads::TruncationCriterion{ kEnvTol, /*maxDepth=*/8 },
+            rhs(), ic_box, icCenter(), 0.0, t_snap, cfg );
+
+        for ( int li : tree.done() )
+        {
+            const auto& leaf = tree.leaf( li );
+            LeafPolygon poly{};
+            poly.xs.resize( boundary.size() );
+            poly.ys.resize( boundary.size() );
+            for ( std::size_t v = 0; v < boundary.size(); ++v )
+            {
+                const std::array< double, 4 > d{
+                    0.0, boundary[ v ][ 0 ], 0.0, boundary[ v ][ 1 ]
+                };
+                poly.xs[ v ] = leaf.payload( 0 ).eval( d );
+                poly.ys[ v ] = leaf.payload( 1 ).eval( d );
+            }
+            ads_leaves_per_snap[ static_cast< std::size_t >( s ) ].push_back(
+                std::move( poly ) );
         }
     }
     std::cout << " done.\n";
@@ -328,7 +369,8 @@ int main()
     out << "    \"n_snaps\": "   << kNSnaps   << ",\n";
     out << "    \"n_orbits\": "  << kNOrbits  << ",\n";
     out << "    \"t_final\": "   << tFinal    << ",\n";
-    out << "    \"envelope_P\": " << kEnvP    << ",\n";
+    out << "    \"envelope_P\":   " << kEnvP   << ",\n";
+    out << "    \"envelope_tol\": " << kEnvTol << ",\n";
     out << "    \"P_list\": [4, 6, 8],\n";
     out << "    \"tol_list\": "; writeJsonArray( out, tols ); out << ",\n";
     out << "    \"ic_box\": {\n";
@@ -352,7 +394,7 @@ int main()
     }
     out << "  },\n";
 
-    //   snapshots: MC truth + envelope
+    //   snapshots: MC truth + ADS leaf envelope
     out << "  \"snapshots\": [\n";
     for ( int s = 0; s < kNSnaps; ++s )
     {
@@ -362,11 +404,19 @@ int main()
         xs.reserve( pts.size() ); ys.reserve( pts.size() );
         for ( const auto& p : pts ) { xs.push_back( p( 0 ) ); ys.push_back( p( 1 ) ); }
         out << "    {\n";
-        out << "      \"t\": " << t << ",\n";
+        out << "      \"t\":    " << t << ",\n";
         out << "      \"mc_x\": "; writeJsonArray( out, xs ); out << ",\n";
         out << "      \"mc_y\": "; writeJsonArray( out, ys ); out << ",\n";
-        out << "      \"env_x\": "; writeJsonArray( out, env_xs[ static_cast< std::size_t >( s ) ] ); out << ",\n";
-        out << "      \"env_y\": "; writeJsonArray( out, env_ys[ static_cast< std::size_t >( s ) ] ); out << "\n";
+        out << "      \"ads_leaves\": [";
+        const auto& leaves = ads_leaves_per_snap[ static_cast< std::size_t >( s ) ];
+        for ( std::size_t li = 0; li < leaves.size(); ++li )
+        {
+            if ( li ) out << ",";
+            out << "\n        { \"x\": "; writeJsonArray( out, leaves[ li ].xs );
+            out << ", \"y\": "; writeJsonArray( out, leaves[ li ].ys );
+            out << " }";
+        }
+        out << ( leaves.empty() ? "" : "\n      " ) << "]\n";
         out << "    }" << ( s + 1 < kNSnaps ? "," : "" ) << "\n";
     }
     out << "  ],\n";
