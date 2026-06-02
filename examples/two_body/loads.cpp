@@ -33,9 +33,15 @@ int main()
     tax::ads::Box< double, M > ic_box{ icCenter(),
                                        tax::la::VecNT< M, double >::Constant( 1e-3 ) };
 
+    // NLI is more aggressive than TruncationCriterion on this eccentric
+    // orbit (each split needs another Verner89 propagation, and NLI
+    // tends to trigger near periapsis on every revolution). With these
+    // parameters the demo takes ~20s and produces ~60 leaves. Tighten
+    // tol / maxDepth for higher-fidelity runs.
+    std::cout << "[loads] starting (this takes ~20s)..." << std::flush;
     const auto t0   = std::chrono::high_resolution_clock::now();
     auto       tree = tax::ads::propagate< P >(
-        Verner89{}, tax::ads::NliCriterion{ /*tol=*/0.1, /*maxDepth=*/8 },
+        Verner89{}, tax::ads::NliCriterion{ /*tol=*/0.3, /*maxDepth=*/6 },
         rhs(), ic_box, icCenter(), 0.0, tFinal, cfg );
     const auto t1   = std::chrono::high_resolution_clock::now();
     const double elapsed_ms = std::chrono::duration< double, std::milli >( t1 - t0 ).count();
@@ -50,7 +56,7 @@ int main()
     tax::ads::writeTreeCsv( tree, tFinal, "loads_tree.csv" );
     tax::ads::writeBoxCountCsv( tree, tFinal, times, "loads_boxcount.csv" );
 
-    std::cout << "[loads] " << elapsed_ms << " ms, " << tree.done().size()
+    std::cout << "\r[loads] " << elapsed_ms << " ms, " << tree.done().size()
               << " done leaves\n";
     std::ofstream( "loads_timing.txt" )
         << "method=loads\ncriterion=nli\n"
