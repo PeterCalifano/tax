@@ -147,8 +147,10 @@ def main() -> None:
         print("No JSON outputs found. Run two_body_taylor / two_body_ads / two_body_loads first.")
         return
 
-    # Colour by true anomaly ν ∈ [0°, 360°].
-    cmap = plt.cm.viridis
+    # Colour by true anomaly ν ∈ [0°, 360°). Use a cyclic colour map so
+    # 0° and 360° map to the same colour — true anomaly is periodic on
+    # a closed orbit.
+    cmap = plt.cm.twilight
     norm = Normalize(vmin=0.0, vmax=2.0 * math.pi)
 
     xlim, ylim = panel_xy_limits(*(d for _, d in loaded))
