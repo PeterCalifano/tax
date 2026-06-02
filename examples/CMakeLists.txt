@@ -14,6 +14,7 @@ tax_add_example(two_body_taylor     SOURCES two_body/taylor.cpp)
 tax_add_example(two_body_ads        SOURCES two_body/ads.cpp)
 tax_add_example(two_body_loads      SOURCES two_body/loads.cpp)
 tax_add_example(two_body_validation SOURCES two_body/validation.cpp)
+tax_add_example(three_body_manifolds SOURCES three_body/manifolds.cpp)
 # Bump the constexpr evaluation budget — instantiating Cauchy stencils
 # for several (P, M=4) pairs in one TU otherwise hits the default limit.
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")

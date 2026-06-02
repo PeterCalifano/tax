@@ -9,4 +9,6 @@ __pycache__/
 /ads.json
 /loads.json
 /validation.json
+/manifolds.json
 /two_body_*.png
+/three_body_*.png
