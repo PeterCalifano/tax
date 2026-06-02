@@ -39,7 +39,7 @@ int main()
     using TE      = tax::TE< P, M >;
     using DAState = tax::la::VecNT< D, TE >;
 
-    constexpr int    kNSnaps   = 9;
+    constexpr int    kNSnaps   = 13;     // every 0.25 time units
     constexpr int    kNPerEdge = 24;
     constexpr double tFinal    = 3.0;     // ~1.1 Lyapunov times
 

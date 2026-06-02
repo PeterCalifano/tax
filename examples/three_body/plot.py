@@ -60,10 +60,13 @@ def load(method: str) -> dict | None:
 
 
 def panel_xy_limits(*datasets: dict) -> tuple[tuple[float, float], tuple[float, float]]:
+    # We only show the Moon-side manifold, so Earth is intentionally
+    # excluded from the limit calculation; the panel auto-fits the
+    # L1 -> Moon range instead.
     xs, ys = [], []
     for d in datasets:
         cfg = d.get("config", {})
-        for k in ("earth_x", "moon_x", "x_L1"):
+        for k in ("moon_x", "x_L1"):
             if k in cfg:
                 xs.append(cfg[k])
         ys.append(0.0)
@@ -98,13 +101,11 @@ def draw_panel(ax: plt.Axes, data: dict, *,
             ax.fill(snap["x"], snap["y"], color=color, alpha=0.65,
                     edgecolor="black", linewidth=0.25, zorder=2)
 
-    # Primaries + L1.
-    earth_x = cfg["earth_x"]; moon_x = cfg["moon_x"]; x_L1 = cfg["x_L1"]
-    ax.plot(earth_x, 0.0, marker="o", color="#1f77b4", markersize=8,
+    # Moon + L1 only (Earth is outside the Moon-branch manifold region).
+    moon_x = cfg["moon_x"]; x_L1 = cfg["x_L1"]
+    ax.plot(moon_x, 0.0, marker="o", color="#aeaeae", markersize=6,
             markeredgecolor="black", markeredgewidth=0.4, zorder=10)
-    ax.plot(moon_x, 0.0, marker="o", color="#aeaeae", markersize=4.5,
-            markeredgecolor="black", markeredgewidth=0.4, zorder=10)
-    ax.plot(x_L1, 0.0, marker="x", color="black", markersize=5,
+    ax.plot(x_L1, 0.0, marker="x", color="black", markersize=6,
             markeredgewidth=1.0, zorder=10)
 
     ax.set_xlim(xlim); ax.set_ylim(ylim)

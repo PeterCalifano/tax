@@ -12,18 +12,18 @@
 //   d/dt vx =  2 vy + x - (1-mu)(x+mu)/r1^3 - mu (x-1+mu)/r2^3
 //   d/dt vy = -2 vx + y - (1-mu) y    /r1^3 - mu  y      /r2^3
 //
-// All three examples propagate the same small IC box centred *on*
-// L1 itself:
+// All three examples propagate the same small IC box centred *near*
+// L1, offset along the unstable eigendirection so the entire box
+// drifts toward the Moon under forward propagation:
 //
-//   ic_center = (x_L1, 0, 0, 0)
+//   ic_center = (x_L1, 0, 0, 0) + kManifoldOffset * v_unstable
 //
-// The IC box halfwidth varies along two state-space axes (x and vy by
-// default) so the box straddles the unstable eigendirection. The two
-// halves of the box drift along the unstable manifold in opposite
-// directions — one half toward the Moon, the other toward the Earth.
-// Forward propagation pulls those halves apart at rate e^{lambda t},
-// and ADS splits along the corresponding line when one polynomial
-// can no longer cover both sides of the saddle.
+// The IC box halfwidth varies along two state-space axes (x and vy
+// by default). The offset is chosen so all corners of the box have
+// strictly positive projection on v_unstable — the trajectories
+// stay on the Moon branch of the L1 unstable manifold throughout.
+// Flip the sign of kManifoldOffset (or center on L1 itself) if you
+// instead want the Earth branch / both branches.
 //
 // The unstable eigenvector v_unstable is computed numerically with
 // Eigen::EigenSolver from the linearised 4x4 dynamics at L1; it is
@@ -152,12 +152,17 @@ inline const LinearisationL1& linL1()
     return cached;
 }
 
-// ---- Configurable knob (edit, rebuild) -------------------------------------
+// ---- Configurable knobs (edit, rebuild) ------------------------------------
 //
-// IC box halfwidth around L1. The two halves of the box straddle the
-// unstable manifold; one drifts toward the Moon, the other toward the
-// Earth. Edit the four entries to alter which state-space face the
-// box spreads on (default: (x, vy)).
+// Offset of the IC box centre from L1, along the unstable
+// eigendirection. Positive value = Moon branch; negative = Earth
+// branch. Magnitude must exceed the box's projection on v_unstable
+// (about 2e-5 for the default halfwidth) for the whole box to lie
+// strictly on one side of the saddle.
+inline constexpr double kManifoldOffset = 4.0e-5;
+
+// IC box halfwidth. Defaults to a (x, vy) face of state space; edit
+// the four entries to spread the box on a different 2D face.
 inline const tax::la::VecNT< 4, double > kIcBoxHalfWidth{
     3.0e-5, 0.0, 0.0, 3.0e-5
 };
@@ -165,7 +170,8 @@ inline const tax::la::VecNT< 4, double > kIcBoxHalfWidth{
 // ---- IC + box --------------------------------------------------------------
 inline tax::la::VecNT< 4, double > icCenter()
 {
-    return tax::la::VecNT< 4, double >{ kCR3BPL1, 0.0, 0.0, 0.0 };
+    tax::la::VecNT< 4, double > base{ kCR3BPL1, 0.0, 0.0, 0.0 };
+    return base + kManifoldOffset * linL1().v_unstable;
 }
 
 inline tax::ads::Box< double, 4 > icBox()

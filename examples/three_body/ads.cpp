@@ -36,7 +36,7 @@ int main()
     constexpr int M = 4;
     constexpr int D = 4;
 
-    constexpr int    kNSnaps   = 9;
+    constexpr int    kNSnaps   = 13;     // every 0.25 time units
     constexpr int    kNPerEdge = 24;
     constexpr double tFinal    = 3.0;
 
