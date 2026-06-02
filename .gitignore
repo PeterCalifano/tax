@@ -12,5 +12,6 @@ __pycache__/
 /cr3bp_taylor.json
 /cr3bp_ads.json
 /cr3bp_loads.json
+/manifolds.json
 /two_body_*.png
 /three_body_*.png
