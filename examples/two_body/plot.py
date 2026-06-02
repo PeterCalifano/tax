@@ -72,7 +72,7 @@ def plot_orbits():
         df = load_traj(prefix)
         if df is None:
             continue
-        ax.plot(df["x"], df["y"], color=color, label=label, lw=1.2)
+        ax.plot(df["x0"], df["x1"], color=color, label=label, lw=1.2)
         plotted = True
     if not plotted:
         print("No trajectory CSVs found; skipping orbit figure.")
