@@ -46,7 +46,8 @@ double evalTe( const TE& f, std::array< double, M > xi )
 
 TEST( AdsDaState, CreateMapsZeroDeviationToCenter )
 {
-    Box< double, M > box{ { 1.0, 2.0 }, { 0.5, 0.25 } };
+    Box< double, M > box{ tax::la::VecNT< M, double >{ 1.0, 2.0 },
+                          tax::la::VecNT< M, double >{ 0.5, 0.25 } };
     tax::la::VecNT< 2, double > x0;
     x0( 0 ) = 1.0; x0( 1 ) = 2.0;
     State F = create< P, M >( box, x0 );
@@ -67,7 +68,8 @@ TEST( AdsDaState, SplitRoundTripPreservesValue )
     // Build a state on parent box, split, and verify that evaluating
     // each child at ξ'=0 reproduces the parent at the center of that
     // child's domain (ξ = ±0.5 along the split axis).
-    Box< double, M > parent{ { 0.0, 0.0 }, { 1.0, 1.0 } };
+    Box< double, M > parent{ tax::la::VecNT< M, double >{ 0.0, 0.0 },
+                             tax::la::VecNT< M, double >{ 1.0, 1.0 } };
     tax::la::VecNT< 2, double > x0;
     x0( 0 ) = 0.0; x0( 1 ) = 0.0;
     State F = create< P, M >( parent, x0 );

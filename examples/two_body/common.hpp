@@ -9,7 +9,6 @@
 
 #pragma once
 
-#include <array>
 #include <cmath>
 
 #include <tax/la/types.hpp>
@@ -43,14 +42,7 @@ inline auto rhs()
 
 inline tax::la::VecNT< 4, double > icCenter()
 {
-    tax::la::VecNT< 4, double > x0;
-    x0 << kPeriapsis, 0.0, 0.0, kVPeriapsis;
-    return x0;
-}
-
-inline std::array< double, 4 > icCenterArray()
-{
-    return { kPeriapsis, 0.0, 0.0, kVPeriapsis };
+    return tax::la::VecNT< 4, double >{ kPeriapsis, 0.0, 0.0, kVPeriapsis };
 }
 
 }  // namespace example::two_body

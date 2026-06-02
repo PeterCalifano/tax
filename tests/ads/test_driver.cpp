@@ -62,7 +62,8 @@ TEST( AdsDriver, MildlyNonlinearOscillatorMatchesReference )
 {
     const double t1 = 2.0 * M_PI;
 
-    Box< double, M > ic_box{ { 1.0, 0.0 }, { 0.5, 0.5 } };
+    Box< double, M > ic_box{ tax::la::VecNT< M, double >{ 1.0, 0.0 },
+                             tax::la::VecNT< M, double >{ 0.5, 0.5 } };
     tax::la::VecNT< D, double > center;
     center << 1.0, 0.0;
 
@@ -78,12 +79,13 @@ TEST( AdsDriver, MildlyNonlinearOscillatorMatchesReference )
 
     EXPECT_GE( tree.done().size(), 1u );
 
-    const std::array< std::array< double, M >, 5 > samples{ {
-        { 1.0,  0.0 },
-        { 1.3, -0.2 },
-        { 0.6,  0.4 },
-        { 1.5,  0.5 },
-        { 0.5, -0.5 },
+    using V2 = tax::la::VecNT< M, double >;
+    const std::array< V2, 5 > samples{ {
+        V2{ 1.0,  0.0 },
+        V2{ 1.3, -0.2 },
+        V2{ 0.6,  0.4 },
+        V2{ 1.5,  0.5 },
+        V2{ 0.5, -0.5 },
     } };
 
     for ( const auto& xi : samples )
@@ -95,9 +97,7 @@ TEST( AdsDriver, MildlyNonlinearOscillatorMatchesReference )
         std::array< double, M > xi_local{};
         for ( int j = 0; j < M; ++j )
             xi_local[ static_cast< std::size_t >( j ) ] =
-                ( xi[ static_cast< std::size_t >( j ) ]
-                  - leaf.box.center[ static_cast< std::size_t >( j ) ] )
-                / leaf.box.halfWidth[ static_cast< std::size_t >( j ) ];
+                ( xi( j ) - leaf.box.center( j ) ) / leaf.box.halfWidth( j );
 
         ScState x_predicted;
         for ( int row = 0; row < D; ++row )
@@ -131,7 +131,8 @@ TEST( AdsDriver, MildlyNonlinearOscillatorMatchesReference )
 TEST( AdsDriver, ExtraUserEventIsForwarded )
 {
     const double t1 = 0.5;
-    Box< double, M > ic_box{ { 1.0, 0.0 }, { 0.05, 0.05 } };   // tiny box → no split
+    Box< double, M > ic_box{ tax::la::VecNT< M, double >{ 1.0, 0.0 },
+                             tax::la::VecNT< M, double >{ 0.05, 0.05 } };
     tax::la::VecNT< D, double > center;
     center << 1.0, 0.0;
 

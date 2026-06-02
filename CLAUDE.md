@@ -326,42 +326,59 @@ Key helpers in `eigen/`:
 
 ---
 
-## Taylor ODE Integrator
+## ODE Integration
 
-Located in `include/tax/ode/`. Provides adaptive Taylor-method integration for scalar and vector ODEs with optional Automatic Domain Splitting (ADS).
+Located in `include/tax/ode/`. Adaptive Runge–Kutta and Taylor-method integration for vector ODEs, with an event system (triggers/actions), dense output, and an ADS / LOADS pipeline built on top.
 
-### Scalar ODE
-
-```cpp
-#include <tax/tax.hpp>
-
-// dx/dt = x  →  x(t) = exp(t)
-auto f = [](const auto& x, [[maybe_unused]] const auto& t) { return x; };
-
-auto sol = tax::ode::integrate<25>(f, 1.0, 0.0, 2.0, 1e-16);
-// sol.t  — step times
-// sol.x  — state at each step time
-// sol(t) — dense output at any time via Taylor polynomial evaluation
-```
-
-### Vector ODE
+### Quick start — propagate
 
 ```cpp
-// Harmonic oscillator: dx/dt = v, dv/dt = -x
-auto f = [](auto& dx, const auto& x, [[maybe_unused]] const auto& t) {
-    dx(0) = x(1);
-    dx(1) = -x(0);
+#include <tax/ode.hpp>
+
+using namespace tax::ode::methods;
+
+auto rhs = [](const auto& x, double) {
+    auto out = x;  // copy-shape
+    out(0) =  x(1);
+    out(1) = -x(0);
+    return out;
 };
 
-Eigen::Vector2d x0{1.0, 0.0};
-auto sol = tax::ode::integrate<25>(f, x0, 0.0, 2*M_PI, 1e-16);
+tax::la::VecNT<2, double> x0{1.0, 0.0};
+
+// Default: Dense=false (queryable only at step boundaries).
+auto sol = tax::ode::propagate(Verner89{}, rhs, x0, 0.0, 2 * M_PI);
+
+// Dense=true (sol(t) interpolates).
+auto sol_d = tax::ode::propagate</*Dense=*/true>(
+    Taylor<16>{}, rhs, x0, 0.0, 2 * M_PI);
+auto x_at = sol_d(0.42);
+
+// With events
+std::vector<tax::ode::Event<tax::ode::Verner89Stepper<decltype(x0)>>> events;
+events.emplace_back(tax::ode::EveryStep(), tax::ode::Record("step"));
+auto sol_e = tax::ode::propagate(Verner89{}, rhs, x0, 0.0, 1.0, cfg, events);
+```
+
+Methods: `methods::Taylor<N>`, `Verner78`, `Verner89`, `Fehlberg78`, `Feagin12`, `Feagin14`.
+
+### Lower-level API
+
+Construct an `Integrator<Stepper, F, Dense>` explicitly when you need a non-default Controller (e.g. `FixedStep`) or want to reuse an integrator across calls.
+
+### Snapshot CSV helpers (`<tax/ode/io.hpp>`, opt-in)
+
+```cpp
+auto times = tax::ode::linspace(0.0, t_final, 200);
+tax::ode::writeCsv(sol_d, times, "traj.csv");   // columns: t, x0..x{D-1}
 ```
 
 ### Key Files in `ode/`
 
 | File | Purpose |
 |------|---------|
-| `integrator.hpp`         | `Integrator<Stepper, F, Dense>` driver + method type aliases (Taylor, Verner78/89, Fehlberg78, Feagin12/14) |
+| `propagate.hpp`          | `tax::ode::propagate<Dense>(method, rhs, x0, t0, t1, cfg, events)` + `methods::` tag namespace |
+| `integrator.hpp`         | `Integrator<Stepper, F, Dense>` driver + method type aliases |
 | `config.hpp`             | `IntegratorConfig<T>` (abstol/reltol/initial_step/min_step/max_step/max_steps/max_rejects_per_step) |
 | `controllers.hpp`        | I, PI (Gustafsson), H211b (Söderlind), JorbaZou (Taylor-only), FixedStep |
 | `steppers/`              | One stepper per file: `taylor.hpp`, `verner78.hpp`, `verner89.hpp`, `fehlberg78.hpp`, `feagin12.hpp`, `feagin14.hpp` |
@@ -370,6 +387,7 @@ auto sol = tax::ode::integrate<25>(f, x0, 0.0, 2*M_PI, 1e-16);
 | `triggers.hpp`           | `EveryStep`, `ZeroCrossing` (poly-Newton or Brent) |
 | `actions.hpp`            | `Continue`, `Terminate`, `Record`, `Custom`, `EventStorage` |
 | `vector_ops.hpp`         | `VectorOps<S>` trait — norm/axpy/scale for scalar / TaylorExpansion / Eigen states |
+| `io.hpp` (opt-in)        | `linspace`, `writeCsv(sol, times, path)` |
 
 ---
 
@@ -385,9 +403,7 @@ variant (Losacco/Fossà/Armellin 2024) by composing with the existing
 #include <tax/ads.hpp>
 #include <tax/ode.hpp>
 
-using TE      = tax::TE</*N=*/6, /*M=*/2>;
-using State   = tax::la::VecNT</*D=*/2, TE>;
-using Stepper = tax::ode::Verner89Stepper<State>;
+using namespace tax::ode::methods;
 
 auto f = [](const auto& x, double) {
     using S = std::decay_t<decltype(x)>;
@@ -397,17 +413,19 @@ auto f = [](const auto& x, double) {
     return out;
 };
 
-tax::ads::Box<double, 2> ic_box{{1.0, 0.0}, {0.5, 0.5}};
-tax::la::VecNT<2, double> center; center << 1.0, 0.0;
+tax::ads::Box<double, 2> ic_box{
+    tax::la::VecNT<2, double>{1.0, 0.0},
+    tax::la::VecNT<2, double>{0.5, 0.5},
+};
+tax::la::VecNT<2, double> center{1.0, 0.0};
 
 tax::ode::IntegratorConfig<double> cfg;
 cfg.abstol = cfg.reltol = 1e-12;
 
-tax::ads::AdsDriver<Stepper, tax::ads::TruncationCriterion> driver{
-    tax::ads::TruncationCriterion{/*tol=*/1e-4},
-    cfg
-};
-auto tree = driver.run(f, ic_box, center, /*t0=*/0.0, /*t1=*/2.0 * M_PI);
+auto tree = tax::ads::propagate</*P=*/6>(
+    Verner89{},
+    tax::ads::TruncationCriterion{/*tol=*/1e-4, /*maxDepth=*/8},
+    f, ic_box, center, 0.0, 2 * M_PI, cfg);
 
 for (int i : tree.done()) {
     const auto& l = tree.leaf(i);
@@ -420,9 +438,9 @@ for (int i : tree.done()) {
 Same setup, swap criterion:
 
 ```cpp
-tax::ads::AdsDriver<Stepper, tax::ads::NliCriterion> driver{
-    tax::ads::NliCriterion{/*tol=*/0.1}, cfg
-};
+auto tree = tax::ads::propagate<6>(
+    Verner89{}, tax::ads::NliCriterion{0.1, 8},
+    f, ic_box, center, 0.0, 2 * M_PI, cfg);
 ```
 
 ### Post-pass Merger
@@ -444,7 +462,7 @@ auto stats = tax::ads::merge(tree, tax::ads::TruncationCriterion{1e-4});
 
 | File                       | Purpose |
 |----------------------------|---------|
-| `box.hpp`                  | `Box<T, M>` axis-aligned subdomain |
+| `box.hpp`                  | `Box<T, M>` axis-aligned subdomain (Eigen-backed `tax::la::VecNT` storage) |
 | `leaf.hpp`                 | `Leaf<Payload, M, T>` POD record |
 | `tree.hpp`                 | `AdsTree<Payload, M, T>` arena + BFS queue |
 | `criteria.hpp`             | `SplitCriterion` concept + `TruncationCriterion` + `NliCriterion` |
@@ -452,7 +470,9 @@ auto stats = tax::ads::merge(tree, tax::ads::TruncationCriterion{1e-4});
 | `split_event.hpp`          | `SplitRequest`, `SplitTrigger`, `SplitAction` |
 | `da_state.hpp`             | `create(box, x0)`, `split(state, parent_box, dim)` |
 | `driver.hpp`               | `AdsDriver<Stepper, Criterion>` BFS driver |
+| `propagate.hpp`            | `tax::ads::propagate<P>(method, criterion, rhs, ic_box, ic_center, t0, t1, cfg)` convenience wrapper |
 | `merge.hpp`                | `merge(tree, criterion)` + `MergeStats` |
+| `io.hpp` (opt-in)          | `writeTreeCsv`, `writeBoxCountCsv` |
 
 ---
 

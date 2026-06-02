@@ -10,7 +10,6 @@
 
 #pragma once
 
-#include <array>
 #include <cstddef>
 #include <filesystem>
 #include <fstream>
@@ -19,6 +18,7 @@
 #include <vector>
 
 #include <tax/ads/tree.hpp>
+#include <tax/la/types.hpp>
 
 namespace tax::ads
 {
@@ -29,16 +29,16 @@ namespace detail
 template < int M, class T >
 struct LeafSpan
 {
-    int                idx;
-    int                parent;
-    int                sibling;
-    int                depth;
-    bool               retired;
-    bool               done;
-    T                  tEntry;
-    T                  tExit;
-    std::array< T, M > center;
-    std::array< T, M > halfWidth;
+    int                    idx;
+    int                    parent;
+    int                    sibling;
+    int                    depth;
+    bool                   retired;
+    bool                   done;
+    T                      tEntry;
+    T                      tExit;
+    tax::la::VecNT< M, T > center;
+    tax::la::VecNT< M, T > halfWidth;
 };
 
 template < class Payload, int M, class T >
@@ -97,8 +97,8 @@ void writeTreeCsv( const AdsTree< Payload, M, T >& tree, T t_final,
         out << s.idx << ',' << s.parent << ',' << s.sibling << ',' << s.depth << ','
             << ( s.retired ? 1 : 0 ) << ',' << ( s.done ? 1 : 0 ) << ',' << s.tEntry << ','
             << s.tExit;
-        for ( int j = 0; j < M; ++j ) out << ',' << s.center[ j ];
-        for ( int j = 0; j < M; ++j ) out << ',' << s.halfWidth[ j ];
+        for ( int j = 0; j < M; ++j ) out << ',' << s.center( j );
+        for ( int j = 0; j < M; ++j ) out << ',' << s.halfWidth( j );
         out << '\n';
     }
 }

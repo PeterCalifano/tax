@@ -74,7 +74,7 @@ class AdsDriver
             const bool atFinal = req.fired && !( req.t < t1 );
             if ( req.fired && !atFinal )
             {
-                const T splitValue = l.box.center[static_cast< std::size_t >( req.dim )];
+                const T splitValue = l.box.center( req.dim );
                 auto pr_state = tax::ads::split( sol.x.back(), l.box, req.dim );
                 (void)tree.split( idx, req.dim, splitValue, std::move( pr_state.first ),
                                   std::move( pr_state.second ), req.t );

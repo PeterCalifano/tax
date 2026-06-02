@@ -17,10 +17,11 @@ namespace
 {
 using Tree = AdsTree< int, 2, double >;       // Payload = int (cheap to copy)
 using BoxT = Box< double, 2 >;
+using V2   = tax::la::VecNT< 2, double >;
 
 BoxT unitBox()
 {
-    return BoxT{ { 0.0, 0.0 }, { 1.0, 1.0 } };
+    return BoxT{ V2{ 0.0, 0.0 }, V2{ 1.0, 1.0 } };
 }
 }  // namespace
 
@@ -103,8 +104,8 @@ TEST( AdsTree, LeafLookupSkipsRetired )
     const int L = pr.first;
     const int R = pr.second;
 
-    auto fl = tree.leaf( std::array< double, 2 >{ -0.5, 0.0 } );
-    auto fr = tree.leaf( std::array< double, 2 >{  0.5, 0.0 } );
+    auto fl = tree.leaf( V2{ -0.5, 0.0 } );
+    auto fr = tree.leaf( V2{  0.5, 0.0 } );
     ASSERT_TRUE( fl.has_value() );
     ASSERT_TRUE( fr.has_value() );
     EXPECT_EQ( *fl, L );
@@ -115,7 +116,7 @@ TEST( AdsTree, LeafLookupNoneOutside )
 {
     Tree tree;
     (void)tree.init( unitBox(), 7 );
-    auto miss = tree.leaf( std::array< double, 2 >{ 2.0, 0.0 } );
+    auto miss = tree.leaf( V2{ 2.0, 0.0 } );
     EXPECT_FALSE( miss.has_value() );
 }
 

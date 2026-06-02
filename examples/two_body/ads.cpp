@@ -2,12 +2,6 @@
 //
 // ADS propagation of the planar Kepler problem with a small IC box.
 // Truncation criterion (Wittig).
-//
-// Output:
-//   ads_traj.csv       — IC-centerpoint scalar trajectory at snapshots
-//   ads_tree.csv       — per-leaf table (done + retired ancestors)
-//   ads_boxcount.csv   — number of boxes alive at each snapshot time
-//   ads_timing.txt     — wall-clock + tree stats
 
 #include <chrono>
 #include <fstream>
@@ -24,15 +18,10 @@
 int main()
 {
     using namespace example::two_body;
+    using namespace tax::ode::methods;
 
     constexpr int P = 6;
     constexpr int M = 4;
-    constexpr int D = 4;
-
-    using TE      = tax::TE< P, M >;
-    using DAState = tax::la::VecNT< D, TE >;
-    using ScState = tax::la::VecNT< D, double >;
-    using Stepper = tax::ode::Verner89Stepper< DAState >;
 
     constexpr int    kNOrbits = 3;
     constexpr int    kNSnaps  = 200;
@@ -41,29 +30,21 @@ int main()
     tax::ode::IntegratorConfig< double > cfg;
     cfg.abstol = cfg.reltol = 1e-12;
 
-    tax::ads::Box< double, M > ic_box{
-        icCenterArray(),
-        std::array< double, M >{ 1e-3, 1e-3, 1e-3, 1e-3 }
-    };
-
-    tax::ads::AdsDriver< Stepper, tax::ads::TruncationCriterion > driver{
-        tax::ads::TruncationCriterion{ /*tol=*/1e-4, /*maxDepth=*/8 },
-        cfg
-    };
+    tax::ads::Box< double, M > ic_box{ icCenter(),
+                                       tax::la::VecNT< M, double >::Constant( 1e-3 ) };
 
     const auto t0   = std::chrono::high_resolution_clock::now();
-    auto       tree = driver.run( rhs(), ic_box, icCenter(), 0.0, tFinal );
+    auto       tree = tax::ads::propagate< P >(
+        Verner89{}, tax::ads::TruncationCriterion{ /*tol=*/1e-4, /*maxDepth=*/8 },
+        rhs(), ic_box, icCenter(), 0.0, tFinal, cfg );
     const auto t1   = std::chrono::high_resolution_clock::now();
-    const double elapsed_ms =
-        std::chrono::duration< double, std::milli >( t1 - t0 ).count();
+    const double elapsed_ms = std::chrono::duration< double, std::milli >( t1 - t0 ).count();
 
     // IC-centerpoint scalar reference trajectory for plotting.
     tax::ode::IntegratorConfig< double > ref_cfg;
     ref_cfg.abstol = ref_cfg.reltol = 1e-13;
-    tax::ode::Taylor< 16, ScState, tax::ode::controllers::JorbaZou< double >,
-                      /*Dense=*/true, decltype( rhs() ) >
-        ref_integ{ rhs(), ref_cfg };
-    auto ref_sol = ref_integ.integrate( icCenter(), 0.0, tFinal );
+    auto ref_sol = tax::ode::propagate< /*Dense=*/true >(
+        Taylor< 16 >{}, rhs(), icCenter(), 0.0, tFinal, ref_cfg );
 
     const auto times = tax::ode::linspace( 0.0, tFinal, kNSnaps + 1 );
     tax::ode::writeCsv( ref_sol, times, "ads_traj.csv" );
@@ -74,7 +55,7 @@ int main()
               << " done leaves\n";
     std::ofstream( "ads_timing.txt" )
         << "method=ads\ncriterion=truncation\n"
-        << "P=" << P << "\nM=" << M << "\nD=" << D << '\n'
+        << "P=" << P << "\nM=" << M << '\n'
         << "elapsed_ms=" << elapsed_ms << '\n'
         << "n_done="     << tree.done().size() << '\n'
         << "t_final="    << tFinal     << '\n'

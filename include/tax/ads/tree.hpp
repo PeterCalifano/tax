@@ -177,15 +177,6 @@ class AdsTree
         return { roots_.data(), roots_.size() };
     }
 
-    [[nodiscard]] std::optional< int > leaf( const std::array< T, M >& pt ) const
-    {
-        for ( int idx : activeList_ )
-            if ( leaves_[idx].box.contains( pt ) ) return idx;
-        for ( int idx : doneList_ )
-            if ( leaves_[idx].box.contains( pt ) ) return idx;
-        return std::nullopt;
-    }
-
     template < class Derived >
     [[nodiscard]] std::optional< int > leaf( const Eigen::MatrixBase< Derived >& pt ) const
     {

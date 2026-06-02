@@ -83,7 +83,7 @@ template < int P, int M, class Storage = tax::storage::Dense, class T, int D >
         {
             tax::MultiIndex< M > alpha{};
             alpha[static_cast< std::size_t >( i )] = 1;
-            comp[tax::flatIndex< M >( alpha )] = box.halfWidth[static_cast< std::size_t >( i )];
+            comp[tax::flatIndex< M >( alpha )] = box.halfWidth( i );
         }
         out( i ) = std::move( comp );
     }
