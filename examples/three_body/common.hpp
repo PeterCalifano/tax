@@ -1,8 +1,8 @@
 // =============================================================================
 // examples/three_body/common.hpp
 //
-// Shared planar Earth-Moon CR3BP problem definition + small IO helpers
-// for the three-body example(s).
+// Shared planar Earth-Moon CR3BP fixture for the three-body examples
+// (taylor / ads / loads).
 //
 // Synodic rotating frame with the Earth-Moon barycentre at the origin.
 // Primaries: Earth at (-mu, 0), Moon at (1 - mu, 0). State = (x, y, vx, vy).
@@ -12,17 +12,32 @@
 //   d/dt vx =  2 vy + x - (1-mu)(x+mu)/r1^3 - mu (x-1+mu)/r2^3
 //   d/dt vy = -2 vx + y - (1-mu) y    /r1^3 - mu  y      /r2^3
 //
-// with  r1 = sqrt((x+mu)^2 + y^2),  r2 = sqrt((x-1+mu)^2 + y^2).
+// All three examples propagate the same small IC box centred *on*
+// L1 itself:
 //
-// Jacobi constant (conserved):
-//   C = 2*Omega(x, y) - vx^2 - vy^2,
-//   Omega = 1/2 (x^2 + y^2) + (1-mu)/r1 + mu/r2 + 1/2 mu (1-mu).
+//   ic_center = (x_L1, 0, 0, 0)
 //
-// L1 is the libration point between the primaries; its numeric value
-// kCR3BPL1 is the root of the 5th-order Lagrange equation.
+// The IC box halfwidth varies along two state-space axes (x and vy by
+// default) so the box straddles the unstable eigendirection. The two
+// halves of the box drift along the unstable manifold in opposite
+// directions — one half toward the Moon, the other toward the Earth.
+// Forward propagation pulls those halves apart at rate e^{lambda t},
+// and ADS splits along the corresponding line when one polynomial
+// can no longer cover both sides of the saddle.
+//
+// The unstable eigenvector v_unstable is computed numerically with
+// Eigen::EigenSolver from the linearised 4x4 dynamics at L1; it is
+// cached at first call so all examples and snapshots see identical
+// values.
+//
+// Configurable knobs (edit and rebuild):
+//   * kIcBoxHalfWidth  — IC box halfwidth. Default spreads in
+//                        (x, vy); change indices to use other axes.
 // =============================================================================
 
 #pragma once
+
+#include <Eigen/Eigenvalues>
 
 #include <cmath>
 #include <iostream>
@@ -33,6 +48,7 @@
 #include <utility>
 #include <vector>
 
+#include <tax/ads/box.hpp>
 #include <tax/la/types.hpp>
 #include <tax/tax.hpp>
 
@@ -44,10 +60,6 @@ inline constexpr double kCR3BPMu = 0.01215058560962404;   // Earth-Moon
 inline constexpr double kCR3BPL1 = 0.8369180073407246;
 
 // ---- Right-hand side -------------------------------------------------------
-//
-// Generic over the state type — accepts scalar VecNT<4, double> and
-// DA-valued VecNT<4, TE>. `using V = typename S::Scalar` keeps the
-// arithmetic in the appropriate field.
 inline auto rhs( double mu = kCR3BPMu )
 {
     return [ mu ]( const auto& s, const auto& /*t*/ )
@@ -80,19 +92,123 @@ inline auto rhs( double mu = kCR3BPMu )
     };
 }
 
-inline double jacobi( const tax::la::VecNT< 4, double >& s, double mu = kCR3BPMu )
+// ---- L1 linearised eigenvalues + unstable eigenvector ----------------------
+struct LinearisationL1
 {
-    const double x  = s( 0 ), y  = s( 1 );
-    const double vx = s( 2 ), vy = s( 3 );
-    const double r1 = std::hypot( x + mu, y );
-    const double r2 = std::hypot( x - 1.0 + mu, y );
-    const double Omega = 0.5 * ( x * x + y * y )
-                       + ( 1.0 - mu ) / r1 + mu / r2
-                       + 0.5 * mu * ( 1.0 - mu );
-    return 2.0 * Omega - ( vx * vx + vy * vy );
+    double                       sigma;
+    double                       lambda_unstable;
+    double                       T_lyapunov;
+    tax::la::VecNT< 4, double >  v_unstable;
+};
+
+inline LinearisationL1 linearisationL1( double mu = kCR3BPMu, double x_L1 = kCR3BPL1 )
+{
+    const double r1    = x_L1 + mu;
+    const double r2    = 1.0 - mu - x_L1;
+    const double sigma = ( 1.0 - mu ) / ( r1 * r1 * r1 )
+                       + mu / ( r2 * r2 * r2 );
+
+    Eigen::Matrix4d A;
+    A <<     0.0,             0.0,        1.0,  0.0,
+             0.0,             0.0,        0.0,  1.0,
+         1.0 + 2.0 * sigma,    0.0,        0.0,  2.0,
+             0.0,         1.0 - sigma,   -2.0,  0.0;
+
+    Eigen::EigenSolver< Eigen::Matrix4d > es( A );
+    const auto& vals = es.eigenvalues();
+    const auto& vecs = es.eigenvectors();
+
+    int    idx_u    = -1;
+    double lambda_u = 0.0;
+    for ( int i = 0; i < 4; ++i )
+    {
+        const double re = vals( i ).real();
+        const double im = vals( i ).imag();
+        if ( std::abs( im ) < 1e-9 && re > lambda_u )
+        {
+            lambda_u = re;
+            idx_u    = i;
+        }
+    }
+
+    LinearisationL1 out{};
+    out.sigma           = sigma;
+    out.lambda_unstable = lambda_u;
+
+    const double u_minus = 0.5 * ( ( sigma - 2.0 )
+                                 - std::sqrt( 9.0 * sigma * sigma - 8.0 * sigma ) );
+    out.T_lyapunov       = 2.0 * M_PI / std::sqrt( -u_minus );
+
+    for ( int i = 0; i < 4; ++i )
+        out.v_unstable( i ) = vecs( i, idx_u ).real();
+    if ( out.v_unstable( 0 ) < 0.0 ) out.v_unstable = -out.v_unstable;
+    out.v_unstable /= out.v_unstable.norm();
+    return out;
 }
 
-// ---- Terminal banner -------------------------------------------------------
+inline const LinearisationL1& linL1()
+{
+    static const LinearisationL1 cached = linearisationL1();
+    return cached;
+}
+
+// ---- Configurable knob (edit, rebuild) -------------------------------------
+//
+// IC box halfwidth around L1. The two halves of the box straddle the
+// unstable manifold; one drifts toward the Moon, the other toward the
+// Earth. Edit the four entries to alter which state-space face the
+// box spreads on (default: (x, vy)).
+inline const tax::la::VecNT< 4, double > kIcBoxHalfWidth{
+    3.0e-5, 0.0, 0.0, 3.0e-5
+};
+
+// ---- IC + box --------------------------------------------------------------
+inline tax::la::VecNT< 4, double > icCenter()
+{
+    return tax::la::VecNT< 4, double >{ kCR3BPL1, 0.0, 0.0, 0.0 };
+}
+
+inline tax::ads::Box< double, 4 > icBox()
+{
+    return tax::ads::Box< double, 4 >{ icCenter(), kIcBoxHalfWidth };
+}
+
+// ---- Boundary of [-1, 1]^2 (closed loop, 4*n + 1 points) -------------------
+inline std::vector< std::array< double, 2 > > unitSquareBoundary( int n_per_edge )
+{
+    std::vector< std::array< double, 2 > > pts;
+    pts.reserve( static_cast< std::size_t >( 4 * n_per_edge + 1 ) );
+    for ( int edge = 0; edge < 4; ++edge )
+    {
+        for ( int i = 0; i < n_per_edge; ++i )
+        {
+            const double s = static_cast< double >( i ) / static_cast< double >( n_per_edge );
+            double a = 0.0, b = 0.0;
+            switch ( edge )
+            {
+                case 0: a = -1.0 + 2.0 * s; b = +1.0;             break;
+                case 1: a = +1.0;            b = +1.0 - 2.0 * s; break;
+                case 2: a = +1.0 - 2.0 * s; b = -1.0;             break;
+                case 3: a = -1.0;            b = -1.0 + 2.0 * s; break;
+            }
+            pts.push_back( { a, b } );
+        }
+    }
+    pts.push_back( pts.front() );
+    return pts;
+}
+
+// ---- Map a boundary point (xi_a, xi_b) to a 4D normalised vector -----------
+//
+// Maps the two active variation axes to their box positions; the two
+// pinned axes get 0. Defaults match kIcBoxHalfWidth (x and vy active);
+// adjust the index pattern if you change kIcBoxHalfWidth.
+inline std::array< double, 4 > boundaryToBox( double a, double b )
+{
+    return { a, 0.0, 0.0, b };
+}
+
+// ---- Pretty terminal banner + JSON helpers ---------------------------------
 inline void printBanner( std::string_view                                            title,
                          std::span< const std::pair< std::string, std::string > > rows )
 {
@@ -106,7 +222,6 @@ inline void printBanner( std::string_view                                       
     std::cout << '\n';
 }
 
-// ---- Inline JSON array writer ----------------------------------------------
 template < class Range >
 inline void writeJsonArray( std::ostream& out, const Range& v )
 {

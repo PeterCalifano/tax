@@ -2,15 +2,11 @@
 """
 examples/three_body/plot.py
 
-Render manifolds.json — the L1 unstable manifold trajectories of the
-planar Earth-Moon CR3BP — in the synodic rotating frame.
+Render the three CR3BP example JSONs (cr3bp_taylor / cr3bp_ads /
+cr3bp_loads) as a 3-panel comparison figure: an IC box at L1 pushed
+forward by a single Taylor flow polynomial, by ADS, and by LOADS.
 
-Run:
-    cd /tmp/your_run_dir
-    /path/to/build/examples/three_body_manifolds
-    python3 /path/to/tax/examples/three_body/plot.py
-
-Output: three_body_manifolds.png
+Output: three_body_box_evolution.png
 """
 
 from __future__ import annotations
@@ -19,12 +15,16 @@ import json
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
+from matplotlib.cm import ScalarMappable
+from matplotlib.colors import Normalize
 
 HERE = Path.cwd()
 
+METHODS = ("taylor", "ads", "loads")
+TITLES  = {"taylor": "Taylor", "ads": "ADS", "loads": "LOADS"}
 
-# ---- Style (match the two-body figures) ------------------------------------
+
+# ---- Framed sans-serif style (same as the two-body figures) ---------------
 plt.rcParams.update({
     "font.family":          "sans-serif",
     "font.sans-serif":      ["Helvetica", "Arial", "DejaVu Sans"],
@@ -54,80 +54,112 @@ plt.rcParams.update({
 })
 
 
-def main() -> None:
-    p = HERE / "manifolds.json"
-    if not p.exists():
-        print("manifolds.json not found. Run three_body_manifolds first.")
-        return
-    data = json.loads(p.read_text())
+def load(method: str) -> dict | None:
+    p = HERE / f"cr3bp_{method}.json"
+    return json.loads(p.read_text()) if p.exists() else None
 
-    cfg          = data["config"]
-    lin          = data["linearization"]
-    trajectories = data["trajectories"]
-    mu           = cfg["mu"]
-    x_L1         = cfg["x_L1"]
-    earth_x      = cfg["earth_x"]
-    moon_x       = cfg["moon_x"]
-    lam          = lin["lambda_unstable"]
 
-    moon_cmap  = plt.cm.Reds
-    earth_cmap = plt.cm.Blues
+def panel_xy_limits(*datasets: dict) -> tuple[tuple[float, float], tuple[float, float]]:
+    xs, ys = [], []
+    for d in datasets:
+        cfg = d.get("config", {})
+        for k in ("earth_x", "moon_x", "x_L1"):
+            if k in cfg:
+                xs.append(cfg[k])
+        ys.append(0.0)
+        for poly in d.get("polygons", []):
+            if "leaves" in poly:
+                for lf in poly["leaves"]:
+                    xs.extend(lf["x"]); ys.extend(lf["y"])
+            else:
+                xs.extend(poly["x"]); ys.extend(poly["y"])
+    if not xs:
+        return (-1.5, 1.5), (-1.5, 1.5)
+    xa, xb = min(xs), max(xs)
+    ya, yb = min(ys), max(ys)
+    px = 0.08 * max(xb - xa, 1e-6)
+    py = 0.08 * max(yb - ya, 1e-6)
+    return (xa - px, xb + px), (ya - py, yb + py)
 
-    moon_traj  = [t for t in trajectories if t["branch"] == "moon"]
-    earth_traj = [t for t in trajectories if t["branch"] == "earth"]
 
-    fig, ax = plt.subplots(figsize=(7.2, 5.4), constrained_layout=True)
+def draw_panel(ax: plt.Axes, data: dict, *,
+               title: str, xlim, ylim, cmap, norm) -> None:
+    cfg      = data["config"]
+    polygons = data["polygons"]
 
-    # ---- Manifold trajectories (each branch in a sequential colour map) ----
-    for i, tr in enumerate(moon_traj):
-        c = moon_cmap(0.4 + 0.55 * i / max(len(moon_traj) - 1, 1))
-        ax.plot(tr["x"], tr["y"], color=c, lw=0.8, alpha=0.95, zorder=2)
-    for i, tr in enumerate(earth_traj):
-        c = earth_cmap(0.4 + 0.55 * i / max(len(earth_traj) - 1, 1))
-        ax.plot(tr["x"], tr["y"], color=c, lw=0.8, alpha=0.95, zorder=2)
+    # Polygon snapshots coloured by time.
+    for snap in polygons:
+        color = cmap(norm(snap["t"]))
+        if "leaves" in snap:
+            for lf in snap["leaves"]:
+                ax.fill(lf["x"], lf["y"], color=color, alpha=0.65,
+                        edgecolor="black", linewidth=0.25, zorder=2)
+        else:
+            ax.fill(snap["x"], snap["y"], color=color, alpha=0.65,
+                    edgecolor="black", linewidth=0.25, zorder=2)
 
-    # ---- Primaries + L1 ----
-    ax.plot(earth_x, 0.0, marker="o", color="#1f77b4", markersize=11,
-            markeredgecolor="black", markeredgewidth=0.5, zorder=10)
-    ax.text(earth_x, -0.04, "Earth", ha="center", va="top", fontsize=7.5)
+    # Primaries + L1.
+    earth_x = cfg["earth_x"]; moon_x = cfg["moon_x"]; x_L1 = cfg["x_L1"]
+    ax.plot(earth_x, 0.0, marker="o", color="#1f77b4", markersize=8,
+            markeredgecolor="black", markeredgewidth=0.4, zorder=10)
+    ax.plot(moon_x, 0.0, marker="o", color="#aeaeae", markersize=4.5,
+            markeredgecolor="black", markeredgewidth=0.4, zorder=10)
+    ax.plot(x_L1, 0.0, marker="x", color="black", markersize=5,
+            markeredgewidth=1.0, zorder=10)
 
-    ax.plot(moon_x, 0.0, marker="o", color="#aeaeae", markersize=6,
-            markeredgecolor="black", markeredgewidth=0.5, zorder=10)
-    ax.text(moon_x, -0.04, "Moon", ha="center", va="top", fontsize=7.5)
-
-    ax.plot(x_L1, 0.0, marker="x", color="black", markersize=7,
-            markeredgewidth=1.2, zorder=10)
-    ax.text(x_L1, 0.04, r"$L_1$", ha="center", va="bottom", fontsize=8.5)
-
-    ax.set_xlabel(r"$x$  (synodic, rotating)")
-    ax.set_ylabel(r"$y$")
+    ax.set_xlim(xlim); ax.set_ylim(ylim)
     ax.set_aspect("equal", "box")
-    ax.set_title(
-        rf"L1 unstable manifolds — Earth-Moon CR3BP "
-        rf"($\mu = {mu:.5f}$, $\lambda = {lam:.3f}$)",
-        loc="left",
-    )
+    ax.set_xlabel(r"$x$")
+    ax.set_ylabel(r"$y$")
+    ax.set_title(title, loc="left")
+    ax.tick_params(length=2.5, width=0.55)
 
-    # ---- Legend ----
-    legend_entries = [
-        Line2D([], [], color=moon_cmap(0.7), lw=1.2,
-               label="unstable manifold (Moon branch, $\\epsilon > 0$)"),
-        Line2D([], [], color=earth_cmap(0.7), lw=1.2,
-               label="unstable manifold (Earth branch, $\\epsilon < 0$)"),
-        Line2D([], [], marker="o", linestyle="none", color="#1f77b4",
-               markersize=7, markeredgecolor="black", markeredgewidth=0.5,
-               label="Earth"),
-        Line2D([], [], marker="o", linestyle="none", color="#aeaeae",
-               markersize=5, markeredgecolor="black", markeredgewidth=0.5,
-               label="Moon"),
-        Line2D([], [], marker="x", linestyle="none", color="black",
-               markersize=7, markeredgewidth=1.2, label="$L_1$"),
-    ]
-    ax.legend(handles=legend_entries, loc="upper right", fontsize=6.8)
 
-    out_path = HERE / "three_body_manifolds.png"
+def main() -> None:
+    loaded = [(m, load(m)) for m in METHODS]
+    loaded = [(m, d) for m, d in loaded if d is not None]
+    if not loaded:
+        print("No cr3bp_*.json files found. Run the three CR3BP examples first.")
+        return
+
+    t_final = max(d["config"]["t_final"] for _, d in loaded)
+    cmap    = plt.cm.viridis
+    norm    = Normalize(vmin=0.0, vmax=t_final)
+    xlim, ylim = panel_xy_limits(*(d for _, d in loaded))
+
+    n_panels = len(loaded)
+    fig      = plt.figure(figsize=(3.0 * n_panels, 3.4),
+                          constrained_layout=True)
+    gs       = fig.add_gridspec(2, n_panels, height_ratios=[1.0, 0.035])
+
+    for col, (m, d) in enumerate(loaded):
+        ax = fig.add_subplot(gs[0, col])
+        draw_panel(ax, d, title=TITLES[m], xlim=xlim, ylim=ylim,
+                   cmap=cmap, norm=norm)
+
+    cax  = fig.add_subplot(gs[1, :])
+    sm   = ScalarMappable(norm=norm, cmap=cmap); sm.set_array([])
+    cbar = fig.colorbar(sm, cax=cax, orientation="horizontal")
+    cbar.set_label(r"$t$", labelpad=1.5)
+    cbar.outline.set_linewidth(0.4)
+    cbar.ax.tick_params(length=2.0, width=0.4, labelsize=6.5)
+
+    out_path = HERE / "three_body_box_evolution.png"
     fig.savefig(out_path)
     print(f"wrote {out_path.name}")
+
+    # Terminal summary.
+    print()
+    print(f"  {'method':<8}  {'elapsed':>9}   {'snaps':>5}   leaves (per snap)")
+    print(f"  {'-'*8:<8}  {'-'*9:>9}   {'-'*5:>5}   {'-'*40}")
+    for m, d in loaded:
+        elapsed = d.get("timing", {}).get("elapsed_ms", float("nan")) / 1e3
+        polys   = d["polygons"]
+        if "leaves" in polys[0]:
+            leaves = [len(s["leaves"]) for s in polys]
+        else:
+            leaves = [1] * len(polys)
+        print(f"  {m:<8}  {elapsed:>7.2f} s   {len(polys):>5}   {leaves}")
 
 
 if __name__ == "__main__":
