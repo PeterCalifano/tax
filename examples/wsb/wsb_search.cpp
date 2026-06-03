@@ -267,51 +267,163 @@ inline void writeArray( std::ostream& o, const std::vector< double >& v )
 }  // namespace
 
 
-int main()
+namespace
 {
-    std::vector< double > r_as_km;
-    for ( double r = 1.20e6; r <= 1.501e6; r += 0.05e6 ) r_as_km.push_back( r );
 
-    std::vector< double > omegas;
-    constexpr int N_omega = 72;
-    for ( int i = 0; i < N_omega; ++i )
-        omegas.push_back( 2.0 * std::numbers::pi * static_cast< double >( i ) / N_omega );
+inline double normaliseDeg( double w_deg )
+{
+    double w = std::fmod( w_deg, 360.0 );
+    if ( w < 0.0 ) w += 360.0;
+    return w;
+}
 
-    std::cout << "[wsb_search] grid " << r_as_km.size() << " x "
-              << omegas.size() << " = "
-              << ( r_as_km.size() * omegas.size() ) << " trials..."
+struct Sweep
+{
+    std::vector< double >       r_as_km;
+    std::vector< double >       omegas_rad;     // in [0, 2*pi)
+    std::vector< TrialResult >  results;
+    double                      wall_ms;
+};
+
+inline Sweep runSweep( std::vector< double > r_as_km,
+                       std::vector< double > omegas_rad,
+                       std::string_view      label )
+{
+    Sweep sw;
+    sw.r_as_km    = std::move( r_as_km );
+    sw.omegas_rad = std::move( omegas_rad );
+    sw.results.reserve( sw.r_as_km.size() * sw.omegas_rad.size() );
+
+    std::cout << "[wsb_search] " << label << " grid "
+              << sw.r_as_km.size() << " x " << sw.omegas_rad.size() << " = "
+              << ( sw.r_as_km.size() * sw.omegas_rad.size() ) << " trials..."
               << std::flush;
 
-    const auto t_start = std::chrono::high_resolution_clock::now();
-    std::vector< TrialResult > results;
-    results.reserve( r_as_km.size() * omegas.size() );
-    for ( double r_a : r_as_km )
-        for ( double w : omegas )
-            results.push_back( scanOne( r_a, w ) );
-    const auto t_end = std::chrono::high_resolution_clock::now();
-    const double sweep_ms =
-        std::chrono::duration< double, std::milli >( t_end - t_start ).count();
-    int n_success = 0, n_apogee = 0, n_moon = 0, n_pro = 0;
-    for ( const auto& r : results )
-    {
-        if ( r.reached_apogee )    ++n_apogee;
-        if ( r.reached_moon )      ++n_moon;
-        if ( r.prograde_arrival )  ++n_pro;
-        if ( r.score < 1e8 )       ++n_success;
-    }
-    std::cout << " done in " << ( sweep_ms / 1e3 ) << " s\n";
-    std::cout << "  trials reaching apogee : " << n_apogee << " / " << results.size() << "\n";
-    std::cout << "  trials reaching Moon   : " << n_moon   << " / " << results.size() << "\n";
-    std::cout << "  trials prograde at Moon: " << n_pro    << " / " << results.size() << "\n";
-    std::cout << "  trials with valid score: " << n_success << " / " << results.size() << "\n";
+    const auto t0 = std::chrono::high_resolution_clock::now();
+    for ( double r_a : sw.r_as_km )
+        for ( double w : sw.omegas_rad )
+            sw.results.push_back( scanOne( r_a, w ) );
+    const auto t1 = std::chrono::high_resolution_clock::now();
+    sw.wall_ms = std::chrono::duration< double, std::milli >( t1 - t0 ).count();
 
-    auto best_it = std::min_element(
-        results.begin(), results.end(),
+    int n_apogee = 0, n_moon = 0, n_pro = 0, n_success = 0;
+    for ( const auto& r : sw.results )
+    {
+        if ( r.reached_apogee )   ++n_apogee;
+        if ( r.reached_moon )     ++n_moon;
+        if ( r.prograde_arrival ) ++n_pro;
+        if ( r.score < 1e8 )      ++n_success;
+    }
+    std::cout << " done in " << ( sw.wall_ms / 1e3 ) << " s"
+              << "  (apogee=" << n_apogee << ", Moon=" << n_moon
+              << ", pro=" << n_pro << ", valid=" << n_success
+              << " / " << sw.results.size() << ")\n";
+    return sw;
+}
+
+inline void writeSweepArray( std::ostream& out, const std::vector< TrialResult >& v )
+{
+    out << "[\n";
+    for ( std::size_t i = 0; i < v.size(); ++i )
+    {
+        const auto& r = v[ i ];
+        out << "    { "
+            << "\"r_a_km\": "    << r.r_a_km    << ", "
+            << "\"omega_deg\": " << ( r.omega_rad * 180.0 / std::numbers::pi ) << ", "
+            << "\"reached_apogee\": " << ( r.reached_apogee ? "true" : "false" ) << ", "
+            << "\"reached_moon\": "   << ( r.reached_moon   ? "true" : "false" ) << ", "
+            << "\"prograde\": "       << ( r.prograde_arrival ? "true" : "false" ) << ", "
+            << "\"score\": "          << r.score          << ", "
+            << "\"r_apogee_km\": "    << r.r_apogee_km    << ", "
+            << "\"t_apogee_days\": "  << r.t_apogee_days  << ", "
+            << "\"t_arrival_days\": " << r.t_arrival_days << ", "
+            << "\"vr_arrival_kms\": " << r.vr_arrival_kms << ", "
+            << "\"vt_arrival_kms\": " << r.vt_arrival_kms << ", "
+            << "\"v_arrival_kms\": "  << r.v_arrival_kms
+            << " }" << ( i + 1 < v.size() ? "," : "" ) << "\n";
+    }
+    out << "  ]";
+}
+
+}  // namespace
+
+
+int main()
+{
+    // ---- Pass 1 — coarse sweep ----------------------------------------------
+    std::vector< double > r_as_coarse;
+    for ( double r = 1.20e6; r <= 1.501e6; r += 0.05e6 ) r_as_coarse.push_back( r );
+    std::vector< double > omegas_coarse;
+    constexpr int N_omega_coarse = 72;     // every 5 degrees
+    for ( int i = 0; i < N_omega_coarse; ++i )
+        omegas_coarse.push_back( 2.0 * std::numbers::pi
+                               * static_cast< double >( i ) / N_omega_coarse );
+
+    const Sweep sw_coarse = runSweep( r_as_coarse, omegas_coarse, "coarse" );
+
+    auto coarse_best_it = std::min_element(
+        sw_coarse.results.begin(), sw_coarse.results.end(),
         []( const TrialResult& a, const TrialResult& b )
-        {
-            return a.score < b.score;
-        } );
-    const auto& best = *best_it;
+        { return a.score < b.score; } );
+
+    // ---- Pass 2 — fine sweep around the coarse minimum ----------------------
+    const double coarse_best_r_a    = coarse_best_it->r_a_km;
+    const double coarse_best_w_deg  = coarse_best_it->omega_rad * 180.0 / std::numbers::pi;
+
+    std::vector< double > r_as_fine;
+    {
+        const double rmin = std::max( 1.05e6, coarse_best_r_a - 0.075e6 );
+        const double rmax = std::min( 1.55e6, coarse_best_r_a + 0.075e6 );
+        for ( double r = rmin; r <= rmax + 1.0; r += 0.0025e6 )
+            r_as_fine.push_back( r );
+    }
+    std::vector< double > omegas_fine;
+    {
+        const double wmin = coarse_best_w_deg - 7.5;
+        const double wmax = coarse_best_w_deg + 7.5;
+        for ( double w = wmin; w <= wmax + 1e-9; w += 0.25 )
+            omegas_fine.push_back( normaliseDeg( w ) * std::numbers::pi / 180.0 );
+    }
+
+    const Sweep sw_fine = runSweep( r_as_fine, omegas_fine, "fine  " );
+
+    // ---- Pass 3 — ultra-fine sweep around the fine minimum ------------------
+    auto fine_best_it = std::min_element(
+        sw_fine.results.begin(), sw_fine.results.end(),
+        []( const TrialResult& a, const TrialResult& b )
+        { return a.score < b.score; } );
+
+    const double fine_best_r_a    = fine_best_it->r_a_km;
+    const double fine_best_w_deg  = fine_best_it->omega_rad * 180.0 / std::numbers::pi;
+
+    std::vector< double > r_as_ultra;
+    {
+        const double rmin = std::max( 1.05e6, fine_best_r_a - 0.005e6 );
+        const double rmax = std::min( 1.55e6, fine_best_r_a + 0.005e6 );
+        for ( double r = rmin; r <= rmax + 1.0; r += 1.0e2 )    // 100 km
+            r_as_ultra.push_back( r );
+    }
+    std::vector< double > omegas_ultra;
+    {
+        const double wmin = fine_best_w_deg - 0.5;
+        const double wmax = fine_best_w_deg + 0.5;
+        for ( double w = wmin; w <= wmax + 1e-9; w += 0.01 )    // 0.01 deg
+            omegas_ultra.push_back( normaliseDeg( w ) * std::numbers::pi / 180.0 );
+    }
+
+    const Sweep sw_ultra = runSweep( r_as_ultra, omegas_ultra, "ultra " );
+
+    auto ultra_best_it = std::min_element(
+        sw_ultra.results.begin(), sw_ultra.results.end(),
+        []( const TrialResult& a, const TrialResult& b )
+        { return a.score < b.score; } );
+
+    const TrialResult& best =
+        ( ultra_best_it->score < fine_best_it->score )
+            ? ( ultra_best_it->score < coarse_best_it->score
+                    ? *ultra_best_it : *coarse_best_it )
+            : ( fine_best_it->score < coarse_best_it->score
+                    ? *fine_best_it  : *coarse_best_it );
 
     using namespace tax::ode::methods;
     tax::ode::IntegratorConfig< double > cfg;
@@ -363,26 +475,9 @@ int main()
     out << "    \"alt_km\":            " << kAlt_km      << "\n";
     out << "  },\n";
 
-    out << "  \"sweep\": [\n";
-    for ( std::size_t i = 0; i < results.size(); ++i )
-    {
-        const auto& r = results[ i ];
-        out << "    { "
-            << "\"r_a_km\": "    << r.r_a_km    << ", "
-            << "\"omega_deg\": " << ( r.omega_rad * 180.0 / std::numbers::pi ) << ", "
-            << "\"reached_apogee\": " << ( r.reached_apogee ? "true" : "false" ) << ", "
-            << "\"reached_moon\": "   << ( r.reached_moon   ? "true" : "false" ) << ", "
-            << "\"prograde\": "       << ( r.prograde_arrival ? "true" : "false" ) << ", "
-            << "\"score\": "          << r.score          << ", "
-            << "\"r_apogee_km\": "    << r.r_apogee_km    << ", "
-            << "\"t_apogee_days\": "  << r.t_apogee_days  << ", "
-            << "\"t_arrival_days\": " << r.t_arrival_days << ", "
-            << "\"vr_arrival_kms\": " << r.vr_arrival_kms << ", "
-            << "\"vt_arrival_kms\": " << r.vt_arrival_kms << ", "
-            << "\"v_arrival_kms\": "  << r.v_arrival_kms
-            << " }" << ( i + 1 < results.size() ? "," : "" ) << "\n";
-    }
-    out << "  ],\n";
+    out << "  \"sweep_coarse\": "; writeSweepArray( out, sw_coarse.results ); out << ",\n";
+    out << "  \"sweep_fine\": ";   writeSweepArray( out, sw_fine.results );   out << ",\n";
+    out << "  \"sweep_ultra\": ";  writeSweepArray( out, sw_ultra.results );  out << ",\n";
 
     out << "  \"best\": {\n";
     out << "    \"r_a_km\":         " << best.r_a_km << ",\n";
@@ -419,9 +514,15 @@ int main()
                   << label << " : " << value << '\n';
     };
     std::cout << "\n=== Sun-Earth WSB search — best trial ===\n";
-    row( "grid",                std::to_string( r_as_km.size() ) + " r_a x "
-                              + std::to_string( omegas.size() ) + " omega" );
-    row( "sweep wall-clock",    std::to_string( sweep_ms / 1e3 ) + " s" );
+    row( "coarse grid",         std::to_string( sw_coarse.r_as_km.size() ) + " x "
+                              + std::to_string( sw_coarse.omegas_rad.size() ) + " ("
+                              + std::to_string( sw_coarse.wall_ms / 1e3 ) + " s)" );
+    row( "fine grid",           std::to_string( sw_fine.r_as_km.size() ) + " x "
+                              + std::to_string( sw_fine.omegas_rad.size() ) + " ("
+                              + std::to_string( sw_fine.wall_ms / 1e3 ) + " s)" );
+    row( "ultra grid",          std::to_string( sw_ultra.r_as_km.size() ) + " x "
+                              + std::to_string( sw_ultra.omegas_rad.size() ) + " ("
+                              + std::to_string( sw_ultra.wall_ms / 1e3 ) + " s)" );
     row( "r_a (km)",            std::to_string( best.r_a_km ) );
     row( "omega (deg)",         std::to_string( best.omega_rad * 180.0 / std::numbers::pi ) );
     row( "C3 (km^2/s^2)",       std::to_string( best.ic_info.C3_kms2 ) );

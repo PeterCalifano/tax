@@ -63,12 +63,14 @@ def main() -> None:
         return
     data = json.loads(p.read_text())
 
-    cfg    = data["config"]
-    best   = data["best"]
-    traj   = data["trajectory"]
-    sweep  = data["sweep"]
-    AU_km  = cfg["AU_km"]
-    day_u  = cfg["time_unit_days"]
+    cfg          = data["config"]
+    best         = data["best"]
+    traj         = data["trajectory"]
+    sweep_coarse = data["sweep_coarse"]
+    sweep_fine   = data.get("sweep_fine", [])
+    sweep_ultra  = data.get("sweep_ultra", [])
+    AU_km        = cfg["AU_km"]
+    day_u        = cfg["time_unit_days"]
 
     x = np.asarray(traj["x_earth"]) * AU_km
     y = np.asarray(traj["y_earth"]) * AU_km
@@ -83,11 +85,11 @@ def main() -> None:
     cmap = plt.cm.viridis
     norm = plt.Normalize(vmin=0.0, vmax=t.max())
 
-    fig = plt.figure(figsize=(13.5, 8.5), constrained_layout=True)
-    gs  = fig.add_gridspec(2, 3, width_ratios=[1.0, 1.0, 1.0])
+    fig = plt.figure(figsize=(14.5, 9.0), constrained_layout=True)
+    gs  = fig.add_gridspec(2, 4, width_ratios=[1.0, 1.0, 1.0, 1.0])
 
     # ---- (a) Wide view ----
-    ax = fig.add_subplot(gs[0, 0])
+    ax = fig.add_subplot(gs[0, 0:2])
     for i in range(len(x) - 1):
         ax.plot(x[i:i+2], y[i:i+2], color=cmap(norm(t[i])),
                 lw=0.55, zorder=2)
@@ -113,7 +115,7 @@ def main() -> None:
     cbar.set_label("days")
 
     # ---- (b) Earth-vicinity zoom ----
-    ax = fig.add_subplot(gs[0, 1])
+    ax = fig.add_subplot(gs[0, 2])
     for i in range(len(x) - 1):
         ax.plot(x[i:i+2], y[i:i+2], color=cmap(norm(t[i])),
                 lw=0.55, zorder=2)
@@ -131,7 +133,7 @@ def main() -> None:
             fontsize=6.5, color="#666666")
 
     # ---- (c) r(t) ----
-    ax = fig.add_subplot(gs[0, 2])
+    ax = fig.add_subplot(gs[0, 3])
     ax.plot(t, r, color="#1f77b4", lw=0.8, label=r"$r(t)$")
     ax.axhline(hill_r, color="#7d7d7d", linestyle="--", lw=0.6, label="Earth Hill")
     ax.axhline(moon_r, color="#aeaeae", linestyle=":",  lw=0.6, label="Moon orbit")
@@ -145,30 +147,47 @@ def main() -> None:
     ax.set_title("(c) r(t)", loc="left")
     ax.legend(loc="lower right", fontsize=6.5)
 
-    # ---- (d) Sweep heatmap ----
-    ax = fig.add_subplot(gs[1, :])
-    r_as = sorted(set(s["r_a_km"] for s in sweep))
-    omegas = sorted(set(s["omega_deg"] for s in sweep))
-    Z = np.full((len(r_as), len(omegas)), np.nan)
-    for s in sweep:
-        if s["reached_moon"] and s["prograde"]:
-            i_r = r_as.index(s["r_a_km"])
-            i_w = omegas.index(s["omega_deg"])
-            Z[i_r, i_w] = s["score"]
-    im = ax.pcolormesh(omegas, r_as, Z, cmap="cividis_r", shading="nearest",
-                       vmin=0.0, vmax=1.0)
-    ax.plot(best["omega_deg"], best["r_a_km"], marker="*",
-            color="white", markeredgecolor="black",
-            markeredgewidth=0.6, markersize=14, zorder=10)
-    ax.set_xlabel(r"$\omega$  (deg)")
-    ax.set_ylabel(r"$r_a$  (km)")
-    ax.set_title(
-        "(d) Tangency score |$v_r$|/|$v$| at first inbound Moon-orbit "
-        "crossing (white = no crossing or retrograde)",
-        loc="left",
-    )
-    cbar = fig.colorbar(im, ax=ax, fraction=0.04, pad=0.02)
-    cbar.set_label(r"|$v_r$|/|$v$|")
+    # ---- (d/e/f) Sweep heatmaps ----
+    def _draw_heatmap(ax, sweep_data, *, vmax, title, mark_best=True):
+        if not sweep_data:
+            ax.set_visible(False)
+            return None
+        r_as_h = sorted(set(s["r_a_km"] for s in sweep_data))
+        ws_h   = sorted(set(round(s["omega_deg"], 6) for s in sweep_data))
+        Z = np.full((len(r_as_h), len(ws_h)), np.nan)
+        for s in sweep_data:
+            if s["reached_moon"] and s["prograde"]:
+                Z[r_as_h.index(s["r_a_km"]),
+                  ws_h.index(round(s["omega_deg"], 6))] = s["score"]
+        im = ax.pcolormesh(ws_h, r_as_h, Z, cmap="cividis_r",
+                           shading="nearest", vmin=0.0, vmax=vmax)
+        if mark_best:
+            ax.plot(best["omega_deg"], best["r_a_km"], marker="*",
+                    color="white", markeredgecolor="black",
+                    markeredgewidth=0.5, markersize=12, zorder=10)
+        ax.set_xlabel(r"$\omega$  (deg)")
+        ax.set_ylabel(r"$r_a$  (km)")
+        ax.set_title(title, loc="left", fontsize=9.5)
+        return im
+
+    ax_d = fig.add_subplot(gs[1, 0:2])
+    im_d = _draw_heatmap(ax_d, sweep_coarse, vmax=1.0,
+                         title="(d) coarse sweep — |$v_r$|/|$v$|")
+    if im_d is not None:
+        cbar = fig.colorbar(im_d, ax=ax_d, fraction=0.04, pad=0.02)
+        cbar.set_label("score")
+
+    ax_e = fig.add_subplot(gs[1, 2])
+    im_e = _draw_heatmap(ax_e, sweep_fine, vmax=0.30,
+                         title="(e) fine sweep")
+    if im_e is not None:
+        cbar = fig.colorbar(im_e, ax=ax_e, fraction=0.04, pad=0.02)
+
+    ax_f = fig.add_subplot(gs[1, 3])
+    im_f = _draw_heatmap(ax_f, sweep_ultra, vmax=0.05,
+                         title="(f) ultra sweep")
+    if im_f is not None:
+        cbar = fig.colorbar(im_f, ax=ax_f, fraction=0.04, pad=0.02)
 
     fp_deg = np.degrees(np.arctan2(best["vr_arrival_kms"],
                                    best["vt_arrival_kms"]))
