@@ -16,9 +16,11 @@
 // =============================================================================
 
 #include <chrono>
+#include <cstdlib>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <thread>
 
 #include <tax/ads.hpp>
 #include <tax/la/types.hpp>
@@ -89,6 +91,16 @@ int main()
     }
     out << "  },\n";
 
+    const int kThreads = [] {
+        if ( const char* e = std::getenv( "TAX_ADS_THREADS" ) )
+        {
+            const int n = std::atoi( e );
+            if ( n > 0 ) return n;
+        }
+        const unsigned hc = std::thread::hardware_concurrency();
+        return hc > 0 ? static_cast< int >( hc ) : 1;
+    }();
+
     out << "  \"polygons\": [\n";
     std::vector< double > xs( boundary.size() ), ys( boundary.size() );
     std::vector< int >    leaves_per_snap;
@@ -121,14 +133,16 @@ int main()
             const auto t_a   = std::chrono::high_resolution_clock::now();
             auto       tree  = tax::ads::propagate< P >(
                 Verner89{}, criterion, rhs(),
-                ic_box, icCenter(), 0.0, t_snap, cfg );
+                ic_box, icCenter(), 0.0, t_snap, cfg, kThreads );
             const auto t_b   = std::chrono::high_resolution_clock::now();
             ads_total_ms += std::chrono::duration< double, std::milli >( t_b - t_a ).count();
 
             bool first = true;
+            int  rank  = 0;
             for ( int li : tree.done() )
             {
                 const auto& leaf = tree.leaf( li );
+                const int   id   = rank++;
                 for ( std::size_t v = 0; v < boundary.size(); ++v )
                 {
                     const auto d = boundaryToBox( boundary[ v ][ 0 ], boundary[ v ][ 1 ] );
@@ -137,7 +151,7 @@ int main()
                 }
                 if ( !first ) out << ",";
                 first = false;
-                out << "\n      { \"id\": " << li << ", \"depth\": " << leaf.depth
+                out << "\n      { \"id\": " << id << ", \"depth\": " << leaf.depth
                     << ", \"x\": "; writeJsonArray( out, xs );
                 out << ", \"y\": "; writeJsonArray( out, ys );
                 out << " }";
