@@ -2,10 +2,10 @@
 """
 examples/wsb/plot_box.py
 
-Render the three WSB box-propagation JSONs (wsb_taylor / wsb_ads /
-wsb_loads) as a 3-panel comparison figure: 1 km / 1 m/s IC box
-around the tangent WSB IC, pushed forward through the Sun-Earth
-CR3BP for 150 days with snapshots every 5 days.
+Render the two WSB box-propagation JSONs (wsb_taylor / wsb_ads) as
+a 2-panel comparison figure: 1 km / 1 m/s IC box around the tangent
+WSB IC, pushed forward through the Sun-Earth CR3BP up to Moon-orbit
+interception (76 days) with snapshots every 5 days.
 
 Output: wsb_box_evolution.png
 """
@@ -22,8 +22,8 @@ from matplotlib.patches import Circle
 
 HERE = Path.cwd()
 
-METHODS = ("taylor", "ads", "loads")
-TITLES  = {"taylor": "Taylor", "ads": "ADS", "loads": "LOADS"}
+METHODS = ("taylor", "ads")
+TITLES  = {"taylor": "Taylor", "ads": "ADS"}
 
 
 plt.rcParams.update({

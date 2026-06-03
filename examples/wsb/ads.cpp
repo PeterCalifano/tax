@@ -26,7 +26,7 @@ int main()
     using namespace example::wsb;
     using namespace tax::ode::methods;
 
-    constexpr int P = 4;
+    constexpr int P = 6;
     constexpr int M = 4;
     constexpr int D = 4;
 
@@ -47,7 +47,7 @@ int main()
     const tax::ads::TruncationCriterion criterion{ /*tol=*/1e-4, /*maxDepth=*/6 };
 
     auto ref_sol = tax::ode::propagate< /*Dense=*/true >(
-        Feagin12{}, rhs(), icCenter(), 0.0, tFinal_days / kTimeU_days, cfg );
+        Verner89{}, rhs(), icCenter(), 0.0, tFinal_days / kTimeU_days, cfg );
 
     std::vector< double > times_canon( kNSnaps );
     for ( int i = 0; i < kNSnaps; ++i )
