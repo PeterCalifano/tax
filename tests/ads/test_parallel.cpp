@@ -7,8 +7,6 @@
 #include <gtest/gtest.h>
 
 #include <cstddef>
-#include <utility>
-
 #include <tax/ads/box.hpp>
 #include <tax/ads/criteria.hpp>
 #include <tax/ads/driver.hpp>
@@ -17,6 +15,7 @@
 #include <tax/la/types.hpp>
 #include <tax/ode.hpp>
 #include <tax/tax.hpp>
+#include <utility>
 
 using tax::ads::AdsDriver;
 using tax::ads::Box;
@@ -30,17 +29,17 @@ constexpr int P = 6;
 constexpr int M = 2;
 constexpr int D = 2;
 
-using TE      = tax::TE< P, M >;
+using TE = tax::TE< P, M >;
 using DAState = tax::la::VecNT< D, TE >;
 using Stepper = Verner89Stepper< DAState >;
-using Tree    = tax::ads::AdsTree< DAState, M, double >;
+using Tree = tax::ads::AdsTree< DAState, M, double >;
 
 auto rhs()
 {
     return []( const auto& x, double ) {
         using S = std::decay_t< decltype( x ) >;
         S out{ x.size() };
-        out( 0 ) =  x( 1 );
+        out( 0 ) = x( 1 );
         out( 1 ) = -x( 0 ) - 0.1 * x( 0 ) * x( 0 ) * x( 0 );
         return out;
     };
@@ -58,11 +57,7 @@ Tree runWith( int num_threads )
     cfg.abstol = cfg.reltol = 1e-12;
 
     AdsDriver< Stepper, TruncationCriterion > driver{
-        TruncationCriterion{ /*tol=*/1e-7, /*maxDepth=*/6 },
-        cfg,
-        {},
-        num_threads
-    };
+        TruncationCriterion{ /*tol=*/1e-7, /*maxDepth=*/6 }, cfg, {}, num_threads };
     return driver.run( rhs(), ic_box, center, /*t0=*/0.0, t1 );
 }
 
@@ -74,16 +69,16 @@ void expectTreesEqual( const Tree& a, const Tree& b )
     constexpr std::size_t Nc = tax::numMonomials( P, M );
     for ( std::size_t i = 0; i < da.size(); ++i )
     {
-        const auto& la = a.leaf( da[ i ] );
-        const auto& lb = b.leaf( db[ i ] );
+        const auto& la = a.leaf( da[i] );
+        const auto& lb = b.leaf( db[i] );
         for ( int j = 0; j < M; ++j )
         {
-            EXPECT_NEAR( la.box.center( j ),    lb.box.center( j ),    1e-12 );
+            EXPECT_NEAR( la.box.center( j ), lb.box.center( j ), 1e-12 );
             EXPECT_NEAR( la.box.halfWidth( j ), lb.box.halfWidth( j ), 1e-12 );
         }
         for ( int r = 0; r < D; ++r )
             for ( std::size_t k = 0; k < Nc; ++k )
-                EXPECT_NEAR( la.payload( r )[ k ], lb.payload( r )[ k ], 1e-12 )
+                EXPECT_NEAR( la.payload( r )[k], lb.payload( r )[k], 1e-12 )
                     << "leaf " << i << " row " << r << " coeff " << k;
     }
 }

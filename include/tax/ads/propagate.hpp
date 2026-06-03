@@ -11,10 +11,10 @@
 //       rhs, ic_box, ic_center, t0, t1, cfg);
 //
 // P is required (the DA truncation order). The method tag selects the
-// stepper. The criterion drives splits. cfg is optional. num_threads (trailing, default 1) opts into the
-//   parallel ADS driver; >1 integrates independent boxes concurrently.
-// User events are not forwarded by this convenience wrapper — instantiate
-// AdsDriver directly if you need them.
+// stepper. The criterion drives splits. cfg is optional. num_threads
+// (trailing, default 1) opts into the parallel ADS driver; >1 integrates
+// independent boxes concurrently. User events are not forwarded by this
+// convenience wrapper — instantiate AdsDriver directly if you need them.
 
 #pragma once
 
@@ -31,13 +31,9 @@ namespace tax::ads
 {
 
 template < int P, class Method, class Criterion, class F, class T, int M, int D >
-[[nodiscard]] auto propagate(
-    Method, Criterion crit, F&& rhs,
-    const Box< T, M >&              ic_box,
-    const Eigen::Matrix< T, D, 1 >& ic_center,
-    const T& t0, const T& t1,
-    tax::ode::IntegratorConfig< T > cfg = {},
-    int num_threads = 1 )
+[[nodiscard]] auto propagate( Method, Criterion crit, F&& rhs, const Box< T, M >& ic_box,
+                              const Eigen::Matrix< T, D, 1 >& ic_center, const T& t0, const T& t1,
+                              tax::ode::IntegratorConfig< T > cfg = {}, int num_threads = 1 )
 {
     using TE      = tax::TaylorExpansion< T, P, M, tax::storage::Dense >;
     using DAState = Eigen::Matrix< TE, D, 1 >;

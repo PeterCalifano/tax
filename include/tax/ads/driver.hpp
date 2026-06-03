@@ -10,6 +10,9 @@
 
 #pragma once
 
+#include <condition_variable>
+#include <exception>
+#include <mutex>
 #include <tax/ads/box.hpp>
 #include <tax/ads/da_state.hpp>
 #include <tax/ads/split_event.hpp>
@@ -18,12 +21,8 @@
 #include <tax/la/types.hpp>
 #include <tax/ode/event.hpp>
 #include <tax/ode/integrator.hpp>
-#include <type_traits>
-
-#include <condition_variable>
-#include <exception>
-#include <mutex>
 #include <thread>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -77,10 +76,10 @@ class AdsDriver
     // finalize with a flow-map payload. Computed lock-free in stepLeaf.
     struct LeafVerdict
     {
-        bool  split = false;
-        int   dim = -1;
-        T     splitTime{};
-        T     splitValue{};
+        bool split = false;
+        int dim = -1;
+        T splitTime{};
+        T splitValue{};
         State left{};
         State right{};
         State finalPayload{};
@@ -97,8 +96,7 @@ class AdsDriver
         auto events = extras_;  // copy
         events.emplace_back( SplitTrigger( crit_, depth ), SplitAction( crit_, &req ) );
 
-        tax::ode::Integrator< Stepper, std::decay_t< F > > integ{ rhs, cfg_,
-                                                                  std::move( events ) };
+        tax::ode::Integrator< Stepper, std::decay_t< F > > integ{ rhs, cfg_, std::move( events ) };
         auto sol = integ.integrate( payload, tEntry, t1 );
 
         // Guard against a split fired at (or beyond) the final time —
@@ -109,17 +107,16 @@ class AdsDriver
         LeafVerdict v;
         if ( req.fired && !atFinal )
         {
-            v.split      = true;
-            v.dim        = req.dim;
-            v.splitTime  = req.t;
+            v.split = true;
+            v.dim = req.dim;
+            v.splitTime = req.t;
             v.splitValue = box.center( req.dim );
-            auto pr      = tax::ads::split( sol.x.back(), box, req.dim );
-            v.left       = std::move( pr.first );
-            v.right      = std::move( pr.second );
-        }
-        else
+            auto pr = tax::ads::split( sol.x.back(), box, req.dim );
+            v.left = std::move( pr.first );
+            v.right = std::move( pr.second );
+        } else
         {
-            v.split        = false;
+            v.split = false;
             v.finalPayload = std::move( sol.x.back() );
         }
         return v;
@@ -139,8 +136,7 @@ class AdsDriver
             {
                 (void)tree.split( idx, v.dim, v.splitValue, std::move( v.left ),
                                   std::move( v.right ), v.splitTime );
-            }
-            else
+            } else
             {
                 tree.leaf( idx ).payload = std::move( v.finalPayload );
                 tree.finalize( idx );
@@ -157,14 +153,13 @@ class AdsDriver
     template < class F >
     void driveParallel( const F& rhs, Tree& tree, T t1 )
     {
-        std::mutex              mtx;
+        std::mutex mtx;
         std::condition_variable cv;
-        int                     in_flight = 0;
-        bool                    stopping  = false;
-        std::exception_ptr      first_err = nullptr;
+        int in_flight = 0;
+        bool stopping = false;
+        std::exception_ptr first_err = nullptr;
 
-        auto worker = [&]()
-        {
+        auto worker = [&]() {
             for ( ;; )
             {
                 std::unique_lock< std::mutex > lk( mtx );
@@ -186,10 +181,10 @@ class AdsDriver
                 // and may reallocate, so we must not hold references to
                 // leaf storage across the lock-free integration. Indices
                 // stay valid across reallocation; references do not.
-                State     payload = tree.leaf( idx ).payload;
-                const T   tEntry  = tree.leaf( idx ).tEntry;
-                const int depth   = tree.leaf( idx ).depth;
-                const BoxT box    = tree.leaf( idx ).box;
+                State payload = tree.leaf( idx ).payload;
+                const T tEntry = tree.leaf( idx ).tEntry;
+                const int depth = tree.leaf( idx ).depth;
+                const BoxT box = tree.leaf( idx ).box;
                 ++in_flight;
                 lk.unlock();
 
@@ -197,8 +192,7 @@ class AdsDriver
                 try
                 {
                     v = stepLeaf( rhs, payload, tEntry, depth, box, t1 );
-                }
-                catch ( ... )
+                } catch ( ... )
                 {
                     lk.lock();
                     if ( !first_err ) first_err = std::current_exception();
@@ -213,8 +207,7 @@ class AdsDriver
                 {
                     (void)tree.split( idx, v.dim, v.splitValue, std::move( v.left ),
                                       std::move( v.right ), v.splitTime );
-                }
-                else
+                } else
                 {
                     tree.leaf( idx ).payload = std::move( v.finalPayload );
                     tree.finalize( idx );

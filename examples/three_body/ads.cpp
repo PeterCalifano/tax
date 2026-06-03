@@ -20,12 +20,11 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
-#include <thread>
-
 #include <tax/ads.hpp>
 #include <tax/la/types.hpp>
 #include <tax/ode.hpp>
 #include <tax/ode/io.hpp>
+#include <thread>
 
 #include "common.hpp"
 
@@ -131,18 +130,17 @@ int main()
         else
         {
             const auto t_a   = std::chrono::high_resolution_clock::now();
-            auto       tree  = tax::ads::propagate< P >(
-                Verner89{}, criterion, rhs(),
-                ic_box, icCenter(), 0.0, t_snap, cfg, kThreads );
+            auto tree = tax::ads::propagate< P >( Verner89{}, criterion, rhs(), ic_box, icCenter(),
+                                                  0.0, t_snap, cfg, kThreads );
             const auto t_b   = std::chrono::high_resolution_clock::now();
             ads_total_ms += std::chrono::duration< double, std::milli >( t_b - t_a ).count();
 
             bool first = true;
-            int  rank  = 0;
+            int rank = 0;
             for ( int li : tree.done() )
             {
                 const auto& leaf = tree.leaf( li );
-                const int   id   = rank++;
+                const int id = rank++;
                 for ( std::size_t v = 0; v < boundary.size(); ++v )
                 {
                     const auto d = boundaryToBox( boundary[ v ][ 0 ], boundary[ v ][ 1 ] );
@@ -151,8 +149,8 @@ int main()
                 }
                 if ( !first ) out << ",";
                 first = false;
-                out << "\n      { \"id\": " << id << ", \"depth\": " << leaf.depth
-                    << ", \"x\": "; writeJsonArray( out, xs );
+                out << "\n      { \"id\": " << id << ", \"depth\": " << leaf.depth << ", \"x\": ";
+                writeJsonArray( out, xs );
                 out << ", \"y\": "; writeJsonArray( out, ys );
                 out << " }";
             }
