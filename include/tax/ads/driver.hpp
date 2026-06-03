@@ -19,6 +19,11 @@
 #include <tax/ode/event.hpp>
 #include <tax/ode/integrator.hpp>
 #include <type_traits>
+
+#include <condition_variable>
+#include <exception>
+#include <mutex>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -58,7 +63,10 @@ class AdsDriver
         State root_state = tax::ads::create< N, M >( ic_box, ic_center );
         (void)tree.init( ic_box, std::move( root_state ), t0 );
 
-        driveSerial( rhs, tree, t1 );
+        if ( num_threads_ > 1 )
+            driveParallel( rhs, tree, t1 );
+        else
+            driveSerial( rhs, tree, t1 );
 
         tree.canonicalizeDone();
         return tree;
@@ -138,6 +146,91 @@ class AdsDriver
                 tree.finalize( idx );
             }
         }
+    }
+
+    // Parallel scheduler: num_threads_ jthread workers pull ready leaves
+    // from the tree's work queue. The expensive integration (stepLeaf)
+    // runs lock-free on copied-out inputs; the mutex guards only the
+    // cheap queue access and tree mutation plus the in_flight counter.
+    // Termination: queue empty AND no task in flight. Worker exceptions
+    // are captured (first wins) and rethrown on the calling thread.
+    template < class F >
+    void driveParallel( const F& rhs, Tree& tree, T t1 )
+    {
+        std::mutex              mtx;
+        std::condition_variable cv;
+        int                     in_flight = 0;
+        bool                    stopping  = false;
+        std::exception_ptr      first_err = nullptr;
+
+        auto worker = [&]()
+        {
+            for ( ;; )
+            {
+                std::unique_lock< std::mutex > lk( mtx );
+                cv.wait( lk, [&] { return stopping || !tree.empty() || in_flight == 0; } );
+
+                if ( stopping ) return;
+                if ( tree.empty() )
+                {
+                    if ( in_flight == 0 )
+                    {
+                        cv.notify_all();  // wake the others to terminate
+                        return;
+                    }
+                    continue;  // tasks still running may yet enqueue work
+                }
+
+                const int idx = tree.popFront();
+                // Copy inputs out: tree.split appends to the arena vector
+                // and may reallocate, so we must not hold references to
+                // leaf storage across the lock-free integration. Indices
+                // stay valid across reallocation; references do not.
+                State     payload = tree.leaf( idx ).payload;
+                const T   tEntry  = tree.leaf( idx ).tEntry;
+                const int depth   = tree.leaf( idx ).depth;
+                const BoxT box    = tree.leaf( idx ).box;
+                ++in_flight;
+                lk.unlock();
+
+                LeafVerdict v;
+                try
+                {
+                    v = stepLeaf( rhs, payload, tEntry, depth, box, t1 );
+                }
+                catch ( ... )
+                {
+                    lk.lock();
+                    if ( !first_err ) first_err = std::current_exception();
+                    stopping = true;
+                    --in_flight;
+                    cv.notify_all();
+                    return;
+                }
+
+                lk.lock();
+                if ( v.split )
+                {
+                    (void)tree.split( idx, v.dim, v.splitValue, std::move( v.left ),
+                                      std::move( v.right ), v.splitTime );
+                }
+                else
+                {
+                    tree.leaf( idx ).payload = std::move( v.finalPayload );
+                    tree.finalize( idx );
+                }
+                --in_flight;
+                cv.notify_all();
+            }
+        };
+
+        {
+            std::vector< std::jthread > pool;
+            pool.reserve( static_cast< std::size_t >( num_threads_ ) );
+            for ( int i = 0; i < num_threads_; ++i ) pool.emplace_back( worker );
+        }  // jthreads join here
+
+        if ( first_err ) std::rethrow_exception( first_err );
     }
 
     Criterion crit_;

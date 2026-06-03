@@ -60,6 +60,7 @@ tax_add_test(test_ads_split_event SOURCES ads/test_split_event.cpp)
 tax_add_test(test_ads_da_state SOURCES ads/test_da_state.cpp)
 tax_add_test(test_ads_driver SOURCES ads/test_driver.cpp)
 tax_add_test(test_ads_merge SOURCES ads/test_merge.cpp)
+tax_add_test(test_ads_parallel SOURCES ads/test_parallel.cpp)
 
 # ODE integrator — Stage 2a
 add_subdirectory(ode)
