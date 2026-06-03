@@ -37,6 +37,10 @@ endif()
 find_package(Eigen3 REQUIRED)
 target_link_libraries(tax INTERFACE Eigen3::Eigen)
 
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+target_link_libraries(tax INTERFACE Threads::Threads)
+
 # ---------------------------------------------------------------
 # DACE dependency (only when regression suite is enabled)
 # ---------------------------------------------------------------
