@@ -17,7 +17,9 @@
 #include <chrono>
 #include <fstream>
 #include <iomanip>
+#include <cstdlib>
 #include <iostream>
+#include <thread>
 
 #include <tax/ads.hpp>
 #include <tax/la/types.hpp>
@@ -42,6 +44,16 @@ int main()
 
     // ---- IC box (configured in common.hpp) ---------------------------------
     auto ic_box = icBox();
+
+    const int kThreads = [] {
+        if ( const char* e = std::getenv( "TAX_ADS_THREADS" ) )
+        {
+            const int n = std::atoi( e );
+            if ( n > 0 ) return n;
+        }
+        const unsigned hc = std::thread::hardware_concurrency();
+        return hc > 0 ? static_cast< int >( hc ) : 1;
+    }();
 
     tax::ode::IntegratorConfig< double > cfg;
     cfg.abstol = cfg.reltol = 1e-12;
@@ -118,14 +130,16 @@ int main()
         {
             const auto t_a   = std::chrono::high_resolution_clock::now();
             auto       tree  = tax::ads::propagate< P >(
-                Verner89{}, criterion, rhs(), ic_box, icCenter(), 0.0, t_snap, cfg );
+                Verner89{}, criterion, rhs(), ic_box, icCenter(), 0.0, t_snap, cfg, kThreads );
             const auto t_b   = std::chrono::high_resolution_clock::now();
             total_ms += std::chrono::duration< double, std::milli >( t_b - t_a ).count();
 
             bool first = true;
+            int  rank  = 0;
             for ( int li : tree.done() )
             {
                 const auto& leaf = tree.leaf( li );
+                const int   id   = rank++;
                 for ( std::size_t v = 0; v < boundary.size(); ++v )
                 {
                     const std::array< double, M > d{
@@ -136,7 +150,7 @@ int main()
                 }
                 if ( !first ) out << ",";
                 first = false;
-                out << "\n      { \"id\": " << li << ", \"depth\": " << leaf.depth
+                out << "\n      { \"id\": " << id << ", \"depth\": " << leaf.depth
                     << ", \"x\": "; writeJsonArray( out, xs );
                 out << ", \"y\": "; writeJsonArray( out, ys );
                 out << " }";
