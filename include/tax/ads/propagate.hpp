@@ -11,8 +11,9 @@
 //       rhs, ic_box, ic_center, t0, t1, cfg);
 //
 // P is required (the DA truncation order). The method tag selects the
-// stepper. The criterion drives splits. cfg is optional. User events
-// are not forwarded by this convenience wrapper — instantiate
+// stepper. The criterion drives splits. cfg is optional. num_threads (trailing, default 1) opts into the
+//   parallel ADS driver; >1 integrates independent boxes concurrently.
+// User events are not forwarded by this convenience wrapper — instantiate
 // AdsDriver directly if you need them.
 
 #pragma once
@@ -35,13 +36,14 @@ template < int P, class Method, class Criterion, class F, class T, int M, int D 
     const Box< T, M >&              ic_box,
     const Eigen::Matrix< T, D, 1 >& ic_center,
     const T& t0, const T& t1,
-    tax::ode::IntegratorConfig< T > cfg = {} )
+    tax::ode::IntegratorConfig< T > cfg = {},
+    int num_threads = 1 )
 {
     using TE      = tax::TaylorExpansion< T, P, M, tax::storage::Dense >;
     using DAState = Eigen::Matrix< TE, D, 1 >;
     using Stepper = tax::ode::detail::StepperT< Method, DAState >;
 
-    AdsDriver< Stepper, Criterion > driver{ std::move( crit ), std::move( cfg ) };
+    AdsDriver< Stepper, Criterion > driver{ std::move( crit ), std::move( cfg ), {}, num_threads };
     return driver.run( std::forward< F >( rhs ), ic_box, ic_center, t0, t1 );
 }
 

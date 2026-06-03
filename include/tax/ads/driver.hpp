@@ -42,8 +42,11 @@ class AdsDriver
     using Tree = AdsTree< State, M, T >;
     using BoxT = Box< T, M >;
 
-    AdsDriver( Criterion crit, Cfg cfg, ExtraEvt extras = {} )
-        : crit_( std::move( crit ) ), cfg_( std::move( cfg ) ), extras_( std::move( extras ) )
+    AdsDriver( Criterion crit, Cfg cfg, ExtraEvt extras = {}, int num_threads = 1 )
+        : crit_( std::move( crit ) ),
+          cfg_( std::move( cfg ) ),
+          extras_( std::move( extras ) ),
+          num_threads_( num_threads < 1 ? 1 : num_threads )
     {
     }
 
@@ -140,6 +143,7 @@ class AdsDriver
     Criterion crit_;
     Cfg cfg_;
     ExtraEvt extras_;
+    int num_threads_ = 1;
 };
 
 }  // namespace tax::ads
