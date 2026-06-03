@@ -101,27 +101,39 @@ int main()
 
     // ---- Initial condition (draft) -----------------------------------------
     //
-    // Launch from a near-Earth parking orbit on the anti-Sun side of
-    // Earth. We pick a small inertial-frame perigee altitude h above
-    // a 6378 km Earth radius and give the spacecraft a tangential
-    // (prograde) inertial velocity slightly above local escape.
+    // Parameterise by the Earth-orbital characteristic energy
+    //   C3 = v_inertial^2 - 2 GM_Earth / r
+    // C3 < 0 -> bound Keplerian ellipse around Earth (apogee inside
+    //          Earth's sphere of influence). For a Belbruno-style WSB
+    //          transfer, C3 ~ -0.5 km^2/s^2 puts apogee right at the
+    //          Hill-sphere boundary (~1.5 x 10^6 km).
+    // C3 = 0  parabolic; C3 > 0 hyperbolic (just shoots away).
     constexpr double kEarthR_km = 6378.0;
     constexpr double h_km       = 200.0;             // LEO altitude
     const double     r_park     = ( kEarthR_km + h_km ) / kAU_km;   // ~4.4e-5 AU
 
     constexpr double GM_E_km3s2 = 398600.4418;
-    // Escape speed at this altitude (km/s):
-    const double v_esc_kms = std::sqrt( 2.0 * GM_E_km3s2 / ( kEarthR_km + h_km ) );
-    // Add a small v_inf excess for an outbound hyperbolic.
-    constexpr double v_excess_kms = 0.08;
-    const double v0_kms = v_esc_kms + v_excess_kms;
+    const double     v_esc_kms  = std::sqrt( 2.0 * GM_E_km3s2 / ( kEarthR_km + h_km ) );
+
+    // ---- WSB knob -----------------------------------------------------------
+    // Belbruno's WSB lobe sits at C3 in (-1.0, -0.3) km^2/s^2 for
+    // Earth-Moon transfers; -0.5 is a textbook starting point.
+    constexpr double C3_kms2 = -0.5;
+    const double v0_kms = std::sqrt( v_esc_kms * v_esc_kms + C3_kms2 );
     const double v0     = v0_kms / kVelU_kms;        // canonical
 
-    // Synodic-frame velocity = inertial velocity - omega x r. With
-    // omega = +1 zhat and r_inertial along +x from Earth, the omega x r
-    // contribution is +omega * r in +y. For a *prograde* inertial
-    // tangential burn at this point, the synodic v_y is v0 - omega * r.
-    const double r_x_earth = r_park;                 // anti-Sun offset
+    // Predicted Earth-Kepler apogee (helpful for calibration):
+    //   1/a = 2/r - v^2/GM,  r_a = 2a - r_p.
+    const double a_earth_km = 1.0 / ( 2.0 / ( kEarthR_km + h_km )
+                                     - v0_kms * v0_kms / GM_E_km3s2 );
+    const double r_apogee_km = 2.0 * a_earth_km - ( kEarthR_km + h_km );
+    const double T_earth_orbit_days =
+        ( 2.0 * M_PI * std::sqrt( std::pow( a_earth_km, 3.0 ) / GM_E_km3s2 ) ) / 86400.0;
+
+    // Inertial perigee on the anti-Sun side of Earth (+x in synodic).
+    // Prograde tangential burn → inertial velocity in +y. Convert to
+    // synodic via v_rot = v_inertial - omega x r with omega = +1 zhat.
+    const double r_x_earth = r_park;                 // anti-Sun side
     const double vy_syn    = v0 - ( 1.0 * r_x_earth );
 
     Vec4 ic;
@@ -194,13 +206,15 @@ int main()
     out << "    \"t_final_days\":      " << tFinal_days  << "\n";
     out << "  },\n";
     out << "  \"ic\": {\n";
-    out << "    \"r_park_AU\":     " << r_park     << ",\n";
-    out << "    \"r_park_km\":     " << ( r_park * kAU_km ) << ",\n";
-    out << "    \"v_inertial_kms\":" << v0_kms     << ",\n";
-    out << "    \"v_excess_kms\":  " << v_excess_kms << ",\n";
-    out << "    \"v_synodic\":     " << vy_syn     << ",\n";
-    out << "    \"state\":         [" << ic( 0 ) << ", " << ic( 1 )
-        << ", "                       << ic( 2 ) << ", " << ic( 3 ) << "]\n";
+    out << "    \"r_park_AU\":          " << r_park     << ",\n";
+    out << "    \"r_park_km\":          " << ( r_park * kAU_km ) << ",\n";
+    out << "    \"v_inertial_kms\":     " << v0_kms     << ",\n";
+    out << "    \"C3_kms2\":            " << C3_kms2    << ",\n";
+    out << "    \"earth_kepler_apogee_km\": " << r_apogee_km << ",\n";
+    out << "    \"earth_kepler_T_days\":    " << T_earth_orbit_days << ",\n";
+    out << "    \"v_synodic\":          " << vy_syn     << ",\n";
+    out << "    \"state\":              [" << ic( 0 ) << ", " << ic( 1 )
+        << ", "                            << ic( 2 ) << ", " << ic( 3 ) << "]\n";
     out << "  },\n";
     out << "  \"timing\": { \"elapsed_ms\": " << elapsed_ms
         << ", \"n_steps\": " << ( sol.size() - 1 ) << " },\n";
@@ -230,8 +244,10 @@ int main()
     bannerRow( "Park altitude",     std::to_string( h_km ) + " km" );
     bannerRow( "Park r (AU)",       std::to_string( r_park ) );
     bannerRow( "Escape v",          std::to_string( v_esc_kms ) + " km/s" );
-    bannerRow( "Excess",            std::to_string( v_excess_kms ) + " km/s" );
+    bannerRow( "C3 (km^2/s^2)",     std::to_string( C3_kms2 )  );
     bannerRow( "Inertial v_0",      std::to_string( v0_kms ) + " km/s" );
+    bannerRow( "Earth-Kepler r_a",  std::to_string( r_apogee_km / 1e6 ) + " e6 km" );
+    bannerRow( "Earth-Kepler T",    std::to_string( T_earth_orbit_days ) + " days" );
     bannerRow( "Synodic v_y_0",     std::to_string( vy_syn ) + " (canonical)" );
     bannerRow( "t_final",           std::to_string( tFinal_days ) + " days" );
     bannerRow( "elapsed",           std::to_string( elapsed_ms / 1e3 ) + " s ("

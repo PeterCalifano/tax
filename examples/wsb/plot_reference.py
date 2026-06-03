@@ -79,7 +79,11 @@ def main() -> None:
     cmap = plt.cm.viridis
     norm = plt.Normalize(vmin=0.0, vmax=t_days.max())
 
-    fig, axes = plt.subplots(1, 2, figsize=(11.0, 5.0), constrained_layout=True)
+    fig = plt.figure(figsize=(13.0, 5.0), constrained_layout=True)
+    gs  = fig.add_gridspec(1, 3, width_ratios=[1.0, 1.0, 0.75])
+    axes = [fig.add_subplot(gs[0, 0]),
+            fig.add_subplot(gs[0, 1]),
+            fig.add_subplot(gs[0, 2])]
 
     # ---- (a) Wide view ----
     ax = axes[0]
@@ -130,11 +134,28 @@ def main() -> None:
     ax.text(moon_r * 1.05, 0, "Moon orbit", ha="left", va="center",
             fontsize=6.5, color="#666666")
 
+    # ---- (c) r(t) ----
+    ax = axes[2]
+    r_km = np.sqrt(x * x + y * y)
+    ax.plot(t_days, r_km, color="#1f77b4", lw=0.8)
+    ax.axhline(hill_r, color="#7d7d7d", linestyle="--", lw=0.6,
+               label="Earth Hill")
+    ax.axhline(moon_r, color="#aeaeae", linestyle=":", lw=0.6,
+               label="Moon orbit")
+    if "earth_kepler_apogee_km" in ic:
+        ax.axhline(ic["earth_kepler_apogee_km"], color="#d62728",
+                   linestyle="-.", lw=0.6, label="Kepler $r_a$")
+    ax.set_yscale("log")
+    ax.set_xlabel("days since launch")
+    ax.set_ylabel("distance to Earth (km)")
+    ax.set_title("$r(t)$", loc="left")
+    ax.legend(loc="lower right", fontsize=6.5)
+
     fig.suptitle(
-        rf"WSB reference draft — v0 = {ic['v_inertial_kms']:.2f} km/s "
-        rf"(excess = {ic['v_excess_kms']:.2f} km/s), "
-        rf"r_park = {ic['r_park_km']:.0f} km, "
-        rf"t_final = {cfg['t_final_days']:.0f} days",
+        rf"WSB reference draft — $v_0$ = {ic['v_inertial_kms']:.3f} km/s,  "
+        rf"$C_3$ = {ic.get('C3_kms2', float('nan')):.2f} km$^2$/s$^2$,  "
+        rf"$r_\mathrm{{park}}$ = {ic['r_park_km']:.0f} km,  "
+        rf"$t_f$ = {cfg['t_final_days']:.0f} days",
         y=1.02,
     )
 
