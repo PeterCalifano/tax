@@ -55,39 +55,88 @@ class AdsDriver
         State root_state = tax::ads::create< N, M >( ic_box, ic_center );
         (void)tree.init( ic_box, std::move( root_state ), t0 );
 
-        while ( !tree.empty() )
-        {
-            const int idx = tree.popFront();
-            auto& l = tree.leaf( idx );
+        driveSerial( rhs, tree, t1 );
 
-            SplitRequest< T > req;
-            auto events = extras_;  // copy
-            events.emplace_back( SplitTrigger( crit_, l.depth ), SplitAction( crit_, &req ) );
-
-            tax::ode::Integrator< Stepper, std::decay_t< F > > integ{ rhs, cfg_,
-                                                                      std::move( events ) };
-            auto sol = integ.integrate( l.payload, l.tEntry, t1 );
-
-            // Guard against a split fired at (or beyond) the final time —
-            // splitting would queue two children with tEntry == t1, and the
-            // integrator rejects empty intervals.
-            const bool atFinal = req.fired && !( req.t < t1 );
-            if ( req.fired && !atFinal )
-            {
-                const T splitValue = l.box.center( req.dim );
-                auto pr_state = tax::ads::split( sol.x.back(), l.box, req.dim );
-                (void)tree.split( idx, req.dim, splitValue, std::move( pr_state.first ),
-                                  std::move( pr_state.second ), req.t );
-            } else
-            {
-                l.payload = std::move( sol.x.back() );
-                tree.finalize( idx );
-            }
-        }
+        tree.canonicalizeDone();
         return tree;
     }
 
-   private:
+   protected:
+    // Outcome of integrating one leaf: either split into two children or
+    // finalize with a flow-map payload. Computed lock-free in stepLeaf.
+    struct LeafVerdict
+    {
+        bool  split = false;
+        int   dim = -1;
+        T     splitTime{};
+        T     splitValue{};
+        State left{};
+        State right{};
+        State finalPayload{};
+    };
+
+    // Pure, lock-free: integrate one leaf from tEntry to t1 with the
+    // split event appended, and decide split-vs-finalize. Reads only
+    // crit_, cfg_, extras_ (all const) and the passed-in rhs / inputs.
+    template < class F >
+    [[nodiscard]] LeafVerdict stepLeaf( const F& rhs, const State& payload, T tEntry, int depth,
+                                        const BoxT& box, T t1 ) const
+    {
+        SplitRequest< T > req;
+        auto events = extras_;  // copy
+        events.emplace_back( SplitTrigger( crit_, depth ), SplitAction( crit_, &req ) );
+
+        tax::ode::Integrator< Stepper, std::decay_t< F > > integ{ rhs, cfg_,
+                                                                  std::move( events ) };
+        auto sol = integ.integrate( payload, tEntry, t1 );
+
+        // Guard against a split fired at (or beyond) the final time —
+        // splitting would queue two children with tEntry == t1, and the
+        // integrator rejects empty intervals.
+        const bool atFinal = req.fired && !( req.t < t1 );
+
+        LeafVerdict v;
+        if ( req.fired && !atFinal )
+        {
+            v.split      = true;
+            v.dim        = req.dim;
+            v.splitTime  = req.t;
+            v.splitValue = box.center( req.dim );
+            auto pr      = tax::ads::split( sol.x.back(), box, req.dim );
+            v.left       = std::move( pr.first );
+            v.right      = std::move( pr.second );
+        }
+        else
+        {
+            v.split        = false;
+            v.finalPayload = std::move( sol.x.back() );
+        }
+        return v;
+    }
+
+    template < class F >
+    void driveSerial( const F& rhs, Tree& tree, T t1 )
+    {
+        while ( !tree.empty() )
+        {
+            const int idx = tree.popFront();
+            const auto& l = tree.leaf( idx );
+
+            LeafVerdict v = stepLeaf( rhs, l.payload, l.tEntry, l.depth, l.box, t1 );
+
+            if ( v.split )
+            {
+                (void)tree.split( idx, v.dim, v.splitValue, std::move( v.left ),
+                                  std::move( v.right ), v.splitTime );
+            }
+            else
+            {
+                tree.leaf( idx ).payload = std::move( v.finalPayload );
+                tree.finalize( idx );
+            }
+        }
+    }
+
     Criterion crit_;
     Cfg cfg_;
     ExtraEvt extras_;
