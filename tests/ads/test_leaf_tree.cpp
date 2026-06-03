@@ -143,3 +143,32 @@ TEST( AdsTree, MergeRevivesParent )
     EXPECT_EQ( tree.done().size(), 1u );
     EXPECT_EQ( tree.done()[ 0 ],   root );
 }
+
+TEST( AdsTree, CanonicalizeDoneSortsByBoxCenter )
+{
+    // M=1 tree of doubles. Root box center 0, halfWidth 1.
+    tax::ads::AdsTree< double, 1, double > tree;
+    tax::ads::Box< double, 1 > root{ tax::la::VecNT< 1, double >{ 0.0 },
+                                     tax::la::VecNT< 1, double >{ 1.0 } };
+    const int r = tree.init( root, 0.0 );
+
+    // Split root on dim 0 -> children centered at -0.5 and +0.5.
+    auto kids = tree.split( r, 0, /*splitValue=*/0.0, 0.0, 0.0, /*tEntry=*/0.0 );
+
+    // Finalize right child first, then left, so doneList_ is [right,left].
+    tree.finalize( kids.second );   // center +0.5
+    tree.finalize( kids.first );    // center -0.5
+
+    auto before = tree.done();
+    ASSERT_EQ( before.size(), 2u );
+    // Insertion order: right (+0.5) then left (-0.5).
+    EXPECT_GT( tree.leaf( before[ 0 ] ).box.center( 0 ), 0.0 );
+
+    tree.canonicalizeDone();
+
+    auto after = tree.done();
+    ASSERT_EQ( after.size(), 2u );
+    // Canonical order: ascending center, so left (-0.5) first.
+    EXPECT_LT( tree.leaf( after[ 0 ] ).box.center( 0 ), 0.0 );
+    EXPECT_GT( tree.leaf( after[ 1 ] ).box.center( 0 ), 0.0 );
+}

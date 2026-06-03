@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <deque>
@@ -172,6 +173,28 @@ class AdsTree
     {
         return { doneList_.data(), doneList_.size() };
     }
+
+    // Reorder the done-leaf index list into a canonical, deterministic
+    // order: ascending box center, lexicographic over the M coordinates.
+    // Disjoint boxes have distinct centers, so this is a stable total
+    // order independent of insertion order — used to make parallel and
+    // serial propagation agree and to make output reproducible.
+    void canonicalizeDone()
+    {
+        std::sort( doneList_.begin(), doneList_.end(),
+                   [this]( int a, int b )
+                   {
+                       const auto& ca = leaves_[static_cast< std::size_t >( a )].box.center;
+                       const auto& cb = leaves_[static_cast< std::size_t >( b )].box.center;
+                       for ( int i = 0; i < M; ++i )
+                       {
+                           if ( ca( i ) < cb( i ) ) return true;
+                           if ( cb( i ) < ca( i ) ) return false;
+                       }
+                       return false;
+                   } );
+    }
+
     [[nodiscard]] std::span< const int > roots() const noexcept
     {
         return { roots_.data(), roots_.size() };
