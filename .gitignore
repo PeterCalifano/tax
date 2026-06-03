@@ -20,3 +20,4 @@ __pycache__/
 /wsb_*.png
 /two_body_*.png
 /three_body_*.png
+/wsb_loads.json
