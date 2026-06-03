@@ -18,6 +18,9 @@ tax_add_example(three_body_taylor SOURCES three_body/taylor.cpp)
 tax_add_example(three_body_ads    SOURCES three_body/ads.cpp)
 tax_add_example(three_body_loads  SOURCES three_body/loads.cpp)
 tax_add_example(wsb_search        SOURCES wsb/wsb_search.cpp)
+tax_add_example(wsb_taylor        SOURCES wsb/taylor.cpp)
+tax_add_example(wsb_ads           SOURCES wsb/ads.cpp)
+tax_add_example(wsb_loads         SOURCES wsb/loads.cpp)
 # Bump the constexpr evaluation budget — instantiating Cauchy stencils
 # for several (P, M=4) pairs in one TU otherwise hits the default limit.
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")

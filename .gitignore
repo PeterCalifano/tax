@@ -15,6 +15,9 @@ __pycache__/
 /manifolds.json
 /wsb_reference.json
 /wsb_search.json
+/wsb_taylor.json
+/wsb_ads.json
+/wsb_loads.json
 /wsb_*.png
 /two_body_*.png
 /three_body_*.png
