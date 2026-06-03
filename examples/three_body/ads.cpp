@@ -32,7 +32,7 @@ int main()
     using namespace example::three_body;
     using namespace tax::ode::methods;
 
-    constexpr int P = 6;
+    constexpr int P = 4;
     constexpr int M = 4;
     constexpr int D = 4;
 

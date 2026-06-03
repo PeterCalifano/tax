@@ -27,7 +27,7 @@ int main()
     using namespace example::three_body;
     using namespace tax::ode::methods;
 
-    constexpr int P = 6;
+    constexpr int P = 2;
     constexpr int M = 4;
     constexpr int D = 4;
 
@@ -41,7 +41,7 @@ int main()
     cfg.abstol = cfg.reltol = 1e-13;
     cfg.max_steps           = 100000;
 
-    const tax::ads::NliCriterion criterion{ /*tol=*/0.3, /*maxDepth=*/6 };
+    const tax::ads::NliCriterion criterion{ /*tol=*/0.3, /*maxDepth=*/12 };
 
     auto ref_sol = tax::ode::propagate< /*Dense=*/true >(
         Verner89{}, rhs(), icCenter(), 0.0, tFinal, cfg );

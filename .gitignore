@@ -13,5 +13,7 @@ __pycache__/
 /cr3bp_ads.json
 /cr3bp_loads.json
 /manifolds.json
+/wsb_reference.json
+/wsb_*.png
 /two_body_*.png
 /three_body_*.png

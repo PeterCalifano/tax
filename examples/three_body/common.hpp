@@ -159,12 +159,12 @@ inline const LinearisationL1& linL1()
 // branch. Magnitude must exceed the box's projection on v_unstable
 // (about 2e-5 for the default halfwidth) for the whole box to lie
 // strictly on one side of the saddle.
-inline constexpr double kManifoldOffset = 4.0e-5;
+inline constexpr double kManifoldOffset = 1.0e-3;
 
 // IC box halfwidth. Defaults to a (x, vy) face of state space; edit
 // the four entries to spread the box on a different 2D face.
 inline const tax::la::VecNT< 4, double > kIcBoxHalfWidth{
-    3.0e-5, 0.0, 0.0, 3.0e-5
+    5e-5, 5e-4, 1e-4, 1e-4
 };
 
 // ---- IC + box --------------------------------------------------------------
