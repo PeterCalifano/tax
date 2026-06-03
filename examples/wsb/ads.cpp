@@ -30,7 +30,7 @@ int main()
     constexpr int M = 4;
     constexpr int D = 4;
 
-    constexpr double tFinal_days = 150.0;
+    constexpr double tFinal_days = kTArrivalDays;  // Moon-orbit interception (76 days)
     constexpr double snap_step   = 5.0;
     const     int    kNSnaps     = static_cast< int >( tFinal_days / snap_step ) + 1;
     constexpr int    kNPerEdge   = 24;

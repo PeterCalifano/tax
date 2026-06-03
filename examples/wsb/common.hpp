@@ -53,8 +53,9 @@ inline double earthHillR() { return std::cbrt( kSunEarthMu / 3.0 ); }
 inline double moonOrbitR() { return kMoonOrbitKm / kAU_km; }
 
 // ---- Best WSB IC found by wsb_search ---------------------------------------
-inline constexpr double kRaBestKm  = 1279400.0;
-inline constexpr double kOmegaBest = 329.97 * std::numbers::pi / 180.0;
+inline constexpr double kRaBestKm     = 1279400.0;
+inline constexpr double kOmegaBest    = 329.97 * std::numbers::pi / 180.0;
+inline constexpr double kTArrivalDays = 76.0;       // Moon-orbit interception
 
 // ---- Right-hand side -------------------------------------------------------
 inline auto rhs( double mu = kSunEarthMu )
