@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cmath>
+#include <numbers>
 
 #include <tax/kernels/algebra.hpp>
 
@@ -416,11 +417,9 @@ void seriesAtanh( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
 template < typename T, int N, int M >
 void seriesErf( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
 {
-    using std::acos;
     using std::erf;
-    using std::sqrt;
     constexpr std::size_t S = numMonomials( N, M );
-    const T two_over_sqrtpi = T{ 2 } / sqrt( acos( T{ -1 } ) );
+    constexpr T two_over_sqrtpi = T{ 2 } * std::numbers::inv_sqrtpi_v< T >;
 
     // h = (2/sqrt(pi)) * exp(-a^2)
     Coeffs< T, N, M > asq{}, neg_asq{}, e{}, h{};
