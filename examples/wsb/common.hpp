@@ -112,10 +112,10 @@ inline tax::la::VecNT< 4, double > icCenter()
 //   1 km   in AU       = 1 / 149,597,870.7  ≈ 6.685e-9
 //   1 m/s in AU/T      = 0.001 / 29.78469   ≈ 3.358e-5
 inline const tax::la::VecNT< 4, double > kIcBoxHalfWidth{
-    1.0    / kAU_km,             // x   : 1 km
-    1.0    / kAU_km,             // y   : 1 km
-    0.001  / kVelU_kms,          // vx  : 1 m/s
-    0.001  / kVelU_kms            // vy  : 1 m/s
+    10.0    / kAU_km,             // x   : 1 km
+    10.0    / kAU_km,             // y   : 1 km
+    0.005  / kVelU_kms,          // vx  : 1 m/s
+    0.005  / kVelU_kms            // vy  : 1 m/s
 };
 
 inline tax::ads::Box< double, 4 > icBox()

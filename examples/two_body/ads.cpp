@@ -37,7 +37,7 @@ int main()
     using namespace tax::ode::methods;
 
     // ---- Problem dimensions -------------------------------------------------
-    constexpr int P = 6;
+    constexpr int P = 8;
     constexpr int M = 4;
     constexpr int D = 4;
 
@@ -97,16 +97,6 @@ int main()
     }
     out << "  },\n";
 
-    const int kThreads = [] {
-        if ( const char* e = std::getenv( "TAX_ADS_THREADS" ) )
-        {
-            const int n = std::atoi( e );
-            if ( n > 0 ) return n;
-        }
-        const unsigned hc = std::thread::hardware_concurrency();
-        return hc > 0 ? static_cast< int >( hc ) : 1;
-    }();
-
     // ---- One ADS run per snapshot ------------------------------------------
     out << "  \"polygons\": [\n";
     std::vector< double > xs( boundary.size() ), ys( boundary.size() );
@@ -140,7 +130,7 @@ int main()
         {
             const auto t_a   = std::chrono::high_resolution_clock::now();
             auto tree = tax::ads::propagate< P >( Verner89{}, criterion, rhs(), ic_box, icCenter(),
-                                                  0.0, t_snap, cfg, kThreads );
+                                                  0.0, t_snap, cfg, 1 );
             const auto t_b   = std::chrono::high_resolution_clock::now();
             ads_total_ms += std::chrono::duration< double, std::milli >( t_b - t_a ).count();
 
