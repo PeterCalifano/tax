@@ -76,7 +76,7 @@ constexpr void cauchyProductStencil( Coeffs< T, N, M >& out, const Coeffs< T, N,
                                      const Coeffs< T, N, M >& b ) noexcept
     requires( M >= 2 )
 {
-    static constexpr CauchyStencil< N, M > stencil{};
+    static const CauchyStencil< N, M > stencil{};
     out = {};
     for ( std::size_t i = 0; i < stencil.size; ++i )
     {

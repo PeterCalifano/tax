@@ -20,10 +20,3 @@ tax_add_example(three_body_loads  SOURCES three_body/loads.cpp)
 tax_add_example(wsb_search        SOURCES wsb/wsb_search.cpp)
 tax_add_example(wsb_taylor        SOURCES wsb/taylor.cpp)
 tax_add_example(wsb_ads           SOURCES wsb/ads.cpp)
-# Bump the constexpr evaluation budget — instantiating Cauchy stencils
-# for several (P, M=4) pairs in one TU otherwise hits the default limit.
-if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    target_compile_options(two_body_validation PRIVATE -fconstexpr-steps=100000000)
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    target_compile_options(two_body_validation PRIVATE -fconstexpr-ops-limit=100000000)
-endif()

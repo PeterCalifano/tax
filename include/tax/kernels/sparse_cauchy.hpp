@@ -43,7 +43,7 @@ void sparseCauchyProduct( storage::SparseContainer< T, N, M >&       out,
                           const storage::SparseContainer< T, N, M >& g ) noexcept
 {
     constexpr std::size_t NC     = numMonomials( N, M );
-    constexpr DegreeOf< N, M >  deg_table{};
+    static const DegreeOf< N, M >  deg_table{};
 
     const auto fi = f.support();
     const auto fv = f.values();
@@ -103,7 +103,7 @@ void sparseCauchySelfProduct( storage::SparseContainer< T, N, M >&       out,
                               const storage::SparseContainer< T, N, M >& f ) noexcept
 {
     constexpr std::size_t NC    = numMonomials( N, M );
-    constexpr DegreeOf< N, M >  deg_table{};
+    static const DegreeOf< N, M >  deg_table{};
 
     const auto fi = f.support();
     const auto fv = f.values();
