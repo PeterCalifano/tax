@@ -82,3 +82,25 @@ TEST(Arith, MulMultiBilinear) {
     EXPECT_DOUBLE_EQ((z.coeff<0, 1>()), 1.0);
     EXPECT_DOUBLE_EQ((z.coeff<1, 1>()), 1.0);
 }
+
+TEST(Arith, MixedScalarLiterals) {
+    // Integer literals must convert to the coefficient scalar type:
+    // the scalar parameter is a non-deduced context (std::type_identity_t).
+    auto x = tax::TE<3>::variable(2.0);
+    auto a = x + 1;
+    auto b = 1 + x;
+    auto c = x - 1;
+    auto d = 2 - x;
+    auto e = x * 2;
+    auto f = 2 * x;
+    auto g = x / 2;
+    EXPECT_DOUBLE_EQ(a.value(), 3.0);
+    EXPECT_DOUBLE_EQ(b.value(), 3.0);
+    EXPECT_DOUBLE_EQ(c.value(), 1.0);
+    EXPECT_DOUBLE_EQ(d.value(), 0.0);
+    EXPECT_DOUBLE_EQ(e.value(), 4.0);
+    EXPECT_DOUBLE_EQ(f.value(), 4.0);
+    EXPECT_DOUBLE_EQ(g.value(), 1.0);
+    EXPECT_DOUBLE_EQ(e[1], 2.0);
+    EXPECT_DOUBLE_EQ(d[1], -1.0);
+}
