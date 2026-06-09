@@ -137,7 +137,6 @@ int main()
         { "elapsed",        std::to_string( ms / 1e3 ) + " s" },
         { "output",         "wsb_taylor.json" }
     };
-    printBanner( "WSB taylor (single Taylor flow polynomial)",
-                 std::span< const std::pair< std::string, std::string > >{ rows } );
+    printBanner( "WSB taylor (single Taylor flow polynomial)", rows );
     return 0;
 }

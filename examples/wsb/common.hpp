@@ -33,8 +33,15 @@
 #include <tax/la/types.hpp>
 #include <tax/tax.hpp>
 
+#include "../common/output.hpp"
+
 namespace example::wsb
 {
+
+// Re-export the shared I/O helpers into this namespace.
+using example::printBanner;
+using example::unitSquareBoundary;
+using example::writeJsonArray;
 
 // ---- Physical constants ----------------------------------------------------
 inline constexpr double kSunEarthMu  = 3.00348959632e-6;
@@ -124,63 +131,11 @@ inline tax::ads::Box< double, 4 > icBox()
 }
 
 // ---- Boundary helpers ------------------------------------------------------
-inline std::vector< std::array< double, 2 > > unitSquareBoundary( int n_per_edge )
-{
-    std::vector< std::array< double, 2 > > pts;
-    pts.reserve( static_cast< std::size_t >( 4 * n_per_edge + 1 ) );
-    for ( int edge = 0; edge < 4; ++edge )
-    {
-        for ( int i = 0; i < n_per_edge; ++i )
-        {
-            const double s = static_cast< double >( i ) / static_cast< double >( n_per_edge );
-            double a = 0.0, b = 0.0;
-            switch ( edge )
-            {
-                case 0: a = -1.0 + 2.0 * s; b = +1.0;             break;
-                case 1: a = +1.0;            b = +1.0 - 2.0 * s; break;
-                case 2: a = +1.0 - 2.0 * s; b = -1.0;             break;
-                case 3: a = -1.0;            b = -1.0 + 2.0 * s; break;
-            }
-            pts.push_back( { a, b } );
-        }
-    }
-    pts.push_back( pts.front() );
-    return pts;
-}
-
 // Vary on (x, vy); pin (y, vx) to 0. Change the index pattern below if
 // you reconfigure kIcBoxHalfWidth to spread on different axes.
 inline std::array< double, 4 > boundaryToBox( double a, double b )
 {
     return { a, 0.0, 0.0, b };
-}
-
-// ---- Pretty terminal banner ------------------------------------------------
-inline void printBanner( std::string_view                                            title,
-                         std::span< const std::pair< std::string, std::string > > rows )
-{
-    constexpr std::size_t label_w = 22;
-    std::cout << "\n=== " << title << " ===\n";
-    for ( const auto& [ label, value ] : rows )
-    {
-        const std::size_t pad = label.size() < label_w ? label_w - label.size() : 0;
-        std::cout << "  " << std::string( pad, ' ' ) << label << " : " << value << '\n';
-    }
-    std::cout << '\n';
-}
-
-template < class Range >
-inline void writeJsonArray( std::ostream& out, const Range& v )
-{
-    out << '[';
-    bool first = true;
-    for ( auto x : v )
-    {
-        if ( !first ) out << ", ";
-        out << x;
-        first = false;
-    }
-    out << ']';
 }
 
 }  // namespace example::wsb

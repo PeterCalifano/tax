@@ -108,6 +108,10 @@ extra:
 nav:
   - Home: index.md
   - Getting Started: getting_started.md
+  - Tutorials:
+      - Overview: tutorials/index.md
+      - Two-Body Problem: tutorials/two_body.md
+      - Three-Body Problem: tutorials/three_body.md
   - Core:
       - Overview: core/index.md
       - Mathematical Foundations: core/math.md

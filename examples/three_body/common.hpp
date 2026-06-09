@@ -2,7 +2,7 @@
 // examples/three_body/common.hpp
 //
 // Shared planar Earth-Moon CR3BP fixture for the three-body examples
-// (taylor / ads / loads).
+// (taylor, ads, loads). I/O scaffolding lives in examples/common/output.hpp.
 //
 // Synodic rotating frame with the Earth-Moon barycentre at the origin.
 // Primaries: Earth at (-mu, 0), Moon at (1 - mu, 0). State = (x, y, vx, vy).
@@ -12,48 +12,42 @@
 //   d/dt vx =  2 vy + x - (1-mu)(x+mu)/r1^3 - mu (x-1+mu)/r2^3
 //   d/dt vy = -2 vx + y - (1-mu) y    /r1^3 - mu  y      /r2^3
 //
-// All three examples propagate the same small IC box centred *near*
-// L1, offset along the unstable eigendirection so the entire box
-// drifts toward the Moon under forward propagation:
+// All examples propagate the same small IC box centred *near* L1, offset
+// along the unstable eigendirection so the entire box drifts toward the
+// Moon under forward propagation:
 //
 //   ic_center = (x_L1, 0, 0, 0) + kManifoldOffset * v_unstable
 //
-// The IC box halfwidth varies along two state-space axes (x and vy
-// by default). The offset is chosen so all corners of the box have
-// strictly positive projection on v_unstable — the trajectories
-// stay on the Moon branch of the L1 unstable manifold throughout.
-// Flip the sign of kManifoldOffset (or center on L1 itself) if you
-// instead want the Earth branch / both branches.
+// The offset is chosen so all corners of the box have strictly positive
+// projection on v_unstable — the trajectories stay on the Moon branch of
+// the L1 unstable manifold throughout. Flip the sign of kManifoldOffset
+// for the Earth branch.
 //
-// The unstable eigenvector v_unstable is computed numerically with
-// Eigen::EigenSolver from the linearised 4x4 dynamics at L1; it is
-// cached at first call so all examples and snapshots see identical
-// values.
-//
-// Configurable knobs (edit and rebuild):
-//   * kIcBoxHalfWidth  — IC box halfwidth. Default spreads in
-//                        (x, vy); change indices to use other axes.
+// The unstable eigenvector is computed numerically with Eigen::EigenSolver
+// from the linearised 4x4 dynamics at L1 and cached at first call.
 // =============================================================================
 
 #pragma once
 
 #include <Eigen/Eigenvalues>
 
+#include <array>
 #include <cmath>
-#include <iostream>
-#include <ostream>
-#include <span>
-#include <string>
-#include <string_view>
 #include <utility>
-#include <vector>
 
 #include <tax/ads/box.hpp>
 #include <tax/la/types.hpp>
 #include <tax/tax.hpp>
 
+#include "../common/output.hpp"
+
 namespace example::three_body
 {
+
+// Re-export the shared I/O helpers into this namespace.
+using example::printBanner;
+using example::unitSquareBoundary;
+using example::writeJsonArray;
 
 // ---- Problem constants -----------------------------------------------------
 inline constexpr double kCR3BPMu = 0.01215058560962404;   // Earth-Moon
@@ -154,15 +148,14 @@ inline const LinearisationL1& linL1()
 
 // ---- Configurable knobs (edit, rebuild) ------------------------------------
 //
-// Offset of the IC box centre from L1, along the unstable
-// eigendirection. Positive value = Moon branch; negative = Earth
-// branch. Magnitude must exceed the box's projection on v_unstable
-// (about 2e-5 for the default halfwidth) for the whole box to lie
-// strictly on one side of the saddle.
+// Offset of the IC box centre from L1, along the unstable eigendirection.
+// Positive = Moon branch; negative = Earth branch. Magnitude must exceed
+// the box's projection on v_unstable (about 2e-5 for the default
+// halfwidth) for the whole box to lie strictly on one side of the saddle.
 inline constexpr double kManifoldOffset = 1.0e-3;
 
-// IC box halfwidth. Defaults to a (x, vy) face of state space; edit
-// the four entries to spread the box on a different 2D face.
+// IC box halfwidth. Defaults spread the box in (x, vy); edit the four
+// entries to use other axes (keep boundaryToBox below in sync).
 inline const tax::la::VecNT< 4, double > kIcBoxHalfWidth{
     5e-5, 5e-4, 1e-4, 1e-4
 };
@@ -179,67 +172,13 @@ inline tax::ads::Box< double, 4 > icBox()
     return tax::ads::Box< double, 4 >{ icCenter(), kIcBoxHalfWidth };
 }
 
-// ---- Boundary of [-1, 1]^2 (closed loop, 4*n + 1 points) -------------------
-inline std::vector< std::array< double, 2 > > unitSquareBoundary( int n_per_edge )
-{
-    std::vector< std::array< double, 2 > > pts;
-    pts.reserve( static_cast< std::size_t >( 4 * n_per_edge + 1 ) );
-    for ( int edge = 0; edge < 4; ++edge )
-    {
-        for ( int i = 0; i < n_per_edge; ++i )
-        {
-            const double s = static_cast< double >( i ) / static_cast< double >( n_per_edge );
-            double a = 0.0, b = 0.0;
-            switch ( edge )
-            {
-                case 0: a = -1.0 + 2.0 * s; b = +1.0;             break;
-                case 1: a = +1.0;            b = +1.0 - 2.0 * s; break;
-                case 2: a = +1.0 - 2.0 * s; b = -1.0;             break;
-                case 3: a = -1.0;            b = -1.0 + 2.0 * s; break;
-            }
-            pts.push_back( { a, b } );
-        }
-    }
-    pts.push_back( pts.front() );
-    return pts;
-}
-
-// ---- Map a boundary point (xi_a, xi_b) to a 4D normalised vector -----------
+// ---- Boundary coordinates -> normalised 4D displacement ---------------------
 //
-// Maps the two active variation axes to their box positions; the two
-// pinned axes get 0. Defaults match kIcBoxHalfWidth (x and vy active);
-// adjust the index pattern if you change kIcBoxHalfWidth.
+// Maps the two active variation axes (x and vy by default) to their box
+// positions; the two pinned axes get 0.
 inline std::array< double, 4 > boundaryToBox( double a, double b )
 {
     return { a, 0.0, 0.0, b };
-}
-
-// ---- Pretty terminal banner + JSON helpers ---------------------------------
-inline void printBanner( std::string_view                                            title,
-                         std::span< const std::pair< std::string, std::string > > rows )
-{
-    constexpr std::size_t label_w = 20;
-    std::cout << "\n=== " << title << " ===\n";
-    for ( const auto& [ label, value ] : rows )
-    {
-        const std::size_t pad = label.size() < label_w ? label_w - label.size() : 0;
-        std::cout << "  " << std::string( pad, ' ' ) << label << " : " << value << '\n';
-    }
-    std::cout << '\n';
-}
-
-template < class Range >
-inline void writeJsonArray( std::ostream& out, const Range& v )
-{
-    out << '[';
-    bool first = true;
-    for ( auto x : v )
-    {
-        if ( !first ) out << ", ";
-        out << x;
-        first = false;
-    }
-    out << ']';
 }
 
 }  // namespace example::three_body

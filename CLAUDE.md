@@ -63,7 +63,9 @@ tax/
 │   └── testUtils.hpp         #   shared helpers/macros
 ├── benchmarks/               # Google Benchmark suite (bench_ode_cr3bp)
 ├── examples/                 # two_body/, three_body/, wsb/ — Taylor, ADS, LOADS
-├── docs/                     # MkDocs documentation (core/, ode/, eigen/, internals/)
+│   ├── common/output.hpp     #   shared I/O scaffolding (JSON schema, banners)
+│   └── plot/                 #   matplotlib scripts rendering the JSON outputs
+├── docs/                     # MkDocs documentation (tutorials/, core/, ode/, …)
 ├── cmake/                    # CMake package config template
 ├── .github/workflows/        # CI: tests.yml, sanitizers.yml, regressions.yml, docs.yml
 ├── .clang-format             # Code style configuration
