@@ -4,6 +4,18 @@
 #include <tax/core/multi_index.hpp>
 #include <tax/core/storage/dense.hpp>
 
+// Kernel dispatch configuration. Defaults ON here (not in the build system)
+// so every consumer gets the fast paths regardless of how the headers are
+// consumed. A project may pre-define either macro to 0 to fall back to the
+// loop kernel, but the value MUST be identical in every translation unit
+// linked together — differing values change inline definitions (ODR).
+#ifndef TAX_USE_UNROLL
+#    define TAX_USE_UNROLL 1
+#endif
+#ifndef TAX_USE_STENCIL
+#    define TAX_USE_STENCIL 1
+#endif
+
 #if TAX_USE_UNROLL
 #    include <tax/kernels/cauchy_unroll.hpp>
 #endif

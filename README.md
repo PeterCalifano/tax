@@ -144,8 +144,12 @@ ctest --test-dir build --output-on-failure
 |---|:-:|---|
 | `TAX_BUILD_UNITTESTS` | `ON`  | Build the unit-test suite |
 | `TAX_BUILD_BENCHMARK` | `OFF` | Build Google Benchmark suite |
-| `TAX_USE_UNROLL`      | `ON`  | Compile-time-unrolled M=1 Cauchy kernels |
-| `TAX_USE_STENCIL`     | `ON`  | Precomputed Cauchy stencils for M≥2 |
+
+The fast Cauchy kernel paths (`TAX_USE_UNROLL` for M=1, `TAX_USE_STENCIL`
+for M≥2) are enabled by default in `<tax/kernels/cauchy.hpp>` itself — no
+build-system configuration needed. To opt out, pre-define the macro to `0`
+identically in **every** translation unit (differing values are an ODR
+violation).
 
 ### Consume from another project
 
