@@ -199,9 +199,15 @@ dispatch (`cauchyProduct`):
   exactly `numMonomials(N, 2M)` entries, built once at first use
   (runtime static — not usable in constant evaluation)
 
-`cauchySelfProduct` enumerates unordered pairs (~2× fewer multiplications);
-sparse variants live in `sparse_cauchy.hpp` and reuse a `thread_local`
-scratch accumulator (no per-call heap allocation).
+All other M >= 2 recurrences (exp, log, sin/cos, tan, pow, reciprocal,
+sqrt, ...) are driven by one shared decomposition table:
+`forEachRecurrenceRow<N, M>(fn)` in `recurrence_stencil.hpp` hands each
+kernel the precomputed (flatIndex(beta), flatIndex(gamma), |beta|) rows
+per output monomial; only the recurrence weight stays in the kernel.
+Constant evaluation (and `TAX_USE_STENCIL=0`) enumerates the same rows
+on the fly — bit-identical results. Sparse variants live in
+`sparse_cauchy.hpp` and reuse a `thread_local` scratch accumulator (no
+per-call heap allocation).
 
 When adding a new math function: implement the recurrence in the right
 kernel file, expose it via `operators/math_unary.hpp` or `math_binary.hpp`,

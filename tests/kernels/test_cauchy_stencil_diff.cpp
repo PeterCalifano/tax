@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
+#include <tax/kernels/algebra.hpp>
 #include <tax/kernels/cauchy.hpp>
 #include <tax/kernels/cauchy_stencil.hpp>
+#include <tax/kernels/recurrence_stencil.hpp>
 
 template < int N, int M >
 void runDiffMulti( double tol = 1e-12 )
@@ -51,4 +53,74 @@ static_assert( kConstexprProduct[5] == 0.0 );
 TEST( CauchyStencil, ConstexprFallbackCompiles )
 {
     SUCCEED();  // assertions above are compile-time
+}
+
+// RecurrenceStencil entry count: the |beta| >= 1 decompositions are the
+// Cauchy pairs minus the |beta| = 0 ones (one per gamma).
+static_assert( tax::detail::kernels::RecurrenceStencil< 3, 2 >::kEntries
+               == tax::numMonomials( 3, 4 ) - tax::numMonomials( 3, 2 ) );
+static_assert( tax::detail::kernels::RecurrenceStencil< 4, 3 >::kEntries
+               == tax::numMonomials( 4, 6 ) - tax::numMonomials( 4, 3 ) );
+
+// seriesReciprocal must remain usable in constant evaluation for M >= 2
+// (forEachRecurrenceRow enumerates rows on the fly when consteval).
+constexpr tax::Coeffs< double, 2, 2 > kConstexprReciprocal = []
+{
+    tax::Coeffs< double, 2, 2 > a{}, out{};
+    a[0] = 2.0;  // 2 + x
+    a[1] = 1.0;
+    tax::detail::kernels::seriesReciprocal< double, 2, 2 >( out, a );
+    return out;
+}();
+// 1/(2 + x) = 1/2 - x/4 + x^2/8 + O(x^3)
+static_assert( kConstexprReciprocal[0] == 0.5 );
+static_assert( kConstexprReciprocal[1] == -0.25 );
+static_assert( kConstexprReciprocal[2] == 0.0 );
+static_assert( kConstexprReciprocal[3] == 0.125 );
+
+// Runtime stencil walk and constant-evaluation fallback must produce
+// identical rows (same order, same entries).
+TEST( RecurrenceStencil, RowsMatchConstexprEnumeration )
+{
+    using tax::detail::kernels::RecurrenceEntry;
+    constexpr int N = 4, M = 3;
+    std::vector< RecurrenceEntry > table_rows, enum_rows;
+    std::vector< std::size_t > table_bounds, enum_bounds;
+
+    const auto& st = tax::detail::kernels::recurrenceStencil< N, M >();
+    for ( std::size_t ai = 1; ai < tax::numMonomials( N, M ); ++ai )
+    {
+        table_bounds.push_back( st.row[ai + 1] - st.row[ai] );
+        for ( std::size_t e = st.row[ai]; e < st.row[ai + 1]; ++e )
+            table_rows.push_back( st.entries[e] );
+    }
+
+    std::size_t ai_expected = 1;
+    tax::forEachMonomial< M, N >( [&]( const tax::MultiIndex< M >& alpha ) {
+        int d = 0;
+        for ( int i = 0; i < M; ++i ) d += alpha[std::size_t( i )];
+        if ( d == 0 ) return;
+        ASSERT_EQ( tax::flatIndex< M >( alpha ), ai_expected++ );
+        std::size_t count = 0;
+        tax::forEachSubIndex< M >( alpha, [&]( const tax::MultiIndex< M >& beta,
+                                               const tax::MultiIndex< M >& gamma ) {
+            int db = 0;
+            for ( int i = 0; i < M; ++i ) db += beta[std::size_t( i )];
+            if ( db == 0 ) return;
+            enum_rows.push_back( RecurrenceEntry{
+                std::uint32_t( tax::flatIndex< M >( beta ) ),
+                std::uint32_t( tax::flatIndex< M >( gamma ) ), std::uint32_t( db ) } );
+            ++count;
+        } );
+        enum_bounds.push_back( count );
+    } );
+
+    ASSERT_EQ( table_bounds, enum_bounds );
+    ASSERT_EQ( table_rows.size(), enum_rows.size() );
+    for ( std::size_t i = 0; i < table_rows.size(); ++i )
+    {
+        EXPECT_EQ( table_rows[i].b_idx, enum_rows[i].b_idx ) << "entry " << i;
+        EXPECT_EQ( table_rows[i].g_idx, enum_rows[i].g_idx ) << "entry " << i;
+        EXPECT_EQ( table_rows[i].db, enum_rows[i].db ) << "entry " << i;
+    }
 }
