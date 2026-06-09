@@ -177,11 +177,13 @@ class AdsDriver
                 }
 
                 const int idx = tree.popFront();
-                // Copy inputs out: tree.split appends to the arena vector
+                // Take inputs out: tree.split appends to the arena vector
                 // and may reallocate, so we must not hold references to
                 // leaf storage across the lock-free integration. Indices
-                // stay valid across reallocation; references do not.
-                State payload = tree.leaf( idx ).payload;
+                // stay valid across reallocation; references do not. The
+                // payload can be moved — the leaf is subsequently either
+                // retired (split) or overwritten (finalize).
+                State payload = std::move( tree.leaf( idx ).payload );
                 const T tEntry = tree.leaf( idx ).tEntry;
                 const int depth = tree.leaf( idx ).depth;
                 const BoxT box = tree.leaf( idx ).box;

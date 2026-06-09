@@ -15,7 +15,6 @@
 #pragma once
 
 #include <array>
-#include <cmath>
 #include <cstddef>
 #include <tax/ads/box.hpp>
 #include <tax/core/multi_index.hpp>
@@ -37,30 +36,46 @@ namespace detail
     return r;
 }
 
-// Substitute ξ_dim → shift + 0.5 · ξ_dim in a single TE coefficient by
-// coefficient via the binomial expansion of (shift + 0.5·ξ_dim)^a_dim.
+// Substitute ξ_dim → shift + scale · ξ_dim in a single TE coefficient by
+// coefficient via the binomial expansion of (shift + scale·ξ_dim)^a_dim.
+// scale = 0.5 is the split substitution; scale = 2 its inverse (merge).
 template < class T, int N, int M, class Storage >
 [[nodiscard]] tax::TaylorExpansion< T, N, M, Storage > substituteAxis(
-    const tax::TaylorExpansion< T, N, M, Storage >& f, int dim, T shift ) noexcept
+    const tax::TaylorExpansion< T, N, M, Storage >& f, int dim, T shift, T scale ) noexcept
 {
+    // Power tables: shift_pow[p] = shift^p, scale_pow[p] = scale^p
+    // (exponents never exceed N — avoids std::pow in the inner loop).
+    std::array< T, static_cast< std::size_t >( N ) + 1 > shift_pow{};
+    std::array< T, static_cast< std::size_t >( N ) + 1 > scale_pow{};
+    shift_pow[0] = T{ 1 };
+    scale_pow[0] = T{ 1 };
+    for ( int p = 1; p <= N; ++p )
+    {
+        shift_pow[static_cast< std::size_t >( p )] =
+            shift_pow[static_cast< std::size_t >( p - 1 )] * shift;
+        scale_pow[static_cast< std::size_t >( p )] =
+            scale_pow[static_cast< std::size_t >( p - 1 )] * scale;
+    }
+
     tax::TaylorExpansion< T, N, M, Storage > out{};
     constexpr std::size_t Ncoef = tax::numMonomials( N, M );
     for ( std::size_t k = 0; k < Ncoef; ++k )
     {
-        const auto alpha = tax::unflatIndex< M >( k );
         const T cval = f[k];
         if ( cval == T{ 0 } ) continue;
+        const auto alpha = tax::unflatIndex< M >( k );
         const int aDim = alpha[static_cast< std::size_t >( dim )];
-        // Distribute (shift + 0.5·ξ_dim)^aDim into ξ_dim^j terms.
+        int aTotal = 0;
+        for ( int q = 0; q < M; ++q ) aTotal += alpha[static_cast< std::size_t >( q )];
+        // Distribute (shift + scale·ξ_dim)^aDim into ξ_dim^j terms.
         for ( int j = 0; j <= aDim; ++j )
         {
+            if ( aTotal - aDim + j > N ) break;  // degrees only grow with j
             tax::MultiIndex< M > beta = alpha;
             beta[static_cast< std::size_t >( dim )] = j;
-            int total = 0;
-            for ( int q = 0; q < M; ++q ) total += beta[static_cast< std::size_t >( q )];
-            if ( total > N ) continue;
-            const T coef = cval * T( detail::binom( aDim, j ) ) * std::pow( shift, T( aDim - j ) ) *
-                           std::pow( T( 0.5 ), T( j ) );
+            const T coef = cval * T( detail::binom( aDim, j ) ) *
+                           shift_pow[static_cast< std::size_t >( aDim - j )] *
+                           scale_pow[static_cast< std::size_t >( j )];
             out[tax::flatIndex< M >( beta )] += coef;
         }
     }
@@ -104,8 +119,8 @@ split( const Eigen::Matrix< tax::TaylorExpansion< T, N, M, Storage >, D, 1 >& st
     State R{ state.size() };
     for ( Eigen::Index i = 0; i < state.size(); ++i )
     {
-        L( i ) = detail::substituteAxis( state( i ), dim, T{ -0.5 } );
-        R( i ) = detail::substituteAxis( state( i ), dim, T{ 0.5 } );
+        L( i ) = detail::substituteAxis( state( i ), dim, T{ -0.5 }, T{ 0.5 } );
+        R( i ) = detail::substituteAxis( state( i ), dim, T{ 0.5 }, T{ 0.5 } );
     }
     return { std::move( L ), std::move( R ) };
 }

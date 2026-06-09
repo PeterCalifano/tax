@@ -36,34 +36,9 @@ struct MergeStats
 
 namespace detail
 {
-// Substitute ξ_dim → shift + 2·ξ_dim — inverse of substituteAxis (which
-// uses 0.5 · ξ_dim).
-template < class T, int N, int M, class Storage >
-[[nodiscard]] tax::TaylorExpansion< T, N, M, Storage > inverseSubstituteAxis(
-    const tax::TaylorExpansion< T, N, M, Storage >& f, int dim, T shift ) noexcept
-{
-    tax::TaylorExpansion< T, N, M, Storage > out{};
-    constexpr std::size_t Ncoef = tax::numMonomials( N, M );
-    for ( std::size_t k = 0; k < Ncoef; ++k )
-    {
-        const auto alpha = tax::unflatIndex< M >( k );
-        const T cval = f[k];
-        if ( cval == T{ 0 } ) continue;
-        const int aDim = alpha[static_cast< std::size_t >( dim )];
-        for ( int j = 0; j <= aDim; ++j )
-        {
-            tax::MultiIndex< M > beta = alpha;
-            beta[static_cast< std::size_t >( dim )] = j;
-            int total = 0;
-            for ( int q = 0; q < M; ++q ) total += beta[static_cast< std::size_t >( q )];
-            if ( total > N ) continue;
-            const T coef = cval * T( tax::ads::detail::binom( aDim, j ) ) *
-                           std::pow( shift, T( aDim - j ) ) * std::pow( T( 2.0 ), T( j ) );
-            out[tax::flatIndex< M >( beta )] += coef;
-        }
-    }
-    return out;
-}
+// The inverse of the split substitution is ξ_dim → shift + 2·ξ_dim:
+// detail::substituteAxis (da_state.hpp) with scale = 2.
+// shift = +1 for the left child, shift = -1 for the right child.
 
 template < class T, int N, int M, class Storage, int D >
 [[nodiscard]] T maxCoeffDiff(
@@ -113,15 +88,16 @@ MergeStats merge( AdsTree< Payload, M, T >& tree, Criterion crit )
                                     : sib;
             const int rightIdx = ( leftIdx == li ) ? sib : li;
 
-            // Reconstruct parent by inverting the split substitution.
-            Payload fromL = tree.leaf( leftIdx ).payload;
-            Payload fromR = tree.leaf( rightIdx ).payload;
+            // Reconstruct parent by inverting the split substitution
+            // (fill the components directly — no payload copy first).
+            const Payload& pl = tree.leaf( leftIdx ).payload;
+            const Payload& pr = tree.leaf( rightIdx ).payload;
+            Payload fromL{ pl.size() };
+            Payload fromR{ pr.size() };
             for ( Eigen::Index r = 0; r < fromL.size(); ++r )
             {
-                fromL( r ) =
-                    detail::inverseSubstituteAxis( tree.leaf( leftIdx ).payload( r ), dim, T{ 1 } );
-                fromR( r ) = detail::inverseSubstituteAxis( tree.leaf( rightIdx ).payload( r ), dim,
-                                                            T{ -1 } );
+                fromL( r ) = detail::substituteAxis( pl( r ), dim, T{ 1 }, T{ 2 } );
+                fromR( r ) = detail::substituteAxis( pr( r ), dim, T{ -1 }, T{ 2 } );
             }
 
             const T diff = detail::maxCoeffDiff( fromL, fromR );
