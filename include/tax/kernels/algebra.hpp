@@ -372,13 +372,26 @@ constexpr void seriesPowInt( Coeffs< T, N, M >& out,
         seriesPowInt< T, N, M >( out, rec, -n );
         return;
     }
-    // n >= 2: binary exponentiation (left-to-right square-and-multiply)
+    // n >= 2: binary exponentiation (square-and-multiply). Squarings go
+    // through the symmetric self-product kernel; `out` is seeded with the
+    // base power of the lowest set bit, skipping the wasted 1 * base
+    // multiply of the textbook formulation.
     std::array< T, S > base = a;
-    out = {};
-    out[0] = T{ 1 };
     int e = n;
+    while ( !( e & 1 ) )
+    {
+        std::array< T, S > tmp{};
+        cauchySelfProduct< T, N, M >( tmp, base );
+        base = tmp;
+        e >>= 1;
+    }
+    out = base;
+    e >>= 1;
     while ( e > 0 )
     {
+        std::array< T, S > sq{};
+        cauchySelfProduct< T, N, M >( sq, base );
+        base = sq;
         if ( e & 1 )
         {
             std::array< T, S > tmp{};
@@ -386,12 +399,6 @@ constexpr void seriesPowInt( Coeffs< T, N, M >& out,
             out = tmp;
         }
         e >>= 1;
-        if ( e > 0 )
-        {
-            std::array< T, S > tmp{};
-            cauchyProduct< T, N, M >( tmp, base, base );
-            base = tmp;
-        }
     }
 }
 

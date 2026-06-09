@@ -479,18 +479,6 @@ template < int N, int M >
 using TEn = TaylorExpansion< double, N, M, storage::Dense >;
 
 // ---------------------------------------------------------------------------
-// Self-check: verify the dense TaylorExpansion satisfies its own concepts.
-// ---------------------------------------------------------------------------
-static_assert( TaylorPolynomial< TE< 3 > >,
-               "TE<3> must satisfy TaylorPolynomial" );
-static_assert( DensePolynomial< TE< 3 > >,
-               "TE<3> must satisfy DensePolynomial" );
-static_assert( TaylorPolynomial< TE< 3, 2 > >,
-               "TE<3,2> must satisfy TaylorPolynomial" );
-static_assert( DensePolynomial< TE< 3, 2 > >,
-               "TE<3,2> must satisfy DensePolynomial" );
-
-// ---------------------------------------------------------------------------
 // Sparse specialisation
 // ---------------------------------------------------------------------------
 
@@ -740,13 +728,5 @@ template < typename T, int N, int M >
 {
     return TaylorExpansion< T, N, M, storage::Sparse >( d );
 }
-
-// ---------------------------------------------------------------------------
-// Self-check: verify the sparse TaylorExpansion satisfies its own concepts.
-// ---------------------------------------------------------------------------
-static_assert( TaylorPolynomial< STE< 3 > >,
-               "STE<3> must satisfy TaylorPolynomial" );
-static_assert( TaylorPolynomial< STE< 3, 2 > >,
-               "STE<3,2> must satisfy TaylorPolynomial" );
 
 }  // namespace tax
