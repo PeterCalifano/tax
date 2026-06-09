@@ -239,17 +239,25 @@ constexpr TaylorExpansion< T, N, M >& operator/=(
 using Sparse = storage::Sparse;
 
 /// @brief Sparse + Sparse: two-pointer merge over sorted flat indices.
+/// `forEachPair` visits indices in ascending order, so results are appended
+/// directly (O(nnz)) instead of inserted via per-element binary search.
 template < typename T, int N, int M >
 [[nodiscard]] TaylorExpansion< T, N, M, Sparse > operator+(
     const TaylorExpansion< T, N, M, Sparse >& a,
     const TaylorExpansion< T, N, M, Sparse >& b ) noexcept
 {
     TaylorExpansion< T, N, M, Sparse > r;
+    auto& ri = r.container().rawIndices();
+    auto& rv = r.container().rawValues();
     a.container().forEachPair(
-        b.container(), [&r]( std::size_t k, T va, T vb )
+        b.container(), [&ri, &rv]( std::size_t k, T va, T vb )
         {
             const T s = va + vb;
-            if ( s != T{ 0 } ) r.container().set( k, s );
+            if ( s != T{ 0 } )
+            {
+                ri.push_back( storage::flat_index_t( k ) );
+                rv.push_back( s );
+            }
         } );
     return r;
 }
@@ -261,35 +269,53 @@ template < typename T, int N, int M >
     const TaylorExpansion< T, N, M, Sparse >& b ) noexcept
 {
     TaylorExpansion< T, N, M, Sparse > r;
+    auto& ri = r.container().rawIndices();
+    auto& rv = r.container().rawValues();
     a.container().forEachPair(
-        b.container(), [&r]( std::size_t k, T va, T vb )
+        b.container(), [&ri, &rv]( std::size_t k, T va, T vb )
         {
             const T d = va - vb;
-            if ( d != T{ 0 } ) r.container().set( k, d );
+            if ( d != T{ 0 } )
+            {
+                ri.push_back( storage::flat_index_t( k ) );
+                rv.push_back( d );
+            }
         } );
     return r;
 }
 
-/// @brief Unary negation.
+/// @brief Unary negation (support is unchanged; values are negated).
 template < typename T, int N, int M >
 [[nodiscard]] TaylorExpansion< T, N, M, Sparse > operator-(
     const TaylorExpansion< T, N, M, Sparse >& a ) noexcept
 {
     TaylorExpansion< T, N, M, Sparse > r;
+    auto& ri = r.container().rawIndices();
+    auto& rv = r.container().rawValues();
     a.container().forEachNonzero(
-        [&r]( std::size_t k, T v ) { r.container().set( k, -v ); } );
+        [&ri, &rv]( std::size_t k, T v )
+        {
+            ri.push_back( storage::flat_index_t( k ) );
+            rv.push_back( -v );
+        } );
     return r;
 }
 
-/// @brief Sparse * scalar.
+/// @brief Sparse * scalar (support is unchanged for s != 0).
 template < typename T, int N, int M >
 [[nodiscard]] TaylorExpansion< T, N, M, Sparse > operator*(
     const TaylorExpansion< T, N, M, Sparse >& a, std::type_identity_t< T > s ) noexcept
 {
     if ( s == T{ 0 } ) return TaylorExpansion< T, N, M, Sparse >{};
     TaylorExpansion< T, N, M, Sparse > r;
+    auto& ri = r.container().rawIndices();
+    auto& rv = r.container().rawValues();
     a.container().forEachNonzero(
-        [&r, s]( std::size_t k, T v ) { r.container().set( k, v * s ); } );
+        [&ri, &rv, s]( std::size_t k, T v )
+        {
+            ri.push_back( storage::flat_index_t( k ) );
+            rv.push_back( v * s );
+        } );
     return r;
 }
 
@@ -314,8 +340,36 @@ template < typename T, int N, int M >
 [[nodiscard]] TaylorExpansion< T, N, M, Sparse > operator+(
     const TaylorExpansion< T, N, M, Sparse >& a, std::type_identity_t< T > s ) noexcept
 {
-    TaylorExpansion< T, N, M, Sparse > r = a;
-    if ( s != T{ 0 } ) r.container().accumulate( 0, s );
+    if ( s == T{ 0 } ) return a;
+    const auto ai = a.container().support();
+    const auto av = a.container().values();
+
+    TaylorExpansion< T, N, M, Sparse > r;
+    auto& ri = r.container().rawIndices();
+    auto& rv = r.container().rawValues();
+    ri.reserve( ai.size() + 1 );
+    rv.reserve( av.size() + 1 );
+
+    // Emit the constant term first, then bulk-append the (already sorted)
+    // remainder — avoids the O(nnz) front-insert of accumulate(0, s).
+    std::size_t b = 0;
+    if ( !ai.empty() && ai.front() == 0 )
+    {
+        const T c = av.front() + s;
+        if ( c != T{ 0 } )
+        {
+            ri.push_back( storage::flat_index_t( 0 ) );
+            rv.push_back( c );
+        }
+        b = 1;
+    }
+    else
+    {
+        ri.push_back( storage::flat_index_t( 0 ) );
+        rv.push_back( s );
+    }
+    ri.insert( ri.end(), ai.begin() + std::ptrdiff_t( b ), ai.end() );
+    rv.insert( rv.end(), av.begin() + std::ptrdiff_t( b ), av.end() );
     return r;
 }
 
