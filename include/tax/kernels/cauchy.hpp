@@ -68,8 +68,13 @@ constexpr void cauchyProduct( Coeffs< T, N, M >& out,
 #if TAX_USE_STENCIL
     if constexpr ( M >= 2 )
     {
-        cauchyProductStencil< T, N, M >( out, a, b );
-        return;
+        // The stencil table is a runtime-initialised static, so it cannot be
+        // used in constant evaluation; constexpr callers get the loop kernel.
+        if !consteval
+        {
+            cauchyProductStencil< T, N, M >( out, a, b );
+            return;
+        }
     }
 #endif
     cauchyProductLoop< T, N, M >( out, a, b );
