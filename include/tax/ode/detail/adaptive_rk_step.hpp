@@ -8,6 +8,7 @@
 #pragma once
 
 #include <array>
+#include <concepts>
 #include <cstddef>
 #include <type_traits>
 #include <utility>
@@ -45,10 +46,11 @@ template < class Tab, class F, class State, int NStages >
     work.k[ 0 ] = f( x, t + Tab::c[ 0 ] * h );
 
     std::size_t a_off = 0;
+    State y = x;  // hoisted stage accumulator (reassigned per stage)
     for ( int i = 1; i < NStages; ++i )
     {
-        State y;
-        Ops::scale_assign( y, 1.0, x );
+        if ( i > 1 )
+            y = x;
         for ( int j = 0; j < i; ++j )
             Ops::axpy( y, h * Tab::a[ a_off + std::size_t( j ) ],
                        work.k[ std::size_t( j ) ] );
@@ -56,9 +58,8 @@ template < class Tab, class F, class State, int NStages >
         a_off += std::size_t( i );
     }
 
-    State x_new, y_emb;
-    Ops::scale_assign( x_new, 1.0, x );
-    Ops::scale_assign( y_emb, 1.0, x );
+    State x_new = x;
+    State y_emb = x;
     for ( int i = 0; i < NStages; ++i )
     {
         Ops::axpy( x_new, h * Tab::b    [ std::size_t( i ) ],
@@ -67,11 +68,23 @@ template < class Tab, class F, class State, int NStages >
                    work.k[ std::size_t( i ) ] );
     }
 
-    State diff;
-    Ops::scale_assign( diff,  1.0, x_new );
-    Ops::axpy        ( diff, -1.0, y_emb );
+    // Error norm |x_new - y_emb|_inf, without materializing the difference
+    // when the VectorOps specialization provides diff_norm.
+    double err_norm;
+    if constexpr ( requires( const State& u, const State& v ) {
+                       { Ops::diff_norm( u, v ) } -> std::convertible_to< double >;
+                   } )
+    {
+        err_norm = Ops::diff_norm( x_new, y_emb );
+    }
+    else
+    {
+        State diff = x_new;
+        Ops::axpy( diff, -1.0, y_emb );
+        err_norm = Ops::norm( diff );
+    }
 
-    return { std::move( x_new ), std::move( y_emb ), Ops::norm( diff ) };
+    return { std::move( x_new ), std::move( y_emb ), err_norm };
 }
 
 /**

@@ -150,6 +150,88 @@ template < typename T, int N, int M >
     return r;
 }
 
+// ---------------------------------------------------------------------------
+// Compound assignment (dense)
+//
+// In-place updates avoid the temporary + copy-assign of `a = a + b`; they are
+// the building blocks of hot loops (e.g. the ODE steppers' axpy updates).
+// ---------------------------------------------------------------------------
+
+template < typename T, int N, int M >
+constexpr TaylorExpansion< T, N, M >& operator+=(
+    TaylorExpansion< T, N, M >& a, const TaylorExpansion< T, N, M >& b ) noexcept
+{
+    for ( std::size_t k = 0; k < a.nCoefficients; ++k )
+        a[k] += b[k];
+    return a;
+}
+
+template < typename T, int N, int M >
+constexpr TaylorExpansion< T, N, M >& operator-=(
+    TaylorExpansion< T, N, M >& a, const TaylorExpansion< T, N, M >& b ) noexcept
+{
+    for ( std::size_t k = 0; k < a.nCoefficients; ++k )
+        a[k] -= b[k];
+    return a;
+}
+
+template < typename T, int N, int M >
+constexpr TaylorExpansion< T, N, M >& operator+=(
+    TaylorExpansion< T, N, M >& a, std::type_identity_t< T > s ) noexcept
+{
+    a[0] += s;
+    return a;
+}
+
+template < typename T, int N, int M >
+constexpr TaylorExpansion< T, N, M >& operator-=(
+    TaylorExpansion< T, N, M >& a, std::type_identity_t< T > s ) noexcept
+{
+    a[0] -= s;
+    return a;
+}
+
+template < typename T, int N, int M >
+constexpr TaylorExpansion< T, N, M >& operator*=(
+    TaylorExpansion< T, N, M >& a, std::type_identity_t< T > s ) noexcept
+{
+    for ( std::size_t k = 0; k < a.nCoefficients; ++k )
+        a[k] *= s;
+    return a;
+}
+
+template < typename T, int N, int M >
+constexpr TaylorExpansion< T, N, M >& operator/=(
+    TaylorExpansion< T, N, M >& a, std::type_identity_t< T > s ) noexcept
+{
+    return a *= ( T( 1 ) / s );
+}
+
+/// @brief In-place Cauchy product. A scratch buffer is unavoidable (the
+///        convolution reads earlier coefficients of `a`), but the temporary
+///        TaylorExpansion of `a = a * b` is not.
+template < typename T, int N, int M >
+constexpr TaylorExpansion< T, N, M >& operator*=(
+    TaylorExpansion< T, N, M >& a, const TaylorExpansion< T, N, M >& b ) noexcept
+{
+    Coeffs< T, N, M > tmp{};
+    detail::kernels::cauchyProduct< T, N, M >( tmp, a.coefficients(), b.coefficients() );
+    a.coefficients() = tmp;
+    return a;
+}
+
+template < typename T, int N, int M >
+constexpr TaylorExpansion< T, N, M >& operator/=(
+    TaylorExpansion< T, N, M >& a, const TaylorExpansion< T, N, M >& b ) noexcept
+{
+    Coeffs< T, N, M > inv_b{};
+    detail::kernels::seriesReciprocal< T, N, M >( inv_b, b.coefficients() );
+    Coeffs< T, N, M > tmp{};
+    detail::kernels::cauchyProduct< T, N, M >( tmp, a.coefficients(), inv_b );
+    a.coefficients() = tmp;
+    return a;
+}
+
 // ===========================================================================
 // Sparse arithmetic:  S+S, S-S, -S, S+T, T+S, S-T, T-S, S*T, T*S, S/T
 // ===========================================================================
