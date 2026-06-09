@@ -162,25 +162,31 @@ polynomial-Newton root finder.
 
 ### Runge–Kutta methods
 
+All five embedded-pair RK methods are aliases of the single
+`detail::EmbeddedRKStepper<Tab, StateT, Controller>` template over their
+Butcher tableaus:
+
 ```cpp
-template <class StateT, class Controller = controllers::PI<typename StateT::Scalar>>
-struct Verner78Stepper;     // 8(7), 13 stages
+template <class StateT, class Controller = controllers::PI<double>>
+using Verner78Stepper   = /* EmbeddedRKStepper */;  // 8(7), 13 stages
 
-template <class StateT, class Controller = controllers::PI<typename StateT::Scalar>>
-struct Verner89Stepper;     // 9(8), 16 stages
+template <class StateT, class Controller = controllers::PI<double>>
+using Verner89Stepper   = /* EmbeddedRKStepper */;  // 9(8), 16 stages
 
-template <class StateT, class Controller = controllers::PI<typename StateT::Scalar>>
-struct Fehlberg78Stepper;   // 7(8), 13 stages
+template <class StateT, class Controller = controllers::PI<double>>
+using Fehlberg78Stepper = /* EmbeddedRKStepper */;  // 7(8), 13 stages
 
-template <class StateT, class Controller = controllers::PI<typename StateT::Scalar>>
-struct Feagin12Stepper;     // 12(10), 25 stages
+template <class StateT, class Controller = controllers::PI<double>>
+using Feagin12Stepper   = /* EmbeddedRKStepper */;  // 12(10), 25 stages
 
-template <class StateT, class Controller = controllers::PI<typename StateT::Scalar>>
-struct Feagin14Stepper;     // 14(12), 35 stages
+template <class StateT, class Controller = controllers::PI<double>>
+using Feagin14Stepper   = /* EmbeddedRKStepper */;  // 14(12), 35 stages
 ```
 
 Each `DenseData` carries the boundary states and derivatives required by the
-cubic-Hermite continuous extension.
+cubic-Hermite continuous extension. A zero embedded-error estimate (the
+"Fehlberg coincidence", Feagin's stage-difference indicator at small h) is
+floored at machine eps · tol before reaching the step controller.
 
 ---
 
