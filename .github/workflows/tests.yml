@@ -176,9 +176,9 @@ jobs:
 
       - name: Generate coverage report
         run: |
-          gcovr --root . build-coverage --filter "^include/tax/" --print-summary
-          gcovr --root . build-coverage --filter "^include/tax/" --xml-pretty --output build-coverage/coverage.xml
-          gcovr --root . build-coverage --filter "^include/tax/" --html-details --output build-coverage/coverage.html
+          gcovr --root . build-coverage --filter "^include/tax/" --gcov-ignore-parse-errors=negative_hits.warn_once_per_file --print-summary
+          gcovr --root . build-coverage --filter "^include/tax/" --gcov-ignore-parse-errors=negative_hits.warn_once_per_file --xml-pretty --output build-coverage/coverage.xml
+          gcovr --root . build-coverage --filter "^include/tax/" --gcov-ignore-parse-errors=negative_hits.warn_once_per_file --html-details --output build-coverage/coverage.html
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
