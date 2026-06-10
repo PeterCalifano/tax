@@ -1,4 +1,7 @@
 window.MathJax = {
+  loader: {
+    load: ["[tex]/boldsymbol"]
+  },
   tex: {
     inlineMath: [["\\(", "\\)"], ["$", "$"]],
     displayMath: [["\\[", "\\]"], ["$$", "$$"]],
@@ -10,11 +13,15 @@ window.MathJax = {
   options: {
     ignoreHtmlClass: ".*|",
     processHtmlClass: "arithmatex"
-  },
-  startup: {
-    ready() {
-      MathJax.startup.defaultReady();
-      document$.subscribe(() => MathJax.typesetPromise());
-    }
   }
 };
+
+// Re-typeset on every instant-navigation page swap (navigation.instant).
+// Clearing MathJax's caches and counters first avoids the stale state that
+// otherwise leaves equations unrendered until a full page reload.
+document$.subscribe(() => {
+  MathJax.startup.output.clearCache();
+  MathJax.typesetClear();
+  MathJax.texReset();
+  MathJax.typesetPromise();
+});
