@@ -4,7 +4,8 @@ window.MathJax = {
     displayMath: [["\\[", "\\]"], ["$$", "$$"]],
     processEscapes: true,
     processEnvironments: true,
-    tags: "ams"
+    tags: "ams",
+    packages: {"[+]": ["boldsymbol"]}
   },
   options: {
     ignoreHtmlClass: ".*|",
@@ -13,5 +14,7 @@ window.MathJax = {
 };
 
 document$.subscribe(() => {
-  MathJax.typesetPromise()
+  MathJax.startup.promise.then(() => {
+    MathJax.typesetPromise()
+  })
 })
