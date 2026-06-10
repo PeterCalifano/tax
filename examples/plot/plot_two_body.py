@@ -25,11 +25,15 @@ from matplotlib.colors import Normalize
 plt.rcParams.update(
     {
         "figure.facecolor": "white",
-        "axes.spines.top": False,
-        "axes.spines.right": False,
-        "axes.grid": True,
-        "grid.alpha": 0.25,
         "font.size": 11,
+        "axes.linewidth": 0.9,
+        "xtick.direction": "in",
+        "ytick.direction": "in",
+        "xtick.top": True,
+        "ytick.right": True,
+        "legend.frameon": True,
+        "legend.framealpha": 0.95,
+        "legend.edgecolor": "0.8",
     }
 )
 
@@ -65,8 +69,7 @@ def plot_flow(taylor, out_dir):
     ax.set_xlabel("$x$")
     ax.set_ylabel("$y$")
     ax.set_aspect("equal")
-    ax.legend(loc="upper left", framealpha=0.9)
-    ax.set_title("Kepler flow of an IC box — one Taylor polynomial, one orbit")
+    ax.legend(loc="upper left")
 
     fig.tight_layout()
     fig.savefig(out_dir / "two_body_flow.png", dpi=150)
@@ -105,14 +108,11 @@ def plot_ads(taylor, ads, out_dir):
         ax.set_xlim(ax_all.min() - pad_x, ax_all.max() + pad_x)
         ax.set_ylim(ay_all.min() - pad_y, ay_all.max() + pad_y)
 
-        ax.set_title(f"$t = {st['t']:.3f}$   ({n} ADS {'leaf' if n == 1 else 'leaves'})")
         ax.set_xlabel("$x$")
         ax.set_ylabel("$y$")
-        ax.set_aspect("equal")
+        ax.set_aspect("equal", adjustable="datalim")
+        ax.legend(loc="upper left", title=f"$t = {st['t']:.2f}$   ({n} leaves)")
 
-    handles, labels = axes[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="outside upper right", ncols=2, framealpha=0.9)
-    fig.suptitle("Where one polynomial fails, the ADS partition stays tight", x=0.32)
     fig.savefig(out_dir / "two_body_ads.png", dpi=150)
     plt.close(fig)
 
@@ -131,8 +131,7 @@ def plot_leaves(ads, loads, out_dir):
     ax.set_xlabel("snapshot time  $t$")
     ax.set_ylabel("number of leaves")
     ax.set_yscale("log", base=2)
-    ax.legend(framealpha=0.9)
-    ax.set_title("Domain subdivisions over one orbit")
+    ax.legend()
     fig.tight_layout()
     fig.savefig(out_dir / "two_body_leaves.png", dpi=150)
     plt.close(fig)

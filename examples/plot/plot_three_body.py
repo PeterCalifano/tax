@@ -25,11 +25,15 @@ from matplotlib.colors import Normalize
 plt.rcParams.update(
     {
         "figure.facecolor": "white",
-        "axes.spines.top": False,
-        "axes.spines.right": False,
-        "axes.grid": True,
-        "grid.alpha": 0.25,
         "font.size": 11,
+        "axes.linewidth": 0.9,
+        "xtick.direction": "in",
+        "ytick.direction": "in",
+        "xtick.top": True,
+        "ytick.right": True,
+        "legend.frameon": True,
+        "legend.framealpha": 0.95,
+        "legend.edgecolor": "0.8",
     }
 )
 
@@ -40,14 +44,12 @@ def load(path: pathlib.Path):
 
 
 def draw_frame(ax, params):
-    """Moon + L1 markers shared by both spatial figures."""
+    """Moon + L1 markers shared by both spatial figures (labelled for legends)."""
     mu, x_l1 = params["mu"], params["x_L1"]
-    ax.scatter([1.0 - mu], [0.0], s=160, color="0.6", edgecolor="0.3", zorder=5)
-    ax.annotate("Moon", (1.0 - mu, 0.0), textcoords="offset points",
-                xytext=(0, 10), ha="center")
-    ax.scatter([x_l1], [0.0], marker="x", s=70, color="#d1495b", zorder=5)
-    ax.annotate("$L_1$", (x_l1, 0.0), textcoords="offset points",
-                xytext=(0, -16), ha="center", color="#d1495b")
+    ax.scatter([1.0 - mu], [0.0], s=160, color="0.6", edgecolor="0.3", zorder=5,
+               label="Moon")
+    ax.scatter([x_l1], [0.0], marker="x", s=70, color="#d1495b", zorder=5,
+               label="$L_1$")
 
 
 def plot_flow(taylor, out_dir):
@@ -61,10 +63,10 @@ def plot_flow(taylor, out_dir):
     cmap = plt.get_cmap("viridis")
 
     # Left: the slow exponential stretch near L1 (early snapshots).
-    ax_l1.plot(ref["x0"], ref["x1"], color="0.55", lw=1.0, zorder=1)
-    ax_l1.scatter([params["x_L1"]], [0.0], marker="x", s=70, color="#d1495b", zorder=5)
-    ax_l1.annotate("$L_1$", (params["x_L1"], 0.0), textcoords="offset points",
-                   xytext=(-2, 8), ha="center", color="#d1495b")
+    ax_l1.plot(ref["x0"], ref["x1"], color="0.55", lw=1.0, zorder=1,
+               label="reference trajectory")
+    ax_l1.scatter([params["x_L1"]], [0.0], marker="x", s=70, color="#d1495b", zorder=5,
+                  label="$L_1$")
     for snap in snaps[:8]:
         color = cmap(norm(snap["t"]))
         for leaf in snap["leaves"]:
@@ -74,7 +76,7 @@ def plot_flow(taylor, out_dir):
     ax_l1.set_ylim(-0.0042, 0.0012)
     ax_l1.set_xlabel("$x$  (rotating frame)")
     ax_l1.set_ylabel("$y$")
-    ax_l1.set_title(f"near $L_1$:  $t \\leq {snaps[7]['t']:.2f}$")
+    ax_l1.legend(loc="lower left")
 
     # Right: the full transit to the Moon (the t = 2 bulge running out of
     # frame is the single polynomial breaking down at the flyby).
@@ -91,14 +93,12 @@ def plot_flow(taylor, out_dir):
     ax.set_xlabel("$x$  (rotating frame)")
     ax.set_ylabel("$y$")
     ax.set_aspect("equal")
-    ax.legend(loc="lower left", framealpha=0.9)
-    ax.set_title("transit to the Moon")
+    ax.legend(loc="lower left")
 
     sm = ScalarMappable(norm=norm, cmap=cmap)
     cbar = fig.colorbar(sm, ax=ax, fraction=0.05, pad=0.02)
     cbar.set_label("snapshot time  $t$")
 
-    fig.suptitle("CR3BP: IC box escaping $L_1$ along the unstable manifold")
     fig.savefig(out_dir / "three_body_flow.png", dpi=150)
     plt.close(fig)
 
@@ -109,11 +109,13 @@ def plot_ads(taylor, ads, out_dir):
     k = next(i for i, s in enumerate(ads["snapshots"]) if len(s["leaves"]) > 32)
     st, sa = taylor["snapshots"][k], ads["snapshots"][k]
 
-    fig, ax = plt.subplots(figsize=(8.2, 6.0))
+    fig, ax = plt.subplots(figsize=(7.4, 6.0))
     params = ads["params"]
     ref = ads["reference_orbit"]
     ax.plot(ref["x0"], ref["x1"], color="0.55", lw=1.0, zorder=1)
-    draw_frame(ax, params)
+    # Only the Moon is in frame at the flyby; L1 lies outside this zoom.
+    ax.scatter([1.0 - params["mu"]], [0.0], s=160, color="0.6", edgecolor="0.3",
+               zorder=5, label="Moon")
 
     leaf = st["leaves"][0]
     ax.plot(leaf["x"], leaf["y"], color="#d1495b", lw=1.6, ls="--", zorder=4,
@@ -135,10 +137,8 @@ def plot_ads(taylor, ads, out_dir):
 
     ax.set_xlabel("$x$  (rotating frame)")
     ax.set_ylabel("$y$")
-    ax.set_aspect("equal")
-    ax.legend(loc="best", framealpha=0.9)
-    ax.set_title(f"Moon approach at $t = {st['t']:.2f}$ — "
-                 "one polynomial vs the ADS partition")
+    ax.set_aspect("equal", adjustable="datalim")
+    ax.legend(loc="upper left", title=f"$t = {st['t']:.2f}$")
 
     fig.tight_layout()
     fig.savefig(out_dir / "three_body_ads.png", dpi=150)
@@ -165,8 +165,7 @@ def plot_leaves(ads, loads, out_dir):
     ax.set_xlabel("snapshot time  $t$")
     ax.set_ylabel("number of leaves")
     ax.set_yscale("log", base=2)
-    ax.legend(framealpha=0.9, loc="upper left")
-    ax.set_title("Subdivisions track the manifold stretching")
+    ax.legend(loc="upper left")
     fig.tight_layout()
     fig.savefig(out_dir / "three_body_leaves.png", dpi=150)
     plt.close(fig)
