@@ -72,10 +72,10 @@ center \(\mathbf{s}_0\) and a half-width vector \(\mathbf{h}\), here varying
 only the \(y\) position (\(\pm 8 \times 10^{-3}\)) and the \(y\) velocity
 (\(\pm 2 \times 10^{-2}\)). Seed every state component as a degree-1
 polynomial in the normalized displacement
-\(\boldsymbol{\xi} \in [-1, 1]^4\):
+\(\xi \in [-1, 1]^4\):
 
 $$
-s_i(\boldsymbol{\xi}) = s_{0,i} + h_i\, \xi_i .
+s_i(\xi) = s_{0,i} + h_i\, \xi_i .
 $$
 
 Propagating this Taylor-valued state through the integrator carries *all*
@@ -83,8 +83,8 @@ partial derivatives of the flow up to the truncation order \(P\) along for
 the ride. The solution at time \(t\) is the **flow polynomial**
 
 $$
-\Phi_t(\boldsymbol{\xi})
-  = \sum_{|\alpha| \le P} c_\alpha(t)\, \boldsymbol{\xi}^\alpha ,
+\Phi_t(\xi)
+  = \sum_{|\alpha| \le P} c_\alpha(t)\, \xi^\alpha ,
 $$
 
 a polynomial map that sends any point of the IC box to its propagated
