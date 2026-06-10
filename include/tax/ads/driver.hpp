@@ -218,10 +218,11 @@ class AdsDriver
         };
 
         {
-            std::vector< std::jthread > pool;
+            std::vector< std::thread > pool;
             pool.reserve( static_cast< std::size_t >( num_threads_ ) );
             for ( int i = 0; i < num_threads_; ++i ) pool.emplace_back( worker );
-        }  // jthreads join here
+            for ( auto& t : pool ) t.join();
+        }
 
         if ( first_err ) std::rethrow_exception( first_err );
     }
