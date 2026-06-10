@@ -3,26 +3,18 @@
 //
 // Step 3 — Low-Order Automatic Domain Splitting (LOADS).
 //
-// Identical structure to ads.cpp; the only change is the splitting
-// criterion. LOADS (Losacco/Fossà/Armellin 2024) splits on the
-// "nonlinearity index" — a ratio between the L1 mass of the degree-≥2
-// Jacobian-variation bound and the L1 mass of the linear Jacobian. NLI
-// is more sensitive to swirl-type nonlinearities (think: periapsis
-// passages) than the truncation residual is.
+// Identical structure to ads.cpp; only the splitting criterion changes.
+// LOADS (Losacco/Fossà/Armellin 2024) splits on the nonlinearity index —
+// the ratio between the mass of the degree->=2 Jacobian-variation bound
+// and the mass of the linear Jacobian. NLI is more sensitive to
+// swirl-type nonlinearities (periapsis passages) than the truncation
+// residual is, which is why a lower order P suffices.
 //
 // Run:    ./two_body_loads
-// Writes: loads.json
+// Writes: loads.json   (plot with examples/plot/plot_two_body.py)
 // =============================================================================
 
-#include <chrono>
-#include <fstream>
-#include <iomanip>
-#include <cstdlib>
-#include <iostream>
-#include <thread>
-
 #include <tax/ads.hpp>
-#include <tax/la/types.hpp>
 #include <tax/ode.hpp>
 #include <tax/ode/io.hpp>
 
@@ -30,160 +22,78 @@
 
 int main()
 {
+    using namespace example;
     using namespace example::two_body;
     using namespace tax::ode::methods;
 
-    constexpr int P = 6;
+    constexpr int P = 6;  // LOADS works at lower order than truncation ADS
     constexpr int M = 4;
     constexpr int D = 4;
 
-    constexpr int    kNOrbits  = 1;
-    constexpr int    kNSnaps   = 9;
-    constexpr int    kNPerEdge = 24;
-    const     double tFinal    = kNOrbits * kPeriod;
+    constexpr int kNSnaps   = 9;
+    constexpr int kNPerEdge = 24;
+    const double  t_final   = kPeriod;
 
-    // ---- IC box (configured in common.hpp) ---------------------------------
-    auto ic_box = icBox();
-
-    const int kThreads = [] {
-        if ( const char* e = std::getenv( "TAX_ADS_THREADS" ) )
-        {
-            const int n = std::atoi( e );
-            if ( n > 0 ) return n;
-        }
-        const unsigned hc = std::thread::hardware_concurrency();
-        return hc > 0 ? static_cast< int >( hc ) : 1;
-    }();
+    const auto ic_box = icBox();
 
     tax::ode::IntegratorConfig< double > cfg;
     cfg.abstol = cfg.reltol = 1e-12;
 
-    const tax::ads::NliCriterion criterion{ /*tol=*/1, /*maxDepth=*/6 };
+    const tax::ads::NliCriterion criterion{ /*tol=*/1.0, /*maxDepth=*/6 };
 
-    tax::ode::IntegratorConfig< double > ref_cfg;
-    ref_cfg.abstol = ref_cfg.reltol = 1e-13;
+    // ---- Scalar centerpoint orbit (plot underlay) ----------------------------
     auto ref_sol = tax::ode::propagate< /*Dense=*/true >(
-        Taylor< 16 >{}, rhs(), icCenter(), 0.0, tFinal, ref_cfg );
+        Taylor< 16 >{}, rhs(), icCenter(), 0.0, t_final, cfg );
+    const auto reference = sampleOrbit( ref_sol, tax::ode::linspace( 0.0, t_final, 200 ), D );
 
-    const auto times    = tax::ode::linspace( 0.0, tFinal, kNSnaps );
+    // ---- One LOADS propagation per snapshot time ------------------------------
     const auto boundary = unitSquareBoundary( kNPerEdge );
-
-    std::ofstream out( "loads.json" );
-    out << std::setprecision( 12 );
-    out << "{\n";
-    out << "  \"method\": \"loads\",\n";
-    out << "  \"criterion\": { \"type\": \"nli\", \"tol\": " << criterion.tol
-        << ", \"maxDepth\": " << criterion.maxDepth << " },\n";
-    out << "  \"config\": {\n";
-    out << "    \"P\": " << P << ", \"M\": " << M << ", \"D\": " << D << ",\n";
-    out << "    \"n_orbits\": " << kNOrbits << ", \"t_final\": " << tFinal << ",\n";
-    out << "    \"ic_box\": {\n";
-    out << "      \"center\":    "; writeJsonArray( out, ic_box.center );    out << ",\n";
-    out << "      \"halfWidth\": "; writeJsonArray( out, ic_box.halfWidth ); out << "\n";
-    out << "    }\n";
-    out << "  },\n";
-
-    constexpr int kNRefSnaps = 200;
-    const auto    ref_times  = tax::ode::linspace( 0.0, tFinal, kNRefSnaps );
-    out << "  \"reference_orbit\": {\n";
-    out << "    \"t\":  "; writeJsonArray( out, ref_times ); out << ",\n";
-    std::vector< double > col( ref_times.size() );
-    for ( int j = 0; j < D; ++j )
+    std::vector< Snapshot > snapshots;
+    std::string leaf_counts;
+    Stopwatch   clock;
+    for ( double t : tax::ode::linspace( 0.0, t_final, kNSnaps ) )
     {
-        for ( std::size_t i = 0; i < ref_times.size(); ++i )
-            col[ i ] = ref_sol( ref_times[ i ] )( j );
-        out << "    \"x" << j << "\": "; writeJsonArray( out, col );
-        out << ( j + 1 < D ? ",\n" : "\n" );
-    }
-    out << "  },\n";
-
-    std::cout << "[loads] running 9 per-snapshot LOADS propagations..." << std::flush;
-
-    out << "  \"polygons\": [\n";
-    std::vector< double > xs( boundary.size() ), ys( boundary.size() );
-    std::vector< int >    leaves_per_snap;
-    double                total_ms = 0.0;
-    for ( int s = 0; s < kNSnaps; ++s )
-    {
-        const double t_snap = times[ static_cast< std::size_t >( s ) ];
-        out << "    { \"t\": " << t_snap << ", \"leaves\": [";
-
-        if ( t_snap <= 0.0 )
+        Snapshot snap{ t, {} };
+        if ( t <= 0.0 )
         {
-            for ( std::size_t v = 0; v < boundary.size(); ++v )
-            {
-                const tax::la::VecNT< M, double > d{
-                    0.0, boundary[ v ][ 0 ], 0.0, boundary[ v ][ 1 ]
-                };
-                const auto pt = ic_box.denormalize( d );
-                xs[ v ] = pt( 0 );
-                ys[ v ] = pt( 1 );
-            }
-            out << "\n      { \"id\": 0, \"depth\": 0, \"x\": ";
-            writeJsonArray( out, xs );
-            out << ", \"y\": ";
-            writeJsonArray( out, ys );
-            out << " }\n    ";
-            leaves_per_snap.push_back( 1 );
+            snap.leaves.push_back( boxPolygon( ic_box, boundary, boundaryToBox ) );
         }
         else
         {
-            const auto t_a   = std::chrono::high_resolution_clock::now();
-            auto       tree  = tax::ads::propagate< P >(
-                Verner89{}, criterion, rhs(), ic_box, icCenter(), 0.0, t_snap, cfg, kThreads );
-            const auto t_b   = std::chrono::high_resolution_clock::now();
-            total_ms += std::chrono::duration< double, std::milli >( t_b - t_a ).count();
-
-            bool first = true;
-            int  rank  = 0;
+            auto tree = tax::ads::propagate< P >( Verner89{}, criterion, rhs(), ic_box,
+                                                  icCenter(), 0.0, t, cfg, adsThreads() );
+            int id = 0;
             for ( int li : tree.done() )
             {
                 const auto& leaf = tree.leaf( li );
-                const int   id   = rank++;
-                for ( std::size_t v = 0; v < boundary.size(); ++v )
-                {
-                    const std::array< double, M > d{
-                        0.0, boundary[ v ][ 0 ], 0.0, boundary[ v ][ 1 ]
-                    };
-                    xs[ v ] = leaf.payload( 0 ).eval( d );
-                    ys[ v ] = leaf.payload( 1 ).eval( d );
-                }
-                if ( !first ) out << ",";
-                first = false;
-                out << "\n      { \"id\": " << id << ", \"depth\": " << leaf.depth
-                    << ", \"x\": "; writeJsonArray( out, xs );
-                out << ", \"y\": "; writeJsonArray( out, ys );
-                out << " }";
+                snap.leaves.push_back(
+                    evalPolygon( leaf.payload, boundary, boundaryToBox, id++, leaf.depth ) );
             }
-            out << "\n    ";
-            leaves_per_snap.push_back( static_cast< int >( tree.done().size() ) );
         }
-
-        out << "] }" << ( s + 1 < kNSnaps ? "," : "" ) << "\n";
+        leaf_counts += ( leaf_counts.empty() ? "" : ", " )
+                       + std::to_string( snap.leaves.size() );
+        snapshots.push_back( std::move( snap ) );
     }
-    out << "  ],\n";
-    out << "  \"timing\": { \"elapsed_ms\": " << total_ms << " }\n";
-    out << "}\n";
+    const double elapsed_ms = clock.ms();
 
-    std::cout << "\r" << std::string( 50, ' ' ) << "\r";
+    // ---- Output ---------------------------------------------------------------
+    writeRunJson( "loads.json", "loads",
+                  { { "P", std::to_string( P ) },
+                    { "M", std::to_string( M ) },
+                    { "D", std::to_string( D ) },
+                    { "t_final", jsonNumber( t_final ) },
+                    { "criterion", "\"nli\"" },
+                    { "tol", jsonNumber( criterion.tol ) },
+                    { "max_depth", std::to_string( criterion.maxDepth ) },
+                    { "ic_center", jsonArray( ic_box.center ) },
+                    { "ic_half_width", jsonArray( ic_box.halfWidth ) } },
+                  reference, snapshots, elapsed_ms );
 
-    std::string leaves_str;
-    for ( std::size_t i = 0; i < leaves_per_snap.size(); ++i )
-    {
-        if ( i ) leaves_str += ", ";
-        leaves_str += std::to_string( leaves_per_snap[ i ] );
-    }
-
-    const std::vector< std::pair< std::string, std::string > > rows{
-        { "P, M, D",         std::to_string( P ) + ", " + std::to_string( M ) + ", " + std::to_string( D ) },
-        { "criterion",       "nli (tol=0.1, depth<=6)" },
-        { "orbits",          std::to_string( kNOrbits ) },
-        { "snapshots",       std::to_string( kNSnaps ) },
-        { "leaves per snap", leaves_str },
-        { "elapsed",         std::to_string( total_ms / 1e3 ) + " s" },
-        { "output",          "loads.json" }
-    };
-    printBanner( "loads (piecewise polynomial, NLI criterion)",
-                 std::span< const std::pair< std::string, std::string > >{ rows } );
+    printBanner( "two_body/loads — piecewise polynomial flow (NLI criterion)",
+                 { { "P, M", std::to_string( P ) + ", " + std::to_string( M ) },
+                   { "criterion", "nli, tol=1, depth<=6" },
+                   { "leaves per snap", leaf_counts },
+                   { "elapsed", std::to_string( elapsed_ms ) + " ms" },
+                   { "output", "loads.json" } } );
     return 0;
 }

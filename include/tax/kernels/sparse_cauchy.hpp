@@ -4,6 +4,7 @@
 #include <bit>
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <vector>
 
 #include <tax/core/multi_index.hpp>
@@ -13,25 +14,78 @@ namespace tax::detail::kernels
 {
 
 /**
- * @brief Compute the flat index of the monomial sum alpha+beta, given the flat
- *        indices of alpha and beta. No truncation check; caller must verify.
+ * @brief Scratch state shared by the sparse Cauchy kernels.
+ *
+ * One dense accumulator per (T, N, M) instantiation, reused across calls
+ * (thread_local) so the kernels do not heap-allocate per multiplication.
+ * Invariant: outside a kernel call every accumulator slot is T{0}; the
+ * emit pass restores the slots it touched.
  */
-template < int M >
-[[nodiscard]] constexpr std::size_t flatIndexSum( std::size_t ia, std::size_t ib ) noexcept
+template < typename T, int N, int M >
+struct SparseCauchyScratch
 {
-    const auto a = unflatIndex< M >( ia );
-    const auto b = unflatIndex< M >( ib );
-    MultiIndex< M > sum{};
-    for ( int i = 0; i < M; ++i ) sum[std::size_t( i )] = a[std::size_t( i )] + b[std::size_t( i )];
-    return flatIndex< M >( sum );
-}
+    static constexpr std::size_t NC     = numMonomials( N, M );
+    static constexpr std::size_t kWords = ( NC + 63 ) / 64;
+
+    std::array< T, NC >                 acc{};
+    std::array< std::uint64_t, kWords > touched{};
+    std::vector< MultiIndex< M > >      alpha;  // decoded support of one operand
+
+    [[nodiscard]] static SparseCauchyScratch& instance() noexcept
+    {
+        static thread_local SparseCauchyScratch s;
+        return s;
+    }
+
+    /// Decode a support span into multi-indices (reuses the member buffer).
+    void decode( std::span< const storage::flat_index_t > support )
+    {
+        alpha.clear();
+        alpha.reserve( support.size() );
+        for ( const storage::flat_index_t k : support )
+            alpha.push_back( unflatIndex< M >( std::size_t( k ) ) );
+    }
+
+    void mark( std::size_t k, T v ) noexcept
+    {
+        acc[k] += v;
+        touched[k / 64] |= ( std::uint64_t{ 1 } << ( k & 63 ) );
+    }
+
+    /// Emit nonzero accumulator slots in ascending flat-index order and
+    /// restore the scratch invariant (touched slots reset to zero).
+    void emit( storage::SparseContainer< T, N, M >& out ) noexcept
+    {
+        auto& ri = out.rawIndices();
+        auto& rv = out.rawValues();
+        for ( std::size_t w = 0; w < kWords; ++w )
+        {
+            std::uint64_t bits = touched[w];
+            while ( bits )
+            {
+                const int         b = std::countr_zero( bits );
+                const std::size_t k = w * 64 + std::size_t( b );
+                if ( acc[k] != T{ 0 } )
+                {
+                    ri.push_back( storage::flat_index_t( k ) );
+                    rv.push_back( acc[k] );
+                }
+                acc[k] = T{ 0 };
+                bits &= bits - 1;
+            }
+            touched[w] = 0;
+        }
+    }
+};
 
 /**
  * @brief Truncated sparse Cauchy product `out += f * g`, accumulating into `out`.
  *
- * Iterates only the nonzero entries of `f` and `g`. Truncates pairs whose degree
- * sum exceeds N. Uses a dense scratch buffer indexed by flat index, then emits
- * nonzero results in ascending order via a bitset-accelerated scan.
+ * Iterates only the nonzero entries of `f` and `g`. Each operand's support is
+ * decoded to multi-indices once (O(nnz) unflatten instead of O(nnz_f * nnz_g)).
+ * Supports are sorted in graded-lex order, so total degree is non-decreasing
+ * along each support: the inner loop terminates (rather than skips) at the
+ * first pair whose degree sum exceeds N.
  *
  * @tparam T  Scalar type.
  * @tparam N  Truncation order.
@@ -42,54 +96,35 @@ void sparseCauchyProduct( storage::SparseContainer< T, N, M >&       out,
                           const storage::SparseContainer< T, N, M >& f,
                           const storage::SparseContainer< T, N, M >& g ) noexcept
 {
-    constexpr std::size_t NC     = numMonomials( N, M );
-    static const DegreeOf< N, M >  deg_table{};
+    static const DegreeOf< N, M > deg_table{};
 
     const auto fi = f.support();
     const auto fv = f.values();
     const auto gi = g.support();
     const auto gv = g.values();
 
-    // Scratch: dense accumulator + touched-word bitset.
-    std::vector< T >          acc( NC, T{ 0 } );
-    constexpr std::size_t kWords = ( NC + 63 ) / 64;
-    std::array< std::uint64_t, kWords > touched{};
+    auto& scratch = SparseCauchyScratch< T, N, M >::instance();
+    scratch.decode( gi );
 
     for ( std::size_t a = 0; a < fi.size(); ++a )
     {
-        const std::size_t ia = fi[a];
-        const int         da = deg_table.value[ia];
-        if ( da > N ) continue;
-        const T va = fv[a];
+        const std::size_t ia      = fi[a];
+        const int         da      = deg_table.value[ia];
+        const auto        alpha_a = unflatIndex< M >( ia );
+        const T           va      = fv[a];
         for ( std::size_t b = 0; b < gi.size(); ++b )
         {
-            const std::size_t ib = gi[b];
-            const int         db = deg_table.value[ib];
-            if ( da + db > N ) continue;
-            const std::size_t k = flatIndexSum< M >( ia, ib );
-            acc[k] += va * gv[b];
-            touched[k / 64] |= ( std::uint64_t{ 1 } << ( k & 63 ) );
+            if ( da + deg_table.value[gi[b]] > N )
+                break;  // graded order: all later degrees are >= this one
+            MultiIndex< M > sum{};
+            for ( int i = 0; i < M; ++i )
+                sum[std::size_t( i )] =
+                    alpha_a[std::size_t( i )] + scratch.alpha[b][std::size_t( i )];
+            scratch.mark( flatIndex< M >( sum ), va * gv[b] );
         }
     }
 
-    // Emit nonzero results in ascending flat-index order.
-    auto& ri = out.rawIndices();
-    auto& rv = out.rawValues();
-    for ( std::size_t w = 0; w < kWords; ++w )
-    {
-        std::uint64_t bits = touched[w];
-        while ( bits )
-        {
-            const int         b = std::countr_zero( bits );
-            const std::size_t k = w * 64 + std::size_t( b );
-            if ( acc[k] != T{ 0 } )
-            {
-                ri.push_back( storage::flat_index_t( k ) );
-                rv.push_back( acc[k] );
-            }
-            bits &= bits - 1;
-        }
-    }
+    scratch.emit( out );
 }
 
 /**
@@ -102,59 +137,43 @@ template < typename T, int N, int M >
 void sparseCauchySelfProduct( storage::SparseContainer< T, N, M >&       out,
                               const storage::SparseContainer< T, N, M >& f ) noexcept
 {
-    constexpr std::size_t NC    = numMonomials( N, M );
-    static const DegreeOf< N, M >  deg_table{};
+    static const DegreeOf< N, M > deg_table{};
 
     const auto fi = f.support();
     const auto fv = f.values();
 
-    std::vector< T >          acc( NC, T{ 0 } );
-    constexpr std::size_t kWords = ( NC + 63 ) / 64;
-    std::array< std::uint64_t, kWords > touched{};
+    auto& scratch = SparseCauchyScratch< T, N, M >::instance();
+    scratch.decode( fi );
 
     for ( std::size_t a = 0; a < fi.size(); ++a )
     {
-        const std::size_t ia = fi[a];
-        const int         da = deg_table.value[ia];
-        if ( da > N ) continue;
-        const T va = fv[a];
+        const std::size_t ia      = fi[a];
+        const int         da      = deg_table.value[ia];
+        const auto&       alpha_a = scratch.alpha[a];
+        const T           va      = fv[a];
 
         // Diagonal: f[ia]^2 contributes once (if 2*da <= N).
         if ( 2 * da <= N )
         {
-            const std::size_t k = flatIndexSum< M >( ia, ia );
-            acc[k] += va * va;
-            touched[k / 64] |= ( std::uint64_t{ 1 } << ( k & 63 ) );
+            MultiIndex< M > sum{};
+            for ( int i = 0; i < M; ++i )
+                sum[std::size_t( i )] = 2 * alpha_a[std::size_t( i )];
+            scratch.mark( flatIndex< M >( sum ), va * va );
         }
         // Off-diagonal: pair {ia, ib} with ib > ia contributes 2*va*vb.
         for ( std::size_t b = a + 1; b < fi.size(); ++b )
         {
-            const std::size_t ib = fi[b];
-            const int         db = deg_table.value[ib];
-            if ( da + db > N ) continue;
-            const std::size_t k = flatIndexSum< M >( ia, ib );
-            acc[k] += T{ 2 } * va * fv[b];
-            touched[k / 64] |= ( std::uint64_t{ 1 } << ( k & 63 ) );
+            if ( da + deg_table.value[fi[b]] > N )
+                break;  // graded order: all later degrees are >= this one
+            MultiIndex< M > sum{};
+            for ( int i = 0; i < M; ++i )
+                sum[std::size_t( i )] =
+                    alpha_a[std::size_t( i )] + scratch.alpha[b][std::size_t( i )];
+            scratch.mark( flatIndex< M >( sum ), T{ 2 } * va * fv[b] );
         }
     }
 
-    auto& ri = out.rawIndices();
-    auto& rv = out.rawValues();
-    for ( std::size_t w = 0; w < kWords; ++w )
-    {
-        std::uint64_t bits = touched[w];
-        while ( bits )
-        {
-            const int         b = std::countr_zero( bits );
-            const std::size_t k = w * 64 + std::size_t( b );
-            if ( acc[k] != T{ 0 } )
-            {
-                ri.push_back( storage::flat_index_t( k ) );
-                rv.push_back( acc[k] );
-            }
-            bits &= bits - 1;
-        }
-    }
+    scratch.emit( out );
 }
 
 }  // namespace tax::detail::kernels

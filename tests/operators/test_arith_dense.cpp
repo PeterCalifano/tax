@@ -82,3 +82,79 @@ TEST(Arith, MulMultiBilinear) {
     EXPECT_DOUBLE_EQ((z.coeff<0, 1>()), 1.0);
     EXPECT_DOUBLE_EQ((z.coeff<1, 1>()), 1.0);
 }
+
+TEST(Arith, MixedScalarLiterals) {
+    // Integer literals must convert to the coefficient scalar type:
+    // the scalar parameter is a non-deduced context (std::type_identity_t).
+    auto x = tax::TE<3>::variable(2.0);
+    auto a = x + 1;
+    auto b = 1 + x;
+    auto c = x - 1;
+    auto d = 2 - x;
+    auto e = x * 2;
+    auto f = 2 * x;
+    auto g = x / 2;
+    EXPECT_DOUBLE_EQ(a.value(), 3.0);
+    EXPECT_DOUBLE_EQ(b.value(), 3.0);
+    EXPECT_DOUBLE_EQ(c.value(), 1.0);
+    EXPECT_DOUBLE_EQ(d.value(), 0.0);
+    EXPECT_DOUBLE_EQ(e.value(), 4.0);
+    EXPECT_DOUBLE_EQ(f.value(), 4.0);
+    EXPECT_DOUBLE_EQ(g.value(), 1.0);
+    EXPECT_DOUBLE_EQ(e[1], 2.0);
+    EXPECT_DOUBLE_EQ(d[1], -1.0);
+}
+
+TEST(Arith, CompoundAssignTE) {
+    auto x = tax::TE<3>::variable(2.0);
+    auto y = tax::TE<3>::variable(0.5);
+
+    auto a = x;
+    a += y;
+    auto a_ref = x + y;
+    for (std::size_t k = 0; k < a.nCoefficients; ++k)
+        EXPECT_DOUBLE_EQ(a[k], a_ref[k]);
+
+    auto s = x;
+    s -= y;
+    auto s_ref = x - y;
+    for (std::size_t k = 0; k < s.nCoefficients; ++k)
+        EXPECT_DOUBLE_EQ(s[k], s_ref[k]);
+
+    auto m = x;
+    m *= y;
+    auto m_ref = x * y;
+    for (std::size_t k = 0; k < m.nCoefficients; ++k)
+        EXPECT_DOUBLE_EQ(m[k], m_ref[k]);
+
+    auto d = x;
+    d /= y;
+    auto d_ref = x / y;
+    for (std::size_t k = 0; k < d.nCoefficients; ++k)
+        EXPECT_DOUBLE_EQ(d[k], d_ref[k]);
+}
+
+TEST(Arith, CompoundAssignScalar) {
+    auto x = tax::TE<3>::variable(2.0);
+
+    auto a = x;
+    a += 1;       // int literal converts (type_identity_t)
+    a -= 0.5;
+    a *= 2.0;
+    a /= 4;
+    auto ref = (((x + 1.0) - 0.5) * 2.0) / 4.0;
+    for (std::size_t k = 0; k < a.nCoefficients; ++k)
+        EXPECT_DOUBLE_EQ(a[k], ref[k]);
+}
+
+TEST(Arith, CompoundAssignMultivariate) {
+    typename tax::TE<2, 2>::Input p{1.0, 2.0};
+    auto x = tax::TE<2, 2>::variable<0>(p);
+    auto y = tax::TE<2, 2>::variable<1>(p);
+
+    auto m = x;
+    m *= y;
+    auto m_ref = x * y;
+    for (std::size_t k = 0; k < m.nCoefficients; ++k)
+        EXPECT_DOUBLE_EQ(m[k], m_ref[k]);
+}

@@ -1,6 +1,15 @@
 #include <gtest/gtest.h>
 #include <tax/tax.hpp>
 
+// Concept self-checks (moved out of taylor_expansion.hpp so they are
+// compiled once here instead of in every consumer translation unit).
+static_assert(tax::TaylorPolynomial<tax::TE<3>>, "TE<3> must satisfy TaylorPolynomial");
+static_assert(tax::DensePolynomial<tax::TE<3>>, "TE<3> must satisfy DensePolynomial");
+static_assert(tax::TaylorPolynomial<tax::TE<3, 2>>, "TE<3,2> must satisfy TaylorPolynomial");
+static_assert(tax::DensePolynomial<tax::TE<3, 2>>, "TE<3,2> must satisfy DensePolynomial");
+static_assert(tax::TaylorPolynomial<tax::STE<3>>, "STE<3> must satisfy TaylorPolynomial");
+static_assert(tax::TaylorPolynomial<tax::STE<3, 2>>, "STE<3,2> must satisfy TaylorPolynomial");
+
 TEST(TaylorExpansion, ZeroCtor) {
     tax::TE<3> z;
     EXPECT_EQ(z.value(), 0.0);

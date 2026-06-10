@@ -21,6 +21,12 @@
 
 #include <tax/ode/event.hpp>
 #include <tax/ode/integrator.hpp>
+#include <tax/ode/steppers/taylor.hpp>
+#include <tax/ode/steppers/verner78.hpp>
+#include <tax/ode/steppers/verner89.hpp>
+#include <tax/ode/steppers/fehlberg78.hpp>
+#include <tax/ode/steppers/feagin12.hpp>
+#include <tax/ode/steppers/feagin14.hpp>
 
 namespace tax::ode
 {

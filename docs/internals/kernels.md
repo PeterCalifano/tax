@@ -16,6 +16,7 @@ in `tax/operators/` is a thin wrapper that calls a kernel and returns a fresh
 | `tax/kernels/cauchy.hpp` | `seriesCauchy`, `seriesCauchyAccumulate`, `seriesSquare`, `seriesCube` | multiplication, integer powers |
 | `tax/kernels/cauchy_unroll.hpp` | unrolled `M==1` Dense Cauchy | tight univariate hot path (`TAX_USE_UNROLL`) |
 | `tax/kernels/cauchy_stencil.hpp` | precomputed stencil-driven `M≥2` Dense Cauchy | multivariate hot path (`TAX_USE_STENCIL`) |
+| `tax/kernels/recurrence_stencil.hpp` | `RecurrenceStencil`, `forEachRecurrenceRow` | shared decomposition table driving every `M≥2` recurrence |
 | `tax/kernels/algebra.hpp` | `seriesReciprocal`, `seriesSqrt`, `seriesCbrt`, `seriesSquare`, `seriesCube` | algebraic recurrences |
 | `tax/kernels/trigonometric.hpp` | coupled `seriesSinCos`, `seriesTan`, inverse trig | trig and inverse trig |
 | `tax/kernels/transcendental.hpp` | `seriesExp`, `seriesLog`, `seriesSinhCosh`, `seriesTanh`, `seriesErf`, `seriesPow` | exp/log/hyperbolic/erf/power |
@@ -32,16 +33,22 @@ Every recurrence picks one of two paths via `if constexpr (M == 1)`:
   branchless, easy to vectorise. The unrolled Dense Cauchy variant
   (`TAX_USE_UNROLL`) is what runs here.
 - **Multivariate** (`M ≥ 2`) — routes through
-  `forEachSubIndex<M>(alpha, lo, hi, callback)`, which enumerates all
-  sub-multi-indices $\beta \le \alpha$ with $\text{lo} \le |\beta| \le \text{hi}$
-  and calls `callback(flatIndex(beta), flatIndex(alpha - beta), |beta|)`. The
-  callback shape is exactly what every recurrence in
-  [Mathematical Foundations](../core/math.md) needs.
+  `forEachRecurrenceRow<N, M>(fn)`, which calls
+  `fn(ai, d, row)` for every output flat index `ai` of degree `d ≥ 1` in
+  graded-lex order, where `row` is the span of all decompositions
+  $(\beta, \gamma)$ with $\beta + \gamma = \alpha$ and $|\beta| \ge 1$ —
+  each entry carrying precomputed `flatIndex(beta)`, `flatIndex(gamma)`
+  and $|\beta|$. That row shape is exactly what every recurrence in
+  [Mathematical Foundations](../core/math.md) needs; the weight
+  ($1$, $|\beta|$, $|\gamma|$, $c|\beta| - |\gamma|$, …) stays in the kernel.
 
-For Dense `M ≥ 2`, `TAX_USE_STENCIL=ON` (default) precomputes the
-sub-multi-index enumeration once at compile time and reuses the stencil across
-every Cauchy invocation. The non-stencil path is still in the tree and cross-
-validated by `tests/kernels/testCauchyStencilDiff`.
+With `TAX_USE_STENCIL=1` (the in-header default) the rows come from a
+`RecurrenceStencil<N, M>` table built once at first use — no multi-index
+arithmetic remains in the inner loops. The general Cauchy product uses its
+own flat `CauchyStencil` table. With the macro off — and always in constant
+evaluation — the rows are enumerated on the fly in the same order, so the
+two paths are bit-identical; the agreement is pinned by
+`tests/kernels/test_cauchy_stencil_diff.cpp`.
 
 ---
 
@@ -58,17 +65,13 @@ which the kernel implements (in pseudocode) as
 
 ```cpp
 g[0] = std::exp(f[0]);
-for (int d = 1; d <= N; ++d) {
-    for_each_alpha_of_degree<M>(d, [&](MultiIndex<M> alpha) {
-        T sum{};
-        forEachSubIndex<M>(alpha, /*lo=*/1, /*hi=*/d, [&](
-            flat_index_t fb, flat_index_t fab, int beta_deg)
-        {
-            sum += T(beta_deg) * f[fb] * g[fab];
-        });
-        g[flat_index(alpha)] = sum / T(d);
-    });
-}
+forEachRecurrenceRow<N, M>([&](std::size_t ai, int d,
+                               std::span<const RecurrenceEntry> row) {
+    T sum{};
+    for (const RecurrenceEntry& e : row)
+        sum += T(e.db) * f[e.b_idx] * g[e.g_idx];
+    g[ai] = sum / T(d);
+});
 ```
 
 Every other recurrence has the same skeleton: initialise the
@@ -86,13 +89,16 @@ materialised first by an inner kernel call, then the outer recurrence runs.
 
 A few recurrences appear with explicit factor-of-two savings:
 
-- `seriesSquare` enumerates only unordered pairs $(\beta, \alpha - \beta)$
-  with $\beta \le \alpha - \beta$ in flat-index order, doubling pairs and
-  counting diagonals once.
+- `cauchySelfProduct` (univariate, and multivariate in constant evaluation)
+  enumerates only unordered pairs $(\beta, \alpha - \beta)$, doubling pairs
+  and counting diagonals once. At runtime for `M ≥ 2` it routes through the
+  stencil-driven general product instead — the table walk's elimination of
+  per-pair index arithmetic outweighs the halved multiplication count.
 - `seriesCbrt` maintains $q = g^2$ incrementally, dropping the worst-case
   cost from $\mathcal{O}(N^3)$ to $\mathcal{O}(N^2)$.
-- `seriesSqrt` uses the same symmetric self-product enumeration as
-  `seriesSquare` inside its outer recurrence.
+- `seriesSqrt`'s ordered row walk needs no $|\beta| < d$ filter: the
+  $\beta = \alpha$ entry reads `out[ai]`, which is still zero when the row
+  is processed.
 
 The symmetries don't change the math — they're computational identities that
 follow directly from the closed-form recurrence and the graded-lexicographic

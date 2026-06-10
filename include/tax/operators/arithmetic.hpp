@@ -1,5 +1,7 @@
 #pragma once
 
+#include <type_traits>
+
 #include <tax/core/taylor_expansion.hpp>
 #include <tax/kernels/algebra.hpp>
 #include <tax/kernels/cauchy.hpp>
@@ -26,7 +28,7 @@ template < typename T, int N, int M >
 
 template < typename T, int N, int M >
 [[nodiscard]] constexpr TaylorExpansion< T, N, M > operator+(
-    const TaylorExpansion< T, N, M >& a, T s ) noexcept
+    const TaylorExpansion< T, N, M >& a, std::type_identity_t< T > s ) noexcept
 {
     TaylorExpansion< T, N, M > r = a;
     r[0] += s;
@@ -35,7 +37,7 @@ template < typename T, int N, int M >
 
 template < typename T, int N, int M >
 [[nodiscard]] constexpr TaylorExpansion< T, N, M > operator+(
-    T s, const TaylorExpansion< T, N, M >& a ) noexcept
+    std::type_identity_t< T > s, const TaylorExpansion< T, N, M >& a ) noexcept
 {
     return a + s;
 }
@@ -57,7 +59,7 @@ template < typename T, int N, int M >
 
 template < typename T, int N, int M >
 [[nodiscard]] constexpr TaylorExpansion< T, N, M > operator-(
-    const TaylorExpansion< T, N, M >& a, T s ) noexcept
+    const TaylorExpansion< T, N, M >& a, std::type_identity_t< T > s ) noexcept
 {
     TaylorExpansion< T, N, M > r = a;
     r[0] -= s;
@@ -66,7 +68,7 @@ template < typename T, int N, int M >
 
 template < typename T, int N, int M >
 [[nodiscard]] constexpr TaylorExpansion< T, N, M > operator-(
-    T s, const TaylorExpansion< T, N, M >& a ) noexcept
+    std::type_identity_t< T > s, const TaylorExpansion< T, N, M >& a ) noexcept
 {
     TaylorExpansion< T, N, M > r;
     r[0] = s - a[0];
@@ -94,7 +96,7 @@ template < typename T, int N, int M >
 
 template < typename T, int N, int M >
 [[nodiscard]] constexpr TaylorExpansion< T, N, M > operator*(
-    const TaylorExpansion< T, N, M >& a, T s ) noexcept
+    const TaylorExpansion< T, N, M >& a, std::type_identity_t< T > s ) noexcept
 {
     TaylorExpansion< T, N, M > r;
     for ( std::size_t k = 0; k < a.nCoefficients; ++k )
@@ -104,14 +106,14 @@ template < typename T, int N, int M >
 
 template < typename T, int N, int M >
 [[nodiscard]] constexpr TaylorExpansion< T, N, M > operator*(
-    T s, const TaylorExpansion< T, N, M >& a ) noexcept
+    std::type_identity_t< T > s, const TaylorExpansion< T, N, M >& a ) noexcept
 {
     return a * s;
 }
 
 template < typename T, int N, int M >
 [[nodiscard]] constexpr TaylorExpansion< T, N, M > operator/(
-    const TaylorExpansion< T, N, M >& a, T s ) noexcept
+    const TaylorExpansion< T, N, M >& a, std::type_identity_t< T > s ) noexcept
 {
     return a * ( T( 1 ) / s );
 }
@@ -148,6 +150,88 @@ template < typename T, int N, int M >
     return r;
 }
 
+// ---------------------------------------------------------------------------
+// Compound assignment (dense)
+//
+// In-place updates avoid the temporary + copy-assign of `a = a + b`; they are
+// the building blocks of hot loops (e.g. the ODE steppers' axpy updates).
+// ---------------------------------------------------------------------------
+
+template < typename T, int N, int M >
+constexpr TaylorExpansion< T, N, M >& operator+=(
+    TaylorExpansion< T, N, M >& a, const TaylorExpansion< T, N, M >& b ) noexcept
+{
+    for ( std::size_t k = 0; k < a.nCoefficients; ++k )
+        a[k] += b[k];
+    return a;
+}
+
+template < typename T, int N, int M >
+constexpr TaylorExpansion< T, N, M >& operator-=(
+    TaylorExpansion< T, N, M >& a, const TaylorExpansion< T, N, M >& b ) noexcept
+{
+    for ( std::size_t k = 0; k < a.nCoefficients; ++k )
+        a[k] -= b[k];
+    return a;
+}
+
+template < typename T, int N, int M >
+constexpr TaylorExpansion< T, N, M >& operator+=(
+    TaylorExpansion< T, N, M >& a, std::type_identity_t< T > s ) noexcept
+{
+    a[0] += s;
+    return a;
+}
+
+template < typename T, int N, int M >
+constexpr TaylorExpansion< T, N, M >& operator-=(
+    TaylorExpansion< T, N, M >& a, std::type_identity_t< T > s ) noexcept
+{
+    a[0] -= s;
+    return a;
+}
+
+template < typename T, int N, int M >
+constexpr TaylorExpansion< T, N, M >& operator*=(
+    TaylorExpansion< T, N, M >& a, std::type_identity_t< T > s ) noexcept
+{
+    for ( std::size_t k = 0; k < a.nCoefficients; ++k )
+        a[k] *= s;
+    return a;
+}
+
+template < typename T, int N, int M >
+constexpr TaylorExpansion< T, N, M >& operator/=(
+    TaylorExpansion< T, N, M >& a, std::type_identity_t< T > s ) noexcept
+{
+    return a *= ( T( 1 ) / s );
+}
+
+/// @brief In-place Cauchy product. A scratch buffer is unavoidable (the
+///        convolution reads earlier coefficients of `a`), but the temporary
+///        TaylorExpansion of `a = a * b` is not.
+template < typename T, int N, int M >
+constexpr TaylorExpansion< T, N, M >& operator*=(
+    TaylorExpansion< T, N, M >& a, const TaylorExpansion< T, N, M >& b ) noexcept
+{
+    Coeffs< T, N, M > tmp{};
+    detail::kernels::cauchyProduct< T, N, M >( tmp, a.coefficients(), b.coefficients() );
+    a.coefficients() = tmp;
+    return a;
+}
+
+template < typename T, int N, int M >
+constexpr TaylorExpansion< T, N, M >& operator/=(
+    TaylorExpansion< T, N, M >& a, const TaylorExpansion< T, N, M >& b ) noexcept
+{
+    Coeffs< T, N, M > inv_b{};
+    detail::kernels::seriesReciprocal< T, N, M >( inv_b, b.coefficients() );
+    Coeffs< T, N, M > tmp{};
+    detail::kernels::cauchyProduct< T, N, M >( tmp, a.coefficients(), inv_b );
+    a.coefficients() = tmp;
+    return a;
+}
+
 // ===========================================================================
 // Sparse arithmetic:  S+S, S-S, -S, S+T, T+S, S-T, T-S, S*T, T*S, S/T
 // ===========================================================================
@@ -155,17 +239,25 @@ template < typename T, int N, int M >
 using Sparse = storage::Sparse;
 
 /// @brief Sparse + Sparse: two-pointer merge over sorted flat indices.
+/// `forEachPair` visits indices in ascending order, so results are appended
+/// directly (O(nnz)) instead of inserted via per-element binary search.
 template < typename T, int N, int M >
 [[nodiscard]] TaylorExpansion< T, N, M, Sparse > operator+(
     const TaylorExpansion< T, N, M, Sparse >& a,
     const TaylorExpansion< T, N, M, Sparse >& b ) noexcept
 {
     TaylorExpansion< T, N, M, Sparse > r;
+    auto& ri = r.container().rawIndices();
+    auto& rv = r.container().rawValues();
     a.container().forEachPair(
-        b.container(), [&r]( std::size_t k, T va, T vb )
+        b.container(), [&ri, &rv]( std::size_t k, T va, T vb )
         {
             const T s = va + vb;
-            if ( s != T{ 0 } ) r.container().set( k, s );
+            if ( s != T{ 0 } )
+            {
+                ri.push_back( storage::flat_index_t( k ) );
+                rv.push_back( s );
+            }
         } );
     return r;
 }
@@ -177,42 +269,60 @@ template < typename T, int N, int M >
     const TaylorExpansion< T, N, M, Sparse >& b ) noexcept
 {
     TaylorExpansion< T, N, M, Sparse > r;
+    auto& ri = r.container().rawIndices();
+    auto& rv = r.container().rawValues();
     a.container().forEachPair(
-        b.container(), [&r]( std::size_t k, T va, T vb )
+        b.container(), [&ri, &rv]( std::size_t k, T va, T vb )
         {
             const T d = va - vb;
-            if ( d != T{ 0 } ) r.container().set( k, d );
+            if ( d != T{ 0 } )
+            {
+                ri.push_back( storage::flat_index_t( k ) );
+                rv.push_back( d );
+            }
         } );
     return r;
 }
 
-/// @brief Unary negation.
+/// @brief Unary negation (support is unchanged; values are negated).
 template < typename T, int N, int M >
 [[nodiscard]] TaylorExpansion< T, N, M, Sparse > operator-(
     const TaylorExpansion< T, N, M, Sparse >& a ) noexcept
 {
     TaylorExpansion< T, N, M, Sparse > r;
+    auto& ri = r.container().rawIndices();
+    auto& rv = r.container().rawValues();
     a.container().forEachNonzero(
-        [&r]( std::size_t k, T v ) { r.container().set( k, -v ); } );
+        [&ri, &rv]( std::size_t k, T v )
+        {
+            ri.push_back( storage::flat_index_t( k ) );
+            rv.push_back( -v );
+        } );
     return r;
 }
 
-/// @brief Sparse * scalar.
+/// @brief Sparse * scalar (support is unchanged for s != 0).
 template < typename T, int N, int M >
 [[nodiscard]] TaylorExpansion< T, N, M, Sparse > operator*(
-    const TaylorExpansion< T, N, M, Sparse >& a, T s ) noexcept
+    const TaylorExpansion< T, N, M, Sparse >& a, std::type_identity_t< T > s ) noexcept
 {
     if ( s == T{ 0 } ) return TaylorExpansion< T, N, M, Sparse >{};
     TaylorExpansion< T, N, M, Sparse > r;
+    auto& ri = r.container().rawIndices();
+    auto& rv = r.container().rawValues();
     a.container().forEachNonzero(
-        [&r, s]( std::size_t k, T v ) { r.container().set( k, v * s ); } );
+        [&ri, &rv, s]( std::size_t k, T v )
+        {
+            ri.push_back( storage::flat_index_t( k ) );
+            rv.push_back( v * s );
+        } );
     return r;
 }
 
 /// @brief Scalar * Sparse.
 template < typename T, int N, int M >
 [[nodiscard]] TaylorExpansion< T, N, M, Sparse > operator*(
-    T s, const TaylorExpansion< T, N, M, Sparse >& a ) noexcept
+    std::type_identity_t< T > s, const TaylorExpansion< T, N, M, Sparse >& a ) noexcept
 {
     return a * s;
 }
@@ -220,7 +330,7 @@ template < typename T, int N, int M >
 /// @brief Sparse / scalar.
 template < typename T, int N, int M >
 [[nodiscard]] TaylorExpansion< T, N, M, Sparse > operator/(
-    const TaylorExpansion< T, N, M, Sparse >& a, T s ) noexcept
+    const TaylorExpansion< T, N, M, Sparse >& a, std::type_identity_t< T > s ) noexcept
 {
     return a * ( T{ 1 } / s );
 }
@@ -228,17 +338,45 @@ template < typename T, int N, int M >
 /// @brief Sparse + scalar: add to constant term.
 template < typename T, int N, int M >
 [[nodiscard]] TaylorExpansion< T, N, M, Sparse > operator+(
-    const TaylorExpansion< T, N, M, Sparse >& a, T s ) noexcept
+    const TaylorExpansion< T, N, M, Sparse >& a, std::type_identity_t< T > s ) noexcept
 {
-    TaylorExpansion< T, N, M, Sparse > r = a;
-    if ( s != T{ 0 } ) r.container().accumulate( 0, s );
+    if ( s == T{ 0 } ) return a;
+    const auto ai = a.container().support();
+    const auto av = a.container().values();
+
+    TaylorExpansion< T, N, M, Sparse > r;
+    auto& ri = r.container().rawIndices();
+    auto& rv = r.container().rawValues();
+    ri.reserve( ai.size() + 1 );
+    rv.reserve( av.size() + 1 );
+
+    // Emit the constant term first, then bulk-append the (already sorted)
+    // remainder — avoids the O(nnz) front-insert of accumulate(0, s).
+    std::size_t b = 0;
+    if ( !ai.empty() && ai.front() == 0 )
+    {
+        const T c = av.front() + s;
+        if ( c != T{ 0 } )
+        {
+            ri.push_back( storage::flat_index_t( 0 ) );
+            rv.push_back( c );
+        }
+        b = 1;
+    }
+    else
+    {
+        ri.push_back( storage::flat_index_t( 0 ) );
+        rv.push_back( s );
+    }
+    ri.insert( ri.end(), ai.begin() + std::ptrdiff_t( b ), ai.end() );
+    rv.insert( rv.end(), av.begin() + std::ptrdiff_t( b ), av.end() );
     return r;
 }
 
 /// @brief Scalar + Sparse.
 template < typename T, int N, int M >
 [[nodiscard]] TaylorExpansion< T, N, M, Sparse > operator+(
-    T s, const TaylorExpansion< T, N, M, Sparse >& a ) noexcept
+    std::type_identity_t< T > s, const TaylorExpansion< T, N, M, Sparse >& a ) noexcept
 {
     return a + s;
 }
@@ -246,7 +384,7 @@ template < typename T, int N, int M >
 /// @brief Sparse - scalar.
 template < typename T, int N, int M >
 [[nodiscard]] TaylorExpansion< T, N, M, Sparse > operator-(
-    const TaylorExpansion< T, N, M, Sparse >& a, T s ) noexcept
+    const TaylorExpansion< T, N, M, Sparse >& a, std::type_identity_t< T > s ) noexcept
 {
     return a + ( -s );
 }
@@ -254,7 +392,7 @@ template < typename T, int N, int M >
 /// @brief Scalar - Sparse.
 template < typename T, int N, int M >
 [[nodiscard]] TaylorExpansion< T, N, M, Sparse > operator-(
-    T s, const TaylorExpansion< T, N, M, Sparse >& a ) noexcept
+    std::type_identity_t< T > s, const TaylorExpansion< T, N, M, Sparse >& a ) noexcept
 {
     return ( -a ) + s;
 }

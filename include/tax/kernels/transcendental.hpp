@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <numbers>
+#include <span>
 
 #include <tax/kernels/algebra.hpp>
 
@@ -37,24 +38,13 @@ void seriesExp( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
     }
     else
     {
-        for ( int d = 1; d <= N; ++d )
-        {
-            tax::forEachMonomialOfDegree< M >( d, [&]( const MultiIndex< M >& alpha ) {
-                const std::size_t ai = flatIndex< M >( alpha );
+        forEachRecurrenceRow< N, M >(
+            [&]( std::size_t ai, int d, std::span< const RecurrenceEntry > row ) {
                 T rhs = T{ 0 };
-                // sum over all (beta, gamma) with beta + gamma = alpha, |beta| in [1, d]
-                tax::forEachSubIndex< M >( alpha, [&]( const MultiIndex< M >& beta,
-                                                        const MultiIndex< M >& gamma ) {
-                    int db = 0;
-                    for ( int i = 0; i < M; ++i ) db += beta[std::size_t( i )];
-                    if ( db == 0 ) return;  // skip beta == 0
-                    const std::size_t bi = flatIndex< M >( beta );
-                    const std::size_t gi = flatIndex< M >( gamma );
-                    rhs += T( db ) * a[bi] * out[gi];
-                } );
+                for ( const RecurrenceEntry& e : row )
+                    rhs += T( e.db ) * a[e.b_idx] * out[e.g_idx];
                 out[ai] = rhs / T( d );
             } );
-        }
     }
 }
 
@@ -89,24 +79,14 @@ void seriesLog( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
     }
     else
     {
-        for ( int d = 1; d <= N; ++d )
-        {
-            tax::forEachMonomialOfDegree< M >( d, [&]( const MultiIndex< M >& alpha ) {
-                const std::size_t ai = flatIndex< M >( alpha );
+        forEachRecurrenceRow< N, M >(
+            [&]( std::size_t ai, int d, std::span< const RecurrenceEntry > row ) {
                 T rhs = T{ 0 };
-                // sum over (beta, gamma) with |beta| in [1, d-1]
-                tax::forEachSubIndex< M >( alpha, [&]( const MultiIndex< M >& beta,
-                                                        const MultiIndex< M >& gamma ) {
-                    int db = 0;
-                    for ( int i = 0; i < M; ++i ) db += beta[std::size_t( i )];
-                    if ( db == 0 || db == d ) return;  // skip beta==0 and beta==alpha
-                    const std::size_t bi = flatIndex< M >( beta );
-                    const std::size_t gi = flatIndex< M >( gamma );
-                    rhs += T( d - db ) * a[bi] * out[gi];
-                } );
+                // |beta| == d entries carry weight (d - db) == 0.
+                for ( const RecurrenceEntry& e : row )
+                    rhs += T( d - int( e.db ) ) * a[e.b_idx] * out[e.g_idx];
                 out[ai] = ( a[ai] - rhs / T( d ) ) * inv_a0;
             } );
-        }
     }
 }
 
@@ -205,24 +185,12 @@ void seriesTanh( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
     }
     else
     {
-        for ( int d = 1; d <= N; ++d )
-        {
-            tax::forEachMonomialOfDegree< M >( d, [&]( const MultiIndex< M >& alpha ) {
-                const std::size_t ai = flatIndex< M >( alpha );
+        forEachRecurrenceRow< N, M >(
+            [&]( std::size_t ai, int, std::span< const RecurrenceEntry > row ) {
                 T rhs = s[ai];
-                // sum over all beta with |beta| in [1, d]
-                tax::forEachSubIndex< M >( alpha, [&]( const MultiIndex< M >& beta,
-                                                        const MultiIndex< M >& gamma ) {
-                    int db = 0;
-                    for ( int i = 0; i < M; ++i ) db += beta[std::size_t( i )];
-                    if ( db == 0 ) return;  // skip beta == 0
-                    const std::size_t bi = flatIndex< M >( beta );
-                    const std::size_t gi = flatIndex< M >( gamma );
-                    rhs -= h[bi] * out[gi];
-                } );
+                for ( const RecurrenceEntry& e : row ) rhs -= h[e.b_idx] * out[e.g_idx];
                 out[ai] = rhs * inv_h0;
             } );
-        }
     }
 }
 
@@ -266,23 +234,14 @@ void seriesAsinh( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
     }
     else
     {
-        for ( int d = 1; d <= N; ++d )
-        {
-            tax::forEachMonomialOfDegree< M >( d, [&]( const MultiIndex< M >& alpha ) {
-                const std::size_t ai = flatIndex< M >( alpha );
+        forEachRecurrenceRow< N, M >(
+            [&]( std::size_t ai, int d, std::span< const RecurrenceEntry > row ) {
                 T rhs = T{ 0 };
-                tax::forEachSubIndex< M >( alpha, [&]( const MultiIndex< M >& beta,
-                                                        const MultiIndex< M >& gamma ) {
-                    int db = 0;
-                    for ( int i = 0; i < M; ++i ) db += beta[std::size_t( i )];
-                    if ( db == 0 || db == d ) return;  // skip beta==0 and beta==alpha
-                    const std::size_t bi = flatIndex< M >( beta );
-                    const std::size_t gi = flatIndex< M >( gamma );
-                    rhs += T( d - db ) * h[bi] * out[gi];
-                } );
+                // |beta| == d entries carry weight (d - db) == 0.
+                for ( const RecurrenceEntry& e : row )
+                    rhs += T( d - int( e.db ) ) * h[e.b_idx] * out[e.g_idx];
                 out[ai] = ( a[ai] - rhs / T( d ) ) * inv_h0;
             } );
-        }
     }
 }
 
@@ -325,23 +284,14 @@ void seriesAcosh( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
     }
     else
     {
-        for ( int d = 1; d <= N; ++d )
-        {
-            tax::forEachMonomialOfDegree< M >( d, [&]( const MultiIndex< M >& alpha ) {
-                const std::size_t ai = flatIndex< M >( alpha );
+        forEachRecurrenceRow< N, M >(
+            [&]( std::size_t ai, int d, std::span< const RecurrenceEntry > row ) {
                 T rhs = T{ 0 };
-                tax::forEachSubIndex< M >( alpha, [&]( const MultiIndex< M >& beta,
-                                                        const MultiIndex< M >& gamma ) {
-                    int db = 0;
-                    for ( int i = 0; i < M; ++i ) db += beta[std::size_t( i )];
-                    if ( db == 0 || db == d ) return;  // skip beta==0 and beta==alpha
-                    const std::size_t bi = flatIndex< M >( beta );
-                    const std::size_t gi = flatIndex< M >( gamma );
-                    rhs += T( d - db ) * h[bi] * out[gi];
-                } );
+                // |beta| == d entries carry weight (d - db) == 0.
+                for ( const RecurrenceEntry& e : row )
+                    rhs += T( d - int( e.db ) ) * h[e.b_idx] * out[e.g_idx];
                 out[ai] = ( a[ai] - rhs / T( d ) ) * inv_h0;
             } );
-        }
     }
 }
 
@@ -383,23 +333,14 @@ void seriesAtanh( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
     }
     else
     {
-        for ( int d = 1; d <= N; ++d )
-        {
-            tax::forEachMonomialOfDegree< M >( d, [&]( const MultiIndex< M >& alpha ) {
-                const std::size_t ai = flatIndex< M >( alpha );
+        forEachRecurrenceRow< N, M >(
+            [&]( std::size_t ai, int d, std::span< const RecurrenceEntry > row ) {
                 T rhs = T{ 0 };
-                tax::forEachSubIndex< M >( alpha, [&]( const MultiIndex< M >& beta,
-                                                        const MultiIndex< M >& gamma ) {
-                    int db = 0;
-                    for ( int i = 0; i < M; ++i ) db += beta[std::size_t( i )];
-                    if ( db == 0 || db == d ) return;  // skip beta==0 and beta==alpha
-                    const std::size_t bi = flatIndex< M >( beta );
-                    const std::size_t gi = flatIndex< M >( gamma );
-                    rhs += T( d - db ) * h[bi] * out[gi];
-                } );
+                // |beta| == d entries carry weight (d - db) == 0.
+                for ( const RecurrenceEntry& e : row )
+                    rhs += T( d - int( e.db ) ) * h[e.b_idx] * out[e.g_idx];
                 out[ai] = ( a[ai] - rhs / T( d ) ) * inv_h0;
             } );
-        }
     }
 }
 
@@ -445,24 +386,13 @@ void seriesErf( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
     }
     else
     {
-        for ( int d = 1; d <= N; ++d )
-        {
-            tax::forEachMonomialOfDegree< M >( d, [&]( const MultiIndex< M >& alpha ) {
-                const std::size_t ai = flatIndex< M >( alpha );
+        forEachRecurrenceRow< N, M >(
+            [&]( std::size_t ai, int d, std::span< const RecurrenceEntry > row ) {
                 T rhs = T{ 0 };
-                // sum over (beta, gamma) with |beta| in [1, d]
-                tax::forEachSubIndex< M >( alpha, [&]( const MultiIndex< M >& beta,
-                                                        const MultiIndex< M >& gamma ) {
-                    int db = 0;
-                    for ( int i = 0; i < M; ++i ) db += beta[std::size_t( i )];
-                    if ( db == 0 ) return;  // skip beta == 0
-                    const std::size_t bi = flatIndex< M >( beta );
-                    const std::size_t gi = flatIndex< M >( gamma );
-                    rhs += T( db ) * a[bi] * h[gi];
-                } );
+                for ( const RecurrenceEntry& e : row )
+                    rhs += T( e.db ) * a[e.b_idx] * h[e.g_idx];
                 out[ai] = rhs / T( d );
             } );
-        }
     }
 }
 

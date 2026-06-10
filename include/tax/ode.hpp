@@ -20,4 +20,5 @@
 #include <tax/ode/actions.hpp>
 #include <tax/ode/triggers.hpp>
 #include <tax/ode/integrator.hpp>
+#include <tax/ode/aliases.hpp>
 #include <tax/ode/propagate.hpp>

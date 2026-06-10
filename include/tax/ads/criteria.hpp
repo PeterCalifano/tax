@@ -51,18 +51,19 @@ struct TruncationCriterion
         const Eigen::Matrix< tax::TaylorExpansion< T, N, M, Storage >, D, 1 >& f ) const
     {
         // Coordinate j with the largest sum_{|α|=N, α_j>0} |coeff(α)| · α_j.
+        // Graded-lex layout: the degree-N monomials are exactly the
+        // contiguous tail block [numMonomials(N-1, M), numMonomials(N, M)).
         std::array< T, M > totals{};
+        constexpr std::size_t kLo = ( N > 0 ) ? tax::numMonomials( N - 1, M ) : 0;
         constexpr std::size_t Ncoef = tax::numMonomials( N, M );
         for ( Eigen::Index i = 0; i < f.size(); ++i )
         {
             const auto& row = f( i );
-            for ( std::size_t k = 0; k < Ncoef; ++k )
+            for ( std::size_t k = kLo; k < Ncoef; ++k )
             {
-                const auto alpha = tax::unflatIndex< M >( k );
-                int total = 0;
-                for ( int j = 0; j < M; ++j ) total += alpha[static_cast< std::size_t >( j )];
-                if ( total != N ) continue;
                 const T mag = std::abs( row[k] );
+                if ( mag == T{ 0 } ) continue;
+                const auto alpha = tax::unflatIndex< M >( k );
                 for ( int j = 0; j < M; ++j )
                 {
                     const int aj = alpha[static_cast< std::size_t >( j )];
@@ -88,18 +89,15 @@ struct TruncationCriterion
     static T totalTopDegreeMass(
         const Eigen::Matrix< tax::TaylorExpansion< T, N, M, Storage >, D, 1 >& f )
     {
+        // Graded-lex layout: the degree-N monomials are exactly the
+        // contiguous tail block [numMonomials(N-1, M), numMonomials(N, M)).
         T acc{ 0 };
+        constexpr std::size_t kLo = ( N > 0 ) ? tax::numMonomials( N - 1, M ) : 0;
         constexpr std::size_t Ncoef = tax::numMonomials( N, M );
         for ( Eigen::Index i = 0; i < f.size(); ++i )
         {
             const auto& row = f( i );
-            for ( std::size_t k = 0; k < Ncoef; ++k )
-            {
-                const auto alpha = tax::unflatIndex< M >( k );
-                int total = 0;
-                for ( int j = 0; j < M; ++j ) total += alpha[static_cast< std::size_t >( j )];
-                if ( total == N ) acc += std::abs( row[k] );
-            }
+            for ( std::size_t k = kLo; k < Ncoef; ++k ) acc += std::abs( row[k] );
         }
         return acc;
     }

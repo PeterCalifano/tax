@@ -2,8 +2,10 @@
 
 #include <array>
 #include <cmath>
+#include <span>
 
 #include <tax/kernels/cauchy.hpp>
+#include <tax/kernels/recurrence_stencil.hpp>
 
 namespace tax::detail::kernels
 {
@@ -34,6 +36,14 @@ constexpr void cauchySelfProduct( Coeffs< T, N, M >& out, const Coeffs< T, N, M 
         }
     } else
     {
+        // At runtime the dispatched general product (stencil for M >= 2)
+        // beats the symmetric enumeration: the ~2x multiply saving is
+        // dwarfed by the per-pair flatIndex cost the table eliminates.
+        if !consteval
+        {
+            cauchyProduct< T, N, M >( out, f, f );
+            return;
+        }
         tax::forEachMonomial< M, N >( [&]( const MultiIndex< M >& alpha ) {
             const std::size_t ai = flatIndex< M >( alpha );
             tax::forEachSubIndex< M >( alpha, [&]( const MultiIndex< M >& beta,
@@ -113,26 +123,12 @@ constexpr void seriesReciprocal( Coeffs< T, N, M >& out,
     }
     else
     {
-        for ( int d = 1; d <= N; ++d )
-        {
-            tax::forEachMonomialOfDegree< M >( d, [&]( const MultiIndex< M >& alpha ) {
-                const std::size_t ai = flatIndex< M >( alpha );
+        forEachRecurrenceRow< N, M >(
+            [&]( std::size_t ai, int, std::span< const RecurrenceEntry > row ) {
                 T rhs = T{ 0 };
-                // sum over all beta with 0 < |beta| <= d (i.e., beta != 0 and gamma != 0... actually
-                // beta in [1..d] means we skip beta=0; gamma=alpha-beta has |gamma|=d-|beta| in [0,d-1])
-                tax::forEachSubIndex< M >( alpha, [&]( const MultiIndex< M >& beta,
-                                                        const MultiIndex< M >& gamma ) {
-                    // skip beta == 0 (that term is a[0]*out[alpha], moved to LHS)
-                    int beta_deg = 0;
-                    for ( int i = 0; i < M; ++i ) beta_deg += beta[std::size_t( i )];
-                    if ( beta_deg == 0 ) return;
-                    const std::size_t bi = flatIndex< M >( beta );
-                    const std::size_t gi = flatIndex< M >( gamma );
-                    rhs -= a[bi] * out[gi];
-                } );
+                for ( const RecurrenceEntry& e : row ) rhs -= a[e.b_idx] * out[e.g_idx];
                 out[ai] = rhs * inv_a0;
             } );
-        }
     }
 }
 
@@ -169,27 +165,14 @@ void seriesSqrt( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
     }
     else
     {
-        for ( int d = 1; d <= N; ++d )
-        {
-            tax::forEachMonomialOfDegree< M >( d, [&]( const MultiIndex< M >& alpha ) {
-                const std::size_t ai = flatIndex< M >( alpha );
+        forEachRecurrenceRow< N, M >(
+            [&]( std::size_t ai, int, std::span< const RecurrenceEntry > row ) {
                 T rhs = a[ai];
-                // Subtract off-diagonal and diagonal cross terms (beta in [1, d-1])
-                tax::forEachSubIndex< M >( alpha, [&]( const MultiIndex< M >& beta,
-                                                        const MultiIndex< M >& gamma ) {
-                    int beta_deg = 0;
-                    for ( int i = 0; i < M; ++i ) beta_deg += beta[std::size_t( i )];
-                    if ( beta_deg == 0 || beta_deg == d ) return;
-                    const std::size_t bi = flatIndex< M >( beta );
-                    const std::size_t gi = flatIndex< M >( gamma );
-                    if ( bi < gi )
-                        rhs -= T{ 2 } * out[bi] * out[gi];
-                    else if ( bi == gi )
-                        rhs -= out[bi] * out[bi];
-                } );
+                // |beta| == d entries read out[ai], which is still zero here,
+                // so the ordered walk needs no |beta| < d filter.
+                for ( const RecurrenceEntry& e : row ) rhs -= out[e.b_idx] * out[e.g_idx];
                 out[ai] = rhs * inv2g0;
             } );
-        }
     }
 }
 
@@ -236,39 +219,23 @@ void seriesCbrt( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
     {
         std::array< T, S > sq{};
         sq[0] = out[0] * out[0];
-        for ( int d = 1; d <= N; ++d )
-        {
-            tax::forEachMonomialOfDegree< M >( d, [&]( const MultiIndex< M >& alpha ) {
-                const std::size_t ai = flatIndex< M >( alpha );
+        forEachRecurrenceRow< N, M >(
+            [&]( std::size_t ai, int, std::span< const RecurrenceEntry > row ) {
                 T rhs = a[ai];
-                // beta in [1, d-1]: skip beta==0 and beta with |beta|==d
-                tax::forEachSubIndex< M >( alpha, [&]( const MultiIndex< M >& beta,
-                                                        const MultiIndex< M >& gamma ) {
-                    int beta_deg = 0;
-                    for ( int i = 0; i < M; ++i ) beta_deg += beta[std::size_t( i )];
-                    if ( beta_deg == 0 || beta_deg == d ) return;
-                    const std::size_t bi = flatIndex< M >( beta );
-                    const std::size_t gi = flatIndex< M >( gamma );
-                    rhs -= out[bi] * ( out[0] * out[gi] + sq[gi] );
-                } );
+                // |beta| == d entries read out[ai], which is still zero here,
+                // so the ordered walk needs no |beta| < d filter; sq is only
+                // read at |gamma| < d, already final from earlier rows.
+                for ( const RecurrenceEntry& e : row )
+                    rhs -= out[e.b_idx] * ( out[0] * out[e.g_idx] + sq[e.g_idx] );
                 out[ai] = rhs * inv3g0sq;
-            } );
 
-            tax::forEachMonomialOfDegree< M >( d, [&]( const MultiIndex< M >& alpha ) {
-                const std::size_t ai = flatIndex< M >( alpha );
-                T val = T{ 0 };
-                tax::forEachSubIndex< M >( alpha, [&]( const MultiIndex< M >& beta,
-                                                        const MultiIndex< M >& gamma ) {
-                    const std::size_t bi = flatIndex< M >( beta );
-                    const std::size_t gi = flatIndex< M >( gamma );
-                    if ( bi < gi )
-                        val += T{ 2 } * out[bi] * out[gi];
-                    else if ( bi == gi )
-                        val += out[bi] * out[bi];
-                } );
+                // Maintain sq = out^2 at alpha: the beta = 0 term plus all
+                // |beta| >= 1 decompositions (out[ai] is final now, so the
+                // beta = alpha entry contributes out[ai]*out[0] correctly).
+                T val = out[0] * out[ai];
+                for ( const RecurrenceEntry& e : row ) val += out[e.b_idx] * out[e.g_idx];
                 sq[ai] = val;
             } );
-        }
     }
 }
 
@@ -308,24 +275,13 @@ void seriesPow( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a, T c ) noexce
     }
     else
     {
-        for ( int d = 1; d <= N; ++d )
-        {
-            tax::forEachMonomialOfDegree< M >( d, [&]( const MultiIndex< M >& alpha ) {
-                const std::size_t ai = flatIndex< M >( alpha );
+        forEachRecurrenceRow< N, M >(
+            [&]( std::size_t ai, int d, std::span< const RecurrenceEntry > row ) {
                 T rhs = T{ 0 };
-                tax::forEachSubIndex< M >( alpha, [&]( const MultiIndex< M >& beta,
-                                                        const MultiIndex< M >& gamma ) {
-                    // Need |beta| > 0 (skip the beta=0 term)
-                    int db = 0;
-                    for ( int i = 0; i < M; ++i ) db += beta[std::size_t( i )];
-                    if ( db == 0 ) return;
-                    const std::size_t bi = flatIndex< M >( beta );
-                    const std::size_t gi = flatIndex< M >( gamma );
-                    rhs += ( c * T( db ) - T( d - db ) ) * a[bi] * out[gi];
-                } );
+                for ( const RecurrenceEntry& e : row )
+                    rhs += ( c * T( e.db ) - T( d - int( e.db ) ) ) * a[e.b_idx] * out[e.g_idx];
                 out[ai] = rhs * inv_a0 / T( d );
             } );
-        }
     }
 }
 
@@ -372,13 +328,26 @@ constexpr void seriesPowInt( Coeffs< T, N, M >& out,
         seriesPowInt< T, N, M >( out, rec, -n );
         return;
     }
-    // n >= 2: binary exponentiation (left-to-right square-and-multiply)
+    // n >= 2: binary exponentiation (square-and-multiply). Squarings go
+    // through the symmetric self-product kernel; `out` is seeded with the
+    // base power of the lowest set bit, skipping the wasted 1 * base
+    // multiply of the textbook formulation.
     std::array< T, S > base = a;
-    out = {};
-    out[0] = T{ 1 };
     int e = n;
+    while ( !( e & 1 ) )
+    {
+        std::array< T, S > tmp{};
+        cauchySelfProduct< T, N, M >( tmp, base );
+        base = tmp;
+        e >>= 1;
+    }
+    out = base;
+    e >>= 1;
     while ( e > 0 )
     {
+        std::array< T, S > sq{};
+        cauchySelfProduct< T, N, M >( sq, base );
+        base = sq;
         if ( e & 1 )
         {
             std::array< T, S > tmp{};
@@ -386,12 +355,6 @@ constexpr void seriesPowInt( Coeffs< T, N, M >& out,
             out = tmp;
         }
         e >>= 1;
-        if ( e > 0 )
-        {
-            std::array< T, S > tmp{};
-            cauchyProduct< T, N, M >( tmp, base, base );
-            base = tmp;
-        }
     }
 }
 

@@ -193,7 +193,6 @@ int main()
         { "elapsed",         std::to_string( total_ms / 1e3 ) + " s" },
         { "output",          "wsb_ads.json" }
     };
-    printBanner( "WSB ads (piecewise polynomial flow)",
-                 std::span< const std::pair< std::string, std::string > >{ rows } );
+    printBanner( "WSB ads (piecewise polynomial flow)", rows );
     return 0;
 }

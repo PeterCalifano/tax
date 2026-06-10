@@ -1,5 +1,7 @@
 #pragma once
 
+#include <type_traits>
+
 #include <tax/core/taylor_expansion.hpp>
 #include <tax/kernels/algebra.hpp>
 #include <tax/kernels/sparse_subs.hpp>
@@ -40,7 +42,7 @@ template < typename T, int N, int M >
  */
 template < typename T, int N, int M >
 [[nodiscard]] TaylorExpansion< T, N, M > pow(
-    const TaylorExpansion< T, N, M >& x, T p ) noexcept
+    const TaylorExpansion< T, N, M >& x, std::type_identity_t< T > p ) noexcept
 {
     TaylorExpansion< T, N, M > r;
     detail::kernels::seriesPow< T, N, M >( r.coefficients(), x.coefficients(), p );

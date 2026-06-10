@@ -449,8 +449,7 @@ int main()
         { "sweep cells",     std::to_string( cells.size() ) },
         { "output",          "validation.json" }
     };
-    printBanner( "validation",
-                 std::span< const std::pair< std::string, std::string > >{ rows } );
+    printBanner( "validation", rows );
 
     // Compact table of (method, P, tol) → error + timing.
     std::cout << "  " << std::left << std::setw( 7 ) << "method"

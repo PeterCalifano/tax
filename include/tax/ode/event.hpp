@@ -44,8 +44,8 @@ struct StepperCtx : TriggerContext< State_, T_, DenseData_ >
 {
     using Stepper_type = Stepper;
 
-    StepperCtx( const State_& xo, T_ to, const State_& xn, T_ hu,
-                const DenseData_& d )
+    explicit StepperCtx( const State_& xo, T_ to, const State_& xn, T_ hu,
+                         const DenseData_& d )
         : TriggerContext< State_, T_, DenseData_ >{ xo, to, xn, hu, d }
     {
     }

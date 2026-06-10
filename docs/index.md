@@ -97,6 +97,11 @@ f.eval(0.3);        // sin(0.3) within machine precision
 
     Install, build, and write your first Taylor expansion.
 
+- [:material-school: __Tutorials__](tutorials/index.md)
+
+    End-to-end worked examples: flow maps and domain splitting on the
+    two-body and three-body problems, with figures.
+
 - [:material-function: __Core__](core/index.md)
 
     The `TaylorExpansion` type, its math, its API, and worked examples.
@@ -112,7 +117,7 @@ f.eval(0.3);        // sin(0.3) within machine precision
 
 - [:material-cog: __Internals__](internals/index.md)
 
-    Expression templates, kernels, recurrence relations.
+    Architecture, kernels, recurrence relations.
 
 </div>
 

@@ -5,8 +5,11 @@ option(TAX_BUILD_UNITTESTS   "Build and enable unit tests"                  ON)
 option(TAX_BUILD_REGRESSIONS "Build DACE-based regression tests"            OFF)
 option(TAX_BUILD_BENCHMARK   "Build benchmark suite (Google Benchmark)"     OFF)
 option(TAX_BUILD_EXAMPLES    "Build example programs (under examples/)"     OFF)
-option(TAX_USE_UNROLL        "Use compile-time-unrolled M=1 Cauchy kernels" ON)
-option(TAX_USE_STENCIL       "Use precomputed Cauchy stencils for M>=2"     ON)
+
+# Kernel dispatch (TAX_USE_UNROLL / TAX_USE_STENCIL) is configured in
+# <tax/kernels/cauchy.hpp>, defaulting to ON for every consumer. Injecting
+# the macros from the build system is deliberately avoided: differing values
+# across translation units would change inline function definitions (ODR).
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -26,13 +29,6 @@ target_compile_features(tax INTERFACE cxx_std_23)
 target_include_directories(tax INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>)
-
-if(TAX_USE_UNROLL)
-    target_compile_definitions(tax INTERFACE TAX_USE_UNROLL=1)
-endif()
-if(TAX_USE_STENCIL)
-    target_compile_definitions(tax INTERFACE TAX_USE_STENCIL=1)
-endif()
 
 find_package(Eigen3 REQUIRED)
 target_link_libraries(tax INTERFACE Eigen3::Eigen)

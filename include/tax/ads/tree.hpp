@@ -45,21 +45,22 @@ class AdsTree
         l.tEntry = tEntry;
         const int idx = static_cast< int >( leaves_.size() );
         leaves_.push_back( std::move( l ) );
+        listPos_.push_back( -1 );
         roots_.push_back( idx );
-        activeList_.push_back( idx );
+        pushActive( idx );
         workQueue_.push_back( idx );
         return idx;
     }
 
     [[nodiscard]] bool empty() const noexcept { return workQueue_.empty(); }
 
-    [[nodiscard]] int front() const
+    [[nodiscard]] int front() const noexcept
     {
         assert( !workQueue_.empty() );
         return workQueue_.front();
     }
 
-    [[nodiscard]] int popFront()
+    [[nodiscard]] int popFront() noexcept
     {
         assert( !workQueue_.empty() );
         const int idx = workQueue_.front();
@@ -105,15 +106,17 @@ class AdsTree
 
         const int lIdx = static_cast< int >( leaves_.size() );
         leaves_.push_back( std::move( L ) );
+        listPos_.push_back( -1 );
         const int rIdx = static_cast< int >( leaves_.size() );
         leaves_.push_back( std::move( R ) );
+        listPos_.push_back( -1 );
 
         // Wire sibling links.
         leaves_[lIdx].siblingIdx = rIdx;
         leaves_[rIdx].siblingIdx = lIdx;
 
-        activeList_.push_back( lIdx );
-        activeList_.push_back( rIdx );
+        pushActive( lIdx );
+        pushActive( rIdx );
         workQueue_.push_back( lIdx );
         workQueue_.push_back( rIdx );
 
@@ -126,7 +129,7 @@ class AdsTree
         assert( !leaves_[idx].done && !leaves_[idx].retired );
         leaves_[idx].done = true;
         removeFromActive( idx );
-        doneList_.push_back( idx );
+        pushDone( idx );
     }
 
     void merge( int leftIdx, int rightIdx, Payload mergedPayload )
@@ -153,7 +156,7 @@ class AdsTree
         leaves_[parent].retired = false;
         leaves_[parent].done = true;
         leaves_[parent].payload = std::move( mergedPayload );
-        doneList_.push_back( parent );
+        pushDone( parent );
     }
 
     [[nodiscard]] const LeafT& leaf( int idx ) const noexcept
@@ -191,6 +194,8 @@ class AdsTree
             }
             return false;
         } );
+        for ( std::size_t i = 0; i < doneList_.size(); ++i )
+            listPos_[static_cast< std::size_t >( doneList_[i] )] = static_cast< int >( i );
     }
 
     [[nodiscard]] std::span< const int > roots() const noexcept
@@ -209,34 +214,36 @@ class AdsTree
     }
 
    private:
-    void removeFromActive( int idx )
+    // A leaf is in at most one of activeList_/doneList_ at a time;
+    // listPos_[idx] is its position there (-1 while in neither), so
+    // removal is an O(1) swap-with-back instead of a linear scan.
+    void pushActive( int idx )
     {
-        for ( std::size_t i = 0; i < activeList_.size(); ++i )
-        {
-            if ( activeList_[i] == idx )
-            {
-                activeList_[i] = activeList_.back();
-                activeList_.pop_back();
-                return;
-            }
-        }
+        listPos_[static_cast< std::size_t >( idx )] = static_cast< int >( activeList_.size() );
+        activeList_.push_back( idx );
     }
-    void removeFromDone( int idx )
+    void pushDone( int idx )
     {
-        for ( std::size_t i = 0; i < doneList_.size(); ++i )
-        {
-            if ( doneList_[i] == idx )
-            {
-                doneList_[i] = doneList_.back();
-                doneList_.pop_back();
-                return;
-            }
-        }
+        listPos_[static_cast< std::size_t >( idx )] = static_cast< int >( doneList_.size() );
+        doneList_.push_back( idx );
     }
+    void removeFrom( std::vector< int >& list, int idx ) noexcept
+    {
+        const int pos = listPos_[static_cast< std::size_t >( idx )];
+        assert( pos >= 0 && list[static_cast< std::size_t >( pos )] == idx );
+        const int last = list.back();
+        list[static_cast< std::size_t >( pos )] = last;
+        listPos_[static_cast< std::size_t >( last )] = pos;
+        list.pop_back();
+        listPos_[static_cast< std::size_t >( idx )] = -1;
+    }
+    void removeFromActive( int idx ) noexcept { removeFrom( activeList_, idx ); }
+    void removeFromDone( int idx ) noexcept { removeFrom( doneList_, idx ); }
 
     std::vector< LeafT > leaves_;
     std::vector< int > activeList_;
     std::vector< int > doneList_;
+    std::vector< int > listPos_;
     std::vector< int > roots_;
     std::deque< int > workQueue_;
 };

@@ -247,29 +247,41 @@ public:
         {
             T result{};
 
-            // Degree-by-degree accumulation: enumerate all monomials of total degree d,
-            // compute dx^alpha and accumulate c_alpha * dx^alpha.
-            auto accumulate = [&]( auto& self, int var, int rem,
-                                   MultiIndex< M > alpha ) constexpr -> void
+            // Power table pw[i][j] = dx_i^j: each monomial then costs one
+            // multiply via the partial product carried down the recursion,
+            // instead of rebuilding dx^alpha from |alpha| factors.
+            std::array< std::array< T, std::size_t( N ) + 1 >, std::size_t( M ) > pw{};
+            for ( int i = 0; i < M; ++i )
+            {
+                pw[std::size_t( i )][0] = T{ 1 };
+                for ( int j = 1; j <= N; ++j )
+                    pw[std::size_t( i )][std::size_t( j )] =
+                        pw[std::size_t( i )][std::size_t( j - 1 )] * dx[std::size_t( i )];
+            }
+
+            // Degree-by-degree accumulation: enumerate all monomials of total degree d
+            // and accumulate c_alpha * dx^alpha.
+            auto accumulate = [&]( auto& self, int var, int rem, MultiIndex< M > alpha,
+                                   T partial ) constexpr -> void
             {
                 if ( var == M - 1 )
                 {
                     alpha[std::size_t( var )] = rem;
-                    T monomial{ 1 };
-                    for ( int i = 0; i < M; ++i )
-                        for ( int j = 0; j < alpha[std::size_t( i )]; ++j ) monomial *= dx[std::size_t( i )];
-                    result += c_[flatIndex< M >( alpha )] * monomial;
+                    result += c_[flatIndex< M >( alpha )] * partial *
+                              pw[std::size_t( var )][std::size_t( rem )];
                     return;
                 }
                 for ( int k = rem; k >= 0; --k )
                 {
-                    auto a2               = alpha;
+                    auto a2                = alpha;
                     a2[std::size_t( var )] = k;
-                    self( self, var + 1, rem - k, a2 );
+                    self( self, var + 1, rem - k, a2,
+                          partial * pw[std::size_t( var )][std::size_t( k )] );
                 }
             };
 
-            for ( int d = 0; d <= N; ++d ) accumulate( accumulate, 0, d, MultiIndex< M >{} );
+            for ( int d = 0; d <= N; ++d )
+                accumulate( accumulate, 0, d, MultiIndex< M >{}, T{ 1 } );
             return result;
         }
     }
@@ -477,18 +489,6 @@ using TE = TaylorExpansion< double, N, M, storage::Dense >;
  */
 template < int N, int M >
 using TEn = TaylorExpansion< double, N, M, storage::Dense >;
-
-// ---------------------------------------------------------------------------
-// Self-check: verify the dense TaylorExpansion satisfies its own concepts.
-// ---------------------------------------------------------------------------
-static_assert( TaylorPolynomial< TE< 3 > >,
-               "TE<3> must satisfy TaylorPolynomial" );
-static_assert( DensePolynomial< TE< 3 > >,
-               "TE<3> must satisfy DensePolynomial" );
-static_assert( TaylorPolynomial< TE< 3, 2 > >,
-               "TE<3,2> must satisfy TaylorPolynomial" );
-static_assert( DensePolynomial< TE< 3, 2 > >,
-               "TE<3,2> must satisfy DensePolynomial" );
 
 // ---------------------------------------------------------------------------
 // Sparse specialisation
@@ -740,13 +740,5 @@ template < typename T, int N, int M >
 {
     return TaylorExpansion< T, N, M, storage::Sparse >( d );
 }
-
-// ---------------------------------------------------------------------------
-// Self-check: verify the sparse TaylorExpansion satisfies its own concepts.
-// ---------------------------------------------------------------------------
-static_assert( TaylorPolynomial< STE< 3 > >,
-               "STE<3> must satisfy TaylorPolynomial" );
-static_assert( TaylorPolynomial< STE< 3, 2 > >,
-               "STE<3,2> must satisfy TaylorPolynomial" );
 
 }  // namespace tax

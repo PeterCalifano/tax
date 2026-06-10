@@ -1,49 +1,42 @@
 // =============================================================================
 // examples/two_body/common.hpp
 //
-// Shared problem definition + small IO helpers for the three two-body
-// examples (taylor, ads, loads).
+// Shared problem definition for the two-body examples (taylor, ads, loads,
+// validation). I/O scaffolding lives in examples/common/output.hpp.
 //
-// The model is the planar Kepler problem in canonical units:
+// The model is the planar Kepler problem in canonical units (GM = 1,
+// semi-major axis a = 1):
 //
 //    d/dt (x, y)   = (vx, vy)
 //    d/dt (vx, vy) = -(x, y) / r^3 ,    r = sqrt(x^2 + y^2)
 //
-// with GM = 1 and semi-major axis a = 1. The reference IC is at periapsis
-// of an eccentricity-0.5 ellipse:
+// The reference IC is at periapsis of an eccentricity-0.5 ellipse:
 //
 //    x  = a(1 - e) = 0.5
 //    vy = sqrt((1 + e)/(1 - e)) = sqrt(3)
 //
 // One full orbital period is T = 2*pi.
-//
-// Helpers exposed:
-//   * rhs()                  — generic RHS lambda (scalar + DA-valued state)
-//   * icCenter()             — periapsis IC vector
-//   * unitSquareBoundary(n)  — closed-loop boundary of [-1, 1]^2 for
-//                              evaluating the DA flow polygon
-//   * printBanner(...)       — tidy per-example terminal summary
-//   * writeJsonArray(...)    — inline JSON array writer for numeric ranges
 // =============================================================================
 
 #pragma once
 
 #include <array>
 #include <cmath>
-#include <iostream>
-#include <ostream>
-#include <span>
-#include <string>
-#include <string_view>
 #include <utility>
-#include <vector>
 
 #include <tax/ads/box.hpp>
 #include <tax/la/types.hpp>
 #include <tax/tax.hpp>
 
+#include "../common/output.hpp"
+
 namespace example::two_body
 {
+
+// Re-export the shared I/O helpers into this namespace.
+using example::printBanner;
+using example::unitSquareBoundary;
+using example::writeJsonArray;
 
 // ---- Orbit constants -------------------------------------------------------
 inline constexpr double kEcc        = 0.5;
@@ -55,8 +48,7 @@ inline const     double kPeriod     = 2.0 * M_PI;
 //
 // Generic over the state type so the same lambda accepts:
 //   * tax::la::VecNT<4, double>            (scalar reference path)
-//   * tax::la::VecNT<4, tax::TE<P, M>>     (DA-valued state, used everywhere
-//                                          else here).
+//   * tax::la::VecNT<4, tax::TE<P, M>>     (DA-valued state).
 // ADL picks up tax::sqrt for TE; <cmath> provides ::sqrt for double.
 inline auto rhs()
 {
@@ -85,11 +77,11 @@ inline tax::la::VecNT< 4, double > icCenter()
 // ---- IC box configuration --------------------------------------------------
 //
 // Edit kIcBoxHalfWidth to change the size of the initial-condition box used
-// by all three examples (taylor / ads / loads). Zero-half-width components
-// pin the corresponding state axis to its centerpoint value.
+// by all examples. Zero-half-width components pin the corresponding state
+// axis to its centerpoint value.
 //
-// The defaults vary only the y position and the y-velocity — that's enough
-// to produce visible distortion in one orbit at e = 0.5 without triggering
+// The defaults vary only the y position and the y-velocity — enough to
+// produce visible distortion in one orbit at e = 0.5 without triggering
 // excessive ADS subdivisions.
 inline const tax::la::VecNT< 4, double > kIcBoxHalfWidth{ 0.0, 8e-3, 0.0, 2e-2 };
 
@@ -98,66 +90,13 @@ inline tax::ads::Box< double, 4 > icBox()
     return tax::ads::Box< double, 4 >{ icCenter(), kIcBoxHalfWidth };
 }
 
-// ---- Boundary of [-1, 1]^2 -------------------------------------------------
+// ---- Boundary coordinates -> normalised 4D displacement ---------------------
 //
-// Returns 4 * n_per_edge + 1 samples tracing the perimeter
-// counter-clockwise. The first vertex is repeated at the end so the
-// polygon closes.
-inline std::vector< std::array< double, 2 > > unitSquareBoundary( int n_per_edge )
+// The box varies along axes 1 (y) and 3 (vy); the two boundary coordinates
+// map there and the pinned axes get 0.
+inline std::array< double, 4 > boundaryToBox( double a, double b )
 {
-    std::vector< std::array< double, 2 > > pts;
-    pts.reserve( static_cast< std::size_t >( 4 * n_per_edge + 1 ) );
-    for ( int edge = 0; edge < 4; ++edge )
-    {
-        for ( int i = 0; i < n_per_edge; ++i )
-        {
-            const double s = static_cast< double >( i ) / static_cast< double >( n_per_edge );
-            double a = 0.0, b = 0.0;
-            switch ( edge )
-            {
-                case 0: a = -1.0 + 2.0 * s; b = +1.0;             break;
-                case 1: a = +1.0;            b = +1.0 - 2.0 * s; break;
-                case 2: a = +1.0 - 2.0 * s; b = -1.0;             break;
-                case 3: a = -1.0;            b = -1.0 + 2.0 * s; break;
-            }
-            pts.push_back( { a, b } );
-        }
-    }
-    pts.push_back( pts.front() );
-    return pts;
-}
-
-// ---- Pretty terminal banner ------------------------------------------------
-inline void printBanner( std::string_view                                            title,
-                         std::span< const std::pair< std::string, std::string > > rows )
-{
-    constexpr std::size_t label_w = 18;
-    std::cout << "\n=== " << title << " ===\n";
-    for ( const auto& [ label, value ] : rows )
-    {
-        const std::size_t pad = label.size() < label_w ? label_w - label.size() : 0;
-        std::cout << "  " << std::string( pad, ' ' ) << label << " : " << value << '\n';
-    }
-    std::cout << '\n';
-}
-
-// ---- Inline JSON array writer ----------------------------------------------
-//
-// All structural JSON (objects, keys, ordering) is hand-written in each
-// example so a reader can see the data shape directly. This helper just
-// flattens a numeric range into "[a, b, c, ...]".
-template < class Range >
-inline void writeJsonArray( std::ostream& out, const Range& v )
-{
-    out << '[';
-    bool first = true;
-    for ( auto x : v )
-    {
-        if ( !first ) out << ", ";
-        out << x;
-        first = false;
-    }
-    out << ']';
+    return { 0.0, a, 0.0, b };
 }
 
 }  // namespace example::two_body
