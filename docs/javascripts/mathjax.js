@@ -10,11 +10,11 @@ window.MathJax = {
   options: {
     ignoreHtmlClass: ".*|",
     processHtmlClass: "arithmatex"
+  },
+  startup: {
+    ready() {
+      MathJax.startup.defaultReady();
+      document$.subscribe(() => MathJax.typesetPromise());
+    }
   }
 };
-
-document$.subscribe(() => {
-  MathJax.startup.promise.then(() => {
-    MathJax.typesetPromise()
-  })
-})
