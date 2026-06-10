@@ -49,22 +49,22 @@ def plot_flow(taylor, out_dir):
 
     ref = taylor["reference_orbit"]
     ax.plot(ref["x0"], ref["x1"], color="0.55", lw=1.0, zorder=1, label="reference orbit")
-    ax.scatter([0], [0], marker="*", s=180, color="#f2b134", edgecolor="0.3",
+    ax.scatter([0], [0], marker="o", s=120, color="#f2b134", edgecolor="0.3",
                zorder=5, label="primary")
 
     snaps = taylor["snapshots"]
     t_final = taylor["params"]["t_final"]
-    norm = Normalize(0.0, t_final)
+    norm = Normalize(0.0, 1.0)
     cmap = plt.get_cmap("viridis")
     for snap in snaps:
-        color = cmap(norm(snap["t"]))
+        color = cmap(norm(snap["t"] / t_final))
         for leaf in snap["leaves"]:
             ax.fill(leaf["x"], leaf["y"], facecolor=color, alpha=0.45,
                     edgecolor=color, lw=1.4, zorder=3)
 
     sm = ScalarMappable(norm=norm, cmap=cmap)
     cbar = fig.colorbar(sm, ax=ax, fraction=0.04, pad=0.02)
-    cbar.set_label("snapshot time  $t$  (one period $= 2\\pi$)")
+    cbar.set_label("$t\\,/\\,T$")
 
     ax.set_xlabel("$x$")
     ax.set_ylabel("$y$")
@@ -87,17 +87,17 @@ def plot_ads(taylor, ads, out_dir):
         st, sa = taylor["snapshots"][k], ads["snapshots"][k]
         ref = taylor["reference_orbit"]
         ax.plot(ref["x0"], ref["x1"], color="0.55", lw=1.0, zorder=1)
-        ax.scatter([0], [0], marker="*", s=150, color="#f2b134", edgecolor="0.3", zorder=5)
+        ax.scatter([0], [0], marker="o", s=100, color="#f2b134", edgecolor="0.3", zorder=5)
 
         leaf = st["leaves"][0]
         ax.plot(leaf["x"], leaf["y"], color="#d1495b", lw=1.6, ls="--", zorder=4,
-                label="single polynomial")
+                label="TTE")
 
         n = len(sa["leaves"])
         for i, lf in enumerate(sa["leaves"]):
             c = cmap(0.15 + 0.7 * i / max(n - 1, 1))
             ax.fill(lf["x"], lf["y"], facecolor=c, alpha=0.55, edgecolor=c, lw=1.0,
-                    zorder=3, label="ADS leaves" if i == 0 else None)
+                    zorder=3, label="ADS" if i == 0 else None)
 
         # Zoom to the ADS set (the trustworthy one); the single-polynomial
         # tail running out of frame is the point of the figure.
@@ -114,6 +114,39 @@ def plot_ads(taylor, ads, out_dir):
         ax.legend(loc="upper left", title=f"$t = {st['t']:.2f}$   ({n} leaves)")
 
     fig.savefig(out_dir / "two_body_ads.png", dpi=150)
+    plt.close(fig)
+
+
+def plot_ads_orbit(ads, out_dir):
+    """All ADS snapshots overlaid on the full orbit."""
+    fig, ax = plt.subplots(figsize=(7.2, 6.4))
+
+    ref = ads["reference_orbit"]
+    ax.plot(ref["x0"], ref["x1"], color="0.55", lw=1.0, zorder=1, label="reference orbit")
+    ax.scatter([0], [0], marker="o", s=120, color="#f2b134", edgecolor="0.3",
+               zorder=5, label="primary")
+
+    snaps = ads["snapshots"]
+    t_final = ads["params"]["t_final"]
+    norm = Normalize(0.0, 1.0)
+    cmap = plt.get_cmap("viridis")
+    for snap in snaps:
+        color = cmap(norm(snap["t"] / t_final))
+        for leaf in snap["leaves"]:
+            ax.fill(leaf["x"], leaf["y"], facecolor=color, alpha=0.45,
+                    edgecolor=color, lw=1.0, zorder=3)
+
+    sm = ScalarMappable(norm=norm, cmap=cmap)
+    cbar = fig.colorbar(sm, ax=ax, fraction=0.04, pad=0.02)
+    cbar.set_label("$t\\,/\\,T$")
+
+    ax.set_xlabel("$x$")
+    ax.set_ylabel("$y$")
+    ax.set_aspect("equal")
+    ax.legend(loc="upper left")
+
+    fig.tight_layout()
+    fig.savefig(out_dir / "two_body_ads_orbit.png", dpi=150)
     plt.close(fig)
 
 
@@ -152,8 +185,9 @@ def main():
 
     plot_flow(taylor, args.out)
     plot_ads(taylor, ads, args.out)
+    plot_ads_orbit(ads, args.out)
     plot_leaves(ads, loads, args.out)
-    print(f"wrote two_body_flow.png, two_body_ads.png, two_body_leaves.png -> {args.out}")
+    print(f"wrote two_body_flow.png, two_body_ads.png, two_body_ads_orbit.png, two_body_leaves.png -> {args.out}")
 
 
 if __name__ == "__main__":

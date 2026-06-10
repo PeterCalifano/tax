@@ -164,6 +164,11 @@ At \(t = 5.50\) (left) six leaves cover the banana; the single polynomial
 the frame, while the 15 ADS leaves stay glued to the true set through the
 periapsis re-passage — the most nonlinear part of the orbit.
 
+The ADS partition over the full orbit looks as follows — each snapshot is colored
+by $t / T$, showing how the leaf count (and leaf size) evolves through the orbit:
+
+![ADS leaf partition over the full orbit](img/two_body_ads_orbit.png)
+
 ## LOADS: splitting on the nonlinearity index
 
 The truncation criterion needs a moderately high order (here \(P = 8\)) to
