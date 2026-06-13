@@ -296,6 +296,43 @@ per-box propagation is itself farmed out (clusters, GPUs) or when you want the
 final-time accuracy guarantee the comparison gives for free. The volume ratio
 adds the Jacobian-quadrature cost on top, so it is the priciest per box.
 
+### Aggressive multi-way splitting
+
+`refine`'s `split_dirs` parameter (default 1) can split the top-\(k\) directions
+at once into \(2^k\) children — a more aggressive subdivision meant to reach the
+partition in fewer rounds. On this problem it does **not** pay off:
+
+| variant | 1 thread | leaves | RMS vs. MC |
+|---|--:|--:|--:|
+| binary (`split_dirs = 1`) | 5.8 s | 40 | \(2.3\times10^{-7}\) |
+| 4-way (`split_dirs = 2`) | 5.0 s | 64 | \(5.7\times10^{-5}\) |
+
+The 4-way run is marginally faster per call but **over-refines**: it splits both
+axes equally, so it cannot do the *anisotropic* refinement the binary version
+uses to pour boxes into the one direction — the along-track shear — that actually
+needs them. The result is more boxes *and* worse accuracy. Binary bisection wins
+here; the multi-way option is there for problems whose nonlinearity is genuinely
+isotropic.
+
+### Order vs. leaf count (classic ADS)
+
+A separate trade-off governs classic ADS: raising the expansion order \(P\) lets
+each box cover more of the set, so fewer boxes are needed — but every propagation
+is costlier (the coefficient count is \(\binom{P+4}{4}\) per component). On the
+bigger box (one thread, `maxDepth = 8`):
+
+| criterion | \(P = 2\) | \(P = 4\) | \(P = 6\) |
+|---|--:|--:|--:|
+| truncation — leaves | 256\* | 216 | 78 |
+| truncation — time | 0.27 s | 0.84 s | 1.5 s |
+| NLI — leaves | 256\* | 256\* | 256\* |
+| NLI — time | 0.23 s | 1.7 s | 9.4 s |
+
+(\* hit the depth cap). Low order needs many small boxes; high order needs few
+big ones but pays for the bigger polynomials — a sweet spot sits in the middle.
+NLI keeps splitting aggressively at every order, so its cost climbs steeply with
+\(P\).
+
 ## Run it yourself
 
 ```bash

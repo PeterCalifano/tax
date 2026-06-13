@@ -4,14 +4,20 @@
 // Runtime comparison of the two ADS strategies on the same task — propagate a
 // box of Kepler initial conditions over one orbit and partition it:
 //
-//   * classic in-flight ADS   (tax::ads::propagate, TruncationCriterion)
-//   * propagate-then-assess    (tax::ads::refine, CoefficientMatch / Volume)
+//   * classic in-flight ADS   (tax::ads::propagate; Truncation / NLI criteria)
+//   * propagate-then-assess    (tax::ads::refine; CoefficientMatch / Volume)
 //
-// Each is run with 1, 2, 3 and 4 worker threads (the driver's num_threads
-// argument; the thread count is benchmark arg 0) so the parallel scaling of
-// the two approaches can be compared. The "leaves" counter reports the size
-// of the resulting partition, since the two criteria do not split to exactly
-// the same resolution — divide time by leaves for a per-box cost.
+// Three questions are benchmarked:
+//
+//  1. Thread scaling (arg 0 = driver num_threads, 1..4): classic ADS vs.
+//     binary refine vs. aggressive 4-way refine (split_dirs = 2).
+//  2. Aggressive vs. binary refinement — does splitting the top two axes at
+//     once (2^2 = 4 children) beat bisecting one axis?
+//  3. Classic ADS vs. polynomial order: Truncation and NLI at P = 2, 4, 6
+//     (one thread), showing the order-vs-leaf-count trade-off.
+//
+// The "leaves" counter reports the partition size, since the criteria do not
+// split to the same resolution — divide time by leaves for a per-box cost.
 //
 // Build:  cmake -S . -B build -DTAX_BUILD_BENCHMARK=ON && cmake --build build -j
 // Run:    ./build/benchmarks/bench_ads_refine
@@ -26,8 +32,6 @@
 namespace
 {
 using namespace tax::ode::methods;
-
-constexpr int P = 6;  // DA truncation order (same for both methods)
 
 // Planar Kepler problem (GM = 1), generic over scalar / DA state.
 auto rhs()
@@ -67,6 +71,8 @@ tax::ode::IntegratorConfig< double > cfg()
 constexpr double kTfinal = 2.0 * M_PI;
 }  // namespace
 
+// ---- 1) thread scaling -----------------------------------------------------
+
 static void BM_ClassicAds( benchmark::State& state )
 {
     const int threads = static_cast< int >( state.range( 0 ) );
@@ -74,20 +80,14 @@ static void BM_ClassicAds( benchmark::State& state )
     for ( auto _ : state )
     {
         auto tree =
-            tax::ads::propagate< P >( Verner89{}, tax::ads::TruncationCriterion{ 1e-4, 6 }, rhs(),
+            tax::ads::propagate< 6 >( Verner89{}, tax::ads::TruncationCriterion{ 1e-4, 6 }, rhs(),
                                       icBox(), center(), 0.0, kTfinal, cfg(), threads );
         benchmark::DoNotOptimize( tree );
         leaves = tree.done().size();
     }
     state.counters["leaves"] = static_cast< double >( leaves );
 }
-BENCHMARK( BM_ClassicAds )
-    ->Arg( 1 )
-    ->Arg( 2 )
-    ->Arg( 3 )
-    ->Arg( 4 )
-    ->Unit( benchmark::kMillisecond )
-    ->UseRealTime();
+BENCHMARK( BM_ClassicAds )->DenseRange( 1, 4 )->Unit( benchmark::kMillisecond )->UseRealTime();
 
 static void BM_RefineCoeff( benchmark::State& state )
 {
@@ -96,20 +96,33 @@ static void BM_RefineCoeff( benchmark::State& state )
     for ( auto _ : state )
     {
         auto tree =
-            tax::ads::refine< P >( Verner89{}, tax::ads::CoefficientMatchCriterion{ 1e-6, 6 },
-                                   rhs(), icBox(), center(), 0.0, kTfinal, cfg(), threads );
+            tax::ads::refine< 6 >( Verner89{}, tax::ads::CoefficientMatchCriterion{ 1e-6, 6 },
+                                   rhs(), icBox(), center(), 0.0, kTfinal, cfg(), threads,
+                                   /*split_dirs=*/1 );
         benchmark::DoNotOptimize( tree );
         leaves = tree.done().size();
     }
     state.counters["leaves"] = static_cast< double >( leaves );
 }
-BENCHMARK( BM_RefineCoeff )
-    ->Arg( 1 )
-    ->Arg( 2 )
-    ->Arg( 3 )
-    ->Arg( 4 )
-    ->Unit( benchmark::kMillisecond )
-    ->UseRealTime();
+BENCHMARK( BM_RefineCoeff )->DenseRange( 1, 4 )->Unit( benchmark::kMillisecond )->UseRealTime();
+
+// Aggressive: split the top two axes at once (4 children per node).
+static void BM_RefineCoeff4way( benchmark::State& state )
+{
+    const int threads = static_cast< int >( state.range( 0 ) );
+    std::size_t leaves = 0;
+    for ( auto _ : state )
+    {
+        auto tree =
+            tax::ads::refine< 6 >( Verner89{}, tax::ads::CoefficientMatchCriterion{ 1e-6, 6 },
+                                   rhs(), icBox(), center(), 0.0, kTfinal, cfg(), threads,
+                                   /*split_dirs=*/2 );
+        benchmark::DoNotOptimize( tree );
+        leaves = tree.done().size();
+    }
+    state.counters["leaves"] = static_cast< double >( leaves );
+}
+BENCHMARK( BM_RefineCoeff4way )->DenseRange( 1, 4 )->Unit( benchmark::kMillisecond )->UseRealTime();
 
 static void BM_RefineVolume( benchmark::State& state )
 {
@@ -117,7 +130,7 @@ static void BM_RefineVolume( benchmark::State& state )
     std::size_t leaves = 0;
     for ( auto _ : state )
     {
-        auto tree = tax::ads::refine< P >( Verner89{},
+        auto tree = tax::ads::refine< 6 >( Verner89{},
                                            tax::ads::VolumeRatioCriterion{ 1e-6, 6, { 1, 3 }, 8 },
                                            rhs(), icBox(), center(), 0.0, kTfinal, cfg(), threads );
         benchmark::DoNotOptimize( tree );
@@ -125,12 +138,42 @@ static void BM_RefineVolume( benchmark::State& state )
     }
     state.counters["leaves"] = static_cast< double >( leaves );
 }
-BENCHMARK( BM_RefineVolume )
-    ->Arg( 1 )
-    ->Arg( 2 )
-    ->Arg( 3 )
-    ->Arg( 4 )
-    ->Unit( benchmark::kMillisecond )
-    ->UseRealTime();
+BENCHMARK( BM_RefineVolume )->DenseRange( 1, 4 )->Unit( benchmark::kMillisecond )->UseRealTime();
+
+// ---- 3) classic ADS vs polynomial order (single thread) --------------------
+
+template < int P >
+static void BM_OrderTruncation( benchmark::State& state )
+{
+    std::size_t leaves = 0;
+    for ( auto _ : state )
+    {
+        auto tree = tax::ads::propagate< P >( Verner89{}, tax::ads::TruncationCriterion{ 1e-4, 8 },
+                                              rhs(), icBox(), center(), 0.0, kTfinal, cfg(), 1 );
+        benchmark::DoNotOptimize( tree );
+        leaves = tree.done().size();
+    }
+    state.counters["leaves"] = static_cast< double >( leaves );
+}
+BENCHMARK_TEMPLATE( BM_OrderTruncation, 2 )->Unit( benchmark::kMillisecond );
+BENCHMARK_TEMPLATE( BM_OrderTruncation, 4 )->Unit( benchmark::kMillisecond );
+BENCHMARK_TEMPLATE( BM_OrderTruncation, 6 )->Unit( benchmark::kMillisecond );
+
+template < int P >
+static void BM_OrderNli( benchmark::State& state )
+{
+    std::size_t leaves = 0;
+    for ( auto _ : state )
+    {
+        auto tree = tax::ads::propagate< P >( Verner89{}, tax::ads::NliCriterion{ 0.1, 8 }, rhs(),
+                                              icBox(), center(), 0.0, kTfinal, cfg(), 1 );
+        benchmark::DoNotOptimize( tree );
+        leaves = tree.done().size();
+    }
+    state.counters["leaves"] = static_cast< double >( leaves );
+}
+BENCHMARK_TEMPLATE( BM_OrderNli, 2 )->Unit( benchmark::kMillisecond );
+BENCHMARK_TEMPLATE( BM_OrderNli, 4 )->Unit( benchmark::kMillisecond );
+BENCHMARK_TEMPLATE( BM_OrderNli, 6 )->Unit( benchmark::kMillisecond );
 
 BENCHMARK_MAIN();

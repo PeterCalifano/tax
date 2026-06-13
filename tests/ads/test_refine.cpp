@@ -201,3 +201,62 @@ TEST( AdsRefine, ParallelMatchesSerial )
                 EXPECT_DOUBLE_EQ( ls.payload( row )[k], lp.payload( row )[k] );
     }
 }
+
+// Aggressive multi-way refinement (split_dirs = 2 → 4 children per node)
+// produces a valid partition whose leaves still reproduce the reference.
+TEST( AdsRefine, AggressiveSplitMatchesReference )
+{
+    const double t1 = 2.0 * M_PI;
+    IntegratorConfig< double > cfg;
+    cfg.abstol = cfg.reltol = 1e-12;
+    ScState center{ 1.0, 0.0 };
+
+    auto tree = tax::ads::refine< P >( Verner89{}, VolumeRatioCriterion{ 1e-6, 10 }, rhs(), icBox(),
+                                       center, 0.0, t1, cfg, /*num_threads=*/1, /*split_dirs=*/2 );
+
+    EXPECT_GE( tree.done().size(), 4u );  // at least one 4-way split
+
+    const std::array< ScState, 4 > samples{ {
+        { 1.0, 0.0 },
+        { 1.3, -0.2 },
+        { 0.6, 0.4 },
+        { 0.55, -0.45 },
+    } };
+    for ( const auto& xi : samples )
+    {
+        auto idx = tree.leaf( xi );
+        ASSERT_TRUE( idx.has_value() );
+        const ScState predicted = evalLeaf( tree.leaf( *idx ), xi );
+        const ScState reference = scalarReference( xi, t1 );
+        EXPECT_NEAR( predicted( 0 ), reference( 0 ), 1e-3 );
+        EXPECT_NEAR( predicted( 1 ), reference( 1 ), 1e-3 );
+    }
+}
+
+TEST( AdsRefine, AggressiveParallelMatchesSerial )
+{
+    const double t1 = 2.0 * M_PI;
+    IntegratorConfig< double > cfg;
+    cfg.abstol = cfg.reltol = 1e-12;
+    ScState center{ 1.0, 0.0 };
+
+    const VolumeRatioCriterion crit{ 1e-6, 10 };
+    auto serial = tax::ads::refine< P >( Verner89{}, crit, rhs(), icBox(), center, 0.0, t1, cfg,
+                                         /*num_threads=*/1, /*split_dirs=*/2 );
+    auto parallel = tax::ads::refine< P >( Verner89{}, crit, rhs(), icBox(), center, 0.0, t1, cfg,
+                                           /*num_threads=*/4, /*split_dirs=*/2 );
+
+    ASSERT_EQ( serial.done().size(), parallel.done().size() );
+    auto sIdx = serial.done();
+    auto pIdx = parallel.done();
+    for ( std::size_t i = 0; i < sIdx.size(); ++i )
+    {
+        const auto& ls = serial.leaf( sIdx[i] );
+        const auto& lp = parallel.leaf( pIdx[i] );
+        for ( int j = 0; j < M; ++j )
+        {
+            EXPECT_DOUBLE_EQ( ls.box.center( j ), lp.box.center( j ) );
+            EXPECT_DOUBLE_EQ( ls.box.halfWidth( j ), lp.box.halfWidth( j ) );
+        }
+    }
+}

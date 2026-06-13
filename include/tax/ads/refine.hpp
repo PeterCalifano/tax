@@ -33,6 +33,7 @@
 #include <deque>
 #include <exception>
 #include <mutex>
+#include <span>
 #include <tax/ads/box.hpp>
 #include <tax/ads/da_state.hpp>
 #include <tax/ads/refine_criteria.hpp>
@@ -65,10 +66,14 @@ class RefineDriver
     using Tree = AdsTree< State, M, T >;
     using BoxT = Box< T, M >;
 
-    RefineDriver( Quality quality, Cfg cfg, int num_threads = 1 )
+    // split_dirs > 1 turns on aggressive multi-way refinement: a box that
+    // fails the quality test is split along its top-`split_dirs` directions
+    // at once, into 2^split_dirs children, instead of bisecting one axis.
+    RefineDriver( Quality quality, Cfg cfg, int num_threads = 1, int split_dirs = 1 )
         : quality_( std::move( quality ) ),
           cfg_( std::move( cfg ) ),
-          num_threads_( num_threads < 1 ? 1 : num_threads )
+          num_threads_( num_threads < 1 ? 1 : num_threads ),
+          split_dirs_( split_dirs < 1 ? 1 : split_dirs )
     {
     }
 
@@ -107,14 +112,15 @@ class RefineDriver
         State flow{};
     };
 
-    // Outcome of assessing one box, computed lock-free.
+    // Outcome of assessing one box, computed lock-free. On a split, `dims`
+    // are the axes to bisect (k of them) and inits/flows hold the 2^k children
+    // in combo order (bit j of the index = "+" side along dims[j]).
     struct Verdict
     {
         bool split = false;
-        int dim = -1;
-        T splitValue{};
-        State initL{}, initR{};
-        State flowL{}, flowR{};
+        std::vector< int > dims;
+        std::vector< State > inits;
+        std::vector< State > flows;
     };
 
     template < class F >
@@ -125,28 +131,42 @@ class RefineDriver
         return std::move( sol.x.back() );
     }
 
-    // Pure, lock-free: bisect the box, propagate both halves to t1, and ask
-    // the criterion whether the split is worth keeping.
+    // Pure, lock-free: split the box along its top-k directions into 2^k
+    // children (k = split_dirs_, clamped to the axes that still carry mass),
+    // propagate each to t1, and ask the criterion whether the split is worth
+    // keeping. For k = 1 this is the binary bisect.
     template < class F >
     [[nodiscard]] Verdict assess( const F& rhs, const WorkItem& it, T t0, T t1 ) const
     {
         Verdict v;
-        const int dim = quality_.splitDim( it.flow );
-        auto pr = tax::ads::split( it.init, it.box, dim );
-        State initL = std::move( pr.first );
-        State initR = std::move( pr.second );
-        State flowL = propagateLeaf( rhs, initL, t0, t1 );
-        State flowR = propagateLeaf( rhs, initR, t0, t1 );
+        std::vector< int > dims = detail::topKDims( it.flow, split_dirs_ );
+        if ( dims.empty() ) return v;  // nothing left to split — accept
 
-        if ( quality_.acceptable( it.flow, flowL, flowR, it.depth ) ) return v;  // split = false
+        const std::size_t nch = std::size_t{ 1 } << dims.size();
+        std::vector< State > inits( nch );
+        std::vector< State > flows( nch );
+        for ( std::size_t c = 0; c < nch; ++c )
+        {
+            State ci = it.init;
+            for ( std::size_t j = 0; j < dims.size(); ++j )
+            {
+                const T shift = ( ( c >> j ) & 1u ) ? T{ 0.5 } : T{ -0.5 };
+                for ( Eigen::Index r = 0; r < ci.size(); ++r )
+                    ci( r ) = detail::substituteAxis( ci( r ), dims[j], shift, T{ 0.5 } );
+            }
+            flows[c] = propagateLeaf( rhs, ci, t0, t1 );
+            inits[c] = std::move( ci );
+        }
+
+        const std::span< const State > children{ flows.data(), flows.size() };
+        const std::span< const int > dimspan{ dims.data(), dims.size() };
+        if ( quality_.acceptable( it.flow, children, dimspan, it.depth ) )
+            return v;  // split = false
 
         v.split = true;
-        v.dim = dim;
-        v.splitValue = it.box.center( dim );
-        v.initL = std::move( initL );
-        v.initR = std::move( initR );
-        v.flowL = std::move( flowL );
-        v.flowR = std::move( flowR );
+        v.dims = std::move( dims );
+        v.inits = std::move( inits );
+        v.flows = std::move( flows );
         return v;
     }
 
@@ -204,12 +224,35 @@ class RefineDriver
                 lk.lock();
                 if ( v.split )
                 {
-                    auto pr = tree.split( it.treeIdx, v.dim, v.splitValue, State{}, State{}, t0 );
-                    auto boxes = it.box.split( v.dim );
-                    queue.push_back( WorkItem{ std::move( v.initL ), boxes.first, it.depth + 1,
-                                               pr.first, std::move( v.flowL ) } );
-                    queue.push_back( WorkItem{ std::move( v.initR ), boxes.second, it.depth + 1,
-                                               pr.second, std::move( v.flowR ) } );
+                    // Fan the parent out into 2^k leaves by cascading k binary
+                    // tree splits, tracking each leaf's combo bits so it gets
+                    // the matching child init/flow.
+                    struct Node
+                    {
+                        int idx;
+                        BoxT box;
+                        std::size_t bits;
+                    };
+                    std::vector< Node > frontier{ { it.treeIdx, it.box, 0 } };
+                    for ( std::size_t j = 0; j < v.dims.size(); ++j )
+                    {
+                        std::vector< Node > next;
+                        next.reserve( frontier.size() * 2 );
+                        for ( const Node& n : frontier )
+                        {
+                            auto pr = tree.split( n.idx, v.dims[j], n.box.center( v.dims[j] ),
+                                                  State{}, State{}, t0 );
+                            auto boxes = n.box.split( v.dims[j] );
+                            next.push_back( { pr.first, boxes.first, n.bits } );
+                            next.push_back(
+                                { pr.second, boxes.second, n.bits | ( std::size_t{ 1 } << j ) } );
+                        }
+                        frontier = std::move( next );
+                    }
+                    const int child_depth = it.depth + static_cast< int >( v.dims.size() );
+                    for ( const Node& n : frontier )
+                        queue.push_back( WorkItem{ std::move( v.inits[n.bits] ), n.box, child_depth,
+                                                   n.idx, std::move( v.flows[n.bits] ) } );
                 } else
                 {
                     tree.leaf( it.treeIdx ).payload = std::move( it.flow );
@@ -231,6 +274,7 @@ class RefineDriver
     Quality quality_;
     Cfg cfg_;
     int num_threads_ = 1;
+    int split_dirs_ = 1;
 };
 
 // Function-form entry point, mirroring tax::ads::propagate. P is the DA
@@ -239,13 +283,15 @@ class RefineDriver
 template < int P, class Method, class Quality, class F, class T, int M, int D >
 [[nodiscard]] auto refine( Method, Quality quality, F&& rhs, const Box< T, M >& ic_box,
                            const Eigen::Matrix< T, D, 1 >& ic_center, const T& t0, const T& t1,
-                           tax::ode::IntegratorConfig< T > cfg = {}, int num_threads = 1 )
+                           tax::ode::IntegratorConfig< T > cfg = {}, int num_threads = 1,
+                           int split_dirs = 1 )
 {
     using TE = tax::TaylorExpansion< T, P, M, tax::storage::Dense >;
     using DAState = Eigen::Matrix< TE, D, 1 >;
     using Stepper = tax::ode::detail::StepperT< Method, DAState >;
 
-    RefineDriver< Stepper, Quality > driver{ std::move( quality ), std::move( cfg ), num_threads };
+    RefineDriver< Stepper, Quality > driver{ std::move( quality ), std::move( cfg ), num_threads,
+                                             split_dirs };
     return driver.run( std::forward< F >( rhs ), ic_box, ic_center, t0, t1 );
 }
 

@@ -32,10 +32,12 @@
 #pragma once
 
 #include <Eigen/Dense>
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <concepts>
 #include <cstddef>
+#include <span>
 #include <tax/ads/da_state.hpp>
 #include <tax/core/multi_index.hpp>
 #include <tax/core/taylor_expansion.hpp>
@@ -46,17 +48,19 @@
 namespace tax::ads
 {
 
-// A quality criterion drives tax::ads::refine. splitDim picks the
-// coordinate to bisect from a flow map; acceptable compares a parent map
-// to its two propagated children and reports whether the parent is good
-// enough (true => stop, do not split).
+// A quality criterion drives tax::ads::refine. splitDim picks the coordinate
+// to bisect from a flow map; acceptable compares a parent map to the 2^k
+// propagated children produced by splitting `dims` (k = dims.size(); 1 dim /
+// 2 children is the binary case) and reports whether the parent is good
+// enough (true => stop, do not split). Child i corresponds to the sub-box
+// whose offset along dims[j] is "+" when bit j of i is set, "-" otherwise.
 template < class C, class State >
-concept QualityCriterion =
-    requires( C c, const State& p, const State& l, const State& r, int depth ) {
-        { c.acceptable( p, l, r, depth ) } -> std::convertible_to< bool >;
-        { c.splitDim( p ) } -> std::convertible_to< int >;
-        { c.maxDepth } -> std::convertible_to< int >;
-    };
+concept QualityCriterion = requires( C c, const State& p, std::span< const State > ch,
+                                     std::span< const int > dims, int depth ) {
+    { c.acceptable( p, ch, dims, depth ) } -> std::convertible_to< bool >;
+    { c.splitDim( p ) } -> std::convertible_to< int >;
+    { c.maxDepth } -> std::convertible_to< int >;
+};
 
 namespace detail
 {
@@ -97,21 +101,64 @@ template < class T, int N, int M, class Storage, int D >
     return best;
 }
 
-// Relative coefficient mismatch between the parent map re-identified on one
-// half (ξ_dim → shift + 0.5 ξ'_dim) and the independently propagated child.
-// shift = -0.5 for the left half, +0.5 for the right (cf. tax::ads::split).
+// The k coordinates carrying the most order-N coefficient mass (k = K), in
+// descending order, skipping coordinates with no mass. Returns fewer than K
+// when fewer than K coordinates contribute — so a box that is no longer
+// nonlinear in some axis is not split there.
 template < class T, int N, int M, class Storage, int D >
-[[nodiscard]] T halfMismatch(
+[[nodiscard]] std::vector< int > topKDims(
+    const Eigen::Matrix< tax::TaylorExpansion< T, N, M, Storage >, D, 1 >& f, int K )
+{
+    std::array< T, M > totals{};
+    constexpr std::size_t kLo = ( N > 0 ) ? tax::numMonomials( N - 1, M ) : 0;
+    constexpr std::size_t Ncoef = tax::numMonomials( N, M );
+    for ( Eigen::Index i = 0; i < f.size(); ++i )
+    {
+        const auto& row = f( i );
+        for ( std::size_t k = kLo; k < Ncoef; ++k )
+        {
+            const T mag = std::abs( row[k] );
+            if ( mag == T{ 0 } ) continue;
+            const auto alpha = tax::unflatIndex< M >( k );
+            for ( int j = 0; j < M; ++j )
+                totals[static_cast< std::size_t >( j )] +=
+                    mag * T( alpha[static_cast< std::size_t >( j )] );
+        }
+    }
+    std::array< int, M > order{};
+    for ( int j = 0; j < M; ++j ) order[static_cast< std::size_t >( j )] = j;
+    std::sort( order.begin(), order.end(), [&]( int a, int b ) {
+        return totals[static_cast< std::size_t >( a )] > totals[static_cast< std::size_t >( b )];
+    } );
+    std::vector< int > out;
+    for ( int j : order )
+    {
+        if ( static_cast< int >( out.size() ) >= K ) break;
+        if ( totals[static_cast< std::size_t >( j )] > T{ 0 } ) out.push_back( j );
+    }
+    return out;
+}
+
+// Relative coefficient mismatch between the parent map re-identified on the
+// sub-box of child `combo` (ξ_{dims[j]} → ±0.5 + 0.5 ξ', sign = bit j of
+// combo) and the independently propagated child.
+template < class T, int N, int M, class Storage, int D >
+[[nodiscard]] T childMismatch(
     const Eigen::Matrix< tax::TaylorExpansion< T, N, M, Storage >, D, 1 >& parent,
-    const Eigen::Matrix< tax::TaylorExpansion< T, N, M, Storage >, D, 1 >& child, int dim, T shift )
+    const Eigen::Matrix< tax::TaylorExpansion< T, N, M, Storage >, D, 1 >& child,
+    std::span< const int > dims, std::size_t combo )
 {
     T maxDiff{ 0 };
     T maxMag{ 0 };
     constexpr std::size_t Ncoef = tax::numMonomials( N, M );
     for ( Eigen::Index i = 0; i < parent.size(); ++i )
     {
-        const auto restricted =
-            tax::ads::detail::substituteAxis( parent( i ), dim, shift, T{ 0.5 } );
+        auto restricted = parent( i );
+        for ( std::size_t j = 0; j < dims.size(); ++j )
+        {
+            const T shift = ( ( combo >> j ) & 1u ) ? T{ 0.5 } : T{ -0.5 };
+            restricted = tax::ads::detail::substituteAxis( restricted, dims[j], shift, T{ 0.5 } );
+        }
         for ( std::size_t k = 0; k < Ncoef; ++k )
         {
             const T diff = std::abs( restricted[k] - child( i )[k] );
@@ -143,15 +190,14 @@ struct CoefficientMatchCriterion
     template < class T, int N, int M, class Storage, int D >
     [[nodiscard]] bool acceptable(
         const Eigen::Matrix< tax::TaylorExpansion< T, N, M, Storage >, D, 1 >& parent,
-        const Eigen::Matrix< tax::TaylorExpansion< T, N, M, Storage >, D, 1 >& left,
-        const Eigen::Matrix< tax::TaylorExpansion< T, N, M, Storage >, D, 1 >& right,
-        int depth ) const
+        std::span< const Eigen::Matrix< tax::TaylorExpansion< T, N, M, Storage >, D, 1 > > children,
+        std::span< const int > dims, int depth ) const
     {
         if ( depth >= maxDepth ) return true;
-        const int dim = detail::topDegreeSplitDim( parent );
-        const T mismatch = std::max( detail::halfMismatch( parent, left, dim, T{ -0.5 } ),
-                                     detail::halfMismatch( parent, right, dim, T{ 0.5 } ) );
-        return mismatch <= T{ tol };
+        T worst{ 0 };
+        for ( std::size_t i = 0; i < children.size(); ++i )
+            worst = std::max( worst, detail::childMismatch( parent, children[i], dims, i ) );
+        return worst <= T{ tol };
     }
 };
 
@@ -188,13 +234,13 @@ struct VolumeRatioCriterion
     template < class T, int N, int M, class Storage, int D >
     [[nodiscard]] bool acceptable(
         const Eigen::Matrix< tax::TaylorExpansion< T, N, M, Storage >, D, 1 >& parent,
-        const Eigen::Matrix< tax::TaylorExpansion< T, N, M, Storage >, D, 1 >& left,
-        const Eigen::Matrix< tax::TaylorExpansion< T, N, M, Storage >, D, 1 >& right,
-        int depth ) const
+        std::span< const Eigen::Matrix< tax::TaylorExpansion< T, N, M, Storage >, D, 1 > > children,
+        std::span< const int > /*dims*/, int depth ) const
     {
         if ( depth >= maxDepth ) return true;
         const double vp = imageVolume( parent );
-        const double denom = imageVolume( left ) + imageVolume( right );
+        double denom = 0.0;
+        for ( const auto& c : children ) denom += imageVolume( c );
         if ( !( denom > 0.0 ) ) return true;
         return std::abs( vp / denom - 1.0 ) <= tol;
     }

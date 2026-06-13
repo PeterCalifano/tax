@@ -20,7 +20,7 @@
 
 #include <tax/la/types.hpp>
 
-#include "../tests/ode/cr3bp_problem.hpp"
+#include "../tests/ode/problems/cr3bp_problem.hpp"
 #include <tax/ode.hpp>
 
 using namespace tax::ode::test;
