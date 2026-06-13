@@ -252,6 +252,27 @@ int main()
     for ( const auto& it : iters )
         box_counts += ( box_counts.empty() ? "" : ", " ) + std::to_string( it.n_boxes );
 
+    // ---- Converged partition of each method at the final time ----------------
+    // A leaf's payload IS its flow map at t_final, so the final-time region of a
+    // partition is just the boundary image of every leaf — no re-propagation.
+    auto finalRegion = [&]( auto crit ) {
+        auto tree = tax::ads::refine< P >( Verner89{}, crit, rhs(), box, icCenter(), 0.0, t_final,
+                                           cfg, adsThreads() );
+        std::vector< Polygon > polys;
+        int id = 0;
+        for ( int li : tree.done() )
+        {
+            const auto& leaf = tree.leaf( li );
+            polys.push_back(
+                evalPolygon( leaf.payload, boundary, boundaryToBox, id++, leaf.depth ) );
+        }
+        return polys;
+    };
+    const auto region_single = finalRegion( tax::ads::CoefficientMatchCriterion{ 1e-6, 0 } );
+    const auto region_coeff = finalRegion( tax::ads::CoefficientMatchCriterion{ 1e-6, kMaxIter } );
+    const auto region_volume =
+        finalRegion( tax::ads::VolumeRatioCriterion{ 1e-6, kMaxIter, { kAxisY, kAxisVy }, 8 } );
+
     // ---- Write JSON (custom nested schema: iterations -> snapshots -> leaves) -
     std::ofstream out( "refine.json" );
     out << std::setprecision( 14 );
@@ -337,6 +358,29 @@ int main()
     out << "  \"comparison\": {\n";
     writeCurve( "coefficient_match", iters, /*comma=*/true );
     writeCurve( "volume_ratio", vol_iters, /*comma=*/false );
+    out << "  },\n";
+
+    // Converged regions at the final time, one partition per method.
+    auto writeRegion = [&]( const char* name, const std::vector< Polygon >& polys, bool comma ) {
+        out << "    \"" << name << "\": [";
+        for ( std::size_t l = 0; l < polys.size(); ++l )
+        {
+            out << ( l ? "," : "" ) << "\n      { \"id\": " << polys[l].id
+                << ", \"depth\": " << polys[l].depth << ", \"x\": ";
+            writeJsonArray( out, polys[l].x );
+            out << ", \"y\": ";
+            writeJsonArray( out, polys[l].y );
+            out << " }";
+        }
+        out << "\n    ]" << ( comma ? "," : "" ) << "\n";
+    };
+    out << "  \"converged\": {\n    \"t\": " << t_final << ",\n";
+    out << "    \"n_boxes\": { \"single\": " << region_single.size()
+        << ", \"coefficient_match\": " << region_coeff.size()
+        << ", \"volume_ratio\": " << region_volume.size() << " },\n";
+    writeRegion( "single", region_single, /*comma=*/true );
+    writeRegion( "coefficient_match", region_coeff, /*comma=*/true );
+    writeRegion( "volume_ratio", region_volume, /*comma=*/false );
     out << "  }\n}\n";
 
     std::string vol_counts;

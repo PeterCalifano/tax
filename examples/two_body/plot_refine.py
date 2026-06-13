@@ -106,6 +106,54 @@ def make_convergence_png(data: dict, out: Path) -> None:
     print(f"wrote {out.name}")
 
 
+def make_regions_png(data: dict, out: Path) -> None:
+    """Converged final-time region of each method, overlaid on Monte Carlo."""
+    conv = data.get("converged")
+    if conv is None:
+        return
+    mc   = data["monte_carlo"][-1]
+    ref  = data.get("reference_orbit", {})
+    panels = [
+        ("single",            "single box"),
+        ("coefficient_match", "coefficient match"),
+        ("volume_ratio",      "volume ratio"),
+    ]
+    max_depth = max(
+        (lf["depth"] for key, _ in panels for lf in conv.get(key, [])), default=1)
+    norm = Normalize(vmin=0, vmax=max(max_depth, 1))
+
+    # Frame limits from the Monte-Carlo cloud (clip the diverged single box).
+    pad = 0.1
+    xa, xb = min(mc["x"]), max(mc["x"])
+    ya, yb = min(mc["y"]), max(mc["y"])
+    xlim = (xa - pad * (xb - xa), xb + pad * (xb - xa))
+    ylim = (ya - pad * (yb - ya), yb + pad * (yb - ya))
+
+    fig, axes = plt.subplots(1, 3, figsize=(9.6, 3.5), constrained_layout=True)
+    for ax, (key, title) in zip(axes, panels):
+        ax.plot(ref.get("x0", []), ref.get("x1", []),
+                color="#8a8a8a", lw=0.7, alpha=0.9, zorder=1)
+        ax.scatter(mc["x"], mc["y"], s=3.0, color="#d1361b", alpha=0.45,
+                   linewidths=0, zorder=2)
+        for lf in conv.get(key, []):
+            ax.fill(lf["x"], lf["y"], color=DEPTH_CMAP(norm(lf["depth"])),
+                    alpha=0.55, edgecolor="black", linewidth=0.3, zorder=3)
+        ax.plot(0.0, 0.0, marker="o", color="black", ms=3.5, zorder=10)
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
+        ax.set_aspect("equal", "box")
+        ax.set_xlabel(r"$x$")
+        if key == "single":
+            ax.set_ylabel(r"$y$")
+        n = len(conv.get(key, []))
+        ax.set_title(f"{title}  ·  {n} box{'es' if n != 1 else ''}", loc="left")
+    fig.suptitle(r"converged region at $t = T$  vs.  Monte-Carlo cloud (red)",
+                 fontsize=10.5, x=0.01, ha="left")
+    fig.savefig(out, dpi=300)
+    plt.close(fig)
+    print(f"wrote {out.name}")
+
+
 def make_gif(data: dict, out: Path, fps: int = 7) -> None:
     xlim, ylim = cloud_limits(data)
     iters      = data["iterations"]
@@ -183,6 +231,7 @@ def main() -> None:
 
     data = load(data_dir)
     make_convergence_png(data, out_dir / "two_body_refine_convergence.png")
+    make_regions_png(data, out_dir / "two_body_refine_regions.png")
     make_gif(data, out_dir / "two_body_refine.gif", fps=args.fps)
 
     print()

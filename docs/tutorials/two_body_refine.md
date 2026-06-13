@@ -186,6 +186,20 @@ same curve (right panel of the animation):
 | 3 | 8  | \(7.2\times10^{-8}\) |
 | 4 | 11 | \(4.2\times10^{-8}\) |
 
+## Converged regions vs. Monte Carlo
+
+Comparing the **final-time region** each method settles on makes the difference
+plain. Below, the converged partition of every method at \(t = T\) is drawn over
+the Monte-Carlo cloud (red): the single polynomial bulges away from the true set
+at the periapsis tip (its order-6 image has run past its radius of convergence),
+while both refinement criteria tile the set tightly — coefficient match with 11
+boxes, the stricter volume ratio with 62 (boxes coloured by refinement depth).
+
+![Converged region of each method at t = T vs. the Monte-Carlo cloud](img/two_body_refine_regions.png)
+
+Both refined partitions cover the true set; they differ only in granularity at
+this tolerance, exactly as the convergence curves predict.
+
 ## Parallelism
 
 Each box is propagated independently of every other, so `refine` runs the
