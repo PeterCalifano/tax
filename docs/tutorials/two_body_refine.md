@@ -200,6 +200,34 @@ boxes, the stricter volume ratio with 62 (boxes coloured by refinement depth).
 Both refined partitions cover the true set; they differ only in granularity at
 this tolerance, exactly as the convergence curves predict.
 
+## A bigger box: many more sub-boxes
+
+Tripling the IC box (\(\pm 2.4\times10^{-2}\) in \(y\), \(\pm 6\times10^{-2}\) in
+\(v_y\)) makes the set far more nonlinear, and the refinement responds by
+fragmenting much further. The single polynomial is now hopeless — its
+prediction misses the Monte-Carlo cloud by an RMS of \(\sim\!120\) — while the
+box count climbs past its small-box value by roughly fourfold (the example
+re-runs with `./two_body_refine 3 refine_big.json`):
+
+| iteration | 0 | 1 | 2 | 3 | 4 | 5 | 6 |
+|---|--:|--:|--:|--:|--:|--:|--:|
+| coefficient-match boxes | 1 | 2 | 4 | 8 | 16 | 28 | **40** |
+| volume-ratio boxes | 1 | 2 | 4 | 8 | 16 | 32 | **64** |
+| RMS (coeff. match) | \(1.2{\times}10^{2}\) | \(1.5{\times}10^{-2}\) | \(1.5{\times}10^{-3}\) | \(6.6{\times}10^{-5}\) | \(1.1{\times}10^{-5}\) | \(9.6{\times}10^{-7}\) | \(7.6{\times}10^{-8}\) |
+
+![Refinement of the bigger IC box, converging onto the Monte-Carlo set](img/two_body_refine_big.gif)
+
+The two indices again make the same early splits and ride the same RMS curve;
+here neither has converged by depth 6, so both keep subdividing — coefficient
+match to 40 boxes, the stricter volume ratio to 64:
+
+![Convergence for the bigger box, per criterion](img/two_body_refine_big_convergence.png)
+
+And the final partitions still wrap the true set tightly where the single
+polynomial sprays across the frame:
+
+![Bigger-box final partitions vs. the Monte-Carlo cloud](img/two_body_refine_big_regions.png)
+
 ## Parallelism
 
 Each box is propagated independently of every other, so `refine` runs the
@@ -216,9 +244,15 @@ checks directly.
 ```bash
 cmake -S . -B build -DTAX_BUILD_EXAMPLES=ON && cmake --build build -j
 cd build/examples
-./two_body_refine
+./two_body_refine                       # small box (comparable to ads.cpp)
+./two_body_refine 3 refine_big.json     # bigger box (×3 half-widths)
 python3 ../../examples/two_body/plot_refine.py --data . --out figs
+python3 ../../examples/two_body/plot_refine.py --data . --json refine_big.json \
+        --suffix _big --out figs
 ```
+
+`two_body_refine [scale] [outfile]` scales the IC half-widths by `scale`
+(default 1) and writes `outfile` (default `refine.json`).
 
 Things to try:
 

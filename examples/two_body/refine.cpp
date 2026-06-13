@@ -34,6 +34,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstdlib>
 #include <fstream>
 #include <iomanip>
 #include <random>
@@ -108,7 +109,7 @@ struct Iteration
 };
 }  // namespace
 
-int main()
+int main( int argc, char** argv )
 {
     constexpr int kNSnaps = 13;  // animation frames per iteration
     constexpr int kNPerEdge = 20;
@@ -116,7 +117,14 @@ int main()
     constexpr int kNMonte = 350;
     const double t_final = kPeriod;
 
-    const BoxT box = icBox();  // same IC box as taylor.cpp / ads.cpp
+    // Optional CLI: a half-width scale factor and an output filename, so the
+    // same program produces both the small run (scale 1, comparable to
+    // ads.cpp) and a bigger-box run that fragments into many more leaves.
+    const double box_scale = argc > 1 ? std::atof( argv[1] ) : 1.0;
+    const std::string outfile = argc > 2 ? argv[2] : "refine.json";
+
+    BoxT box = icBox();  // same IC box as taylor.cpp / ads.cpp (scaled below)
+    box.halfWidth *= box_scale;
     const double half_y = box.halfWidth( kAxisY );
     const double half_v = box.halfWidth( kAxisVy );
 
@@ -274,14 +282,14 @@ int main()
         finalRegion( tax::ads::VolumeRatioCriterion{ 1e-6, kMaxIter, { kAxisY, kAxisVy }, 8 } );
 
     // ---- Write JSON (custom nested schema: iterations -> snapshots -> leaves) -
-    std::ofstream out( "refine.json" );
+    std::ofstream out( outfile );
     out << std::setprecision( 14 );
     out << "{\n  \"method\": \"refine\",\n";
     out << "  \"params\": {\n";
     out << "    \"P\": " << P << ", \"M\": " << M << ", \"D\": " << D << ",\n";
     out << "    \"t_final\": " << jsonNumber( t_final ) << ", \"ecc\": " << jsonNumber( kEcc )
         << ",\n";
-    out << "    \"criterion\": \"coefficient_match\", \"tol\": 0.002,\n";
+    out << "    \"tol\": 1e-6, \"box_scale\": " << jsonNumber( box_scale ) << ",\n";
     out << "    \"ic_center\": " << jsonArray( box.center )
         << ", \"ic_half_width\": " << jsonArray( box.halfWidth ) << ",\n";
     out << "    \"n_monte\": " << kNMonte << "\n  },\n";
@@ -389,11 +397,12 @@ int main()
 
     printBanner( "two_body/refine — propagate-then-assess ADS (criterion comparison, tol=1e-6)",
                  { { "P, M", std::to_string( P ) + ", " + std::to_string( M ) },
+                   { "box scale", jsonNumber( box_scale ) },
                    { "coeff-match boxes", box_counts },
                    { "volume boxes", vol_counts },
                    { "coeff-match RMS", jsonNumber( iters.back().rms ) },
                    { "volume RMS", jsonNumber( vol_iters.back().rms ) },
                    { "elapsed", std::to_string( elapsed_ms ) + " ms" },
-                   { "output", "refine.json" } } );
+                   { "output", outfile } } );
     return 0;
 }

@@ -52,10 +52,6 @@ plt.rcParams.update({
 DEPTH_CMAP = plt.cm.viridis
 
 
-def load(data_dir: Path) -> dict:
-    return json.loads((data_dir / "refine.json").read_text())
-
-
 def cloud_limits(data: dict, pad: float = 0.12):
     xs, ys = [], []
     for snap in data["monte_carlo"]:
@@ -147,7 +143,7 @@ def make_regions_png(data: dict, out: Path) -> None:
             ax.set_ylabel(r"$y$")
         n = len(conv.get(key, []))
         ax.set_title(f"{title}  ·  {n} box{'es' if n != 1 else ''}", loc="left")
-    fig.suptitle(r"converged region at $t = T$  vs.  Monte-Carlo cloud (red)",
+    fig.suptitle(r"final ADS partition at $t = T$  vs.  Monte-Carlo cloud (red)",
                  fontsize=10.5, x=0.01, ha="left")
     fig.savefig(out, dpi=300)
     plt.close(fig)
@@ -220,19 +216,22 @@ def make_gif(data: dict, out: Path, fps: int = 7) -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--data", default=".", help="directory containing refine.json")
+    ap.add_argument("--data", default=".", help="directory containing the JSON")
+    ap.add_argument("--json", default="refine.json", help="input JSON file name")
     ap.add_argument("--out", default=".", help="output directory")
+    ap.add_argument("--suffix", default="",
+                    help="suffix inserted into output names (e.g. _big)")
     ap.add_argument("--fps", type=int, default=7)
     args = ap.parse_args()
 
-    data_dir = Path(args.data)
-    out_dir  = Path(args.out)
+    out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
+    sfx  = args.suffix
+    data = json.loads((Path(args.data) / args.json).read_text())
 
-    data = load(data_dir)
-    make_convergence_png(data, out_dir / "two_body_refine_convergence.png")
-    make_regions_png(data, out_dir / "two_body_refine_regions.png")
-    make_gif(data, out_dir / "two_body_refine.gif", fps=args.fps)
+    make_convergence_png(data, out_dir / f"two_body_refine{sfx}_convergence.png")
+    make_regions_png(data, out_dir / f"two_body_refine{sfx}_regions.png")
+    make_gif(data, out_dir / f"two_body_refine{sfx}.gif", fps=args.fps)
 
     print()
     print(f"  {'iter':>4}  {'boxes':>6}  {'area':>14}  {'rms':>12}")
