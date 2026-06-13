@@ -313,7 +313,7 @@ Key files: `box.hpp`, `leaf.hpp`, `tree.hpp`, `criteria.hpp` (`SplitCriterion`
 concept, `TruncationCriterion`, `NliCriterion`), `nonlinearity_index.hpp`,
 `split_event.hpp`, `da_state.hpp`, `driver.hpp`, `propagate.hpp`, `merge.hpp`,
 `refine.hpp` + `refine_criteria.hpp` (the parallel "propagate-then-assess"
-driver `refine()` with `CoefficientMatchCriterion` / `AreaRatioCriterion`),
+driver `refine()` with `CoefficientMatchCriterion` / `VolumeRatioCriterion`),
 `io.hpp` (opt-in CSV writers).
 
 ---

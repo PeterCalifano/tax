@@ -6,23 +6,26 @@
 // Where ads.cpp splits a box mid-flight the instant its flow polynomial
 // stops converging, refine() instead carries *every* box all the way to the
 // final time and only then judges its quality by bisecting it, propagating
-// both halves to the end as well, and comparing the result. Here the verdict
-// is the CoefficientMatchCriterion: re-identify the parent map on each half
-// and check it reproduces the independently propagated child to a relative
-// tolerance. (AreaRatioCriterion — the parent-vs-children image-area ratio —
-// is a drop-in alternative; see the tutorial for the trade-off.) Because no
-// box ever needs another box's partial state, the whole refinement fans out
-// in parallel.
+// both halves to the end as well, and comparing the result. Because no box
+// ever needs another box's partial state, the whole refinement fans out in
+// parallel.
 //
 // This driver runs the refinement at increasing depth caps k = 0, 1, 2, ...
-// Iteration 0 is the single box; each iteration roughly doubles the number
-// of sub-boxes until the partition converges. For every iteration we record
-// the box images at a sweep of snapshot times (for the animation) and the
-// RMS error of the piecewise-polynomial prediction against a Monte-Carlo
-// reference cloud (to show that more boxes ⇒ better matching).
+// Iteration 0 is the single box; each iteration adds sub-boxes until the
+// partition converges. For every iteration we record the box images at a
+// sweep of snapshot times (for the animation) and the RMS error of the
+// piecewise-polynomial prediction against a Monte-Carlo reference cloud (to
+// show that more boxes ⇒ better matching).
 //
-// Here the IC box varies the initial *position* (x, y) — two DA variables —
-// while velocity is pinned at the periapsis value.
+// The sweep is run with two quality indices, both at tol = 1e-6, so they can
+// be compared: the dimension-free CoefficientMatchCriterion (which re-identifies
+// the parent map on each half and checks it reproduces the independently
+// propagated child) drives the animation, and the dimension-general geometric
+// VolumeRatioCriterion (parent-vs-children image volume) is run alongside.
+//
+// The IC box is identical to the taylor.cpp / ads.cpp cases — it varies the
+// initial y position (±8e-3) and y velocity (±2e-2) — so the figures here can
+// be compared directly with those examples.
 //
 // Run:    ./two_body_refine
 // Writes: refine.json   (animate with examples/two_body/plot_refine.py)
@@ -49,40 +52,31 @@ using namespace example::two_body;
 using namespace tax::ode::methods;
 
 constexpr int P = 6;  // DA truncation order
-constexpr int M = 2;  // DA variables: initial (x, y) position
+constexpr int M = 4;  // DA variables (full state; only y and vy are active)
 constexpr int D = 4;  // state dimension (x, y, vx, vy)
 
 using TE = tax::TE< P, M >;
 using DAState = tax::la::VecNT< D, TE >;
 using BoxT = tax::ads::Box< double, M >;
 
-// IC box: vary the initial position only (axes 0 and 1).
-constexpr double kHx = 0.06;
-constexpr double kHy = 0.06;
+// The box varies axes 1 (y) and 3 (vy); kIcBoxHalfWidth pins x and vx to 0.
+constexpr int kAxisY = 1;
+constexpr int kAxisVy = 3;
 
-BoxT positionBox() { return BoxT{ { kPeriapsis, 0.0 }, { kHx, kHy } }; }
-
-// The two boundary coordinates map straight onto the two DA variables.
-std::array< double, M > toBox( double a, double b ) { return { a, b }; }
-
-// Reconstruct a leaf's identity (t0) DA state from its sub-box: the active
-// axes carry the (shifted) center and (halved) half-width; the pinned axes
-// hold the reference IC. Re-propagating this densely recovers the leaf's
-// flow map at every time, not just the final one.
+// Reconstruct a leaf's identity (t0) DA state from its sub-box: each axis
+// carries the (possibly shifted) center and (possibly halved) half-width.
+// Re-propagating this densely recovers the leaf's flow map at every time,
+// not just the final one.
 DAState leafInit( const BoxT& box )
 {
-    const auto center = icCenter();
     DAState s;
     for ( int i = 0; i < D; ++i )
     {
         TE c{};
-        c[0] = ( i < M ) ? box.center( i ) : center( i );
-        if ( i < M )
-        {
-            tax::MultiIndex< M > alpha{};
-            alpha[static_cast< std::size_t >( i )] = 1;
-            c[tax::flatIndex< M >( alpha )] = box.halfWidth( i );
-        }
+        c[0] = box.center( i );
+        tax::MultiIndex< M > alpha{};
+        alpha[static_cast< std::size_t >( i )] = 1;
+        c[tax::flatIndex< M >( alpha )] = box.halfWidth( i );
         s( i ) = std::move( c );
     }
     return s;
@@ -99,8 +93,8 @@ double polygonArea( const Polygon& p )
 
 struct McSample
 {
-    double ic_x, ic_y;              // initial position in the box
-    std::vector< double > truth_x;  // (x, y) along the snapshot times
+    tax::la::VecNT< D, double > ic;  // initial state in the box
+    std::vector< double > truth_x;   // (x, y) along the snapshot times
     std::vector< double > truth_y;
 };
 
@@ -122,7 +116,9 @@ int main()
     constexpr int kNMonte = 350;
     const double t_final = kPeriod;
 
-    const BoxT box = positionBox();
+    const BoxT box = icBox();  // same IC box as taylor.cpp / ads.cpp
+    const double half_y = box.halfWidth( kAxisY );
+    const double half_v = box.halfWidth( kAxisVy );
 
     tax::ode::IntegratorConfig< double > cfg;
     cfg.abstol = cfg.reltol = 1e-12;
@@ -144,17 +140,14 @@ int main()
     monte.reserve( kNMonte );
     for ( int s = 0; s < kNMonte; ++s )
     {
-        const double u = unit( rng );
-        const double v = unit( rng );
         tax::la::VecNT< D, double > ic = icCenter();
-        ic( 0 ) += kHx * u;
-        ic( 1 ) += kHy * v;
+        ic( kAxisY ) += half_y * unit( rng );
+        ic( kAxisVy ) += half_v * unit( rng );
         auto sol =
             tax::ode::propagate< /*Dense=*/true >( Verner89{}, rhs(), ic, 0.0, t_final, cfg );
 
         McSample m;
-        m.ic_x = ic( 0 );
-        m.ic_y = ic( 1 );
+        m.ic = ic;
         m.truth_x.reserve( snap_times.size() );
         m.truth_y.reserve( snap_times.size() );
         for ( double t : snap_times )
@@ -166,66 +159,98 @@ int main()
         monte.push_back( std::move( m ) );
     }
 
-    // ---- Refinement sweep: increasing depth cap ------------------------------
-    Stopwatch clock;
-    std::vector< Iteration > iters;
-    std::string box_counts;
-    for ( int k = 0; k <= kMaxIter; ++k )
-    {
-        // Swap in tax::ads::AreaRatioCriterion{ 0.01, k, 0, 1, kNPerEdge } to
-        // drive refinement by the parent-vs-children image-area ratio instead.
-        const tax::ads::CoefficientMatchCriterion crit{ /*tol=*/2e-3, /*maxDepth=*/k };
-        auto tree = tax::ads::refine< P >( Verner89{}, crit, rhs(), box, icCenter(), 0.0, t_final,
-                                           cfg, adsThreads() );
-
-        Iteration it;
-        it.max_depth = k;
-        it.snapshots.assign( snap_times.size(), Snapshot{} );
-        for ( std::size_t si = 0; si < snap_times.size(); ++si )
-            it.snapshots[si].t = snap_times[si];
-
-        int id = 0;
-        for ( int li : tree.done() )
+    // ---- Refinement sweep: increasing depth cap -----------------------------
+    // Run the same sweep with two quality indices (both at tol = 1e-6) so they
+    // can be compared. The sweep stops once the partition stops growing (the
+    // box count has converged). `collectSnapshots` also re-propagates each leaf
+    // densely to record the box images for the animation — only needed for the
+    // primary (coefficient-match) run that drives the GIF.
+    const std::size_t last = snap_times.size() - 1;
+    auto sweep = [&]( auto makeCrit, bool collectSnapshots ) {
+        std::vector< Iteration > out;
+        int prev_boxes = -1;
+        for ( int k = 0; k <= kMaxIter; ++k )
         {
-            const auto& leaf = tree.leaf( li );
-            auto sol = tax::ode::propagate< /*Dense=*/true >(
-                Verner89{}, rhs(), leafInit( leaf.box ), 0.0, t_final, cfg );
-            for ( std::size_t si = 0; si < snap_times.size(); ++si )
+            auto tree = tax::ads::refine< P >( Verner89{}, makeCrit( k ), rhs(), box, icCenter(),
+                                               0.0, t_final, cfg, adsThreads() );
+
+            Iteration it;
+            it.max_depth = k;
+            if ( collectSnapshots )
             {
-                auto poly = evalPolygon( sol( snap_times[si] ), boundary, toBox, id, leaf.depth );
-                if ( si + 1 == snap_times.size() ) it.area += polygonArea( poly );
-                it.snapshots[si].leaves.push_back( std::move( poly ) );
+                it.snapshots.assign( snap_times.size(), Snapshot{} );
+                for ( std::size_t si = 0; si < snap_times.size(); ++si )
+                    it.snapshots[si].t = snap_times[si];
             }
-            ++id;
-        }
-        it.n_boxes = id;
 
-        // RMS error of the piecewise-polynomial prediction at the final time.
-        double sq = 0.0;
-        int counted = 0;
-        const std::size_t last = snap_times.size() - 1;
-        for ( const auto& m : monte )
-        {
-            tax::la::VecNT< M, double > pt;
-            pt << m.ic_x, m.ic_y;
-            auto idx = tree.leaf( pt );
-            if ( !idx.has_value() ) continue;
-            const auto& leaf = tree.leaf( *idx );
-            std::array< double, M > local{};
-            for ( int j = 0; j < M; ++j )
-                local[static_cast< std::size_t >( j )] =
-                    ( pt( j ) - leaf.box.center( j ) ) / leaf.box.halfWidth( j );
-            const double dx = leaf.payload( 0 ).eval( local ) - m.truth_x[last];
-            const double dy = leaf.payload( 1 ).eval( local ) - m.truth_y[last];
-            sq += dx * dx + dy * dy;
-            ++counted;
-        }
-        it.rms = counted > 0 ? std::sqrt( sq / counted ) : 0.0;
+            int id = 0;
+            for ( int li : tree.done() )
+            {
+                const auto& leaf = tree.leaf( li );
+                if ( collectSnapshots )
+                {
+                    auto sol = tax::ode::propagate< /*Dense=*/true >(
+                        Verner89{}, rhs(), leafInit( leaf.box ), 0.0, t_final, cfg );
+                    for ( std::size_t si = 0; si < snap_times.size(); ++si )
+                    {
+                        auto poly = evalPolygon( sol( snap_times[si] ), boundary, boundaryToBox, id,
+                                                 leaf.depth );
+                        if ( si + 1 == snap_times.size() ) it.area += polygonArea( poly );
+                        it.snapshots[si].leaves.push_back( std::move( poly ) );
+                    }
+                }
+                ++id;
+            }
+            it.n_boxes = id;
 
-        box_counts += ( box_counts.empty() ? "" : ", " ) + std::to_string( it.n_boxes );
-        iters.push_back( std::move( it ) );
-    }
+            // RMS error of the piecewise-polynomial prediction at the final time.
+            double sq = 0.0;
+            int counted = 0;
+            for ( const auto& m : monte )
+            {
+                auto idx = tree.leaf( m.ic );
+                if ( !idx.has_value() ) continue;
+                const auto& leaf = tree.leaf( *idx );
+                std::array< double, M > local{};
+                for ( int j = 0; j < M; ++j )
+                {
+                    const double hw = leaf.box.halfWidth( j );
+                    local[static_cast< std::size_t >( j )] =
+                        hw > 0.0 ? ( m.ic( j ) - leaf.box.center( j ) ) / hw : 0.0;
+                }
+                const double dx = leaf.payload( 0 ).eval( local ) - m.truth_x[last];
+                const double dy = leaf.payload( 1 ).eval( local ) - m.truth_y[last];
+                sq += dx * dx + dy * dy;
+                ++counted;
+            }
+            it.rms = counted > 0 ? std::sqrt( sq / counted ) : 0.0;
+
+            const bool converged = ( id == prev_boxes );
+            prev_boxes = id;
+            out.push_back( std::move( it ) );
+            if ( converged ) break;
+        }
+        return out;
+    };
+
+    Stopwatch clock;
+    // Primary run (drives the animation): the dimension-free coefficient match.
+    const auto iters = sweep(
+        []( int k ) { return tax::ads::CoefficientMatchCriterion{ /*tol=*/1e-6, /*maxDepth=*/k }; },
+        /*collectSnapshots=*/true );
+    // Comparison run: the dimension-general geometric volume ratio over the two
+    // active axes (y, vy).
+    const auto vol_iters = sweep(
+        []( int k ) {
+            return tax::ads::VolumeRatioCriterion{ /*tol=*/1e-6, /*maxDepth=*/k,
+                                                   /*axes=*/{ kAxisY, kAxisVy }, /*nQuad=*/8 };
+        },
+        /*collectSnapshots=*/false );
     const double elapsed_ms = clock.ms();
+
+    std::string box_counts;
+    for ( const auto& it : iters )
+        box_counts += ( box_counts.empty() ? "" : ", " ) + std::to_string( it.n_boxes );
 
     // ---- Write JSON (custom nested schema: iterations -> snapshots -> leaves) -
     std::ofstream out( "refine.json" );
@@ -298,13 +323,32 @@ int main()
         }
         out << "    ] }" << ( ki + 1 < iters.size() ? "," : "" ) << "\n";
     }
-    out << "  ]\n}\n";
+    out << "  ],\n";
 
-    printBanner( "two_body/refine — propagate-then-assess ADS (coefficient-match criterion)",
+    // Criterion comparison: box count and RMS-vs-Monte-Carlo per iteration.
+    auto writeCurve = [&]( const char* name, const std::vector< Iteration >& curve, bool comma ) {
+        out << "    \"" << name << "\": [";
+        for ( std::size_t i = 0; i < curve.size(); ++i )
+            out << ( i ? ", " : "" ) << "{ \"iter\": " << curve[i].max_depth
+                << ", \"n_boxes\": " << curve[i].n_boxes
+                << ", \"rms\": " << jsonNumber( curve[i].rms ) << " }";
+        out << " ]" << ( comma ? "," : "" ) << "\n";
+    };
+    out << "  \"comparison\": {\n";
+    writeCurve( "coefficient_match", iters, /*comma=*/true );
+    writeCurve( "volume_ratio", vol_iters, /*comma=*/false );
+    out << "  }\n}\n";
+
+    std::string vol_counts;
+    for ( const auto& it : vol_iters )
+        vol_counts += ( vol_counts.empty() ? "" : ", " ) + std::to_string( it.n_boxes );
+
+    printBanner( "two_body/refine — propagate-then-assess ADS (criterion comparison, tol=1e-6)",
                  { { "P, M", std::to_string( P ) + ", " + std::to_string( M ) },
-                   { "iterations", std::to_string( kMaxIter + 1 ) },
-                   { "boxes per iter", box_counts },
-                   { "final RMS", jsonNumber( iters.back().rms ) },
+                   { "coeff-match boxes", box_counts },
+                   { "volume boxes", vol_counts },
+                   { "coeff-match RMS", jsonNumber( iters.back().rms ) },
+                   { "volume RMS", jsonNumber( vol_iters.back().rms ) },
                    { "elapsed", std::to_string( elapsed_ms ) + " ms" },
                    { "output", "refine.json" } } );
     return 0;

@@ -18,18 +18,20 @@
 //     once it has diverged the mismatch blows up. Normalised by the child
 //     magnitude, so `tol` is a relative tolerance.
 //
-//   AreaRatioCriterion — geometric, for 2-D boxes. Measure the area of the
-//     image of the box under each flow map (the polygon traced by the box
-//     boundary in two chosen output components) and compare the parent area
-//     to the sum of the two child areas. When the parent polynomial is well
-//     shaped the children tile it and the ratio is ~1; when it has folded or
-//     ballooned past its radius of convergence the ratio departs from 1.
+//   VolumeRatioCriterion — geometric, dimension-general. Measure the
+//     m-volume of the image of the box face under each flow map (the integral
+//     of sqrt(det(JᵀJ)) over the active axes) and compare the parent volume
+//     to the sum of the two child volumes. When the parent polynomial is well
+//     shaped the children tile it and the ratio is ~1; stretching or folding
+//     past its radius of convergence drives the ratio away from 1. Reduces to
+//     an image area for two active axes.
 //
 // Both honour a `maxDepth` cap: acceptable() returns true (stop) once
 // depth >= maxDepth regardless of the index value.
 
 #pragma once
 
+#include <Eigen/Dense>
 #include <array>
 #include <cmath>
 #include <concepts>
@@ -153,17 +155,28 @@ struct CoefficientMatchCriterion
     }
 };
 
-// Geometric quality index for 2-D boxes: ratio of the parent image area to
-// the summed child image areas. Accept when |ratio - 1| <= tol. `outX` and
-// `outY` are the two output components whose plane the area is measured in;
-// `nEdge` is the boundary sampling density per box edge.
-struct AreaRatioCriterion
+// Geometric quality index, dimension-general: ratio of the parent image
+// "volume" to the summed child image volumes. Accept when |ratio - 1| <= tol.
+//
+// The image of an m-dimensional box face under the flow map is an
+// m-dimensional manifold in output space; its m-volume is
+//
+//     V = ∫_{[-1,1]^m} sqrt( det( JᵀJ ) ) dξ ,
+//
+// where J is the Jacobian of the (all D) output components with respect to
+// the active input axes, evaluated by a tensor-product midpoint grid of
+// `nQuad` points per active axis. `axes` lists the active input axes (those
+// with nonzero half-width); empty means all M. When the parent map is
+// accurate its children tile it and V(parent) ≈ V(left) + V(right); both
+// stretching and folding drive the ratio away from 1 (unlike a signed area,
+// |det| does not cancel over a fold). For m = 2 this is an image area, so it
+// generalises the planar area-ratio idea to any state-space dimension.
+struct VolumeRatioCriterion
 {
-    double tol = 0.05;
+    double tol = 1e-6;
     int maxDepth = 8;
-    int outX = 0;
-    int outY = 1;
-    int nEdge = 24;
+    std::vector< int > axes{};  // active input axes; empty ⇒ all M
+    int nQuad = 8;              // quadrature points per active axis
 
     template < class T, int N, int M, class Storage, int D >
     [[nodiscard]] int splitDim(
@@ -180,63 +193,84 @@ struct AreaRatioCriterion
         int depth ) const
     {
         if ( depth >= maxDepth ) return true;
-        const double ap = imageArea( parent );
-        const double denom = imageArea( left ) + imageArea( right );
+        const double vp = imageVolume( parent );
+        const double denom = imageVolume( left ) + imageVolume( right );
         if ( !( denom > 0.0 ) ) return true;
-        return std::abs( ap / denom - 1.0 ) <= tol;
+        return std::abs( vp / denom - 1.0 ) <= tol;
     }
 
-    // Area of the image of [-1, 1]^2 under (f[outX], f[outY]), via the
-    // shoelace formula over the box-boundary polygon.
     template < class T, int N, int M, class Storage, int D >
-    [[nodiscard]] double imageArea(
+    [[nodiscard]] double imageVolume(
         const Eigen::Matrix< tax::TaylorExpansion< T, N, M, Storage >, D, 1 >& f ) const
     {
-        static_assert( M == 2, "AreaRatioCriterion measures the image area of a 2-D box" );
-        const int n = nEdge > 0 ? nEdge : 1;
-
-        std::vector< std::array< double, 2 > > pts;
-        pts.reserve( static_cast< std::size_t >( 4 * n ) );
-        for ( int edge = 0; edge < 4; ++edge )
+        // Active axes (default: all M).
+        std::vector< int > ax = axes;
+        if ( ax.empty() )
         {
-            for ( int i = 0; i < n; ++i )
+            ax.resize( static_cast< std::size_t >( M ) );
+            for ( int j = 0; j < M; ++j ) ax[static_cast< std::size_t >( j )] = j;
+        }
+        const int m = static_cast< int >( ax.size() );
+        const int n = nQuad > 0 ? nQuad : 1;
+        const Eigen::Index R = f.size();
+
+        // Derivative polynomials dpoly[i*m + a] = ∂f_i / ∂ξ_{ax[a]} (constant
+        // in ξ, so compute once and evaluate at every quadrature point).
+        std::vector< tax::TaylorExpansion< T, N, M, Storage > > dpoly;
+        dpoly.reserve( static_cast< std::size_t >( R ) * static_cast< std::size_t >( m ) );
+        for ( Eigen::Index i = 0; i < R; ++i )
+            for ( int a = 0; a < m; ++a )
+                dpoly.push_back( f( i ).deriv( ax[static_cast< std::size_t >( a )] ) );
+
+        std::vector< double > mids( static_cast< std::size_t >( n ) );
+        for ( int k = 0; k < n; ++k )
+            mids[static_cast< std::size_t >( k )] = -1.0 + ( 2.0 * k + 1.0 ) / n;
+
+        long total = 1;
+        for ( int a = 0; a < m; ++a ) total *= n;
+
+        std::vector< double > g( static_cast< std::size_t >( R ) *
+                                 static_cast< std::size_t >( m ) );
+        Eigen::MatrixXd G( m, m );
+        double acc = 0.0;
+        for ( long c = 0; c < total; ++c )
+        {
+            std::array< T, M > xi{};
+            long cc = c;
+            for ( int a = 0; a < m; ++a )
             {
-                const double s = static_cast< double >( i ) / static_cast< double >( n );
-                double a = 0.0, b = 0.0;
-                switch ( edge )
-                {
-                    case 0:
-                        a = -1.0 + 2.0 * s;
-                        b = +1.0;
-                        break;
-                    case 1:
-                        a = +1.0;
-                        b = +1.0 - 2.0 * s;
-                        break;
-                    case 2:
-                        a = +1.0 - 2.0 * s;
-                        b = -1.0;
-                        break;
-                    case 3:
-                        a = -1.0;
-                        b = -1.0 + 2.0 * s;
-                        break;
-                }
-                const std::array< T, 2 > d{ static_cast< T >( a ), static_cast< T >( b ) };
-                pts.push_back( { static_cast< double >( f( outX ).eval( d ) ),
-                                 static_cast< double >( f( outY ).eval( d ) ) } );
+                const int k = static_cast< int >( cc % n );
+                cc /= n;
+                xi[static_cast< std::size_t >( ax[static_cast< std::size_t >( a )] )] =
+                    static_cast< T >( mids[static_cast< std::size_t >( k )] );
             }
+            for ( Eigen::Index i = 0; i < R; ++i )
+                for ( int a = 0; a < m; ++a )
+                    g[static_cast< std::size_t >( i ) * static_cast< std::size_t >( m ) +
+                      static_cast< std::size_t >( a )] =
+                        static_cast< double >( dpoly[static_cast< std::size_t >( i ) *
+                                                         static_cast< std::size_t >( m ) +
+                                                     static_cast< std::size_t >( a )]
+                                                   .eval( xi ) );
+            for ( int a = 0; a < m; ++a )
+                for ( int b = a; b < m; ++b )
+                {
+                    double s = 0.0;
+                    for ( Eigen::Index i = 0; i < R; ++i )
+                        s += g[static_cast< std::size_t >( i ) * static_cast< std::size_t >( m ) +
+                               static_cast< std::size_t >( a )] *
+                             g[static_cast< std::size_t >( i ) * static_cast< std::size_t >( m ) +
+                               static_cast< std::size_t >( b )];
+                    G( a, b ) = s;
+                    G( b, a ) = s;
+                }
+            double dg = G.determinant();
+            if ( dg < 0.0 ) dg = 0.0;
+            acc += std::sqrt( dg );
         }
 
-        double twice = 0.0;
-        const std::size_t m = pts.size();
-        for ( std::size_t i = 0; i < m; ++i )
-        {
-            const auto& p = pts[i];
-            const auto& q = pts[( i + 1 ) % m];
-            twice += p[0] * q[1] - q[0] * p[1];
-        }
-        return 0.5 * std::abs( twice );
+        // ∫_{[-1,1]^m} ... dξ ≈ (2^m / n^m) Σ (midpoint rule).
+        return acc * std::pow( 2.0, m ) / static_cast< double >( total );
     }
 };
 

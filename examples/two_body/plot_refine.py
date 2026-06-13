@@ -69,29 +69,38 @@ def cloud_limits(data: dict, pad: float = 0.12):
     return (xa - dx, xb + dx), (ya - dy, yb + dy)
 
 
+CRITERIA = {
+    "coefficient_match": ("coefficient match", "#1f5fbf", "o"),
+    "volume_ratio":      ("volume ratio",      "#1ba36b", "s"),
+}
+
+
 def draw_convergence(ax, data: dict, highlight: int | None = None) -> None:
-    iters = data["iterations"]
-    nb  = [it["n_boxes"] for it in iters]
-    rms = [it["rms"] for it in iters]
-    ax.plot(nb, rms, "-o", color="#1f5fbf", lw=1.4, ms=4.5, zorder=3)
+    comp = data["comparison"]
+    for key, (label, color, marker) in CRITERIA.items():
+        curve = comp.get(key)
+        if not curve:
+            continue
+        nb  = [it["n_boxes"] for it in curve]
+        rms = [it["rms"] for it in curve]
+        ax.plot(nb, rms, "-", marker=marker, color=color, lw=1.4, ms=4.5,
+                label=label, zorder=3)
     if highlight is not None:
-        ax.plot(nb[highlight], rms[highlight], "o", ms=11,
+        prim = comp["coefficient_match"]
+        hi   = min(highlight, len(prim) - 1)
+        ax.plot(prim[hi]["n_boxes"], prim[hi]["rms"], "o", ms=11,
                 mfc="none", mec="#d1361b", mew=2.0, zorder=4)
     ax.set_xscale("log")
     ax.set_yscale("log")
     ax.set_xlabel("number of sub-boxes")
     ax.set_ylabel("RMS error vs Monte-Carlo")
-    ax.set_title("convergence", loc="left")
+    ax.set_title("convergence (tol = $10^{-6}$)", loc="left")
+    ax.legend(loc="upper right", fontsize=7.5)
 
 
 def make_convergence_png(data: dict, out: Path) -> None:
-    fig, ax = plt.subplots(figsize=(4.4, 3.4), constrained_layout=True)
+    fig, ax = plt.subplots(figsize=(4.6, 3.5), constrained_layout=True)
     draw_convergence(ax, data)
-    for it in data["iterations"]:
-        ax.annotate(f"{it['n_boxes']}",
-                    (it["n_boxes"], it["rms"]),
-                    textcoords="offset points", xytext=(6, 5), fontsize=7.5,
-                    color="#444")
     fig.savefig(out, dpi=300)
     plt.close(fig)
     print(f"wrote {out.name}")
@@ -149,9 +158,9 @@ def make_gif(data: dict, out: Path, fps: int = 7) -> None:
 
         axR.clear()
         draw_convergence(axR, data, highlight=ki)
-        axR.text(0.96, 0.94,
-                 f"RMS = {it['rms']:.2e}",
-                 transform=axR.transAxes, ha="right", va="top", fontsize=8.5,
+        axR.text(0.04, 0.06,
+                 f"coeff-match RMS = {it['rms']:.2e}",
+                 transform=axR.transAxes, ha="left", va="bottom", fontsize=8.5,
                  color="#d1361b")
         return []
 

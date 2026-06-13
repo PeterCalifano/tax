@@ -20,9 +20,9 @@
 #include <tax/tax.hpp>
 #include <vector>
 
-using tax::ads::AreaRatioCriterion;
 using tax::ads::Box;
 using tax::ads::CoefficientMatchCriterion;
+using tax::ads::VolumeRatioCriterion;
 using tax::ode::IntegratorConfig;
 using tax::ode::methods::Verner89;
 
@@ -89,7 +89,7 @@ Box< double, M > icBox()
 }
 }  // namespace
 
-TEST( AdsRefine, AreaRatioLeavesMatchReference )
+TEST( AdsRefine, VolumeRatioLeavesMatchReference )
 {
     const double t1 = 2.0 * M_PI;
     IntegratorConfig< double > cfg;
@@ -97,7 +97,7 @@ TEST( AdsRefine, AreaRatioLeavesMatchReference )
     ScState center{ 1.0, 0.0 };
 
     auto tree =
-        tax::ads::refine< P >( Verner89{}, AreaRatioCriterion{ /*tol=*/0.002, /*maxDepth=*/10 },
+        tax::ads::refine< P >( Verner89{}, VolumeRatioCriterion{ /*tol=*/1e-6, /*maxDepth=*/10 },
                                rhs(), icBox(), center, 0.0, t1, cfg );
 
     EXPECT_GE( tree.done().size(), 1u );
@@ -110,16 +110,14 @@ TEST( AdsRefine, AreaRatioLeavesMatchReference )
         { 0.55, -0.45 },
     } };
 
-    // The area ratio is a global shape measure, so its pointwise guarantee is
-    // looser than the coefficient-match criterion below (~1e-2 here).
     for ( const auto& xi : samples )
     {
         auto idx = tree.leaf( xi );
         ASSERT_TRUE( idx.has_value() );
         const ScState predicted = evalLeaf( tree.leaf( *idx ), xi );
         const ScState reference = scalarReference( xi, t1 );
-        EXPECT_NEAR( predicted( 0 ), reference( 0 ), 2e-2 );
-        EXPECT_NEAR( predicted( 1 ), reference( 1 ), 2e-2 );
+        EXPECT_NEAR( predicted( 0 ), reference( 0 ), 1e-3 );
+        EXPECT_NEAR( predicted( 1 ), reference( 1 ), 1e-3 );
     }
 }
 
@@ -161,9 +159,9 @@ TEST( AdsRefine, FinerToleranceSplitsMore )
     cfg.abstol = cfg.reltol = 1e-12;
     ScState center{ 1.0, 0.0 };
 
-    auto coarse = tax::ads::refine< P >( Verner89{}, AreaRatioCriterion{ 0.2, 8 }, rhs(), icBox(),
-                                         center, 0.0, t1, cfg );
-    auto fine = tax::ads::refine< P >( Verner89{}, AreaRatioCriterion{ 0.002, 8 }, rhs(), icBox(),
+    auto coarse = tax::ads::refine< P >( Verner89{}, VolumeRatioCriterion{ 1e-2, 8 }, rhs(),
+                                         icBox(), center, 0.0, t1, cfg );
+    auto fine = tax::ads::refine< P >( Verner89{}, VolumeRatioCriterion{ 1e-7, 8 }, rhs(), icBox(),
                                        center, 0.0, t1, cfg );
 
     EXPECT_GE( fine.done().size(), coarse.done().size() );
@@ -176,7 +174,7 @@ TEST( AdsRefine, ParallelMatchesSerial )
     cfg.abstol = cfg.reltol = 1e-12;
     ScState center{ 1.0, 0.0 };
 
-    const AreaRatioCriterion crit{ 0.01, 8 };
+    const VolumeRatioCriterion crit{ 1e-6, 8 };
 
     auto serial = tax::ads::refine< P >( Verner89{}, crit, rhs(), icBox(), center, 0.0, t1, cfg,
                                          /*num_threads=*/1 );

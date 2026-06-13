@@ -20,6 +20,11 @@ any other box's partial state, the entire refinement is **embarrassingly
 parallel**: a box and all of its eventual descendants are independent
 propagations that fan out across a thread pool.
 
+It runs on the **same IC box** as the [taylor.cpp / ads.cpp](two_body.md)
+examples — varying the initial \(y\) position (\(\pm 8\times10^{-3}\)) and
+\(y\) velocity (\(\pm 2\times10^{-2}\)) of the \(e=0.5\) Kepler orbit — so the
+figures here line up directly with those.
+
 Source: [`examples/two_body/refine.cpp`](https://github.com/andreapasquale94/tax/tree/main/examples/two_body/refine.cpp)
 and [`plot_refine.py`](https://github.com/andreapasquale94/tax/tree/main/examples/two_body/plot_refine.py).
 
@@ -43,11 +48,11 @@ reached.
 #include <tax/ode.hpp>
 using namespace tax::ode::methods;
 
-tax::ads::Box< double, 2 > ic_box{ center, half_width };  // box of initial (x, y)
+tax::ads::Box< double, 4 > ic_box{ ic_center, half_width };   // (y, vy) active
 
 auto tree = tax::ads::refine< /*P=*/6 >(
     Verner89{},
-    tax::ads::CoefficientMatchCriterion{ /*tol=*/2e-3, /*maxDepth=*/8 },
+    tax::ads::CoefficientMatchCriterion{ /*tol=*/1e-6, /*maxDepth=*/8 },
     rhs, ic_box, ic_center, /*t0=*/0.0, /*t1=*/2 * M_PI, cfg, /*n_threads=*/8 );
 
 for ( int li : tree.done() )
@@ -78,40 +83,14 @@ no time-ordering constraints at all.
 
 The verdict hinges on the comparison "parent vs. children". Two indices are
 shipped in
-[`refine_criteria.hpp`](https://github.com/andreapasquale94/tax/tree/main/include/tax/ads/refine_criteria.hpp);
-both were tried on this problem.
+[`refine_criteria.hpp`](https://github.com/andreapasquale94/tax/tree/main/include/tax/ads/refine_criteria.hpp).
 
-### Area ratio (the motivating idea)
+### Coefficient match
 
-The most intuitive measure is *geometric*. Trace the image of the box boundary
-under the flow map in two output components and measure its area by the
-shoelace formula. When the parent polynomial is well shaped its two children
-tile it exactly, so
-
-$$
-\rho \;=\; \frac{A(\Phi)}{A(\Phi_L) + A(\Phi_R)} \;\approx\; 1 .
-$$
-
-When the parent has diverged, its boundary balloons or folds and the shoelace
-area inflates wildly — \(\rho\) departs from 1 (often \(\gg 1\)). That is a
-very loud signal: for the single box on this orbit the parent "area" at
-\(t = 2\pi\) comes out as \(\sim 10^{8}\) against a true set area of \(\approx
-2\), so \(\rho \sim 10^{8}\). `AreaRatioCriterion` accepts a box when
-\(|\rho - 1| \le \texttt{tol}\).
-
-The catch is that area is a *global, shape-blind* measure. An
-**area-preserving fold** — where the polynomial map turns the box inside-out
-without changing the enclosed area — passes the test even though it is
-pointwise wrong. In the animation below that shows up, with the area criterion,
-as a transient spurious sliver mid-orbit on a box that nonetheless looks fine at
-the endpoint. Great as a *divergence alarm*, weaker as a *stopping rule*.
-
-### Coefficient match (the reliable one)
-
-A dimension-free alternative compares the maps directly in coefficient space.
-Re-identify the parent on a half-domain — the very same substitution ADS uses
-to split, \(\xi_d \to \pm\tfrac12 + \tfrac12\,\xi'_d\) — and compare it term by
-term to the independently propagated child:
+Compare the maps directly in coefficient space. Re-identify the parent on a
+half-domain — the very same substitution ADS uses to split,
+\(\xi_d \to \pm\tfrac12 + \tfrac12\,\xi'_d\) — and compare it term by term to
+the independently propagated child:
 
 $$
 \delta \;=\; \max_i \;
@@ -120,12 +99,60 @@ $$
 $$
 
 While the parent is accurate the restriction reproduces the child and
-\(\delta \approx 0\); once it drifts, \(\delta\) grows. Being a coefficient
-norm it controls the polynomial *shape*, not just an integrated area, so it has
-no fold blind spot. `CoefficientMatchCriterion` accepts when \(\delta \le
-\texttt{tol}\), and it is what the example uses. The split *direction* for both
-criteria is the coordinate carrying the most order-\(P\) coefficient mass — the
-same heuristic as Wittig's truncation criterion.
+\(\delta \approx 0\); once it drifts, \(\delta\) grows. It is dimension-free
+(`CoefficientMatchCriterion`), needs no geometry, and `tol` is a relative
+coefficient error.
+
+### Volume ratio
+
+A *geometric* alternative — and the one that originally motivated this
+experiment: when the parent has diverged, its image is badly shaped, so
+compare the **size of the image set** before and after a split. The image of
+an \(m\)-dimensional box face under the flow map is an \(m\)-manifold in state
+space, whose \(m\)-volume is
+
+$$
+V \;=\; \int_{[-1,1]^m} \sqrt{\det\!\big(J^\top J\big)}\,\mathrm{d}\xi ,
+\qquad J_{i a} = \frac{\partial \Phi_i}{\partial \xi_{a}},
+$$
+
+with \(J\) the Jacobian of the output components against the active input
+axes, evaluated by a small quadrature grid. The verdict is the ratio
+
+$$
+\rho \;=\; \frac{V(\Phi)}{V(\Phi_L) + V(\Phi_R)} .
+$$
+
+When the parent is well shaped its children tile it and \(\rho \approx 1\);
+stretching or folding past the radius of convergence drives \(\rho\) away from
+1 (because \(|\det|\) does **not** cancel over a fold, the measure is robust to
+inside-out maps). `VolumeRatioCriterion` accepts when \(|\rho - 1| \le
+\texttt{tol}\). For two active axes \(V\) is an image *area*, so this is the
+dimension-general form of the original "compare the final area" idea — set
+`axes` to the active box dimensions (here \(\{1,3\}\) for \((y, v_y)\)) and it
+works for any state-space dimension.
+
+### Comparing the two
+
+Driving the refinement with each index in turn (both at `tol = 1e-6`) tells a
+clear story. The split *direction* is the same heuristic for both — the
+coordinate carrying the most order-\(P\) coefficient mass — so they make
+**identical splits early on** and ride the very same RMS-vs-box-count curve.
+They part ways only near convergence: at `tol = 1e-6` the coefficient match is
+satisfied at **11 boxes**, while the volume ratio is a stricter gate at that
+tolerance and keeps subdividing to **62**:
+
+| | coefficient match | volume ratio |
+|---|---|---|
+| boxes per iteration | 1, 2, 4, 8, **11** | 1, 2, 4, 8, 16, 32, **62** |
+| final RMS vs. Monte Carlo | \(4.2\times10^{-8}\) | \(6.9\times10^{-11}\) |
+
+Neither is "more accurate" per box — both sit on the same curve — they simply
+calibrate `tol` against different quantities (a relative coefficient error vs.
+a relative set-volume change). The coefficient match is the cheaper, default
+choice; the volume ratio is the geometric, dimension-general one when you want
+to bound the growth of the reachable set itself. The example uses the
+coefficient match to drive the animation.
 
 ## Watching it converge
 
@@ -137,27 +164,27 @@ against a 350-point **Monte-Carlo** reference cloud.
 
 ![Iterative ADS refinement converging onto the Monte-Carlo set](img/two_body_refine.gif)
 
-Iteration 0 — the lone box — detonates: by one full period the order-6
-polynomial is extrapolating far past where it converges, its image shoots off
-the frame, and the RMS error against Monte Carlo is \(\sim\! 2\times10^{4}\).
-Two boxes already tame it to \(\sim\! 0.1\); each further level concentrates new
-splits where the orbit is most nonlinear (the periapsis re-passage, drawn in the
-deeper/yellow boxes) and the partition closes onto the true banana-shaped set.
+Iteration 0 — the lone box — breaks down: by one full period the order-6
+polynomial is extrapolating past where it converges, its image folds in on
+itself, and the RMS error against Monte Carlo is \(\sim\! 0.13\) (the same
+breakdown the single polynomial shows in the [two-body tutorial](two_body.md)).
+Two boxes already cut that to \(3.6\times10^{-4}\); each further level
+concentrates new splits where the orbit is most nonlinear (the periapsis
+re-passage) and the partition closes onto the true set.
 
 The matching improves monotonically with the number of sub-boxes — exactly the
-behaviour we want from a refinement scheme:
+behaviour we want from a refinement scheme — and both quality indices trace the
+same curve (right panel of the animation):
 
-![RMS error against Monte Carlo vs. number of sub-boxes](img/two_body_refine_convergence.png)
+![RMS error against Monte Carlo vs. number of sub-boxes, per criterion](img/two_body_refine_convergence.png)
 
 | iteration | sub-boxes | RMS vs. Monte Carlo |
 |----------:|----------:|--------------------:|
-| 0 | 1  | \(2.0\times10^{4}\) |
-| 1 | 2  | \(9.4\times10^{-2}\) |
-| 2 | 4  | \(3.7\times10^{-2}\) |
-| 3 | 7  | \(1.5\times10^{-2}\) |
-| 4 | 11 | \(5.4\times10^{-3}\) |
-| 5 | 17 | \(1.4\times10^{-3}\) |
-| 6 | 23 | \(2.4\times10^{-4}\) |
+| 0 | 1  | \(1.3\times10^{-1}\) |
+| 1 | 2  | \(3.6\times10^{-4}\) |
+| 2 | 4  | \(5.3\times10^{-6}\) |
+| 3 | 8  | \(7.2\times10^{-8}\) |
+| 4 | 11 | \(4.2\times10^{-8}\) |
 
 ## Parallelism
 
@@ -181,10 +208,11 @@ python3 ../../examples/two_body/plot_refine.py --data . --out figs
 
 Things to try:
 
-- **Switch the index.** Drop `AreaRatioCriterion{ 0.01, k, 0, 1, 20 }` into the
-  `crit` line and watch the area-blind fold appear mid-orbit while the endpoint
-  stays accurate.
-- **Grow the box** (`kHx`, `kHy`) and see the single polynomial fail even harder
-  and the converged leaf count climb.
+- **Switch the index.** The example drives the animation with
+  `CoefficientMatchCriterion`; swap in
+  `VolumeRatioCriterion{ 1e-6, k, {1, 3}, 8 }` (the two active axes) to refine
+  on the geometric set-volume instead.
+- **Grow the box** (`kIcBoxHalfWidth` in `examples/two_body/common.hpp`) and
+  watch the single polynomial fail harder and the converged leaf count climb.
 - **Set `TAX_ADS_THREADS`** and confirm the partition (and every coefficient) is
   bit-for-bit independent of the worker count.
