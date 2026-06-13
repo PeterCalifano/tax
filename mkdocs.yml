@@ -129,6 +129,10 @@ nav:
       - Methods & Benchmarks: ode/methods.md
       - Events: ode/events.md
       - Examples: ode/examples.md
+  - Automatic Domain Splitting:
+      - Overview: ads/index.md
+      - API Reference: ads/api.md
+      - Refinement: ads/refine.md
   - Internals:
       - Overview: internals/index.md
       - Architecture: internals/architecture.md
