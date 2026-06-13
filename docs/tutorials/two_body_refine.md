@@ -81,16 +81,44 @@ no time-ordering constraints at all.
 
 ## What quality index?
 
-The verdict hinges on the comparison "parent vs. children". Two indices are
-shipped in
+By the time we judge a box, three flow maps already exist: the parent \(\Phi\)
+and its two trial children \(\Phi_L, \Phi_R\), each propagated to `t_final`. A
+quality index boils the question *"does splitting change the answer?"* down to
+a single number that measures how much \(\Phi\) **disagrees** with the pair
+\((\Phi_L, \Phi_R)\). Small disagreement → the parent was already faithful,
+accept it; large → it overreached, keep the children and recurse.
+
+Why is comparing against the children a sound test? Because each child
+re-expands its Taylor series on **half** the domain, where the series converges
+faster, it is a strictly *more accurate* model of the flow there than the
+parent is. So the parent-vs-children gap is essentially a direct readout of the
+parent's **truncation error** — exactly the quantity ADS exists to control. A
+split is "worth it" precisely when the more-accurate children tell a different
+story from the parent.
+
+Two indices ship in
 [`refine_criteria.hpp`](https://github.com/andreapasquale94/tax/tree/main/include/tax/ads/refine_criteria.hpp).
+Both choose the same split *direction* — the coordinate carrying the most
+order-\(P\) coefficient mass — and differ only in **how they measure the
+disagreement**.
 
-### Coefficient match
+### Coefficient match — compare the polynomials
 
-Compare the maps directly in coefficient space. Re-identify the parent on a
-half-domain — the very same substitution ADS uses to split,
-\(\xi_d \to \pm\tfrac12 + \tfrac12\,\xi'_d\) — and compare it term by term to
-the independently propagated child:
+The most direct measure compares the maps term by term. The snag is that parent
+and child speak different coordinates: a child's \(\xi' \in [-1,1]^m\) spans
+only half of the parent's box. So first rewrite the parent in the child's
+coordinates, using the *very same* affine substitution a split applies,
+
+$$
+\xi_d \;\to\; \pm\tfrac12 + \tfrac12\,\xi'_d
+\qquad (-\ \text{left half},\;\; +\ \text{right half}),
+$$
+
+giving \(\Phi\!\restriction_{\text{half}}\) — the parent "as seen from" the
+child's sub-box. Were the parent exact, this restriction would reproduce the
+independently propagated child *exactly*; whatever gap remains is the parent's
+error. The index is the largest such gap, over every state component \(i\) and
+both halves, normalised by the child's own magnitude:
 
 $$
 \delta \;=\; \max_i \;
@@ -98,61 +126,67 @@ $$
        {\big\| \Phi^{(i)}_{\text{child}} \big\|_\infty} .
 $$
 
-While the parent is accurate the restriction reproduces the child and
-\(\delta \approx 0\); once it drifts, \(\delta\) grows. It is dimension-free
-(`CoefficientMatchCriterion`), needs no geometry, and `tol` is a relative
-coefficient error.
+`CoefficientMatchCriterion` accepts when \(\delta \le \texttt{tol}\), so here
+`tol` is a **relative coefficient error**. It needs no geometry and works in
+any dimension — the default choice.
 
-### Volume ratio
+### Volume ratio — compare the size of the image
 
-A *geometric* alternative — and the one that originally motivated this
-experiment: when the parent has diverged, its image is badly shaped, so
-compare the **size of the image set** before and after a split. The image of
-an \(m\)-dimensional box face under the flow map is an \(m\)-manifold in state
-space, whose \(m\)-volume is
-
-$$
-V \;=\; \int_{[-1,1]^m} \sqrt{\det\!\big(J^\top J\big)}\,\mathrm{d}\xi ,
-\qquad J_{i a} = \frac{\partial \Phi_i}{\partial \xi_{a}},
-$$
-
-with \(J\) the Jacobian of the output components against the active input
-axes, evaluated by a small quadrature grid. The verdict is the ratio
+The idea that originally motivated this experiment is geometric: a diverged
+polynomial draws a *badly shaped* image, so measure the **size of the set** the
+box maps to and check whether splitting changes it. The image of the box face
+is an \(m\)-dimensional surface in state space; the factor by which the map
+stretches a small patch of domain onto that surface is
+\(\sqrt{\det(J^\top J)}\), where \(J = \partial\Phi/\partial\xi\) is the
+Jacobian (for a square \(J\), just \(|\det J|\)). Integrating that local stretch
+over the box gives the image's \(m\)-volume,
 
 $$
-\rho \;=\; \frac{V(\Phi)}{V(\Phi_L) + V(\Phi_R)} .
+V \;=\; \int_{[-1,1]^m} \sqrt{\det\!\big(J^\top J\big)}\,\mathrm{d}\xi
+  \;\approx\; \frac{2^m}{n^m}\!\!\sum_{\text{grid }\xi}\!\sqrt{\det\!\big(J^\top J\big)},
 $$
 
-When the parent is well shaped its children tile it and \(\rho \approx 1\);
-stretching or folding past the radius of convergence drives \(\rho\) away from
-1 (because \(|\det|\) does **not** cancel over a fold, the measure is robust to
-inside-out maps). `VolumeRatioCriterion` accepts when \(|\rho - 1| \le
-\texttt{tol}\). For two active axes \(V\) is an image *area*, so this is the
-dimension-general form of the original "compare the final area" idea — set
-`axes` to the active box dimensions (here \(\{1,3\}\) for \((y, v_y)\)) and it
+evaluated on a small \(n\)-point-per-axis grid. The decisive property is that
+the two children's domains **exactly tile** the parent's, so an *accurate*
+parent obeys \(V(\Phi) = V(\Phi_L) + V(\Phi_R)\). The verdict is therefore how
+far that bookkeeping is off:
+
+$$
+\rho \;=\; \frac{V(\Phi)}{V(\Phi_L) + V(\Phi_R)} ,
+\qquad \text{accept when } |\rho - 1| \le \texttt{tol},
+$$
+
+so for this index `tol` is a **relative change in set volume**. Stretching or
+folding past the radius of convergence inflates or mis-sizes the parent's
+volume and pushes \(\rho\) off 1; because \(|\det|\) never cancels — a fold
+counts its area twice rather than to zero — the measure stays honest even for
+inside-out maps, an advantage over a signed projected area. For two active axes
+\(V\) is simply an **image area**, so `VolumeRatioCriterion` is the
+dimension-general form of the original "compare the final area" idea: point its
+`axes` at the active box dimensions (here \(\{1,3\}\) for \((y, v_y)\)) and it
 works for any state-space dimension.
 
-### Comparing the two
+### Which to use
 
-Driving the refinement with each index in turn (both at `tol = 1e-6`) tells a
-clear story. The split *direction* is the same heuristic for both — the
-coordinate carrying the most order-\(P\) coefficient mass — so they make
-**identical splits early on** and ride the very same RMS-vs-box-count curve.
-They part ways only near convergence: at `tol = 1e-6` the coefficient match is
-satisfied at **11 boxes**, while the volume ratio is a stricter gate at that
-tolerance and keeps subdividing to **62**:
+Run the refinement with each index in turn (both at `tol = 1e-6`) and a clear
+picture emerges. Since they share the split *direction*, they make **identical
+splits early on** and ride the very same RMS-vs-box-count curve — neither is
+"more accurate per box". They part ways only near convergence, because `tol`
+means a different thing to each: a relative coefficient error stops sooner than
+a relative volume change of the same size. On the small box the coefficient
+match is satisfied at **11 boxes** while the (stricter) volume ratio keeps
+subdividing to **62**:
 
 | | coefficient match | volume ratio |
 |---|---|---|
 | boxes per iteration | 1, 2, 4, 8, **11** | 1, 2, 4, 8, 16, 32, **62** |
 | final RMS vs. Monte Carlo | \(4.2\times10^{-8}\) | \(6.9\times10^{-11}\) |
 
-Neither is "more accurate" per box — both sit on the same curve — they simply
-calibrate `tol` against different quantities (a relative coefficient error vs.
-a relative set-volume change). The coefficient match is the cheaper, default
-choice; the volume ratio is the geometric, dimension-general one when you want
-to bound the growth of the reachable set itself. The example uses the
-coefficient match to drive the animation.
+Reach for the **coefficient match** as a cheap, dimension-free default; reach
+for the **volume ratio** when you specifically want to bound the growth of the
+reachable *set* — its `tol` is a statement about volume, the natural currency
+for uncertainty propagation and reachability. The example drives the animation
+with the coefficient match and runs the volume ratio alongside for comparison.
 
 ## Watching it converge
 
