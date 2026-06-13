@@ -20,7 +20,7 @@
 //
 //   auto tree = tax::ads::refine<6>(
 //       tax::ode::methods::Verner89{},
-//       tax::ads::AreaRatioCriterion{ /*tol=*/0.02, /*maxDepth=*/7 },
+//       tax::ads::CoefficientMatchCriterion{ /*tol=*/1e-6, /*maxDepth=*/7 },
 //       rhs, ic_box, ic_center, t0, t1, cfg, n_threads );
 //
 // The result is the same AdsTree<State, M, T> the classic driver returns:

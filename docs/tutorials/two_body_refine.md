@@ -273,6 +273,29 @@ on global ordering — the resulting partition is **identical** whether run on o
 thread or many (leaves are canonicalised by box center), which the test suite
 checks directly.
 
+### Runtime vs. classic ADS
+
+[`benchmarks/bench_ads_refine.cpp`](https://github.com/andreapasquale94/tax/tree/main/benchmarks/bench_ads_refine.cpp)
+times both strategies on the bigger box (\(P = 6\), depth ≤ 6) across 1–4
+worker threads. Indicative wall-clock on a 4-core machine (median of three):
+
+| method | leaves | 1 thread | 2 | 3 | 4 | speed-up |
+|---|--:|--:|--:|--:|--:|--:|
+| classic ADS (truncation) | 52 | 877 ms | 444 | 307 | 233 | 3.8× |
+| refine (coefficient match) | 40 | 4562 ms | 2360 | 1674 | 1365 | 3.3× |
+| refine (volume ratio) | 64 | 6047 ms | 3120 | 2234 | 1773 | 3.4× |
+
+Two things stand out. First, all three scale to roughly \(3.3\text{–}3.8\times\)
+on four cores — including classic ADS, whose in-flight splits still leave plenty
+of independent boxes to run concurrently. Second, refinement is several times
+more expensive in absolute terms: it carries *every* box to `t_final` and pays
+for two trial children at each node, where classic ADS stops each box at its
+split time and reuses the parent's partial state. Refinement spends that compute
+to buy a propagation pattern with no time-ordering constraints — useful when the
+per-box propagation is itself farmed out (clusters, GPUs) or when you want the
+final-time accuracy guarantee the comparison gives for free. The volume ratio
+adds the Jacobian-quadrature cost on top, so it is the priciest per box.
+
 ## Run it yourself
 
 ```bash
