@@ -27,6 +27,14 @@ scripts in `examples/plot/` turn those into the figures shown here
     Kepler orbit with a single polynomial — and watch Automatic Domain
     Splitting take over when one polynomial stops being enough.
 
+-   **[Parallel ADS by refinement](two_body_refine.md)**
+
+    ---
+
+    Flip ADS around: propagate every box to the end *first*, then split the
+    initial conditions wherever the answer changes. Fully parallel, and it
+    converges onto a Monte-Carlo reference as the box count grows.
+
 -   **[Three-body problem](three_body.md)**
 
     ---

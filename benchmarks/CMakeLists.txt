@@ -17,3 +17,5 @@ endfunction()
 
 tax_add_bench(bench_ode_cr3bp SOURCES bench_ode_cr3bp.cpp)
 target_include_directories(bench_ode_cr3bp PRIVATE ${CMAKE_SOURCE_DIR})
+
+tax_add_bench(bench_ads_refine SOURCES bench_ads_refine.cpp)

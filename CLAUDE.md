@@ -51,14 +51,14 @@ tax/
 │   │   └── invert.hpp        #   formal polynomial-map inversion (Picard)
 │   ├── ode/                  # Adaptive ODE integration (namespace tax::ode)
 │   └── ads/                  # Automatic Domain Splitting (namespace tax::ads)
-├── tests/                    # Google Test suite (61 ctest targets)
+├── tests/                    # Google Test suite (62 ctest targets)
 │   ├── core/                 #   ctor/accessors, multi-index, enumeration, deriv/integ
 │   ├── kernels/              #   dense/unroll/stencil/sparse Cauchy verification
 │   ├── operators/            #   one file per math-function family
 │   ├── sparse/               #   sparse ctor/arith/conversion/substitution
 │   ├── eigen/                #   tax::la helpers (gradient, jacobian, invert, …)
 │   ├── ode/                  #   steppers/, integrator/, events/, problems/ (CR3BP, Kepler)
-│   ├── ads/                  #   box, tree, criteria, driver, merge, parallel
+│   ├── ads/                  #   box, tree, criteria, driver, merge, parallel, refine
 │   ├── regression/           #   DACE comparison suite (opt-in, TAX_BUILD_REGRESSIONS)
 │   └── testUtils.hpp         #   shared helpers/macros
 ├── benchmarks/               # Google Benchmark suite (bench_ode_cr3bp)
@@ -312,6 +312,8 @@ Architecture:
 Key files: `box.hpp`, `leaf.hpp`, `tree.hpp`, `criteria.hpp` (`SplitCriterion`
 concept, `TruncationCriterion`, `NliCriterion`), `nonlinearity_index.hpp`,
 `split_event.hpp`, `da_state.hpp`, `driver.hpp`, `propagate.hpp`, `merge.hpp`,
+`refine.hpp` + `refine_criteria.hpp` (the parallel "propagate-then-assess"
+driver `refine()` with `CoefficientMatchCriterion` / `VolumeRatioCriterion`),
 `io.hpp` (opt-in CSV writers).
 
 ---
