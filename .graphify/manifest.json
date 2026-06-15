@@ -1,0 +1,870 @@
+{
+  "benchmarks/bench_ads_refine.cpp": {
+    "mtime": 1781429226947.3694,
+    "hash": "ea37d8a83bd098bc316769115a8ad311"
+  },
+  "benchmarks/bench_ode_cr3bp.cpp": {
+    "mtime": 1781429226947.3694,
+    "hash": "91e099366bbab70b042dd1991503f363"
+  },
+  "docs/javascripts/mathjax.js": {
+    "mtime": 1781429226954.3865,
+    "hash": "0aa35471bd7aa419fd7d5a007c120476"
+  },
+  "examples/common/output.hpp": {
+    "mtime": 1781429227003.3694,
+    "hash": "72063224a3efd1034aab16fc14ffd15b"
+  },
+  "examples/plot/plot_three_body.py": {
+    "mtime": 1781429227003.3694,
+    "hash": "25fcdffd347d2ba325ae67dabc285506"
+  },
+  "examples/plot/plot_two_body.py": {
+    "mtime": 1781429227008.6675,
+    "hash": "496d803bb70ccb9c396d5e228f1d469e"
+  },
+  "examples/three_body/ads.cpp": {
+    "mtime": 1781429227008.6675,
+    "hash": "a89555141aa1f7f9d024403723525727"
+  },
+  "examples/three_body/common.hpp": {
+    "mtime": 1781429227008.6675,
+    "hash": "59aa6a6a214e2fd2cb72523440bb67ea"
+  },
+  "examples/three_body/loads.cpp": {
+    "mtime": 1781429227008.6675,
+    "hash": "1da54ea2f7721101cf66843ab8817739"
+  },
+  "examples/three_body/plot.py": {
+    "mtime": 1781025607035.808,
+    "hash": "7c596f9ad8154041a6ba26c9269439a2"
+  },
+  "examples/three_body/taylor.cpp": {
+    "mtime": 1781429227008.6675,
+    "hash": "0ceadac04c1c0f8a3b38c81829ceed84"
+  },
+  "examples/two_body/ads.cpp": {
+    "mtime": 1781429227008.6675,
+    "hash": "16326cc3cb9d98502704478e89dc80cb"
+  },
+  "examples/two_body/common.hpp": {
+    "mtime": 1781429227008.6675,
+    "hash": "87adba53cdc52b7a64410c8ed3e528dc"
+  },
+  "examples/two_body/loads.cpp": {
+    "mtime": 1781429227008.6675,
+    "hash": "b0838bd3bcfdf759f76f8c3e8044ef16"
+  },
+  "examples/two_body/plot.py": {
+    "mtime": 1781025607037.4248,
+    "hash": "a6969075054dfe5be206d61d25f27356"
+  },
+  "examples/two_body/plot_refine.py": {
+    "mtime": 1781429227008.6675,
+    "hash": "4eb40385a9381d1fed3caba807091a8b"
+  },
+  "examples/two_body/plot_validation.py": {
+    "mtime": 1781025607037.4248,
+    "hash": "a8990d4e39905ea998a97df6ad2db40c"
+  },
+  "examples/two_body/refine.cpp": {
+    "mtime": 1781429227008.6675,
+    "hash": "3ecf9fd1b3cd1feba87dceba43e758fc"
+  },
+  "examples/two_body/taylor.cpp": {
+    "mtime": 1781429227008.6675,
+    "hash": "92afa29b4f43953ab69f29b9403a5e8f"
+  },
+  "examples/two_body/validation.cpp": {
+    "mtime": 1781429227008.6675,
+    "hash": "9fb4f34915e8a145b97aad22b78b8f52"
+  },
+  "examples/wsb/ads.cpp": {
+    "mtime": 1781429227008.6675,
+    "hash": "5d65e1d4b10bd1200d4488bd89b0cc8b"
+  },
+  "examples/wsb/common.hpp": {
+    "mtime": 1781429227008.6675,
+    "hash": "3bb5840516d61cd977b8c459a9c27519"
+  },
+  "examples/wsb/plot_box.py": {
+    "mtime": 1781025607039.4802,
+    "hash": "4481c64b4fbc3f5ea54fd8cb3ee920c1"
+  },
+  "examples/wsb/plot_search.py": {
+    "mtime": 1781025607039.4802,
+    "hash": "af20781896213e803ad183ba835b8704"
+  },
+  "examples/wsb/taylor.cpp": {
+    "mtime": 1781429227008.6675,
+    "hash": "7175a753db7be8b523bc79cc7d90be97"
+  },
+  "examples/wsb/wsb_search.cpp": {
+    "mtime": 1781025607039.4802,
+    "hash": "2b1a3f2edaa30db5800f493072b7e67d"
+  },
+  "include/tax/ads.hpp": {
+    "mtime": 1781429227008.6675,
+    "hash": "63268da6ace98e9697bbf869800fbf76"
+  },
+  "include/tax/ads/box.hpp": {
+    "mtime": 1781025607041.5022,
+    "hash": "01601102ec96679469fd4ac406600cf2"
+  },
+  "include/tax/ads/criteria.hpp": {
+    "mtime": 1781429227008.6675,
+    "hash": "d15ec05c0e8747734c94b17b5f34f3be"
+  },
+  "include/tax/ads/da_state.hpp": {
+    "mtime": 1781429227008.6675,
+    "hash": "4ff3a69accaef2a01791c7928555ccf8"
+  },
+  "include/tax/ads/driver.hpp": {
+    "mtime": 1781429227008.6675,
+    "hash": "cf790fe2ddc409a287427b28c21a0d80"
+  },
+  "include/tax/ads/io.hpp": {
+    "mtime": 1781025607042.049,
+    "hash": "1356dc0056d5372d744af6e4fbf5ccc9"
+  },
+  "include/tax/ads/leaf.hpp": {
+    "mtime": 1781025607042.049,
+    "hash": "325377100bf084f630b10d594883f83b"
+  },
+  "include/tax/ads/merge.hpp": {
+    "mtime": 1781429227008.6675,
+    "hash": "2f0de993857ea08833574afce1f27e52"
+  },
+  "include/tax/ads/nonlinearity_index.hpp": {
+    "mtime": 1781025607042.049,
+    "hash": "b4e6cb4c66c7389a60b58bbe8cd5ecf7"
+  },
+  "include/tax/ads/propagate.hpp": {
+    "mtime": 1781025607042.049,
+    "hash": "5eb8099f79d9a675684b6a8697e2ced2"
+  },
+  "include/tax/ads/refine.hpp": {
+    "mtime": 1781429227008.6675,
+    "hash": "6e592551ba6a38c2afdbd429bc285234"
+  },
+  "include/tax/ads/refine_criteria.hpp": {
+    "mtime": 1781429227008.6675,
+    "hash": "44c26db3634abd9ef7a5b3f54dddf031"
+  },
+  "include/tax/ads/split_event.hpp": {
+    "mtime": 1781025607042.049,
+    "hash": "d925c9835c20840fa58f1637546a11b7"
+  },
+  "include/tax/ads/tree.hpp": {
+    "mtime": 1781429227008.6675,
+    "hash": "da70b0de46d61c454182bfccbfc493c3"
+  },
+  "include/tax/core/concepts.hpp": {
+    "mtime": 1781025607042.049,
+    "hash": "290a1447d02598c9e97fabf25a61ea98"
+  },
+  "include/tax/core/enumeration.hpp": {
+    "mtime": 1781025607042.9392,
+    "hash": "9d187e81fb833a44588851e82dd49e1e"
+  },
+  "include/tax/core/multi_index.hpp": {
+    "mtime": 1781025607042.9392,
+    "hash": "f6db0d4ae817bb49243ef994957444b4"
+  },
+  "include/tax/core/storage/dense.hpp": {
+    "mtime": 1781025607042.9392,
+    "hash": "cbf55208464add2645317c63fa84b2bf"
+  },
+  "include/tax/core/storage/sparse.hpp": {
+    "mtime": 1781025607045.6667,
+    "hash": "7cbe34bfbf37db680eea6b66d8e7e7dd"
+  },
+  "include/tax/core/taylor_expansion.hpp": {
+    "mtime": 1781429227008.6675,
+    "hash": "3bdf6c7e8394619442b2a2bda5719652"
+  },
+  "include/tax/kernels/algebra.hpp": {
+    "mtime": 1781429227008.6675,
+    "hash": "0433975b324ac38de9c4da0aead90333"
+  },
+  "include/tax/kernels/cauchy.hpp": {
+    "mtime": 1781429227008.6675,
+    "hash": "dfd6d4e009e778946dd3993805269f72"
+  },
+  "include/tax/kernels/cauchy_stencil.hpp": {
+    "mtime": 1781429227011.3694,
+    "hash": "e8b82ed8a96e18e9c5227b5c98390410"
+  },
+  "include/tax/kernels/cauchy_unroll.hpp": {
+    "mtime": 1781025607047.3906,
+    "hash": "a4374b009ab8899bac8c8ab754ad9b59"
+  },
+  "include/tax/kernels/recurrence_stencil.hpp": {
+    "mtime": 1781429227011.3694,
+    "hash": "8e0fe11a7201501744e76ac3ef6a4af6"
+  },
+  "include/tax/kernels/sparse_cauchy.hpp": {
+    "mtime": 1781429227011.3694,
+    "hash": "bafdedf816a4b75bf95919a163b8cdaf"
+  },
+  "include/tax/kernels/sparse_subs.hpp": {
+    "mtime": 1781025607047.3906,
+    "hash": "fd717b63d6309f4c2760ad28f558dc8c"
+  },
+  "include/tax/kernels/transcendental.hpp": {
+    "mtime": 1781429227011.3694,
+    "hash": "ce4e97c37f2148d514659024e9fdb28a"
+  },
+  "include/tax/kernels/trigonometric.hpp": {
+    "mtime": 1781429227011.3694,
+    "hash": "0af3574955ce1bb5020648bd721dffb2"
+  },
+  "include/tax/la.hpp": {
+    "mtime": 1781025607047.3906,
+    "hash": "2837915d4ef26175c614fea997f5c6f9"
+  },
+  "include/tax/la/derivatives.hpp": {
+    "mtime": 1781025607047.3906,
+    "hash": "a8ff4871626a77277ce0fc82c6bf0f38"
+  },
+  "include/tax/la/invert.hpp": {
+    "mtime": 1781025607050.056,
+    "hash": "7f3fe71d528aafffc63e9a7c1f1deaa3"
+  },
+  "include/tax/la/num_traits.hpp": {
+    "mtime": 1781025607050.056,
+    "hash": "fcbca79b2b86ca75055f6415a5754065"
+  },
+  "include/tax/la/types.hpp": {
+    "mtime": 1781025607050.056,
+    "hash": "141b6d10055210c7dbb23cff754f055b"
+  },
+  "include/tax/la/values.hpp": {
+    "mtime": 1781025607050.056,
+    "hash": "b679acc38cc8df02456ac93b57bf4705"
+  },
+  "include/tax/ode.hpp": {
+    "mtime": 1781429227011.3694,
+    "hash": "f582999cf0e1d33123c0feae8bf2e775"
+  },
+  "include/tax/ode/actions.hpp": {
+    "mtime": 1781025607050.056,
+    "hash": "760c2c38d4ea1835d08aef1f8f2f7020"
+  },
+  "include/tax/ode/aliases.hpp": {
+    "mtime": 1781429227011.3694,
+    "hash": "eb6cfc29fb5c72b91d85a9593f3f0a8a"
+  },
+  "include/tax/ode/concepts.hpp": {
+    "mtime": 1781025607051.7947,
+    "hash": "1d9630ada0c1412751e4de1ebc329ce9"
+  },
+  "include/tax/ode/config.hpp": {
+    "mtime": 1781025607051.7947,
+    "hash": "a0de0d685173e27e191371b426ec37c9"
+  },
+  "include/tax/ode/controllers.hpp": {
+    "mtime": 1781025607051.7947,
+    "hash": "d2170fa0854c03cac7bc09922d0aa1b5"
+  },
+  "include/tax/ode/detail/adaptive_rk_step.hpp": {
+    "mtime": 1781429227011.3694,
+    "hash": "0179259e2850df83a1aca1ee8ce8f5ea"
+  },
+  "include/tax/ode/detail/brent_root.hpp": {
+    "mtime": 1781025607053.1414,
+    "hash": "50eea9e6a560d2e5ed13b6c9e5e24d37"
+  },
+  "include/tax/ode/detail/embedded_rk_stepper.hpp": {
+    "mtime": 1781429227011.3694,
+    "hash": "4b0a04e0041823dc54321de3c67e9395"
+  },
+  "include/tax/ode/detail/feagin_tableaus.hpp": {
+    "mtime": 1781025607053.1414,
+    "hash": "7a4ecde27614a3305f53db3855cafc0e"
+  },
+  "include/tax/ode/detail/fehlberg_tableaus.hpp": {
+    "mtime": 1781025607053.1414,
+    "hash": "c8a399e7dec5285a1b7d5b6e6bfa6a3e"
+  },
+  "include/tax/ode/detail/hermite_interp.hpp": {
+    "mtime": 1781025607053.1414,
+    "hash": "ea8f9db48e08fc92188177d00110beb6"
+  },
+  "include/tax/ode/detail/verner_tableaus.hpp": {
+    "mtime": 1781025607053.1414,
+    "hash": "dd378d958c52177da26ad8befc7612f8"
+  },
+  "include/tax/ode/event.hpp": {
+    "mtime": 1781429227011.3694,
+    "hash": "f267ad61c5f954367cfd388467306a81"
+  },
+  "include/tax/ode/integrator.hpp": {
+    "mtime": 1781429227011.3694,
+    "hash": "df4174e09acb416fa5ac78d017073415"
+  },
+  "include/tax/ode/io.hpp": {
+    "mtime": 1781025607053.1414,
+    "hash": "3b1fb46e3fcab31c9485a6e586e2c042"
+  },
+  "include/tax/ode/propagate.hpp": {
+    "mtime": 1781429227011.3694,
+    "hash": "7133707a1a2ba31f7cb66d8f56de5a0c"
+  },
+  "include/tax/ode/solution.hpp": {
+    "mtime": 1781025607053.1414,
+    "hash": "aedb305055f0b8a3f32398049da481a2"
+  },
+  "include/tax/ode/step_result.hpp": {
+    "mtime": 1781025607053.1414,
+    "hash": "eee340d26424bbfae58596babaf033f4"
+  },
+  "include/tax/ode/steppers/feagin12.hpp": {
+    "mtime": 1781429227011.3694,
+    "hash": "eb2a577b067e7f734d9afda9ef5ba82e"
+  },
+  "include/tax/ode/steppers/feagin14.hpp": {
+    "mtime": 1781429227011.3694,
+    "hash": "d888554692974ca5289d886e52d93bd9"
+  },
+  "include/tax/ode/steppers/fehlberg78.hpp": {
+    "mtime": 1781429227011.3694,
+    "hash": "1d3f0bf22c836fe01ba1619c6c2cc1c0"
+  },
+  "include/tax/ode/steppers/taylor.hpp": {
+    "mtime": 1781025607056.2573,
+    "hash": "fb3e5908c7817cb95809100b52111c19"
+  },
+  "include/tax/ode/steppers/verner78.hpp": {
+    "mtime": 1781429227011.3694,
+    "hash": "7a3efb93efa80418a496519b22b55767"
+  },
+  "include/tax/ode/steppers/verner89.hpp": {
+    "mtime": 1781429227015.3694,
+    "hash": "ded29e0500d990158a7500fa908f0a62"
+  },
+  "include/tax/ode/triggers.hpp": {
+    "mtime": 1781025607056.2573,
+    "hash": "3a77844d02270635d24e167144d355b6"
+  },
+  "include/tax/ode/vector_ops.hpp": {
+    "mtime": 1781429227015.3694,
+    "hash": "6a50962bf8d62601fe58f9b42c09a51f"
+  },
+  "include/tax/operators/arithmetic.hpp": {
+    "mtime": 1781429227015.3694,
+    "hash": "be15a536be1147e0edd5d6c7e19d61f2"
+  },
+  "include/tax/operators/math_binary.hpp": {
+    "mtime": 1781429227015.3694,
+    "hash": "a4a1d44817cdde3a741ff6e342a99c75"
+  },
+  "include/tax/operators/math_unary.hpp": {
+    "mtime": 1781025607058.8105,
+    "hash": "bee09b15bde46ef4eef2f2d69e27981a"
+  },
+  "include/tax/tax.hpp": {
+    "mtime": 1781025607058.8105,
+    "hash": "eae46d6bf5738c6c710fc92edd95857f"
+  },
+  "tests/ads/test_box.cpp": {
+    "mtime": 1781025607058.9392,
+    "hash": "9b4d20fc1b9a94cdd8153def0b9c1568"
+  },
+  "tests/ads/test_criteria.cpp": {
+    "mtime": 1781025607061.5,
+    "hash": "206fe94187085c0faefef0c91016c0cc"
+  },
+  "tests/ads/test_da_state.cpp": {
+    "mtime": 1781025607061.5,
+    "hash": "415909421853e1cd41c5e1e456fff733"
+  },
+  "tests/ads/test_driver.cpp": {
+    "mtime": 1781025607061.5,
+    "hash": "44faa490bbbacf67046b3a128faf5453"
+  },
+  "tests/ads/test_leaf_tree.cpp": {
+    "mtime": 1781025607061.5,
+    "hash": "8b953106ca2f87b0100a086f379032bd"
+  },
+  "tests/ads/test_merge.cpp": {
+    "mtime": 1781025607061.5,
+    "hash": "7a3cc6640bc1172eb606ecbc1380d1e8"
+  },
+  "tests/ads/test_nonlinearity_index.cpp": {
+    "mtime": 1781025607061.5,
+    "hash": "38d388fa713791a0cd646edf76a079da"
+  },
+  "tests/ads/test_parallel.cpp": {
+    "mtime": 1781025607061.5,
+    "hash": "f0a3e9522617a8af43534237460ed9f1"
+  },
+  "tests/ads/test_refine.cpp": {
+    "mtime": 1781429227015.3694,
+    "hash": "ed0431f751f082424ff7ded9d80c5933"
+  },
+  "tests/ads/test_split_event.cpp": {
+    "mtime": 1781025607061.5,
+    "hash": "46715dddff297b8b068232a944fc1752"
+  },
+  "tests/core/test_deriv_integ.cpp": {
+    "mtime": 1781025607061.5,
+    "hash": "01b4f4af50042ffa14320899c4e05f79"
+  },
+  "tests/core/test_enumeration.cpp": {
+    "mtime": 1781025607064.0684,
+    "hash": "75c6aff8ce6cb3de984c7e5c14bdfecb"
+  },
+  "tests/core/test_multi_index.cpp": {
+    "mtime": 1781025607064.0684,
+    "hash": "7bba9ccd77e286adae3e8e2dbc055bd9"
+  },
+  "tests/core/test_taylor_expansion_accessors.cpp": {
+    "mtime": 1781025607064.0684,
+    "hash": "71a0b97213d48f19b2b22eb6f957068e"
+  },
+  "tests/core/test_taylor_expansion_ctor.cpp": {
+    "mtime": 1781429227015.3694,
+    "hash": "3533381b73afa90a06b78dc40ade4196"
+  },
+  "tests/eigen/test_eigen_derivative.cpp": {
+    "mtime": 1781025607064.0684,
+    "hash": "092ed77d9601d6f3de32c6c9b0e36cad"
+  },
+  "tests/eigen/test_eigen_eval.cpp": {
+    "mtime": 1781025607065.7156,
+    "hash": "8cdb057b5c9b3e6554594d400270f00a"
+  },
+  "tests/eigen/test_eigen_gradient.cpp": {
+    "mtime": 1781025607065.7156,
+    "hash": "d3bbd169b88a0b2068d20625b3e63727"
+  },
+  "tests/eigen/test_eigen_hessian.cpp": {
+    "mtime": 1781025607065.7156,
+    "hash": "b781d75a16ba28c9e119bb0ed47b13fd"
+  },
+  "tests/eigen/test_eigen_invert.cpp": {
+    "mtime": 1781025607065.7156,
+    "hash": "1d07a3622c27a78045101ecf81bf14ac"
+  },
+  "tests/eigen/test_eigen_jacobian.cpp": {
+    "mtime": 1781025607065.7156,
+    "hash": "31b535d2d0de6bd0e4cca7604c089e0c"
+  },
+  "tests/eigen/test_eigen_numtraits.cpp": {
+    "mtime": 1781025607065.7156,
+    "hash": "549a2c13a32225d1df1c19cc184f3981"
+  },
+  "tests/eigen/test_eigen_variables.cpp": {
+    "mtime": 1781025607065.7156,
+    "hash": "8b1ea9680bf8c484516b9665979ba391"
+  },
+  "tests/kernels/test_cauchy_dense.cpp": {
+    "mtime": 1781025607065.7156,
+    "hash": "4b7e64b79c237bb91c94e1a34e761329"
+  },
+  "tests/kernels/test_cauchy_stencil_diff.cpp": {
+    "mtime": 1781429227015.3694,
+    "hash": "6d1433c9a152bf903bf9280ed77c73f9"
+  },
+  "tests/kernels/test_cauchy_unroll_diff.cpp": {
+    "mtime": 1781025607067.3074,
+    "hash": "84f270ff85a7cb55f74c2578e917b803"
+  },
+  "tests/kernels/test_sparse_cauchy.cpp": {
+    "mtime": 1781025607067.3074,
+    "hash": "853d4a33314084adf14bbaaadb1ae354"
+  },
+  "tests/ode/events/test_every_step.cpp": {
+    "mtime": 1781025607068.0137,
+    "hash": "52bac7ec790eaf5feba6fff98df5dd4f"
+  },
+  "tests/ode/events/test_zero_crossing.cpp": {
+    "mtime": 1781025607068.4673,
+    "hash": "4c08af51453d0723114f7e1a5ecf2811"
+  },
+  "tests/ode/integrator/test_basic.cpp": {
+    "mtime": 1781025607068.4673,
+    "hash": "6a7f598176f88a095997be07ab46db96"
+  },
+  "tests/ode/integrator/test_dense.cpp": {
+    "mtime": 1781025607068.8474,
+    "hash": "9e4abf2e83bdc979c95095182f3e5b29"
+  },
+  "tests/ode/integrator/test_static.cpp": {
+    "mtime": 1781025607068.8474,
+    "hash": "809f5efbd1cdded9157ce6f540a1b523"
+  },
+  "tests/ode/problems/cr3bp_problem.hpp": {
+    "mtime": 1781025607068.8474,
+    "hash": "a08817f664fe3bce88892acb43aee957"
+  },
+  "tests/ode/problems/test_cr3bp_events.cpp": {
+    "mtime": 1781025607069.6572,
+    "hash": "2efc8303b7a0245b1f80eb44de4883c2"
+  },
+  "tests/ode/problems/test_cr3bp_propagation.cpp": {
+    "mtime": 1781025607069.6572,
+    "hash": "575d1ff0d79763226da5f0a98e0e35ad"
+  },
+  "tests/ode/problems/test_two_body_kepler.cpp": {
+    "mtime": 1781025607069.6572,
+    "hash": "e0ec72b013bab8b5f1dde8e474404aae"
+  },
+  "tests/ode/steppers/test_feagin12.cpp": {
+    "mtime": 1781025607069.6572,
+    "hash": "41d0dec04365f9fb5564dcb794d7eca4"
+  },
+  "tests/ode/steppers/test_feagin14.cpp": {
+    "mtime": 1781025607071.1626,
+    "hash": "0645e10668899991a76ac1ce26574f05"
+  },
+  "tests/ode/steppers/test_fehlberg78.cpp": {
+    "mtime": 1781025607071.1626,
+    "hash": "28faeab6210398a769e2be2ef5da20a1"
+  },
+  "tests/ode/steppers/test_taylor.cpp": {
+    "mtime": 1781025607071.1626,
+    "hash": "f6c394df5cd01cad605ae971f45fd3bf"
+  },
+  "tests/ode/steppers/test_verner78.cpp": {
+    "mtime": 1781025607071.1626,
+    "hash": "c1954c88f6a4219100cdb04efcc8aa0d"
+  },
+  "tests/ode/steppers/test_verner89.cpp": {
+    "mtime": 1781025607071.1626,
+    "hash": "2c05da1a3621a6f06e4151045b9f5de1"
+  },
+  "tests/ode/test_concepts.cpp": {
+    "mtime": 1781025607071.1626,
+    "hash": "9e669ce3cbcd83975e175e801abd57fa"
+  },
+  "tests/ode/test_config.cpp": {
+    "mtime": 1781025607071.1626,
+    "hash": "5b0abff84d1427e132b777c381ce8b4e"
+  },
+  "tests/ode/test_controllers.cpp": {
+    "mtime": 1781025607071.1626,
+    "hash": "f34c323f8cdb28f97fc0f6726ce25a19"
+  },
+  "tests/ode/test_fixed_step.cpp": {
+    "mtime": 1781025607071.1626,
+    "hash": "23d5f88add6673fe2b2c57e57f92b66a"
+  },
+  "tests/ode/test_rk_da_state.cpp": {
+    "mtime": 1781025607071.1626,
+    "hash": "10aa9fa3b4e34d201af63768addd3f88"
+  },
+  "tests/ode/test_rk_helpers.cpp": {
+    "mtime": 1781025607071.1626,
+    "hash": "e5841ecd5425e81e1cd4d562898cb463"
+  },
+  "tests/ode/test_solution.cpp": {
+    "mtime": 1781025607071.1626,
+    "hash": "dc827cb4b965cb54054f1ce84f0b9bf2"
+  },
+  "tests/ode/test_vector_ops.cpp": {
+    "mtime": 1781025607071.1626,
+    "hash": "f46ec880dce86e40a0614408b3409e3c"
+  },
+  "tests/operators/test_algebra_inverse.cpp": {
+    "mtime": 1781025607071.1626,
+    "hash": "8b3614ebd145863cddaf24e563fa4461"
+  },
+  "tests/operators/test_algebra_square_cube.cpp": {
+    "mtime": 1781025607074.0562,
+    "hash": "f96b688a72eef363230a27be0d3aae42"
+  },
+  "tests/operators/test_arith_dense.cpp": {
+    "mtime": 1781429227015.3694,
+    "hash": "700a79021dd186e8cc8482fedc8bc9cc"
+  },
+  "tests/operators/test_erf.cpp": {
+    "mtime": 1781025607074.0562,
+    "hash": "53bd6a7a0e14304096c0c1bb80881a03"
+  },
+  "tests/operators/test_exp_log.cpp": {
+    "mtime": 1781025607074.0562,
+    "hash": "0a0b48c3281914d3b7cde9567fc81804"
+  },
+  "tests/operators/test_hyperbolic.cpp": {
+    "mtime": 1781025607074.0562,
+    "hash": "f57ae911be46e27c651491989af6eb9d"
+  },
+  "tests/operators/test_inverse_trig.cpp": {
+    "mtime": 1781025607074.0562,
+    "hash": "55b2190a54c3bd7929f6f2ec7f61837f"
+  },
+  "tests/operators/test_pow.cpp": {
+    "mtime": 1781025607074.0562,
+    "hash": "1e7de23bb4f232861b3121d20aab7ead"
+  },
+  "tests/operators/test_trig.cpp": {
+    "mtime": 1781025607074.0562,
+    "hash": "a064bafbef03a6023306a032b9276a0c"
+  },
+  "tests/regression/regressionUtils.hpp": {
+    "mtime": 1781025607075.536,
+    "hash": "24c8e87abdebd5100f71015de75ae17a"
+  },
+  "tests/regression/testDerivInteg.cpp": {
+    "mtime": 1781025607075.536,
+    "hash": "3e8e1fb27f3fdbf14ad6c93023642306"
+  },
+  "tests/regression/testEigenVectorCalc.cpp": {
+    "mtime": 1781025607075.536,
+    "hash": "c24a056536a8c4e49c4d6e699f2dabfe"
+  },
+  "tests/regression/testEval.cpp": {
+    "mtime": 1781025607075.536,
+    "hash": "c47668621d6011c7c45ce4dae662735f"
+  },
+  "tests/regression/testInvert.cpp": {
+    "mtime": 1781025607075.536,
+    "hash": "926563dbe429dce09069f225540b5fc9"
+  },
+  "tests/regression/testMultivariate.cpp": {
+    "mtime": 1781025607075.536,
+    "hash": "40b3afd4e8fff828eca115981a4b5982"
+  },
+  "tests/regression/testUnivariate.cpp": {
+    "mtime": 1781025607075.536,
+    "hash": "50fb2abe7f3172df2e72fc98f161062f"
+  },
+  "tests/sparse/test_sparse_arith.cpp": {
+    "mtime": 1781025607075.536,
+    "hash": "e94da4ab6cf11cd9ed123abbab80084c"
+  },
+  "tests/sparse/test_sparse_conversion.cpp": {
+    "mtime": 1781025607077.6865,
+    "hash": "64b207a61911a46730061b43d6309912"
+  },
+  "tests/sparse/test_sparse_ctor.cpp": {
+    "mtime": 1781025607077.6865,
+    "hash": "c0249b9289a13baf589e91f455c926e8"
+  },
+  "tests/sparse/test_sparse_subs.cpp": {
+    "mtime": 1781025607077.6865,
+    "hash": "7f30a9c9223dcf05666c41181827aaa7"
+  },
+  "tests/testUtils.hpp": {
+    "mtime": 1781025607077.6865,
+    "hash": "40220a009f9d6a7145371137c4bc22b0"
+  },
+  ".github/workflows/docs.yml": {
+    "mtime": 1781025607020.4907,
+    "hash": "eace124d7dceb83923cbb6cfc3e7ceb9"
+  },
+  ".github/workflows/regressions.yml": {
+    "mtime": 1781025607021.1482,
+    "hash": "ba42a0bc29f2329776502d43796ae9cf"
+  },
+  ".github/workflows/sanitizers.yml": {
+    "mtime": 1781025607021.1482,
+    "hash": "d1309e9c08b5ffb0df70573c1926731f"
+  },
+  ".github/workflows/tests.yml": {
+    "mtime": 1781429226947.3694,
+    "hash": "08e3b74edb3ecfc667542748641c2046"
+  },
+  "CLAUDE.md": {
+    "mtime": 1781429362379.3774,
+    "hash": "ffddd6a897fe8a783910b9caf9999571"
+  },
+  "CMakeLists.txt": {
+    "mtime": 1781429226947.3694,
+    "hash": "a6b3d502c0016817db659136f4de61b6"
+  },
+  "README.md": {
+    "mtime": 1781429226947.3694,
+    "hash": "5f0d1d7938e93d6c5a813b6750a4f8db"
+  },
+  "benchmarks/CMakeLists.txt": {
+    "mtime": 1781429226947.3694,
+    "hash": "eca126bf47db8b594da80de923b4e9c5"
+  },
+  "benchmarks/baseline/MISSING.md": {
+    "mtime": 1781025607025.8555,
+    "hash": "80526f6a582267aa7f693f0d45cde33b"
+  },
+  "benchmarks/baseline/main-5965527-univariate.txt": {
+    "mtime": 1781025607026.2922,
+    "hash": "e79908410cc1f9081a9a620fef46abd9"
+  },
+  "docs/ads/api.md": {
+    "mtime": 1781429226947.3694,
+    "hash": "2d806c7be451589247b028f87222882b"
+  },
+  "docs/ads/index.md": {
+    "mtime": 1781429226954.3865,
+    "hash": "0f0f5ba29b35c11e6ae625cd34a15a2e"
+  },
+  "docs/ads/refine.md": {
+    "mtime": 1781429226954.3865,
+    "hash": "181f3d4ff9f62d67dd7dca3658c34c10"
+  },
+  "docs/benchmarks/2026-05-21-stage2a-cr3bp.md": {
+    "mtime": 1781025607027.6252,
+    "hash": "5ca1af94b0b4dbeadfbf7a03e64db62b"
+  },
+  "docs/core/api.md": {
+    "mtime": 1781025607027.6252,
+    "hash": "deb236e82cf58a3acfa7fee5bf62e18d"
+  },
+  "docs/core/examples.md": {
+    "mtime": 1781025607028.913,
+    "hash": "0904dbfdbdba6f25825692c6cd3dd3bf"
+  },
+  "docs/core/index.md": {
+    "mtime": 1781025607028.913,
+    "hash": "47425ff40eac79fd0281be2a9a76494a"
+  },
+  "docs/core/math.md": {
+    "mtime": 1781025607028.913,
+    "hash": "7429803e654507bda1c91a5763b4e435"
+  },
+  "docs/core/storage.md": {
+    "mtime": 1781025607028.913,
+    "hash": "591d6e285be6cbcfc1180ef02fe2f3d1"
+  },
+  "docs/eigen/api.md": {
+    "mtime": 1781025607028.913,
+    "hash": "25cd9b078c7de6434ee387b5599739d1"
+  },
+  "docs/eigen/index.md": {
+    "mtime": 1781025607030.2607,
+    "hash": "3221bf821bd13fa859dc4ad921740694"
+  },
+  "docs/getting_started.md": {
+    "mtime": 1781429226954.3865,
+    "hash": "e76f946c6d17b3ab0ab09655a16eb1ee"
+  },
+  "docs/index.md": {
+    "mtime": 1781429226954.3865,
+    "hash": "b64f8f718ab182256ef9bc8ec80ab0c0"
+  },
+  "docs/internals/architecture.md": {
+    "mtime": 1781025607030.2607,
+    "hash": "db2bd33a88291ff64c1445e8d93a1976"
+  },
+  "docs/internals/index.md": {
+    "mtime": 1781025607031.6255,
+    "hash": "9cc98cf8e791b18a06f51e777bf9872d"
+  },
+  "docs/internals/kernels.md": {
+    "mtime": 1781429226954.3865,
+    "hash": "4160f78b9e8cb5fd2865da8fc62f9def"
+  },
+  "docs/ode/api.md": {
+    "mtime": 1781429226954.3865,
+    "hash": "ef5dd9c26ca24cdde8cf46de62d7ec22"
+  },
+  "docs/ode/events.md": {
+    "mtime": 1781025607033.4377,
+    "hash": "aa815c1d05c6aef62347ff9047e7593d"
+  },
+  "docs/ode/examples.md": {
+    "mtime": 1781025607033.4377,
+    "hash": "b606cd3f3ba990cf7decb4e5f2fe9a71"
+  },
+  "docs/ode/index.md": {
+    "mtime": 1781025607033.4377,
+    "hash": "fb517b1deb5ff16512e173647bf757ee"
+  },
+  "docs/ode/math.md": {
+    "mtime": 1781025607033.4377,
+    "hash": "be004b1f5c07b63642603b44c6ebae2b"
+  },
+  "docs/ode/methods.md": {
+    "mtime": 1781025607033.4377,
+    "hash": "0251ec9b9bd4ede23c16b7d199483438"
+  },
+  "docs/tutorials/index.md": {
+    "mtime": 1781429226999.3694,
+    "hash": "4f97fbd4f537ab5b418e5229299ce1f9"
+  },
+  "docs/tutorials/three_body.md": {
+    "mtime": 1781429226999.3694,
+    "hash": "76a5c2f222a6fe3a0f73724932ff2983"
+  },
+  "docs/tutorials/two_body.md": {
+    "mtime": 1781429226999.3694,
+    "hash": "01061e8b12ae4f3929dae41a6698b92b"
+  },
+  "docs/tutorials/two_body_refine.md": {
+    "mtime": 1781429227003.3694,
+    "hash": "6a26fbe9b1303abef5d6dcfb15666a3f"
+  },
+  "examples/CMakeLists.txt": {
+    "mtime": 1781429227003.3694,
+    "hash": "b46048173024aa788223bebb82ecbeec"
+  },
+  "mkdocs.yml": {
+    "mtime": 1781429227015.3694,
+    "hash": "ff73ad4836e2b3d465020d54e437471c"
+  },
+  "tests/CMakeLists.txt": {
+    "mtime": 1781429227015.3694,
+    "hash": "71c117383573d9578bc35cae077c7808"
+  },
+  "tests/ode/CMakeLists.txt": {
+    "mtime": 1781025607067.3074,
+    "hash": "7a4467769a829ff2dda4b1507cf00f47"
+  },
+  "tests/regression/CMakeLists.txt": {
+    "mtime": 1781025607074.0562,
+    "hash": "6bf25611aadb24a563ab820e6d2d3eaf"
+  },
+  "docs/tutorials/img/three_body_ads.png": {
+    "mtime": 1781429226956.6648,
+    "hash": "aecc440a216913da4d9dfae3ddc0be86"
+  },
+  "docs/tutorials/img/three_body_flow.png": {
+    "mtime": 1781429226958.2778,
+    "hash": "2ac3d229ae42cfc17860ebd7209e009d"
+  },
+  "docs/tutorials/img/three_body_leaves.png": {
+    "mtime": 1781429226958.2778,
+    "hash": "f2f585b4b6a009c4865deba91af4a66f"
+  },
+  "docs/tutorials/img/two_body_ads.png": {
+    "mtime": 1781429226958.2778,
+    "hash": "49f9911d100c49549fd23a375cc6f52f"
+  },
+  "docs/tutorials/img/two_body_ads_orbit.png": {
+    "mtime": 1781429226959.3694,
+    "hash": "2c7cfae5ed41994d82e443b7673a17fd"
+  },
+  "docs/tutorials/img/two_body_flow.png": {
+    "mtime": 1781429226959.3694,
+    "hash": "f6af47ba9befdf315fef7b6ebf1959ab"
+  },
+  "docs/tutorials/img/two_body_leaves.png": {
+    "mtime": 1781429226959.3694,
+    "hash": "d372075a9654c0623535bbd268421877"
+  },
+  "docs/tutorials/img/two_body_refine.gif": {
+    "mtime": 1781429226971.3694,
+    "hash": "5bd7264f19c0d98a5e68ba76b91f79f6"
+  },
+  "docs/tutorials/img/two_body_refine_big.gif": {
+    "mtime": 1781429226991.3694,
+    "hash": "23b9acff6a324df75e0f86a2dc2dba09"
+  },
+  "docs/tutorials/img/two_body_refine_big_convergence.png": {
+    "mtime": 1781429226991.3694,
+    "hash": "89524c5597b344ecbccd8c14a9af47f5"
+  },
+  "docs/tutorials/img/two_body_refine_big_regions.png": {
+    "mtime": 1781429226995.3694,
+    "hash": "6ea00d67b46995519696c888a8933777"
+  },
+  "docs/tutorials/img/two_body_refine_convergence.png": {
+    "mtime": 1781429226999.3694,
+    "hash": "010320ae80875eac5b970b020cbbf828"
+  },
+  "docs/tutorials/img/two_body_refine_regions.png": {
+    "mtime": 1781429226999.3694,
+    "hash": "d99e4a1c1d6d48bf29f2ab491cf33699"
+  }
+}
