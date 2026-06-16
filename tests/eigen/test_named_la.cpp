@@ -28,7 +28,7 @@ TEST( NamedLa, ExpansionIsUsableAsEigenScalar )
     // element-wise Eigen arithmetic (relies on Eigen::NumTraits<Expansion>).
     Eigen::Matrix< NEpx, 2, 1 > v;
     v( 0 ) = x[0] * p[0];
-    v( 1 ) = x[1] + 0.0 * p[0] + 1.0;  // force the {p, x} axis set
+    v( 1 ) = x[1] + 1.0;  // {x}-only value promotes implicitly into the {p, x} slot
 
     Eigen::Matrix< NEpx, 2, 1 > w = v + v;  // element-wise scalar operator+
     EXPECT_DOUBLE_EQ( w( 1 ).value(), 2.0 );
@@ -76,7 +76,7 @@ TEST( NamedLa, JacobianByAxis )
 
     Eigen::Matrix< NEpx, 2, 1 > F;
     F( 0 ) = x[0] * p[0];
-    F( 1 ) = x[1] * x[1] + 0.0 * p[0];  // force the {p,x} axis set to match F(0)
+    F( 1 ) = x[1] * x[1];  // {x}-only value promotes implicitly into the {p, x} slot
 
     auto J = jacobian< "x" >( F );  // [[dF0/dx0, dF0/dx1],[dF1/dx0, dF1/dx1]]
     ASSERT_EQ( J.rows(), 2 );

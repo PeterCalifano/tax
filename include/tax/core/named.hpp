@@ -257,6 +257,15 @@ struct IsCanonical< TypeList< A0, A1, Rest... > >
 {
 };
 
+/// @brief True if every axis of `Sub` is present in `Super` with the same dim.
+template < typename Sub, typename Super >
+struct IsSubsetOf;
+template < typename Super, typename... Bs >
+struct IsSubsetOf< TypeList< Bs... >, Super >
+    : std::bool_constant< ( ( DimOfName< Super, Bs::name >::value == Bs::dim ) && ... ) >
+{
+};
+
 // --- Source -> target variable index map -----------------------------------
 
 template < typename Tgt, bool allowDrop, typename... SrcAxes >
@@ -352,6 +361,23 @@ class Expansion
 
     /// @brief Wrap an existing anonymous expansion carrying these axes.
     explicit constexpr Expansion( const Inner& inner ) noexcept : inner_{ inner } {}
+
+    /**
+     * @brief Implicit promotion from an expansion over a subset of these axes.
+     *
+     * A value that depends on fewer axes embeds into this (wider) axis set
+     * automatically, so e.g. an `{x}` value can be assigned where an `{x, p}`
+     * value is expected — no manual `+ 0 * p` padding required.  The promotion
+     * is the value-preserving multi-index embedding (absent axes get zero
+     * exponents).
+     */
+    template < typename... B >
+        requires( !std::is_same_v< detail::TypeList< B... >, axis_list > &&
+                  detail::IsSubsetOf< detail::TypeList< B... >, axis_list >::value )
+    /*implicit*/ constexpr Expansion( const Expansion< T, N, B... >& other ) noexcept
+        : inner_{ other.template embed< Expansion >().inner() }
+    {
+    }
 
     // ------------------------------------------------------------------
     // Coordinate variables

@@ -344,6 +344,29 @@ TEST( NamedCore, ConstantExpansionAndValue )
     EXPECT_DOUBLE_EQ( ( f.inner().coeff< 1, 0 >() ), 1.0 );
 }
 
+TEST( NamedCore, ImplicitPromotionFromSubsetAxes )
+{
+    auto x = variables< "x", N >( std::array< double, 2 >{ 0.0, 0.0 } );
+    auto p = variables< "p", N >( std::array< double, 1 >{ 0.0 } );
+
+    using Joint = Expansion< double, N, PAxis, XAxis >;
+
+    // An {x}-only value is implicitly convertible to the wider {p, x} type;
+    // no explicit "+ 0 * p" padding required.
+    static_assert( std::is_convertible_v< decltype( x[1] + 1.0 ), Joint > );
+    static_assert( !std::is_convertible_v< Joint, decltype( x[1] ) > );  // not the other way
+
+    Joint j = x[1] + 1.0;  // promotes {x} -> {p, x}
+    EXPECT_DOUBLE_EQ( j.value(), 1.0 );
+    EXPECT_DOUBLE_EQ( ( j.inner().coeff< 0, 0, 1 >() ), 1.0 );  // dx1 survives
+    EXPECT_DOUBLE_EQ( ( j.inner().coeff< 1, 0, 0 >() ), 0.0 );  // no p dependence
+
+    // Mixed arithmetic where one side is already wide also works without help.
+    Joint k = ( x[0] * p[0] ) + x[1];                           // {p,x} + {x} -> {p,x}
+    EXPECT_DOUBLE_EQ( ( k.inner().coeff< 1, 1, 0 >() ), 1.0 );  // p0*x0
+    EXPECT_DOUBLE_EQ( ( k.inner().coeff< 0, 0, 1 >() ), 1.0 );  // x1
+}
+
 TEST( NamedCore, DerivLocalIndexWithinMultiDimAxis )
 {
     using X3 = Axis< "x", 3 >;
