@@ -1,6 +1,6 @@
 // tests/eigen/test_named_la.cpp
 //
-// Eigen integration for tax::named: NumTraits (Expansion usable as an Eigen
+// Eigen integration for tax::named: NumTraits (NamedTaylorExpansion usable as an Eigen
 // scalar) and the per-axis gradient/hessian/jacobian helpers.
 
 #include <gtest/gtest.h>
@@ -16,7 +16,7 @@ namespace
 constexpr int O = 3;
 using XAxis = Axis< "x", 2 >;
 using PAxis = Axis< "p", 1 >;
-using NEpx = Expansion< double, O, PAxis, XAxis >;
+using NEpx = NamedTaylorExpansion< double, O, PAxis, XAxis >;
 }  // namespace
 
 TEST( NamedLa, ExpansionIsUsableAsEigenScalar )
@@ -25,7 +25,7 @@ TEST( NamedLa, ExpansionIsUsableAsEigenScalar )
     auto p = variables< "p", O >( std::array< double, 1 >{ 0.0 } );
 
     // Build an Eigen vector whose scalar is a named expansion and exercise
-    // element-wise Eigen arithmetic (relies on Eigen::NumTraits<Expansion>).
+    // element-wise Eigen arithmetic (relies on Eigen::NumTraits<NamedTaylorExpansion>).
     Eigen::Matrix< NEpx, 2, 1 > v;
     v( 0 ) = x[0] * p[0];
     v( 1 ) = x[1] + 1.0;  // {x}-only value promotes implicitly into the {p, x} slot

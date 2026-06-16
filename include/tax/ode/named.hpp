@@ -17,9 +17,9 @@ namespace tax::ode
 {
 
 template < class T, int N, typename... Axes >
-struct VectorOps< tax::named::Expansion< T, N, Axes... > >
+struct VectorOps< tax::named::NamedTaylorExpansion< T, N, Axes... > >
 {
-    using S = tax::named::Expansion< T, N, Axes... >;
+    using S = tax::named::NamedTaylorExpansion< T, N, Axes... >;
     static constexpr std::size_t nc = S::Inner::nCoefficients;
 
     [[nodiscard]] static double norm( const S& x ) noexcept

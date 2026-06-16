@@ -4,7 +4,7 @@
 //
 // Named, sliceable, composable Taylor expansions (dense, static case).
 //
-// A `tax::named::Expansion< T, N, Axes... >` wraps a dense
+// A `tax::named::NamedTaylorExpansion< T, N, Axes... >` wraps a dense
 // `TaylorExpansion< T, N, M >` and attaches a compile-time list of *named
 // axes* to it.  Each axis is a contiguous block of the underlying M
 // variables identified by a compile-time string (`Axis< "x", 3 >`).
@@ -22,7 +22,7 @@
 //               keeping the monomials that do not depend on the dropped axes
 //               (i.e. restricting the dropped axes to their expansion point).
 //
-// The axis list of every `Expansion` is kept in canonical order (sorted by
+// The axis list of every `NamedTaylorExpansion` is kept in canonical order (sorted by
 // name, unique), so `x * p` and `p * x` produce the *same* type.
 
 #include <array>
@@ -306,18 +306,18 @@ template < typename Src, typename Tgt, bool allowDrop >
 // Forward declaration so `detail::Rebind` can name the named type.
 template < typename T, int N, typename... Axes >
     requires Scalar< T >
-class Expansion;
+class NamedTaylorExpansion;
 
 namespace detail
 {
 
-/// @brief Rebind a `TypeList` of axes into an `Expansion< T, N, Axes... >`.
+/// @brief Rebind a `TypeList` of axes into an `NamedTaylorExpansion< T, N, Axes... >`.
 template < typename T, int N, typename List >
 struct Rebind;
 template < typename T, int N, typename... Axes >
 struct Rebind< T, N, TypeList< Axes... > >
 {
-    using type = Expansion< T, N, Axes... >;
+    using type = NamedTaylorExpansion< T, N, Axes... >;
 };
 
 /// @brief The named type over the merged (union) axis set of two operands.
@@ -327,19 +327,19 @@ using MergedExpansion = typename Rebind< T, N, typename Merge< ListA, ListB >::t
 }  // namespace detail
 
 // ---------------------------------------------------------------------------
-// Expansion — a named Taylor expansion
+// NamedTaylorExpansion — a named Taylor expansion
 // ---------------------------------------------------------------------------
 
 template < typename T, int N, typename... Axes >
     requires Scalar< T >
-class Expansion
+class NamedTaylorExpansion
 {
    public:
     using axis_list = detail::TypeList< Axes... >;
     using scalar_type = T;
 
     static_assert( detail::IsCanonical< axis_list >::value,
-                   "Expansion axes must be sorted by name and unique; build via "
+                   "NamedTaylorExpansion axes must be sorted by name and unique; build via "
                    "variables()/composition rather than spelling them by hand" );
 
     /// @brief Number of underlying variables (sum of axis dimensions).
@@ -354,13 +354,13 @@ class Expansion
     // Constructors
     // ------------------------------------------------------------------
 
-    constexpr Expansion() noexcept = default;
+    constexpr NamedTaylorExpansion() noexcept = default;
 
     /// @brief Constant expansion (value in every axis direction is flat).
-    /*implicit*/ constexpr Expansion( T v ) noexcept : inner_{ v } {}
+    /*implicit*/ constexpr NamedTaylorExpansion( T v ) noexcept : inner_{ v } {}
 
     /// @brief Wrap an existing anonymous expansion carrying these axes.
-    explicit constexpr Expansion( const Inner& inner ) noexcept : inner_{ inner } {}
+    explicit constexpr NamedTaylorExpansion( const Inner& inner ) noexcept : inner_{ inner } {}
 
     /**
      * @brief Implicit promotion from an expansion over a subset of these axes.
@@ -374,8 +374,9 @@ class Expansion
     template < typename... B >
         requires( !std::is_same_v< detail::TypeList< B... >, axis_list > &&
                   detail::IsSubsetOf< detail::TypeList< B... >, axis_list >::value )
-    /*implicit*/ constexpr Expansion( const Expansion< T, N, B... >& other ) noexcept
-        : inner_{ other.template embed< Expansion >().inner() }
+    /*implicit*/ constexpr NamedTaylorExpansion(
+        const NamedTaylorExpansion< T, N, B... >& other ) noexcept
+        : inner_{ other.template embed< NamedTaylorExpansion >().inner() }
     {
     }
 
@@ -389,10 +390,10 @@ class Expansion
      * Equivalent to `Inner::variable<I>(p)` lifted into the named type.
      */
     template < int I >
-    [[nodiscard]] static constexpr Expansion variable( const Input& p ) noexcept
+    [[nodiscard]] static constexpr NamedTaylorExpansion variable( const Input& p ) noexcept
         requires( I >= 0 && I < vars_v )
     {
-        return Expansion{ Inner::template variable< I >( p ) };
+        return NamedTaylorExpansion{ Inner::template variable< I >( p ) };
     }
 
     // ------------------------------------------------------------------
@@ -508,9 +509,9 @@ class Expansion
      * p-derivative of `f` viewed as a function of `x` at the expansion point.
      */
     template < FixedString Name, int Local = 0 >
-    [[nodiscard]] constexpr Expansion deriv() const noexcept
+    [[nodiscard]] constexpr NamedTaylorExpansion deriv() const noexcept
     {
-        return Expansion{ inner_.template deriv< axisVar< Name, Local >() >() };
+        return NamedTaylorExpansion{ inner_.template deriv< axisVar< Name, Local >() >() };
     }
 
     /**
@@ -520,9 +521,9 @@ class Expansion
      * (degree-`N` terms are dropped, matching `TaylorExpansion::integ`).
      */
     template < FixedString Name, int Local = 0 >
-    [[nodiscard]] constexpr Expansion integ() const noexcept
+    [[nodiscard]] constexpr NamedTaylorExpansion integ() const noexcept
     {
-        return Expansion{ inner_.template integ< axisVar< Name, Local >() >() };
+        return NamedTaylorExpansion{ inner_.template integ< axisVar< Name, Local >() >() };
     }
 
    private:
@@ -535,8 +536,9 @@ class Expansion
 
 #define TAX_NAMED_BINARY_OP( OP )                                                                \
     template < typename T, int N, typename... A, typename... B >                                 \
-    [[nodiscard]] constexpr auto operator OP( const Expansion< T, N, A... >& a,                  \
-                                              const Expansion< T, N, B... >& b ) noexcept        \
+    [[nodiscard]] constexpr auto operator OP(                                                    \
+        const NamedTaylorExpansion< T, N, A... >& a,                                             \
+        const NamedTaylorExpansion< T, N, B... >& b ) noexcept                                   \
     {                                                                                            \
         using R =                                                                                \
             detail::MergedExpansion< T, N, detail::TypeList< A... >, detail::TypeList< B... > >; \
@@ -552,12 +554,12 @@ TAX_NAMED_BINARY_OP( / )
 
 // --- Scalar combinations (axis set unchanged) ------------------------------
 
-#define TAX_NAMED_SCALAR_OP( OP )                                                \
-    template < typename T, int N, typename... A >                                \
-    [[nodiscard]] constexpr Expansion< T, N, A... > operator OP(                 \
-        const Expansion< T, N, A... >& a, std::type_identity_t< T > s ) noexcept \
-    {                                                                            \
-        return Expansion< T, N, A... >{ a.inner() OP s };                        \
+#define TAX_NAMED_SCALAR_OP( OP )                                                           \
+    template < typename T, int N, typename... A >                                           \
+    [[nodiscard]] constexpr NamedTaylorExpansion< T, N, A... > operator OP(                 \
+        const NamedTaylorExpansion< T, N, A... >& a, std::type_identity_t< T > s ) noexcept \
+    {                                                                                       \
+        return NamedTaylorExpansion< T, N, A... >{ a.inner() OP s };                        \
     }
 
 TAX_NAMED_SCALAR_OP( +)
@@ -568,31 +570,31 @@ TAX_NAMED_SCALAR_OP( / )
 #undef TAX_NAMED_SCALAR_OP
 
 template < typename T, int N, typename... A >
-[[nodiscard]] constexpr Expansion< T, N, A... > operator+(
-    std::type_identity_t< T > s, const Expansion< T, N, A... >& a ) noexcept
+[[nodiscard]] constexpr NamedTaylorExpansion< T, N, A... > operator+(
+    std::type_identity_t< T > s, const NamedTaylorExpansion< T, N, A... >& a ) noexcept
 {
     return a + s;
 }
 
 template < typename T, int N, typename... A >
-[[nodiscard]] constexpr Expansion< T, N, A... > operator*(
-    std::type_identity_t< T > s, const Expansion< T, N, A... >& a ) noexcept
+[[nodiscard]] constexpr NamedTaylorExpansion< T, N, A... > operator*(
+    std::type_identity_t< T > s, const NamedTaylorExpansion< T, N, A... >& a ) noexcept
 {
     return a * s;
 }
 
 template < typename T, int N, typename... A >
-[[nodiscard]] constexpr Expansion< T, N, A... > operator-(
-    std::type_identity_t< T > s, const Expansion< T, N, A... >& a ) noexcept
+[[nodiscard]] constexpr NamedTaylorExpansion< T, N, A... > operator-(
+    std::type_identity_t< T > s, const NamedTaylorExpansion< T, N, A... >& a ) noexcept
 {
-    return Expansion< T, N, A... >{ s - a.inner() };
+    return NamedTaylorExpansion< T, N, A... >{ s - a.inner() };
 }
 
 template < typename T, int N, typename... A >
-[[nodiscard]] constexpr Expansion< T, N, A... > operator-(
-    const Expansion< T, N, A... >& a ) noexcept
+[[nodiscard]] constexpr NamedTaylorExpansion< T, N, A... > operator-(
+    const NamedTaylorExpansion< T, N, A... >& a ) noexcept
 {
-    return Expansion< T, N, A... >{ -a.inner() };
+    return NamedTaylorExpansion< T, N, A... >{ -a.inner() };
 }
 
 // ---------------------------------------------------------------------------
@@ -602,11 +604,12 @@ template < typename T, int N, typename... A >
 // Each wrapper applies the corresponding `tax::` series function to the inner
 // anonymous expansion and rewraps the result with the same axis list, so
 // transcendental functions of named expansions keep their named structure.
-#define TAX_NAMED_UNARY_FN( FN )                                                          \
-    template < typename T, int N, typename... A >                                         \
-    [[nodiscard]] Expansion< T, N, A... > FN( const Expansion< T, N, A... >& a ) noexcept \
-    {                                                                                     \
-        return Expansion< T, N, A... >{ tax::FN( a.inner() ) };                           \
+#define TAX_NAMED_UNARY_FN( FN )                                           \
+    template < typename T, int N, typename... A >                          \
+    [[nodiscard]] NamedTaylorExpansion< T, N, A... > FN(                   \
+        const NamedTaylorExpansion< T, N, A... >& a ) noexcept             \
+    {                                                                      \
+        return NamedTaylorExpansion< T, N, A... >{ tax::FN( a.inner() ) }; \
     }
 
 TAX_NAMED_UNARY_FN( square )
@@ -646,13 +649,13 @@ TAX_NAMED_UNARY_FN( erf )
  *
  * @tparam Name  Axis name.
  * @tparam N     Truncation order.
- * @param  x0    Expansion point for the `D` coordinates.
+ * @param  x0    NamedTaylorExpansion point for the `D` coordinates.
  */
 template < FixedString Name, int N, typename T, std::size_t D >
 [[nodiscard]] constexpr auto variables( const std::array< T, D >& x0 ) noexcept
 {
     using Ax = Axis< Name, int( D ) >;
-    using E = Expansion< T, N, Ax >;
+    using E = NamedTaylorExpansion< T, N, Ax >;
     std::array< E, D > out{};
     [&]< std::size_t... I >( std::index_sequence< I... > ) {
         ( ( out[I] = E::template variable< int( I ) >( x0 ) ), ... );
@@ -666,6 +669,6 @@ template < FixedString Name, int N, typename T, std::size_t D >
 
 /// @brief `NE< N, Axes... >` — double-valued named expansion of order N.
 template < int N, typename... Axes >
-using NE = Expansion< double, N, Axes... >;
+using NE = NamedTaylorExpansion< double, N, Axes... >;
 
 }  // namespace tax::named

@@ -2,7 +2,7 @@
 //
 // Eigen integration for the named-axis layer (tax::named):
 //
-//   1. Eigen::NumTraits< tax::named::Expansion<...> > — lets a named
+//   1. Eigen::NumTraits< tax::named::NamedTaylorExpansion<...> > — lets a named
 //      expansion act as a first-class Eigen scalar, so
 //      Eigen::Matrix< NE<...>, D, 1 > works (and, with the ODE
 //      VectorOps specialization, can be integrated as an ODE state).
@@ -30,9 +30,9 @@ namespace Eigen
 {
 
 template < typename T, int N, typename... Axes >
-struct NumTraits< tax::named::Expansion< T, N, Axes... > > : NumTraits< T >
+struct NumTraits< tax::named::NamedTaylorExpansion< T, N, Axes... > > : NumTraits< T >
 {
-    using Self = tax::named::Expansion< T, N, Axes... >;
+    using Self = tax::named::NamedTaylorExpansion< T, N, Axes... >;
     using Real = Self;
     using NonInteger = Self;
     using Nested = Self;
@@ -82,9 +82,9 @@ inline constexpr int axisDim = DimOfName< typename E::axis_list, Name >::value;
  * evaluated at the expansion point.
  */
 template < FixedString Name, typename T, int N, typename... Axes >
-[[nodiscard]] auto gradient( const Expansion< T, N, Axes... >& f ) noexcept
+[[nodiscard]] auto gradient( const NamedTaylorExpansion< T, N, Axes... >& f ) noexcept
 {
-    using E = Expansion< T, N, Axes... >;
+    using E = NamedTaylorExpansion< T, N, Axes... >;
     constexpr int dim = detail::axisDim< E, Name >;
     static_assert( dim >= 1, "gradient<Name>(): axis name not present in this expansion" );
     constexpr int off = detail::axisOffset< E, Name >;
@@ -107,9 +107,9 @@ template < FixedString Name, typename T, int N, typename... Axes >
  * `d^2 f / (dx_i dx_j)` over the coordinates of axis `Name`.
  */
 template < FixedString Name, typename T, int N, typename... Axes >
-[[nodiscard]] auto hessian( const Expansion< T, N, Axes... >& f ) noexcept
+[[nodiscard]] auto hessian( const NamedTaylorExpansion< T, N, Axes... >& f ) noexcept
 {
-    using E = Expansion< T, N, Axes... >;
+    using E = NamedTaylorExpansion< T, N, Axes... >;
     constexpr int dim = detail::axisDim< E, Name >;
     static_assert( dim >= 1, "hessian<Name>(): axis name not present in this expansion" );
     constexpr int off = detail::axisOffset< E, Name >;
@@ -131,7 +131,7 @@ template < FixedString Name, typename T, int N, typename... Axes >
 /**
  * @brief Jacobian of a vector of named expansions w.r.t. one named axis.
  *
- * @param F  Eigen column vector of `Expansion<T, N, Axes...>` with `K` rows.
+ * @param F  Eigen column vector of `NamedTaylorExpansion<T, N, Axes...>` with `K` rows.
  * @return   `Eigen::Matrix<T, K, dim>` with `J(i, j) = dF_i / dx_j` over the
  *           coordinates of axis `Name`.
  */

@@ -1,7 +1,7 @@
 // tests/ode/test_named_state.cpp
 //
 // Named expansions (tax::named) as ODE state scalars. Exercises the
-// VectorOps<Expansion> specialization + Eigen::NumTraits<Expansion> by
+// VectorOps<NamedTaylorExpansion> specialization + Eigen::NumTraits<NamedTaylorExpansion> by
 // integrating Eigen vectors of named expansions and checking the resulting
 // Taylor coefficients against closed-form sensitivities.
 
@@ -24,7 +24,7 @@ constexpr double kHw = 1e-3;
 // --- Harmonic oscillator with a named initial-condition axis ---------------
 
 using DaAxis = Axis< "da", 2 >;  // the 2 IC perturbation variables
-using NEda = Expansion< double, kP, DaAxis >;
+using NEda = NamedTaylorExpansion< double, kP, DaAxis >;
 using StateH = tax::la::VecNT< 2, NEda >;
 
 StateH make_harmonic_ic()
@@ -39,7 +39,7 @@ StateH make_harmonic_ic()
 // --- Linear growth x' = a x with a named parameter axis --------------------
 
 using AAxis = Axis< "a", 1 >;
-using NEa = Expansion< double, kP, AAxis >;
+using NEa = NamedTaylorExpansion< double, kP, AAxis >;
 using StateP = tax::la::VecNT< 1, NEa >;
 
 }  // namespace

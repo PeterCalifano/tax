@@ -19,7 +19,8 @@ using PAxis = Axis< "p", 1 >;
 TEST( Named, VariablesCarrySingleAxis )
 {
     auto x = variables< "x", N >( std::array< double, 2 >{ 1.0, 2.0 } );
-    static_assert( std::is_same_v< decltype( x )::value_type, Expansion< double, N, XAxis > > );
+    static_assert(
+        std::is_same_v< decltype( x )::value_type, NamedTaylorExpansion< double, N, XAxis > > );
 
     // x[0] = 1 + dx0 ; x[1] = 2 + dx1
     EXPECT_DOUBLE_EQ( x[0].value(), 1.0 );
@@ -36,7 +37,7 @@ TEST( Named, ComposeTakesUnionOfAxes )
     // f = x0 * p0  — depends on both axes -> type is over {p, x} (canonical sort).
     auto f = x[0] * p[0];
     using F = decltype( f );
-    static_assert( std::is_same_v< F, Expansion< double, N, PAxis, XAxis > > );
+    static_assert( std::is_same_v< F, NamedTaylorExpansion< double, N, PAxis, XAxis > > );
     static_assert( F::vars_v == 3 );
 
     // In the joint {p(0), x(1,2)} layout the cross term p0*x0 has coefficient 1.
@@ -59,7 +60,7 @@ TEST( Named, EmbedIsValuePreserving )
     auto p = variables< "p", N >( std::array< double, 1 >{ 0.0 } );
 
     // Promote x[0] (over {x}) into the joint {p,x} space; value & x-coeffs survive.
-    using Joint = Expansion< double, N, PAxis, XAxis >;
+    using Joint = NamedTaylorExpansion< double, N, PAxis, XAxis >;
     auto x0_joint = x[0].embed< Joint >();
     EXPECT_DOUBLE_EQ( x0_joint.value(), 3.0 );
     EXPECT_DOUBLE_EQ( ( x0_joint.inner().coeff< 0, 1, 0 >() ), 1.0 );  // dx0
@@ -75,7 +76,7 @@ TEST( Named, SliceProjectsOntoSubset )
     // g = x0 + p0 ; slicing to {x} restricts p to its expansion point (p0 = 5).
     auto g = x[0] + p[0];
     auto gx = g.template slice< "x" >();
-    static_assert( std::is_same_v< decltype( gx ), Expansion< double, N, XAxis > > );
+    static_assert( std::is_same_v< decltype( gx ), NamedTaylorExpansion< double, N, XAxis > > );
 
     // g(x, p0=5) = (1 + dx0) + 5  -> value 6, dx0 coeff 1, no p term remains.
     EXPECT_DOUBLE_EQ( gx.value(), 6.0 );
@@ -99,7 +100,7 @@ TEST( Named, ScalarOpsKeepAxisSet )
 {
     auto x = variables< "x", N >( std::array< double, 2 >{ 0.0, 0.0 } );
     auto f = 2.0 * x[0] + 1.0;
-    static_assert( std::is_same_v< decltype( f ), Expansion< double, N, XAxis > > );
+    static_assert( std::is_same_v< decltype( f ), NamedTaylorExpansion< double, N, XAxis > > );
     EXPECT_DOUBLE_EQ( f.value(), 1.0 );
     EXPECT_DOUBLE_EQ( ( f.inner().coeff< 1, 0 >() ), 2.0 );
 }
@@ -132,7 +133,8 @@ TEST( Named, UnaryMathPreservesAxesAndMatchesAnonymous )
     auto p = variables< "p", N >( std::array< double, 1 >{ -0.2 } );
 
     auto g = exp( x[0] + p[0] );
-    static_assert( std::is_same_v< decltype( g ), Expansion< double, N, PAxis, XAxis > > );
+    static_assert(
+        std::is_same_v< decltype( g ), NamedTaylorExpansion< double, N, PAxis, XAxis > > );
 
     using TE = tax::TE< N, 3 >;
     typename TE::Input pt{ -0.2, 0.3, 0.0 };
@@ -151,7 +153,8 @@ TEST( Named, DerivByAxisName )
     auto f = x[0] * x[0] + 3.0 * p[0];
     auto fx = f.template deriv< "x", 0 >();
     auto fp = f.template deriv< "p" >();
-    static_assert( std::is_same_v< decltype( fx ), Expansion< double, N, PAxis, XAxis > > );
+    static_assert(
+        std::is_same_v< decltype( fx ), NamedTaylorExpansion< double, N, PAxis, XAxis > > );
 
     // d/dx0 (x0^2) has linear coefficient 2 in x0.
     EXPECT_DOUBLE_EQ( ( fx.inner().coeff< 0, 1, 0 >() ), 2.0 );
@@ -168,7 +171,7 @@ TEST( Named, SubDerivativeViaDerivThenSlice )
 
     auto f = x[0] * p[0] + x[1];
     auto dfx = f.template deriv< "p" >().template slice< "x" >();
-    static_assert( std::is_same_v< decltype( dfx ), Expansion< double, N, XAxis > > );
+    static_assert( std::is_same_v< decltype( dfx ), NamedTaylorExpansion< double, N, XAxis > > );
 
     // df/dp0 = x0 ; at p0 it is exactly the x0 coordinate variable.
     EXPECT_DOUBLE_EQ( dfx.value(), 0.0 );
@@ -207,8 +210,8 @@ TEST( NamedCore, ThreeAxisCanonicalOrderingAllPermutations )
     auto c = variables< "c", N >( std::array< double, 1 >{ 0.0 } );
 
     // Every association/order of the three single-axis variables yields the
-    // same canonical type Expansion<double, N, a, b, c>.
-    using Canon = Expansion< double, N, AAxis, BAxis, CAxis >;
+    // same canonical type NamedTaylorExpansion<double, N, a, b, c>.
+    using Canon = NamedTaylorExpansion< double, N, AAxis, BAxis, CAxis >;
     static_assert( std::is_same_v< decltype( a[0] * b[0] * c[0] ), Canon > );
     static_assert( std::is_same_v< decltype( c[0] * a[0] * b[0] ), Canon > );
     static_assert( std::is_same_v< decltype( b[0] * c[0] * a[0] ), Canon > );
@@ -224,7 +227,7 @@ TEST( NamedCore, MultiDimAxisEmbedPreservesInternalOrder )
     auto x = variables< "x", N >( std::array< double, 3 >{ 0.0, 0.0, 0.0 } );
 
     auto f = x[0] + 10.0 * x[1] + 100.0 * x[2];  // over {x}
-    using Joint = Expansion< double, N, PAxis, X3 >;
+    using Joint = NamedTaylorExpansion< double, N, PAxis, X3 >;
     auto fe = f.embed< Joint >();  // layout: p(0), x0(1), x1(2), x2(3)
 
     EXPECT_DOUBLE_EQ( ( fe.inner().coeff< 0, 1, 0, 0 >() ), 1.0 );
@@ -239,7 +242,7 @@ TEST( NamedCore, SharedAxisUnifiedNotDuplicated )
     auto x = variables< "x", N >( std::array< double, 2 >{ 0.0, 0.0 } );
 
     auto g = ( 1.0 + x[0] ) * ( 1.0 + x[1] );
-    static_assert( std::is_same_v< decltype( g ), Expansion< double, N, XAxis > > );
+    static_assert( std::is_same_v< decltype( g ), NamedTaylorExpansion< double, N, XAxis > > );
     static_assert( decltype( g )::vars_v == 2 );
 
     using TE = tax::TE< N, 2 >;
@@ -257,7 +260,8 @@ TEST( NamedCore, SharedAxisAcrossThreeWayMix )
 
     auto b = x[0] * p[0];  // {p, x}
     auto h = b * x[1];     // still {p, x}
-    static_assert( std::is_same_v< decltype( h ), Expansion< double, N, PAxis, XAxis > > );
+    static_assert(
+        std::is_same_v< decltype( h ), NamedTaylorExpansion< double, N, PAxis, XAxis > > );
     // p^1 x0^1 x1^1 is degree 3 > N==2, so it truncates to zero — a good check
     // that the shared-axis path respects the order ceiling.
     EXPECT_DOUBLE_EQ( h.value(), 0.0 );
@@ -271,7 +275,8 @@ TEST( NamedCore, DivisionMatchesAnonymous )
     auto p = variables< "p", N >( std::array< double, 1 >{ -0.1 } );
 
     auto f = ( 1.0 + x[0] ) / ( 2.0 + p[0] );
-    static_assert( std::is_same_v< decltype( f ), Expansion< double, N, PAxis, XAxis > > );
+    static_assert(
+        std::is_same_v< decltype( f ), NamedTaylorExpansion< double, N, PAxis, XAxis > > );
 
     using TE = tax::TE< N, 3 >;
     typename TE::Input pt{ -0.1, 0.2, 0.0 };
@@ -286,7 +291,8 @@ TEST( NamedCore, SubtractionAndUnaryMinus )
     auto p = variables< "p", N >( std::array< double, 1 >{ 0.0 } );
 
     auto d = x[0] - p[0];
-    static_assert( std::is_same_v< decltype( d ), Expansion< double, N, PAxis, XAxis > > );
+    static_assert(
+        std::is_same_v< decltype( d ), NamedTaylorExpansion< double, N, PAxis, XAxis > > );
     EXPECT_DOUBLE_EQ( ( d.inner().coeff< 0, 1, 0 >() ), 1.0 );   // +dx0
     EXPECT_DOUBLE_EQ( ( d.inner().coeff< 1, 0, 0 >() ), -1.0 );  // -dp0
 
@@ -306,11 +312,13 @@ TEST( NamedCore, SliceMultipleNamesKeepsCrossTerms )
     auto c = variables< "c", N >( std::array< double, 1 >{ 7.0 } );
 
     auto f = a[0] + 2.0 * b[0] + 3.0 * c[0] + a[0] * b[0];  // over {a, b, c}
-    static_assert( std::is_same_v< decltype( f ), Expansion< double, N, AAxis, BAxis, CAxis > > );
+    static_assert(
+        std::is_same_v< decltype( f ), NamedTaylorExpansion< double, N, AAxis, BAxis, CAxis > > );
 
     // Drop c (restrict to c0 = 7); keep the a*b cross term.
     auto fab = f.template slice< "a", "b" >();
-    static_assert( std::is_same_v< decltype( fab ), Expansion< double, N, AAxis, BAxis > > );
+    static_assert(
+        std::is_same_v< decltype( fab ), NamedTaylorExpansion< double, N, AAxis, BAxis > > );
 
     EXPECT_DOUBLE_EQ( fab.value(), 25.0 );                     // 1 + 2 + 21 + 1
     EXPECT_DOUBLE_EQ( ( fab.inner().coeff< 1, 0 >() ), 2.0 );  // da: a0 + a0*b0
@@ -328,18 +336,19 @@ TEST( NamedCore, SliceNameOrderIsCanonical )
     // Requesting axes in a non-sorted order still yields the canonical type.
     auto s1 = f.template slice< "c", "a" >();
     auto s2 = f.template slice< "a", "c" >();
-    static_assert( std::is_same_v< decltype( s1 ), Expansion< double, N, AAxis, CAxis > > );
+    static_assert(
+        std::is_same_v< decltype( s1 ), NamedTaylorExpansion< double, N, AAxis, CAxis > > );
     static_assert( std::is_same_v< decltype( s1 ), decltype( s2 ) > );
 }
 
 TEST( NamedCore, ConstantExpansionAndValue )
 {
     auto x = variables< "x", N >( std::array< double, 2 >{ 0.0, 0.0 } );
-    Expansion< double, N, XAxis > k = 5.0;  // implicit constant
+    NamedTaylorExpansion< double, N, XAxis > k = 5.0;  // implicit constant
     EXPECT_DOUBLE_EQ( k.value(), 5.0 );
 
     auto f = k + x[0];  // same axis set
-    static_assert( std::is_same_v< decltype( f ), Expansion< double, N, XAxis > > );
+    static_assert( std::is_same_v< decltype( f ), NamedTaylorExpansion< double, N, XAxis > > );
     EXPECT_DOUBLE_EQ( f.value(), 5.0 );
     EXPECT_DOUBLE_EQ( ( f.inner().coeff< 1, 0 >() ), 1.0 );
 }
@@ -349,7 +358,7 @@ TEST( NamedCore, ImplicitPromotionFromSubsetAxes )
     auto x = variables< "x", N >( std::array< double, 2 >{ 0.0, 0.0 } );
     auto p = variables< "p", N >( std::array< double, 1 >{ 0.0 } );
 
-    using Joint = Expansion< double, N, PAxis, XAxis >;
+    using Joint = NamedTaylorExpansion< double, N, PAxis, XAxis >;
 
     // An {x}-only value is implicitly convertible to the wider {p, x} type;
     // no explicit "+ 0 * p" padding required.
@@ -374,7 +383,7 @@ TEST( NamedCore, DerivLocalIndexWithinMultiDimAxis )
 
     auto f = x[2] * x[2];  // depends only on the third x coordinate
     auto d2 = f.template deriv< "x", 2 >();
-    static_assert( std::is_same_v< decltype( d2 ), Expansion< double, N, X3 > > );
+    static_assert( std::is_same_v< decltype( d2 ), NamedTaylorExpansion< double, N, X3 > > );
     EXPECT_DOUBLE_EQ( ( d2.inner().coeff< 0, 0, 1 >() ), 2.0 );  // 2*x2
     // Differentiating along an untouched coordinate gives zero.
     auto d0 = f.template deriv< "x", 0 >();
@@ -396,7 +405,8 @@ TEST( NamedCore, HighOrderThreeAxisMatchesAnonymous )
     auto q = variables< "q", O >( std::array< double, 1 >{ -0.05 } );
 
     auto f = exp( x[0] ) * ( 1.0 + p[0] * x[1] ) - sin( q[0] ) / ( 2.0 + x[0] );
-    static_assert( std::is_same_v< decltype( f ), Expansion< double, O, PAxis, QAxis, X2 > > );
+    static_assert(
+        std::is_same_v< decltype( f ), NamedTaylorExpansion< double, O, PAxis, QAxis, X2 > > );
 
     // Anonymous reference in canonical layout p(0), q(1), x0(2), x1(3).
     using TE = tax::TE< O, 4 >;
