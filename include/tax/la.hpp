@@ -14,6 +14,7 @@
 
 #include <tax/la/derivatives.hpp>
 #include <tax/la/invert.hpp>
+#include <tax/la/named.hpp>
 #include <tax/la/num_traits.hpp>
 #include <tax/la/types.hpp>
 #include <tax/la/values.hpp>

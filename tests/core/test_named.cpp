@@ -188,3 +188,218 @@ TEST( Named, DerivIntegRoundTrip )
     for ( std::size_t k = 0; k < decltype( f )::Inner::nCoefficients; ++k )
         EXPECT_DOUBLE_EQ( rt.inner()[k], f.inner()[k] ) << "coeff " << k;
 }
+
+// ===========================================================================
+// Deep core-layer coverage
+// ===========================================================================
+
+namespace
+{
+using AAxis = Axis< "a", 1 >;
+using BAxis = Axis< "b", 1 >;
+using CAxis = Axis< "c", 1 >;
+}  // namespace
+
+TEST( NamedCore, ThreeAxisCanonicalOrderingAllPermutations )
+{
+    auto a = variables< "a", N >( std::array< double, 1 >{ 0.0 } );
+    auto b = variables< "b", N >( std::array< double, 1 >{ 0.0 } );
+    auto c = variables< "c", N >( std::array< double, 1 >{ 0.0 } );
+
+    // Every association/order of the three single-axis variables yields the
+    // same canonical type Expansion<double, N, a, b, c>.
+    using Canon = Expansion< double, N, AAxis, BAxis, CAxis >;
+    static_assert( std::is_same_v< decltype( a[0] * b[0] * c[0] ), Canon > );
+    static_assert( std::is_same_v< decltype( c[0] * a[0] * b[0] ), Canon > );
+    static_assert( std::is_same_v< decltype( b[0] * c[0] * a[0] ), Canon > );
+    static_assert( std::is_same_v< decltype( ( c[0] + a[0] ) * b[0] ), Canon > );
+    static_assert( std::is_same_v< decltype( c[0] + b[0] + a[0] ), Canon > );
+    static_assert( Canon::vars_v == 3 );
+}
+
+TEST( NamedCore, MultiDimAxisEmbedPreservesInternalOrder )
+{
+    // axis "x" has 3 coordinates; embedding into {p, x} must keep their order.
+    using X3 = Axis< "x", 3 >;
+    auto x = variables< "x", N >( std::array< double, 3 >{ 0.0, 0.0, 0.0 } );
+
+    auto f = x[0] + 10.0 * x[1] + 100.0 * x[2];  // over {x}
+    using Joint = Expansion< double, N, PAxis, X3 >;
+    auto fe = f.embed< Joint >();  // layout: p(0), x0(1), x1(2), x2(3)
+
+    EXPECT_DOUBLE_EQ( ( fe.inner().coeff< 0, 1, 0, 0 >() ), 1.0 );
+    EXPECT_DOUBLE_EQ( ( fe.inner().coeff< 0, 0, 1, 0 >() ), 10.0 );
+    EXPECT_DOUBLE_EQ( ( fe.inner().coeff< 0, 0, 0, 1 >() ), 100.0 );
+    EXPECT_DOUBLE_EQ( ( fe.inner().coeff< 1, 0, 0, 0 >() ), 0.0 );  // no p dependence
+}
+
+TEST( NamedCore, SharedAxisUnifiedNotDuplicated )
+{
+    // Both operands live over {x}; the product stays over {x} (no duplication).
+    auto x = variables< "x", N >( std::array< double, 2 >{ 0.0, 0.0 } );
+
+    auto g = ( 1.0 + x[0] ) * ( 1.0 + x[1] );
+    static_assert( std::is_same_v< decltype( g ), Expansion< double, N, XAxis > > );
+    static_assert( decltype( g )::vars_v == 2 );
+
+    using TE = tax::TE< N, 2 >;
+    typename TE::Input pt{ 0.0, 0.0 };
+    auto ref = ( 1.0 + TE::variable< 0 >( pt ) ) * ( 1.0 + TE::variable< 1 >( pt ) );
+    for ( std::size_t k = 0; k < TE::nCoefficients; ++k )
+        EXPECT_DOUBLE_EQ( g.inner()[k], ref[k] ) << "coeff " << k;
+}
+
+TEST( NamedCore, SharedAxisAcrossThreeWayMix )
+{
+    // b already spans {p, x}; multiplying by another x coordinate keeps {p, x}.
+    auto x = variables< "x", N >( std::array< double, 2 >{ 0.0, 0.0 } );
+    auto p = variables< "p", N >( std::array< double, 1 >{ 0.0 } );
+
+    auto b = x[0] * p[0];  // {p, x}
+    auto h = b * x[1];     // still {p, x}
+    static_assert( std::is_same_v< decltype( h ), Expansion< double, N, PAxis, XAxis > > );
+    // p^1 x0^1 x1^1 is degree 3 > N==2, so it truncates to zero — a good check
+    // that the shared-axis path respects the order ceiling.
+    EXPECT_DOUBLE_EQ( h.value(), 0.0 );
+    for ( std::size_t k = 0; k < decltype( h )::Inner::nCoefficients; ++k )
+        EXPECT_DOUBLE_EQ( h.inner()[k], 0.0 ) << "coeff " << k;
+}
+
+TEST( NamedCore, DivisionMatchesAnonymous )
+{
+    auto x = variables< "x", N >( std::array< double, 2 >{ 0.2, 0.0 } );
+    auto p = variables< "p", N >( std::array< double, 1 >{ -0.1 } );
+
+    auto f = ( 1.0 + x[0] ) / ( 2.0 + p[0] );
+    static_assert( std::is_same_v< decltype( f ), Expansion< double, N, PAxis, XAxis > > );
+
+    using TE = tax::TE< N, 3 >;
+    typename TE::Input pt{ -0.1, 0.2, 0.0 };
+    auto ref = ( 1.0 + TE::variable< 1 >( pt ) ) / ( 2.0 + TE::variable< 0 >( pt ) );
+    for ( std::size_t k = 0; k < TE::nCoefficients; ++k )
+        EXPECT_DOUBLE_EQ( f.inner()[k], ref[k] ) << "coeff " << k;
+}
+
+TEST( NamedCore, SubtractionAndUnaryMinus )
+{
+    auto x = variables< "x", N >( std::array< double, 2 >{ 0.0, 0.0 } );
+    auto p = variables< "p", N >( std::array< double, 1 >{ 0.0 } );
+
+    auto d = x[0] - p[0];
+    static_assert( std::is_same_v< decltype( d ), Expansion< double, N, PAxis, XAxis > > );
+    EXPECT_DOUBLE_EQ( ( d.inner().coeff< 0, 1, 0 >() ), 1.0 );   // +dx0
+    EXPECT_DOUBLE_EQ( ( d.inner().coeff< 1, 0, 0 >() ), -1.0 );  // -dp0
+
+    auto n = -d;
+    EXPECT_DOUBLE_EQ( ( n.inner().coeff< 0, 1, 0 >() ), -1.0 );
+    EXPECT_DOUBLE_EQ( ( n.inner().coeff< 1, 0, 0 >() ), 1.0 );
+
+    auto r = 3.0 - x[0];  // scalar - named
+    EXPECT_DOUBLE_EQ( r.value(), 3.0 );
+    EXPECT_DOUBLE_EQ( ( r.inner().coeff< 1, 0 >() ), -1.0 );
+}
+
+TEST( NamedCore, SliceMultipleNamesKeepsCrossTerms )
+{
+    auto a = variables< "a", N >( std::array< double, 1 >{ 1.0 } );
+    auto b = variables< "b", N >( std::array< double, 1 >{ 1.0 } );
+    auto c = variables< "c", N >( std::array< double, 1 >{ 7.0 } );
+
+    auto f = a[0] + 2.0 * b[0] + 3.0 * c[0] + a[0] * b[0];  // over {a, b, c}
+    static_assert( std::is_same_v< decltype( f ), Expansion< double, N, AAxis, BAxis, CAxis > > );
+
+    // Drop c (restrict to c0 = 7); keep the a*b cross term.
+    auto fab = f.template slice< "a", "b" >();
+    static_assert( std::is_same_v< decltype( fab ), Expansion< double, N, AAxis, BAxis > > );
+
+    EXPECT_DOUBLE_EQ( fab.value(), 25.0 );                     // 1 + 2 + 21 + 1
+    EXPECT_DOUBLE_EQ( ( fab.inner().coeff< 1, 0 >() ), 2.0 );  // da: a0 + a0*b0
+    EXPECT_DOUBLE_EQ( ( fab.inner().coeff< 0, 1 >() ), 3.0 );  // db: 2*b0 + a0*b0
+    EXPECT_DOUBLE_EQ( ( fab.inner().coeff< 1, 1 >() ), 1.0 );  // da*db cross term
+}
+
+TEST( NamedCore, SliceNameOrderIsCanonical )
+{
+    auto a = variables< "a", N >( std::array< double, 1 >{ 0.0 } );
+    auto b = variables< "b", N >( std::array< double, 1 >{ 0.0 } );
+    auto c = variables< "c", N >( std::array< double, 1 >{ 0.0 } );
+    auto f = a[0] + b[0] + c[0];
+
+    // Requesting axes in a non-sorted order still yields the canonical type.
+    auto s1 = f.template slice< "c", "a" >();
+    auto s2 = f.template slice< "a", "c" >();
+    static_assert( std::is_same_v< decltype( s1 ), Expansion< double, N, AAxis, CAxis > > );
+    static_assert( std::is_same_v< decltype( s1 ), decltype( s2 ) > );
+}
+
+TEST( NamedCore, ConstantExpansionAndValue )
+{
+    auto x = variables< "x", N >( std::array< double, 2 >{ 0.0, 0.0 } );
+    Expansion< double, N, XAxis > k = 5.0;  // implicit constant
+    EXPECT_DOUBLE_EQ( k.value(), 5.0 );
+
+    auto f = k + x[0];  // same axis set
+    static_assert( std::is_same_v< decltype( f ), Expansion< double, N, XAxis > > );
+    EXPECT_DOUBLE_EQ( f.value(), 5.0 );
+    EXPECT_DOUBLE_EQ( ( f.inner().coeff< 1, 0 >() ), 1.0 );
+}
+
+TEST( NamedCore, DerivLocalIndexWithinMultiDimAxis )
+{
+    using X3 = Axis< "x", 3 >;
+    auto x = variables< "x", N >( std::array< double, 3 >{ 0.0, 0.0, 0.0 } );
+
+    auto f = x[2] * x[2];  // depends only on the third x coordinate
+    auto d2 = f.template deriv< "x", 2 >();
+    static_assert( std::is_same_v< decltype( d2 ), Expansion< double, N, X3 > > );
+    EXPECT_DOUBLE_EQ( ( d2.inner().coeff< 0, 0, 1 >() ), 2.0 );  // 2*x2
+    // Differentiating along an untouched coordinate gives zero.
+    auto d0 = f.template deriv< "x", 0 >();
+    for ( std::size_t k = 0; k < decltype( d0 )::Inner::nCoefficients; ++k )
+        EXPECT_DOUBLE_EQ( d0.inner()[k], 0.0 ) << "coeff " << k;
+}
+
+TEST( NamedCore, HighOrderThreeAxisMatchesAnonymous )
+{
+    // Strong property test: a mixed expression over three named axes at order
+    // 4, including transcendental + rational pieces, must agree with the
+    // anonymous expansion coefficient-for-coefficient.
+    constexpr int O = 4;
+    using QAxis = Axis< "q", 1 >;
+    using X2 = Axis< "x", 2 >;
+
+    auto x = variables< "x", O >( std::array< double, 2 >{ 0.30, -0.20 } );
+    auto p = variables< "p", O >( std::array< double, 1 >{ 0.10 } );
+    auto q = variables< "q", O >( std::array< double, 1 >{ -0.05 } );
+
+    auto f = exp( x[0] ) * ( 1.0 + p[0] * x[1] ) - sin( q[0] ) / ( 2.0 + x[0] );
+    static_assert( std::is_same_v< decltype( f ), Expansion< double, O, PAxis, QAxis, X2 > > );
+
+    // Anonymous reference in canonical layout p(0), q(1), x0(2), x1(3).
+    using TE = tax::TE< O, 4 >;
+    typename TE::Input pt{ 0.10, -0.05, 0.30, -0.20 };
+    auto ap = TE::variable< 0 >( pt );
+    auto aq = TE::variable< 1 >( pt );
+    auto ax0 = TE::variable< 2 >( pt );
+    auto ax1 = TE::variable< 3 >( pt );
+    auto ref = tax::exp( ax0 ) * ( 1.0 + ap * ax1 ) - tax::sin( aq ) / ( 2.0 + ax0 );
+
+    for ( std::size_t k = 0; k < TE::nCoefficients; ++k )
+        EXPECT_DOUBLE_EQ( f.inner()[k], ref[k] ) << "coeff " << k;
+}
+
+TEST( NamedCore, EvalThroughInnerMatchesComposition )
+{
+    // The named expansion's inner polynomial evaluates like the anonymous one:
+    // f(x0+dx, p0+dp) via inner().eval matches direct numeric substitution.
+    constexpr int O = 3;
+    auto x = variables< "x", O >( std::array< double, 2 >{ 0.0, 0.0 } );
+    auto p = variables< "p", O >( std::array< double, 1 >{ 0.0 } );
+
+    auto f = ( 1.0 + x[0] ) * ( 1.0 + p[0] ) + x[1];     // {p, x}, layout p,x0,x1
+    typename decltype( f )::Input dx{ 0.1, 0.2, -0.3 };  // dp, dx0, dx1
+    const double got = f.inner().eval( dx );
+    // Truncated product to order 3 is exact for this bilinear+linear form.
+    const double expected = ( 1.0 + 0.2 ) * ( 1.0 + 0.1 ) + ( -0.3 );
+    EXPECT_NEAR( got, expected, 1e-14 );
+}
