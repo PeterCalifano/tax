@@ -144,6 +144,55 @@ TEST( Named, UnaryMathPreservesAxesAndMatchesAnonymous )
         EXPECT_DOUBLE_EQ( g.inner()[k], ref[k] ) << "coeff " << k;
 }
 
+TEST( Named, PowIntegerPreservesAxesAndMatchesAnonymous )
+{
+    auto x = variables< "x", N >( std::array< double, 2 >{ 0.2, -0.1 } );
+    auto p = variables< "p", N >( std::array< double, 1 >{ 0.3 } );
+
+    auto f = pow( x[0] * p[0] + 1.0, 3 );
+    static_assert(
+        std::is_same_v< decltype( f ), NamedTaylorExpansion< double, N, PAxis, XAxis > > );
+
+    using TE = tax::TE< N, 3 >;
+    typename TE::Input pt{ 0.3, 0.2, -0.1 };
+    auto ref = tax::pow( TE::variable< 1 >( pt ) * TE::variable< 0 >( pt ) + 1.0, 3 );
+    for ( std::size_t k = 0; k < TE::nCoefficients; ++k )
+        EXPECT_DOUBLE_EQ( f.inner()[k], ref[k] ) << "coeff " << k;
+}
+
+TEST( Named, PowRealMatchesAnonymous )
+{
+    auto x = variables< "x", N >( std::array< double, 2 >{ 0.1, 0.0 } );
+    auto p = variables< "p", N >( std::array< double, 1 >{ 0.2 } );
+
+    auto f = pow( 2.0 + x[0] + p[0], 0.5 );  // value 2.3 != 0
+    static_assert(
+        std::is_same_v< decltype( f ), NamedTaylorExpansion< double, N, PAxis, XAxis > > );
+
+    using TE = tax::TE< N, 3 >;
+    typename TE::Input pt{ 0.2, 0.1, 0.0 };
+    auto ref = tax::pow( 2.0 + TE::variable< 1 >( pt ) + TE::variable< 0 >( pt ), 0.5 );
+    for ( std::size_t k = 0; k < TE::nCoefficients; ++k )
+        EXPECT_DOUBLE_EQ( f.inner()[k], ref[k] ) << "coeff " << k;
+}
+
+TEST( Named, Atan2TakesUnionAndMatchesAnonymous )
+{
+    auto x = variables< "x", N >( std::array< double, 2 >{ 0.4, 0.0 } );
+    auto p = variables< "p", N >( std::array< double, 1 >{ 0.7 } );
+
+    // y over {x}, x over {p} -> result over {p, x}.
+    auto f = atan2( x[0], p[0] );
+    static_assert(
+        std::is_same_v< decltype( f ), NamedTaylorExpansion< double, N, PAxis, XAxis > > );
+
+    using TE = tax::TE< N, 3 >;
+    typename TE::Input pt{ 0.7, 0.4, 0.0 };
+    auto ref = tax::atan2( TE::variable< 1 >( pt ), TE::variable< 0 >( pt ) );
+    for ( std::size_t k = 0; k < TE::nCoefficients; ++k )
+        EXPECT_DOUBLE_EQ( f.inner()[k], ref[k] ) << "coeff " << k;
+}
+
 TEST( Named, DerivByAxisName )
 {
     // f = x0 * x0 + 3 * p0 ; d/dx0 = 2*x0, d/dp0 = 3 (axis set preserved).

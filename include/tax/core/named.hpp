@@ -31,6 +31,7 @@
 #include <tax/core/multi_index.hpp>
 #include <tax/core/taylor_expansion.hpp>
 #include <tax/operators/arithmetic.hpp>
+#include <tax/operators/math_binary.hpp>
 #include <tax/operators/math_unary.hpp>
 #include <utility>
 
@@ -322,7 +323,8 @@ struct Rebind< T, N, TypeList< Axes... > >
 
 /// @brief The named type over the merged (union) axis set of two operands.
 template < typename T, int N, typename ListA, typename ListB >
-using MergedExpansion = typename Rebind< T, N, typename Merge< ListA, ListB >::type >::type;
+using MergedNamedTaylorExpansion =
+    typename Rebind< T, N, typename Merge< ListA, ListB >::type >::type;
 
 }  // namespace detail
 
@@ -534,15 +536,15 @@ class NamedTaylorExpansion
 // Composition operators
 // ---------------------------------------------------------------------------
 
-#define TAX_NAMED_BINARY_OP( OP )                                                                \
-    template < typename T, int N, typename... A, typename... B >                                 \
-    [[nodiscard]] constexpr auto operator OP(                                                    \
-        const NamedTaylorExpansion< T, N, A... >& a,                                             \
-        const NamedTaylorExpansion< T, N, B... >& b ) noexcept                                   \
-    {                                                                                            \
-        using R =                                                                                \
-            detail::MergedExpansion< T, N, detail::TypeList< A... >, detail::TypeList< B... > >; \
-        return R{ a.template embed< R >().inner() OP b.template embed< R >().inner() };          \
+#define TAX_NAMED_BINARY_OP( OP )                                                       \
+    template < typename T, int N, typename... A, typename... B >                        \
+    [[nodiscard]] constexpr auto operator OP(                                           \
+        const NamedTaylorExpansion< T, N, A... >& a,                                    \
+        const NamedTaylorExpansion< T, N, B... >& b ) noexcept                          \
+    {                                                                                   \
+        using R = detail::MergedNamedTaylorExpansion< T, N, detail::TypeList< A... >,   \
+                                                      detail::TypeList< B... > >;       \
+        return R{ a.template embed< R >().inner() OP b.template embed< R >().inner() }; \
     }
 
 TAX_NAMED_BINARY_OP( +)
@@ -634,6 +636,36 @@ TAX_NAMED_UNARY_FN( atanh )
 TAX_NAMED_UNARY_FN( erf )
 
 #undef TAX_NAMED_UNARY_FN
+
+// ---------------------------------------------------------------------------
+// Binary math functions
+// ---------------------------------------------------------------------------
+
+/// @brief `x^n` for an integer exponent (axis set preserved).
+template < typename T, int N, typename... A >
+[[nodiscard]] NamedTaylorExpansion< T, N, A... > pow( const NamedTaylorExpansion< T, N, A... >& x,
+                                                      int n ) noexcept
+{
+    return NamedTaylorExpansion< T, N, A... >{ tax::pow( x.inner(), n ) };
+}
+
+/// @brief `x^p` for a real exponent (axis set preserved; requires x.value() != 0).
+template < typename T, int N, typename... A >
+[[nodiscard]] NamedTaylorExpansion< T, N, A... > pow( const NamedTaylorExpansion< T, N, A... >& x,
+                                                      std::type_identity_t< T > p ) noexcept
+{
+    return NamedTaylorExpansion< T, N, A... >{ tax::pow( x.inner(), p ) };
+}
+
+/// @brief `atan2(y, x)` over the union of the two operands' axis sets.
+template < typename T, int N, typename... A, typename... B >
+[[nodiscard]] auto atan2( const NamedTaylorExpansion< T, N, A... >& y,
+                          const NamedTaylorExpansion< T, N, B... >& x ) noexcept
+{
+    using R = detail::MergedNamedTaylorExpansion< T, N, detail::TypeList< A... >,
+                                                  detail::TypeList< B... > >;
+    return R{ tax::atan2( y.template embed< R >().inner(), x.template embed< R >().inner() ) };
+}
 
 // ---------------------------------------------------------------------------
 // Coordinate-variable factory for a single named axis
