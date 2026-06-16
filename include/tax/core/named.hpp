@@ -31,6 +31,7 @@
 #include <tax/core/multi_index.hpp>
 #include <tax/core/taylor_expansion.hpp>
 #include <tax/operators/arithmetic.hpp>
+#include <tax/operators/math_unary.hpp>
 #include <utility>
 
 namespace tax::named
@@ -458,6 +459,46 @@ class Expansion
         return R{ out };
     }
 
+    // ------------------------------------------------------------------
+    // Per-axis differentiation and integration (axis set preserved)
+    // ------------------------------------------------------------------
+
+    /// @brief Global variable index of local coordinate `Local` of axis `Name`.
+    template < FixedString Name, int Local >
+    static constexpr int axisVar() noexcept
+    {
+        constexpr int dim = detail::DimOfName< axis_list, Name >::value;
+        static_assert( dim >= 1, "axis name not present in this expansion" );
+        static_assert( Local >= 0 && Local < dim, "local axis index out of range" );
+        return detail::OffsetOf< axis_list, Axis< Name, dim > >::value + Local;
+    }
+
+    /**
+     * @brief Partial derivative with respect to one coordinate of a named axis.
+     *
+     * `Name` selects the axis, `Local` (default 0) the coordinate within that
+     * axis.  The axis set is preserved.  Composing with `slice()` yields the
+     * "sub-derivative" projection: `f.deriv<"p">().slice<"x">()` is the
+     * p-derivative of `f` viewed as a function of `x` at the expansion point.
+     */
+    template < FixedString Name, int Local = 0 >
+    [[nodiscard]] constexpr Expansion deriv() const noexcept
+    {
+        return Expansion{ inner_.template deriv< axisVar< Name, Local >() >() };
+    }
+
+    /**
+     * @brief Indefinite integral with respect to one coordinate of a named axis.
+     *
+     * Mirrors `deriv()`; the axis set is preserved and the order stays `N`
+     * (degree-`N` terms are dropped, matching `TaylorExpansion::integ`).
+     */
+    template < FixedString Name, int Local = 0 >
+    [[nodiscard]] constexpr Expansion integ() const noexcept
+    {
+        return Expansion{ inner_.template integ< axisVar< Name, Local >() >() };
+    }
+
    private:
     Inner inner_{};
 };
@@ -527,6 +568,43 @@ template < typename T, int N, typename... A >
 {
     return Expansion< T, N, A... >{ -a.inner() };
 }
+
+// ---------------------------------------------------------------------------
+// Unary math functions (forwarded to the inner expansion, axis set preserved)
+// ---------------------------------------------------------------------------
+
+// Each wrapper applies the corresponding `tax::` series function to the inner
+// anonymous expansion and rewraps the result with the same axis list, so
+// transcendental functions of named expansions keep their named structure.
+#define TAX_NAMED_UNARY_FN( FN )                                                          \
+    template < typename T, int N, typename... A >                                         \
+    [[nodiscard]] Expansion< T, N, A... > FN( const Expansion< T, N, A... >& a ) noexcept \
+    {                                                                                     \
+        return Expansion< T, N, A... >{ tax::FN( a.inner() ) };                           \
+    }
+
+TAX_NAMED_UNARY_FN( square )
+TAX_NAMED_UNARY_FN( cube )
+TAX_NAMED_UNARY_FN( sqrt )
+TAX_NAMED_UNARY_FN( cbrt )
+TAX_NAMED_UNARY_FN( reciprocal )
+TAX_NAMED_UNARY_FN( exp )
+TAX_NAMED_UNARY_FN( log )
+TAX_NAMED_UNARY_FN( sin )
+TAX_NAMED_UNARY_FN( cos )
+TAX_NAMED_UNARY_FN( tan )
+TAX_NAMED_UNARY_FN( asin )
+TAX_NAMED_UNARY_FN( acos )
+TAX_NAMED_UNARY_FN( atan )
+TAX_NAMED_UNARY_FN( sinh )
+TAX_NAMED_UNARY_FN( cosh )
+TAX_NAMED_UNARY_FN( tanh )
+TAX_NAMED_UNARY_FN( asinh )
+TAX_NAMED_UNARY_FN( acosh )
+TAX_NAMED_UNARY_FN( atanh )
+TAX_NAMED_UNARY_FN( erf )
+
+#undef TAX_NAMED_UNARY_FN
 
 // ---------------------------------------------------------------------------
 // Coordinate-variable factory for a single named axis

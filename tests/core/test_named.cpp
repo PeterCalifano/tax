@@ -123,3 +123,68 @@ TEST( Named, ComposedNumericMatchesAnonymous )
     for ( std::size_t k = 0; k < TE::nCoefficients; ++k )
         EXPECT_DOUBLE_EQ( f.inner()[k], ref[k] ) << "coeff " << k;
 }
+
+TEST( Named, UnaryMathPreservesAxesAndMatchesAnonymous )
+{
+    // exp(x0 + p0): named result keeps the {p, x} axis set and matches the
+    // anonymous expansion coefficient-for-coefficient.
+    auto x = variables< "x", N >( std::array< double, 2 >{ 0.3, 0.0 } );
+    auto p = variables< "p", N >( std::array< double, 1 >{ -0.2 } );
+
+    auto g = exp( x[0] + p[0] );
+    static_assert( std::is_same_v< decltype( g ), Expansion< double, N, PAxis, XAxis > > );
+
+    using TE = tax::TE< N, 3 >;
+    typename TE::Input pt{ -0.2, 0.3, 0.0 };
+    auto ref = tax::exp( TE::variable< 1 >( pt ) + TE::variable< 0 >( pt ) );
+
+    for ( std::size_t k = 0; k < TE::nCoefficients; ++k )
+        EXPECT_DOUBLE_EQ( g.inner()[k], ref[k] ) << "coeff " << k;
+}
+
+TEST( Named, DerivByAxisName )
+{
+    // f = x0 * x0 + 3 * p0 ; d/dx0 = 2*x0, d/dp0 = 3 (axis set preserved).
+    auto x = variables< "x", N >( std::array< double, 2 >{ 0.0, 0.0 } );
+    auto p = variables< "p", N >( std::array< double, 1 >{ 0.0 } );
+
+    auto f = x[0] * x[0] + 3.0 * p[0];
+    auto fx = f.template deriv< "x", 0 >();
+    auto fp = f.template deriv< "p" >();
+    static_assert( std::is_same_v< decltype( fx ), Expansion< double, N, PAxis, XAxis > > );
+
+    // d/dx0 (x0^2) has linear coefficient 2 in x0.
+    EXPECT_DOUBLE_EQ( ( fx.inner().coeff< 0, 1, 0 >() ), 2.0 );
+    // d/dp0 (3 p0) is the constant 3.
+    EXPECT_DOUBLE_EQ( fp.value(), 3.0 );
+}
+
+TEST( Named, SubDerivativeViaDerivThenSlice )
+{
+    // The "sub-derivative slice": p-derivative viewed as a function of x at p0.
+    // f = x0 * p0 + x1 ; df/dp0 = x0 ; sliced to {x} -> the x0 coordinate.
+    auto x = variables< "x", N >( std::array< double, 2 >{ 0.0, 0.0 } );
+    auto p = variables< "p", N >( std::array< double, 1 >{ 4.0 } );
+
+    auto f = x[0] * p[0] + x[1];
+    auto dfx = f.template deriv< "p" >().template slice< "x" >();
+    static_assert( std::is_same_v< decltype( dfx ), Expansion< double, N, XAxis > > );
+
+    // df/dp0 = x0 ; at p0 it is exactly the x0 coordinate variable.
+    EXPECT_DOUBLE_EQ( dfx.value(), 0.0 );
+    EXPECT_DOUBLE_EQ( ( dfx.inner().coeff< 1, 0 >() ), 1.0 );  // dx0
+    EXPECT_DOUBLE_EQ( ( dfx.inner().coeff< 0, 1 >() ), 0.0 );  // no dx1
+}
+
+TEST( Named, DerivIntegRoundTrip )
+{
+    // integ then deriv along the same axis recovers the original (orders < N).
+    auto x = variables< "x", N >( std::array< double, 2 >{ 0.0, 0.0 } );
+    auto p = variables< "p", N >( std::array< double, 1 >{ 0.0 } );
+
+    auto f = 1.0 + 2.0 * x[0] + p[0];  // degree 1 -> safe under integ (raises to <= N)
+    auto rt = f.template integ< "x", 0 >().template deriv< "x", 0 >();
+
+    for ( std::size_t k = 0; k < decltype( f )::Inner::nCoefficients; ++k )
+        EXPECT_DOUBLE_EQ( rt.inner()[k], f.inner()[k] ) << "coeff " << k;
+}
