@@ -353,6 +353,22 @@ TEST( NamedCore, ConstantExpansionAndValue )
     EXPECT_DOUBLE_EQ( ( f.inner().coeff< 1, 0 >() ), 1.0 );
 }
 
+TEST( NamedCore, PublicNamesReachableDirectlyUnderTax )
+{
+    // The public API is re-exported into namespace tax, so the fully
+    // qualified tax:: spellings name the same entities as tax::named::.
+    static_assert( std::is_same_v< tax::NamedTaylorExpansion< double, N, XAxis >,
+                                   NamedTaylorExpansion< double, N, XAxis > > );
+    static_assert( std::is_same_v< tax::NE< N, XAxis >, NE< N, XAxis > > );
+    static_assert( std::is_same_v< tax::Axis< "x", 2 >, XAxis > );
+
+    // tax::variables resolves to the named factory.
+    auto x = tax::variables< "x", N >( std::array< double, 2 >{ 1.0, 0.0 } );
+    static_assert( std::is_same_v< decltype( x )::value_type,
+                                   tax::NamedTaylorExpansion< double, N, XAxis > > );
+    EXPECT_DOUBLE_EQ( x[0].value(), 1.0 );
+}
+
 TEST( NamedCore, ImplicitPromotionFromSubsetAxes )
 {
     auto x = variables< "x", N >( std::array< double, 2 >{ 0.0, 0.0 } );

@@ -160,3 +160,11 @@ template < FixedString Name, typename Derived >
 }
 
 }  // namespace tax::named
+
+// The per-axis differential helpers are reachable directly under `tax` too.
+namespace tax
+{
+using named::gradient;
+using named::hessian;
+using named::jacobian;
+}  // namespace tax

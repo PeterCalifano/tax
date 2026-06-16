@@ -9,7 +9,8 @@
 #include <array>
 #include <tax/tax.hpp>
 
-using namespace tax::named;
+// Exercise the public API through the tax:: re-exports (no tax::named here).
+using namespace tax;
 
 namespace
 {

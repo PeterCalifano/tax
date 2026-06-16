@@ -672,3 +672,16 @@ template < int N, typename... Axes >
 using NE = NamedTaylorExpansion< double, N, Axes... >;
 
 }  // namespace tax::named
+
+// ---------------------------------------------------------------------------
+// Public re-exports: the named API is reachable directly under `tax`
+// ---------------------------------------------------------------------------
+
+namespace tax
+{
+using named::Axis;
+using named::FixedString;
+using named::NamedTaylorExpansion;
+using named::NE;
+using named::variables;
+}  // namespace tax
