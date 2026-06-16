@@ -418,6 +418,22 @@ TEST( NamedCore, PublicNamesReachableDirectlyUnderTax )
     EXPECT_DOUBLE_EQ( x[0].value(), 1.0 );
 }
 
+TEST( NamedCore, VariableScalarFactory )
+{
+    // A scalar expansion point yields a single named expansion over a 1-D axis
+    // (singular `variable`, not the plural collection factory).
+    auto a = variable< "a", N >( 0.7 );
+    static_assert( std::is_same_v< decltype( a ), NamedTaylorExpansion< double, N, AAxis > > );
+    EXPECT_DOUBLE_EQ( a.value(), 0.7 );
+    EXPECT_DOUBLE_EQ( ( a.inner().coeff< 1 >() ), 1.0 );
+
+    // It composes with variables of other axes just like the array form.
+    auto x = variables< "x", N >( std::array< double, 2 >{ 0.0, 0.0 } );
+    auto f = a * x[0];
+    static_assert(
+        std::is_same_v< decltype( f ), NamedTaylorExpansion< double, N, AAxis, XAxis > > );
+}
+
 TEST( NamedCore, ImplicitPromotionFromSubsetAxes )
 {
     auto x = variables< "x", N >( std::array< double, 2 >{ 0.0, 0.0 } );

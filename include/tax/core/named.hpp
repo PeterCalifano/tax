@@ -681,7 +681,7 @@ template < typename T, int N, typename... A, typename... B >
  *
  * @tparam Name  Axis name.
  * @tparam N     Truncation order.
- * @param  x0    NamedTaylorExpansion point for the `D` coordinates.
+ * @param  x0    Expansion point for the `D` coordinates.
  */
 template < FixedString Name, int N, typename T, std::size_t D >
 [[nodiscard]] constexpr auto variables( const std::array< T, D >& x0 ) noexcept
@@ -693,6 +693,27 @@ template < FixedString Name, int N, typename T, std::size_t D >
         ( ( out[I] = E::template variable< int( I ) >( x0 ) ), ... );
     }( std::make_index_sequence< D >{} );
     return out;
+}
+
+/**
+ * @brief Build the single coordinate variable of a 1-D named axis `Name`.
+ *
+ * Convenience factory for a scalar expansion point: returns one
+ * `NamedTaylorExpansion` over `Axis< Name, 1 >`.  Named in the singular (cf.
+ * the plural `variables` factories that return a collection) since the result
+ * is a single value.
+ *
+ * @tparam Name  Axis name.
+ * @tparam N     Truncation order.
+ * @param  x0    Expansion point.
+ */
+template < FixedString Name, int N, typename T >
+    requires Scalar< T >
+[[nodiscard]] constexpr auto variable( T x0 ) noexcept
+{
+    using E = NamedTaylorExpansion< T, N, Axis< Name, 1 > >;
+    typename E::Input p{ x0 };
+    return E::template variable< 0 >( p );
 }
 
 // ---------------------------------------------------------------------------
@@ -715,5 +736,6 @@ using named::Axis;
 using named::FixedString;
 using named::NamedTaylorExpansion;
 using named::NE;
+using named::variable;
 using named::variables;
 }  // namespace tax

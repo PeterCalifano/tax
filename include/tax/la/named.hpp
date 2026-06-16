@@ -56,6 +56,42 @@ namespace tax::named
 {
 
 // -----------------------------------------------------------------------------
+// variables — Eigen-vector overload of the single-axis coordinate factory
+// -----------------------------------------------------------------------------
+
+/**
+ * @brief Build the coordinate variables of a single named axis `Name` from an
+ *        Eigen vector expansion point.
+ *
+ * Mirrors the `std::array` overload in <tax/core/named.hpp> but takes (and
+ * returns) Eigen types: given an Eigen vector of compile-time size `D`, yields
+ * an `Eigen::Matrix< NamedTaylorExpansion<T, N, Axis<Name, D>>, D, 1 >` of the
+ * `D` coordinate variables — convenient for building named ODE/la states.
+ *
+ * @tparam Name  Axis name.
+ * @tparam N     Truncation order.
+ * @param  x0    Eigen vector expansion point (compile-time size).
+ */
+template < FixedString Name, int N, typename Derived >
+[[nodiscard]] auto variables( const Eigen::MatrixBase< Derived >& x0 )
+{
+    constexpr int D = Derived::SizeAtCompileTime;
+    static_assert( D != Eigen::Dynamic,
+                   "variables(Eigen): expansion point must have a compile-time size" );
+    using T = typename Derived::Scalar;
+    using E = NamedTaylorExpansion< T, N, Axis< Name, D > >;
+
+    typename E::Input p{};
+    for ( int i = 0; i < D; ++i ) p[std::size_t( i )] = T( x0( i ) );
+
+    Eigen::Matrix< E, D, 1 > out;
+    [&]< int... I >( std::integer_sequence< int, I... > ) {
+        ( ( out( I ) = E::template variable< I >( p ) ), ... );
+    }( std::make_integer_sequence< int, D >{} );
+    return out;
+}
+
+// -----------------------------------------------------------------------------
 // Per-axis differential helpers
 // -----------------------------------------------------------------------------
 
@@ -161,10 +197,14 @@ template < FixedString Name, typename Derived >
 
 }  // namespace tax::named
 
-// The per-axis differential helpers are reachable directly under `tax` too.
+// The per-axis differential helpers (and the Eigen variables overload) are
+// reachable directly under `tax` too. The second `using named::variables`
+// folds the Eigen overload into the tax-level overload set introduced by
+// <tax/core/named.hpp> (using-declarations do not pick up later additions).
 namespace tax
 {
 using named::gradient;
 using named::hessian;
 using named::jacobian;
+using named::variables;
 }  // namespace tax

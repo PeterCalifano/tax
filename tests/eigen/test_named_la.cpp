@@ -36,6 +36,74 @@ TEST( NamedLa, ExpansionIsUsableAsEigenScalar )
     EXPECT_DOUBLE_EQ( ( w( 0 ).inner().coeff< 1, 1, 0 >() ), 2.0 );  // 2 * (p0*x0)
 }
 
+TEST( NamedLa, VariablesFromEigenVector )
+{
+    Eigen::Vector2d x0{ 1.0, 2.0 };
+    auto x = variables< "x", O >( x0 );  // Eigen vector of named expansions
+    static_assert(
+        std::is_same_v< decltype( x ),
+                        Eigen::Matrix< NamedTaylorExpansion< double, O, XAxis >, 2, 1 > > );
+
+    EXPECT_DOUBLE_EQ( x( 0 ).value(), 1.0 );
+    EXPECT_DOUBLE_EQ( x( 1 ).value(), 2.0 );
+    EXPECT_DOUBLE_EQ( ( x( 0 ).inner().coeff< 1, 0 >() ), 1.0 );
+    EXPECT_DOUBLE_EQ( ( x( 1 ).inner().coeff< 0, 1 >() ), 1.0 );
+
+    // The Eigen overload feeds straight into named composition.
+    auto p = variables< "p", O >( std::array< double, 1 >{ 0.0 } );
+    auto f = x( 0 ) * p[0];
+    static_assert( std::is_same_v< decltype( f ), NEpx > );
+}
+
+TEST( NamedLa, OneVariableExpansionOfVectorAndMatrixQuantity )
+{
+    // Expansion of a vector/matrix-valued quantity in a *single* variable
+    // (here "t" = time): the quantity is an Eigen container whose scalar is a
+    // 1-axis named expansion, built from the single time variable.
+    using NEt = NamedTaylorExpansion< double, O, Axis< "t", 1 > >;
+    const double t0 = 0.3;
+    auto t = variable< "t", O >( t0 );  // single scalar time variable
+
+    // Vector quantity r(t) = [cos t, sin t]^T expanded about t0.
+    Eigen::Matrix< NEt, 2, 1 > r;
+    r( 0 ) = cos( t );
+    r( 1 ) = sin( t );
+    static_assert( std::is_same_v< decltype( r )::Scalar, NEt > );
+
+    // Each component matches the anonymous univariate Taylor series of the
+    // same function coefficient-for-coefficient.
+    using TE = tax::TE< O, 1 >;
+    auto at = TE::variable( t0 );
+    auto rc = tax::cos( at );
+    auto rs = tax::sin( at );
+    for ( std::size_t k = 0; k < TE::nCoefficients; ++k )
+    {
+        EXPECT_DOUBLE_EQ( r( 0 ).inner()[k], rc[k] ) << "cos coeff " << k;
+        EXPECT_DOUBLE_EQ( r( 1 ).inner()[k], rs[k] ) << "sin coeff " << k;
+    }
+
+    // A constant vector/matrix lifts into the named scalar via Eigen's cast
+    // (uses the implicit double -> NamedTaylorExpansion conversion).
+    Eigen::Vector2d c0{ 2.0, -1.0 };
+    Eigen::Matrix< NEt, 2, 1 > cN = c0.cast< NEt >();
+    EXPECT_DOUBLE_EQ( cN( 0 ).value(), 2.0 );
+    EXPECT_DOUBLE_EQ( cN( 1 ).value(), -1.0 );
+
+    // Matrix-valued quantity over the single time axis (a rotation matrix).
+    Eigen::Matrix< NEt, 2, 2 > M;
+    M( 0, 0 ) = cos( t );
+    M( 0, 1 ) = -sin( t );
+    M( 1, 0 ) = sin( t );
+    M( 1, 1 ) = cos( t );
+    EXPECT_DOUBLE_EQ( M( 0, 0 ).value(), std::cos( t0 ) );
+    EXPECT_DOUBLE_EQ( M( 1, 0 ).value(), std::sin( t0 ) );
+    // det(M) = cos^2 + sin^2 = 1 identically: constant term 1, all higher 0.
+    auto det = M( 0, 0 ) * M( 1, 1 ) - M( 0, 1 ) * M( 1, 0 );
+    EXPECT_NEAR( det.value(), 1.0, 1e-14 );
+    for ( std::size_t k = 1; k < NEt::Inner::nCoefficients; ++k )
+        EXPECT_NEAR( det.inner()[k], 0.0, 1e-14 ) << "det coeff " << k;
+}
+
 TEST( NamedLa, GradientByAxis )
 {
     // f = x0^2 * p0 + 2*x1 at x=(3,5), p=(2).
