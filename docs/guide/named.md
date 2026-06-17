@@ -1,11 +1,13 @@
 # Named Expansions
 
-`tax::named::NamedTaylorExpansion<T, N, Axes...>` wraps a dense
+`tax::NamedTaylorExpansion<T, N, Axes...>` wraps a dense
 `TaylorExpansion<T, N, M>` and attaches a compile-time list of **named axes** to
 it. Each axis is a contiguous block of the underlying $M$ variables identified
-by a compile-time string. The whole public API is re-exported directly under
-`tax`, so `tax::NE`, `tax::variable`, `tax::variables`, `tax::Axis`, and
-`tax::NamedTaylorExpansion` are all available from `<tax/tax.hpp>`.
+by a compile-time string. The entire named API is reachable directly under
+`tax` — `tax::NE`, `tax::variable`, `tax::variables`, `tax::Axis`,
+`tax::NamedTaylorExpansion`, and the Eigen helpers `tax::gradient` /
+`tax::hessian` / `tax::jacobian` — all from `<tax/tax.hpp>`. (It is implemented
+in the `tax::named` namespace and re-exported; prefer the `tax::` spelling.)
 
 The named layer lets you build, combine, and project Taylor expansions by
 **variable name** instead of by raw flat index — the dependency set of a result
@@ -43,7 +45,7 @@ operands: `x * p` and `p * x` produce the *same* type. The convenience alias
 
 ```cpp
 template <int N, typename... Axes>
-using NE = tax::named::NamedTaylorExpansion<double, N, Axes...>;
+using NE = tax::NamedTaylorExpansion<double, N, Axes...>;
 ```
 
 spells the common `double`-valued case, e.g. `tax::NE<4, Axis<"x", 3>>`.
@@ -61,9 +63,9 @@ std::array<double, 3> x0{1.0, 2.0, 3.0};
 auto x = tax::variables<"x", 6>(x0);                 // std::array<NE<6,Axis<"x",3>>, 3>
 auto& x1 = x[1];
 
-// Eigen expansion point (from <tax/tax.hpp>, tax::named::variables overload):
+// Eigen expansion point (from <tax/tax.hpp>, the tax::variables Eigen overload):
 Eigen::Vector3d v0{1.0, 2.0, 3.0};
-auto xv = tax::named::variables<"x", 6>(v0);         // Eigen vector of named variables
+auto xv = tax::variables<"x", 6>(v0);                // Eigen vector of named variables
 ```
 
 ---
@@ -116,9 +118,9 @@ auto dfx = f.deriv<"p">().slice<"x">();   // ∂f/∂p, then restricted to axis 
 inside Eigen vectors/matrices, plus name-addressed differential operators:
 
 ```cpp
-auto gx = tax::named::gradient<"x">(f);   // gradient w.r.t. the coords of axis "x"
-auto Hx = tax::named::hessian<"x">(f);    // Hessian  w.r.t. axis "x"
-auto Jx = tax::named::jacobian<"x">(F);   // Jacobian of an Eigen vector F w.r.t. "x"
+auto gx = tax::gradient<"x">(f);   // gradient w.r.t. the coords of axis "x"
+auto Hx = tax::hessian<"x">(f);    // Hessian  w.r.t. axis "x"
+auto Jx = tax::jacobian<"x">(F);   // Jacobian of an Eigen vector F w.r.t. "x"
 ```
 
 See the [Named API reference](../reference/named.md) for the full list of types,

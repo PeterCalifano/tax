@@ -3,9 +3,12 @@
 Complete reference for the **named-axis** layer: types, factories, member
 operations, composition rules, and Eigen helpers.
 
-All names live in `namespace tax::named`. The entire public API is **re-exported
-under `tax`**, so `tax::NE`, `tax::variable`, `tax::variables`, `tax::Axis`, and
-`tax::NamedTaylorExpansion` are reachable directly from `<tax/tax.hpp>`.
+The names are implemented in `namespace tax::named`, but the entire public API
+is **re-exported under `tax`** and that is the spelling you should use:
+`tax::NE`, `tax::variable`, `tax::variables`, `tax::Axis`,
+`tax::NamedTaylorExpansion`, and the Eigen helpers `tax::gradient`,
+`tax::hessian`, `tax::jacobian`, `tax::value`, `tax::eval` are all reachable
+directly from `<tax/tax.hpp>`.
 
 For the narrative how-to, see the [Named Expansions guide](../guide/named.md).
 
@@ -129,7 +132,7 @@ auto x = tax::variables<"x", 6>(x0);             // std::array<NE<6,Axis<"x",3>>
 ### Eigen overload
 
 Declared in `<tax/la/named.hpp>` (pulled in by `<tax/tax.hpp>`), reachable as
-`tax::named::variables` and `tax::variables`:
+`tax::variables`:
 
 ```cpp
 // Build the D coordinate variables of axis Name from an Eigen vector
@@ -140,7 +143,7 @@ template <FixedString Name, int N, typename Derived>
 
 ```cpp
 Eigen::Vector3d v0{1.0, 2.0, 3.0};
-auto xv = tax::named::variables<"x", 6>(v0);     // Eigen vector of named variables
+auto xv = tax::variables<"x", 6>(v0);            // Eigen vector of named variables
 ```
 
 The expansion point must have a compile-time size.
@@ -307,9 +310,9 @@ template <FixedString Name, typename Derived>
 ```
 
 ```cpp
-auto gx = tax::named::gradient<"x">(f);   // gradient w.r.t. axis "x"
-auto Hx = tax::named::hessian<"x">(f);    // Hessian  w.r.t. axis "x"
-auto Jx = tax::named::jacobian<"x">(F);   // Jacobian of an Eigen vector F w.r.t. "x"
+auto gx = tax::gradient<"x">(f);   // gradient w.r.t. axis "x"
+auto Hx = tax::hessian<"x">(f);    // Hessian  w.r.t. axis "x"
+auto Jx = tax::jacobian<"x">(F);   // Jacobian of an Eigen vector F w.r.t. "x"
 ```
 
 `value` and `eval` overloads mirror `tax::la` for named scalars and Eigen

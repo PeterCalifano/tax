@@ -232,10 +232,12 @@ scalars (`tax::la::VecNT<D, TE>` is a convenient Eigen vector of TE).
 
 ## Named Expansions (`tax::named`)
 
-`tax::named::NamedTaylorExpansion<T, N, Axes...>` wraps a dense
+`tax::NamedTaylorExpansion<T, N, Axes...>` wraps a dense
 `TaylorExpansion<T, N, M>` and attaches a compile-time list of **named axes**
 (`Axis<Name, Dim>`, where `Name` is a `FixedString` NTTP and `Dim` is a block of
-consecutive variables). The whole API is re-exported under `tax`.
+consecutive variables). It is implemented in `tax::named` and the whole API —
+including the Eigen helpers `gradient`/`hessian`/`jacobian` — is re-exported
+under `tax`; use the `tax::` spelling.
 
 ```cpp
 #include <tax/tax.hpp>
@@ -244,7 +246,7 @@ auto x = tax::variable<"x", 4>(1.0);          // 1-D axis "x"      → NE<4, Axi
 auto p = tax::variables<"p", 4>(arr3);        // 3-D axis "p"      → std::array of NE
 auto f = sin(x) + x * p[0];                   // composes in the union of axes {p, x}
 auto g = f.deriv<"x">().slice<"p">();         // named ∂/∂x, then projected onto axis p
-auto J = tax::named::jacobian<"x">(F);        // Jacobian of Eigen vector F w.r.t. "x"
+auto J = tax::jacobian<"x">(F);               // Jacobian of Eigen vector F w.r.t. "x"
 ```
 
 - **Canonical type:** axis lists are sorted-by-name and unique, so `x * p` and
