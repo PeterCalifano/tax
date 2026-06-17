@@ -46,8 +46,18 @@ struct NumTraits< tax::named::NamedTaylorExpansion< T, N, Axes... > > : NumTrait
         RequireInitialization = 1,
         ReadCost = kNc,
         AddCost = kNc,
-        MulCost = kNc * kNc
+        // kNc * kNc overflows int for kNc > ~46340; clamp to HugeCost.
+        MulCost = kNc < 46341 ? kNc * kNc : HugeCost
     };
+
+    // Base NumTraits<T> returns these as scalar T, but Real is Self; re-expose
+    // them as constant named expansions (see tax/la/num_traits.hpp).
+    static inline Self epsilon() { return Self( NumTraits< T >::epsilon() ); }
+    static inline Self dummy_precision() { return Self( NumTraits< T >::dummy_precision() ); }
+    static inline Self highest() { return Self( NumTraits< T >::highest() ); }
+    static inline Self lowest() { return Self( NumTraits< T >::lowest() ); }
+    static inline Self infinity() { return Self( NumTraits< T >::infinity() ); }
+    static inline Self quiet_NaN() { return Self( NumTraits< T >::quiet_NaN() ); }
 };
 
 }  // namespace Eigen
@@ -98,15 +108,21 @@ template < FixedString Name, int N, typename Derived >
 namespace detail
 {
 
-/// @brief Variable offset of axis `Name` within an expansion type `E`, or -1.
-template < typename E, FixedString Name >
-inline constexpr int axisOffset =
-    OffsetOf< typename E::axis_list,
-              Axis< Name, DimOfName< typename E::axis_list, Name >::value > >::value;
-
 /// @brief Dimension of axis `Name` within an expansion type `E`, or -1.
 template < typename E, FixedString Name >
 inline constexpr int axisDim = DimOfName< typename E::axis_list, Name >::value;
+
+/// @brief Variable offset of axis `Name` within an expansion type `E`, or -1.
+///
+/// The dimension passed to `Axis` is clamped to >= 1 so that, when the axis is
+/// absent (axisDim == -1), this does not instantiate `Axis< Name, -1 >` and trip
+/// its own "dimension must be at least 1" assert — the callers' friendly
+/// "axis name not present" static_assert should be the diagnostic the user sees.
+/// `OffsetOf` still returns -1 for an absent name.
+template < typename E, FixedString Name >
+inline constexpr int axisOffset =
+    OffsetOf< typename E::axis_list,
+              Axis< Name, ( axisDim< E, Name > >= 1 ? axisDim< E, Name > : 1 ) > >::value;
 
 }  // namespace detail
 
@@ -195,6 +211,76 @@ template < FixedString Name, typename Derived >
     return out;
 }
 
+// -----------------------------------------------------------------------------
+// value / eval — mirror tax::la for named states
+// -----------------------------------------------------------------------------
+
+namespace detail
+{
+
+template < typename >
+struct is_named : std::false_type
+{
+};
+template < typename T, int N, typename... Axes >
+struct is_named< NamedTaylorExpansion< T, N, Axes... > > : std::true_type
+{
+};
+template < typename T >
+inline constexpr bool is_named_v = is_named< T >::value;
+
+}  // namespace detail
+
+/// @brief Constant term of a single named expansion.
+template < typename T, int N, typename... Axes >
+[[nodiscard]] T value( const NamedTaylorExpansion< T, N, Axes... >& f ) noexcept
+{
+    return f.value();
+}
+
+/// @brief Constant terms of an Eigen matrix/vector of named expansions.
+template < typename Derived >
+    requires( detail::is_named_v< typename Derived::Scalar > )
+[[nodiscard]] auto value( const Eigen::MatrixBase< Derived >& F )
+{
+    using E = typename Derived::Scalar;
+    using T = typename E::scalar_type;
+    Eigen::Matrix< T, Derived::RowsAtCompileTime, Derived::ColsAtCompileTime > out( F.rows(),
+                                                                                    F.cols() );
+    for ( Eigen::Index i = 0; i < F.size(); ++i ) out( i ) = F.derived().coeff( i ).value();
+    return out;
+}
+
+/// @brief Evaluate a single named expansion at a joint displacement `dx`.
+template < typename T, int N, typename... Axes, typename DxDerived >
+[[nodiscard]] T eval( const NamedTaylorExpansion< T, N, Axes... >& f,
+                      const Eigen::MatrixBase< DxDerived >& dx )
+{
+    return f.inner().eval( dx );
+}
+
+/// @brief Evaluate each element of an Eigen matrix/vector of named expansions at
+///        a shared joint displacement `dx` (size == joint variable count).
+template < typename Derived, typename DxDerived >
+    requires( detail::is_named_v< typename Derived::Scalar > )
+[[nodiscard]] auto eval( const Eigen::MatrixBase< Derived >& F,
+                         const Eigen::MatrixBase< DxDerived >& dx )
+{
+    using E = typename Derived::Scalar;
+    using T = typename E::scalar_type;
+    constexpr int V = E::vars_v;
+    static_assert(
+        DxDerived::SizeAtCompileTime == V || DxDerived::SizeAtCompileTime == Eigen::Dynamic,
+        "eval(named): dx size must match the joint variable count" );
+    typename E::Input p{};
+    for ( int i = 0; i < V; ++i ) p[std::size_t( i )] = T( dx( i ) );
+    Eigen::Matrix< T, Derived::RowsAtCompileTime, Derived::ColsAtCompileTime > out( F.rows(),
+                                                                                    F.cols() );
+    for ( Eigen::Index i = 0; i < F.size(); ++i )
+        out( i ) = F.derived().coeff( i ).inner().eval( p );
+    return out;
+}
+
 }  // namespace tax::named
 
 // The per-axis differential helpers (and the Eigen variables overload) are
@@ -203,8 +289,10 @@ template < FixedString Name, typename Derived >
 // <tax/core/named.hpp> (using-declarations do not pick up later additions).
 namespace tax
 {
+using named::eval;
 using named::gradient;
 using named::hessian;
 using named::jacobian;
+using named::value;
 using named::variables;
 }  // namespace tax

@@ -155,3 +155,40 @@ TEST( NamedLa, JacobianByAxis )
     EXPECT_DOUBLE_EQ( J( 1, 0 ), 0.0 );
     EXPECT_DOUBLE_EQ( J( 1, 1 ), 10.0 );  // 2*x1
 }
+
+TEST( NamedLa, ValueAndEval )
+{
+    // F = [ x0 + p0 , x1 ] centered at x=(1,4), p=(2).
+    auto x = variables< "x", O >( std::array< double, 2 >{ 1.0, 4.0 } );
+    auto p = variables< "p", O >( std::array< double, 1 >{ 2.0 } );
+
+    Eigen::Matrix< NEpx, 2, 1 > F;
+    F( 0 ) = x[0] + p[0];
+    F( 1 ) = x[1] + 0.0 * p[0];  // depends on the joint (p, x) space
+
+    // value() returns the constant terms.
+    auto v0 = value( F );
+    EXPECT_DOUBLE_EQ( v0( 0 ), 3.0 );  // 1 + 2
+    EXPECT_DOUBLE_EQ( v0( 1 ), 4.0 );
+
+    // eval() at a joint displacement; joint var order is (p, x) for NEpx.
+    Eigen::Vector3d dx;  // (dp0, dx0, dx1)
+    dx << 0.5, 0.1, -0.2;
+    auto fv = eval( F, dx );
+    EXPECT_NEAR( fv( 0 ), 3.0 + 0.1 + 0.5, 1e-12 );  // x0 + p0 shift
+    EXPECT_NEAR( fv( 1 ), 4.0 - 0.2, 1e-12 );
+
+    // Scalar-overload value()/eval() on a single named expansion.
+    EXPECT_DOUBLE_EQ( value( F( 0 ) ), 3.0 );
+    EXPECT_NEAR( eval( F( 0 ), dx ), 3.0 + 0.1 + 0.5, 1e-12 );
+}
+
+// NumTraits<NamedTaylorExpansion>::epsilon()/dummy_precision() must return the
+// Real type (the expansion), not a bare scalar.
+TEST( NamedLa, NumTraitsRealReturningValueFunctions )
+{
+    using NT = Eigen::NumTraits< NEpx >;
+    static_assert( std::is_same_v< decltype( NT::epsilon() ), NEpx > );
+    static_assert( std::is_same_v< decltype( NT::dummy_precision() ), NEpx > );
+    EXPECT_DOUBLE_EQ( NT::epsilon().value(), Eigen::NumTraits< double >::epsilon() );
+}

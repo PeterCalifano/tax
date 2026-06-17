@@ -15,9 +15,8 @@
 #pragma once
 
 #include <Eigen/Core>
-#include <type_traits>
-
 #include <tax/core/taylor_expansion.hpp>
+#include <type_traits>
 
 // -----------------------------------------------------------------------------
 // NumTraits specialization — namespace Eigen
@@ -29,20 +28,36 @@ namespace Eigen
 template < typename T, int N, int M, typename Storage >
 struct NumTraits< tax::TaylorExpansion< T, N, M, Storage > > : NumTraits< T >
 {
-    using Self       = tax::TaylorExpansion< T, N, M, Storage >;
-    using Real       = Self;
+    using Self = tax::TaylorExpansion< T, N, M, Storage >;
+    using Real = Self;
     using NonInteger = Self;
-    using Nested     = Self;
+    using Nested = Self;
+
+    static constexpr int kNc = int( tax::numMonomials( N, M ) );
+
     enum
     {
-        IsComplex              = 0,
-        IsInteger              = 0,
-        IsSigned               = 1,
-        RequireInitialization  = 1,
-        ReadCost               = int( tax::numMonomials( N, M ) ),
-        AddCost                = int( tax::numMonomials( N, M ) ),
-        MulCost                = int( tax::numMonomials( N, M ) ) * int( tax::numMonomials( N, M ) )
+        IsComplex = 0,
+        IsInteger = 0,
+        IsSigned = 1,
+        RequireInitialization = 1,
+        ReadCost = kNc,
+        AddCost = kNc,
+        // kNc * kNc overflows int for kNc > ~46340; clamp to HugeCost (Eigen's
+        // "very expensive scalar" sentinel) so the cost stays a valid int.
+        MulCost = kNc < 46341 ? kNc * kNc : HugeCost
     };
+
+    // NumTraits<T> (the base) declares these returning the scalar T, but our
+    // Real is Self (the expansion). Re-expose them as constant expansions so
+    // Eigen's normwise/fuzzy comparison paths see a Real-typed threshold rather
+    // than relying on the implicit scalar -> constant-TE conversion.
+    static inline Self epsilon() { return Self( NumTraits< T >::epsilon() ); }
+    static inline Self dummy_precision() { return Self( NumTraits< T >::dummy_precision() ); }
+    static inline Self highest() { return Self( NumTraits< T >::highest() ); }
+    static inline Self lowest() { return Self( NumTraits< T >::lowest() ); }
+    static inline Self infinity() { return Self( NumTraits< T >::infinity() ); }
+    static inline Self quiet_NaN() { return Self( NumTraits< T >::quiet_NaN() ); }
 };
 
 }  // namespace Eigen
@@ -62,8 +77,8 @@ struct te_traits< TaylorExpansion< T, N, M, S > >
 {
     using scalar_type = T;
     static constexpr int order_v = N;
-    static constexpr int vars_v  = M;
-    using storage_t              = S;
+    static constexpr int vars_v = M;
+    using storage_t = S;
 };
 
 template < typename T >
@@ -82,8 +97,7 @@ inline constexpr bool is_te_v = is_te< T >::value;
 /// @brief Rebind the scalar type of an Eigen matrix expression.
 template < typename Derived, typename Scalar >
 using rebind_matrix_t =
-    Eigen::Matrix< Scalar, Derived::RowsAtCompileTime, Derived::ColsAtCompileTime,
-                   Derived::Options, Derived::MaxRowsAtCompileTime,
-                   Derived::MaxColsAtCompileTime >;
+    Eigen::Matrix< Scalar, Derived::RowsAtCompileTime, Derived::ColsAtCompileTime, Derived::Options,
+                   Derived::MaxRowsAtCompileTime, Derived::MaxColsAtCompileTime >;
 
 }  // namespace tax::la::detail

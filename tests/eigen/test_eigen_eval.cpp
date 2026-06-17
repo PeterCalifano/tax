@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
-#include "../testUtils.hpp"
+
 #include <tax/la.hpp>
+
+#include "../testUtils.hpp"
 
 TEST( EigenEval, ScalarTE )
 {
@@ -44,4 +46,17 @@ TEST( EigenValue, ElementWise )
     auto val = tax::la::value( F );
     EXPECT_NEAR( val( 0 ), 2.0, 1e-12 );
     EXPECT_NEAR( val( 1 ), 3.0, 1e-12 );
+}
+
+// NumTraits<TaylorExpansion> must expose the Real-typed value functions (they
+// previously fell through to the scalar base, returning double instead of Real).
+TEST( EigenNumTraits, RealReturningValueFunctions )
+{
+    using TE = tax::TE< 3, 2 >;
+    using NT = Eigen::NumTraits< TE >;
+    static_assert( std::is_same_v< NT::Real, TE > );
+    static_assert( std::is_same_v< decltype( NT::epsilon() ), TE > );
+    static_assert( std::is_same_v< decltype( NT::dummy_precision() ), TE > );
+    static_assert( std::is_same_v< decltype( NT::highest() ), TE > );
+    EXPECT_DOUBLE_EQ( NT::epsilon().value(), Eigen::NumTraits< double >::epsilon() );
 }
