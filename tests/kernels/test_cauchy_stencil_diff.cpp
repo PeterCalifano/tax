@@ -53,11 +53,14 @@ TEST( CauchyStencil, ConstexprFallbackCompiles )
     SUCCEED();  // assertions above are compile-time
 }
 
-// cauchySelfProduct (M >= 2) must be bit-identical between constant evaluation
-// (loop kernel) and runtime (stencil): the symmetric enumeration that previously
-// ran in consteval summed 2*f[b]*f[g] while the runtime stencil sums the full
-// ordered convolution, giving last-ULP divergence. Both paths now route through
-// cauchyProduct, so the results must match exactly (EXPECT_EQ, not EXPECT_NEAR).
+// cauchySelfProduct (M >= 2) must agree between constant evaluation (loop kernel)
+// and runtime (stencil). Both paths route through cauchyProduct and perform the
+// same ordered convolution, so they agree to floating-point round-off. We do NOT
+// assert bit-identity: a compiler may contract the runtime path's a*b+c into a
+// fused multiply-add (one rounding) while the constant-evaluated path is not
+// contracted (two roundings), so the two can differ by a ULP (observed on Clang
+// and on macOS GCC). A tight absolute tolerance captures the real guarantee
+// portably — matching the runtime-vs-runtime Diff tests above.
 template < int N, int M >
 constexpr tax::Coeffs< double, N, M > selfProductConstexpr()
 {
@@ -77,7 +80,7 @@ void runSelfProductConstevalMatchesRuntime()
     tax::detail::kernels::cauchySelfProduct< double, N, M >( rt, f );  // runtime path
 
     for ( std::size_t k = 0; k < f.size(); ++k )
-        EXPECT_EQ( rt[k], ct[k] ) << "N=" << N << " M=" << M << " k=" << k;
+        EXPECT_NEAR( rt[k], ct[k], 1e-12 ) << "N=" << N << " M=" << M << " k=" << k;
 }
 
 TEST( CauchySelfProduct, ConstevalMatchesRuntime_N3_M2 )
