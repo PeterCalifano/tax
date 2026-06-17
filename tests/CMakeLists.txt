@@ -52,18 +52,3 @@ tax_add_test(test_eigen_hessian     SOURCES eigen/test_eigen_hessian.cpp)
 tax_add_test(test_eigen_jacobian    SOURCES eigen/test_eigen_jacobian.cpp)
 tax_add_test(test_eigen_invert      SOURCES eigen/test_eigen_invert.cpp)
 tax_add_test(test_named_la          SOURCES eigen/test_named_la.cpp)
-
-# ADS — Stage 3a
-tax_add_test(test_ads_box SOURCES ads/test_box.cpp)
-tax_add_test(test_ads_leaf_tree SOURCES ads/test_leaf_tree.cpp)
-tax_add_test(test_ads_nonlinearity_index SOURCES ads/test_nonlinearity_index.cpp)
-tax_add_test(test_ads_criteria SOURCES ads/test_criteria.cpp)
-tax_add_test(test_ads_split_event SOURCES ads/test_split_event.cpp)
-tax_add_test(test_ads_da_state SOURCES ads/test_da_state.cpp)
-tax_add_test(test_ads_driver SOURCES ads/test_driver.cpp)
-tax_add_test(test_ads_merge SOURCES ads/test_merge.cpp)
-tax_add_test(test_ads_parallel SOURCES ads/test_parallel.cpp)
-tax_add_test(test_ads_refine SOURCES ads/test_refine.cpp)
-
-# ODE integrator — Stage 2a
-add_subdirectory(ode)

@@ -3,8 +3,6 @@ project(tax VERSION 0.1.0 LANGUAGES CXX)
 
 option(TAX_BUILD_UNITTESTS   "Build and enable unit tests"                  ON)
 option(TAX_BUILD_REGRESSIONS "Build DACE-based regression tests"            OFF)
-option(TAX_BUILD_BENCHMARK   "Build benchmark suite (Google Benchmark)"     OFF)
-option(TAX_BUILD_EXAMPLES    "Build example programs (under examples/)"     OFF)
 
 # Kernel dispatch (TAX_USE_UNROLL / TAX_USE_STENCIL) is configured in
 # <tax/kernels/cauchy.hpp>, defaulting to ON for every consumer. Injecting
@@ -84,12 +82,6 @@ if(TAX_BUILD_UNITTESTS)
 endif()
 if(TAX_BUILD_REGRESSIONS)
     add_subdirectory(tests/regression)
-endif()
-if(TAX_BUILD_BENCHMARK)
-    add_subdirectory(benchmarks)
-endif()
-if(TAX_BUILD_EXAMPLES)
-    add_subdirectory(examples)
 endif()
 
 include(GNUInstallDirs)

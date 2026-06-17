@@ -33,11 +33,15 @@ up to order \(N\) in a single evaluation pass.
 - **Eigen integration** — `NumTraits` specialisation plus helpers for
   variables, value extraction, evaluation, gradient, Jacobian, Hessian, and
   formal map inversion.
-- **Adaptive ODE integrator** — one `Integrator<Stepper>` driving six methods:
-  Taylor (`N`-th order), Verner 8(7), Verner 9(8), Fehlberg 7(8),
-  Feagin 12(10), Feagin 14(12). Four controllers (I, PI, H211b, JorbaZou).
-  Trigger + Action events with polynomial-Newton root finding on the Taylor
-  path and Brent on the RK path.
+- **Named expansions** — `NamedTaylorExpansion<T, N, Axes...>` attaches
+  compile-time *named axes* to an expansion; values over different axis sets
+  compose in their union, and `slice`/`deriv`/`integ` are addressed by name.
+  The whole API is re-exported under `tax` (`tax::NE`, `tax::variable(s)`).
+
+> :electric_plug: **Plugin:** adaptive ODE integration and Automatic Domain
+> Splitting are available as the optional
+> [**tax-flow**](https://github.com/andreapasquale94/tax-flow) project, built on
+> top of `tax`.
 
 ---
 
@@ -104,30 +108,6 @@ auto vals = tax::value(F);              // Eigen::Vector2d of constant terms
 auto J    = tax::jacobian(F);           // 2×2 Jacobian at expansion point
 ```
 
-### Adaptive ODE integration
-
-```cpp
-#include <tax/ode.hpp>
-
-// Harmonic oscillator: dx/dt = v, dv/dt = -x
-auto f = [](const auto& x, auto /*t*/) {
-    using S = std::decay_t<decltype(x)>;
-    S out;
-    out(0) =  x(1);
-    out(1) = -x(0);
-    return out;
-};
-
-tax::ode::IntegratorConfig<double> cfg;
-cfg.abstol = cfg.reltol = 1e-12;
-
-auto integ = tax::ode::makeTaylorIntegrator<16, double, 2>(f, cfg);
-
-Eigen::Matrix<double, 2, 1> x0{1.0, 0.0};
-auto sol = integ.integrate(x0, /*t0=*/0.0, /*tmax=*/2 * M_PI);
-// sol.x.back() ≈ (1, 0)
-```
-
 ---
 
 ## Build, test, install
@@ -143,7 +123,7 @@ ctest --test-dir build --output-on-failure
 | Option | Default | Description |
 |---|:-:|---|
 | `TAX_BUILD_UNITTESTS` | `ON`  | Build the unit-test suite |
-| `TAX_BUILD_BENCHMARK` | `OFF` | Build Google Benchmark suite |
+| `TAX_BUILD_REGRESSIONS` | `OFF` | Build DACE-based regression tests |
 
 The fast Cauchy kernel paths (`TAX_USE_UNROLL` for M=1, `TAX_USE_STENCIL`
 for M≥2) are enabled by default in `<tax/kernels/cauchy.hpp>` itself — no
@@ -173,7 +153,6 @@ Hosted at <https://andreapasquale94.github.io/tax/>.
 | [Getting Started](https://andreapasquale94.github.io/tax/getting_started/) | Install, build, write your first Taylor expansion |
 | [Core](https://andreapasquale94.github.io/tax/core/) | `TaylorExpansion` math, API, examples, Dense vs Sparse storage |
 | [Eigen Integration](https://andreapasquale94.github.io/tax/eigen/) | `NumTraits`, helpers, map inversion |
-| [ODE Integrator](https://andreapasquale94.github.io/tax/ode/) | Methods, controllers, events, CR3BP benchmark |
 | [Internals](https://andreapasquale94.github.io/tax/internals/) | Architecture, kernels, recurrences |
 
 Source for the docs lives in `docs/` and is built with MkDocs Material:

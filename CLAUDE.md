@@ -2,7 +2,9 @@
 
 ## Project Overview
 
-**tax** is a header-only C++23 library for **Truncated Algebraic eXpansions (TAX)** — truncated multivariate Taylor polynomials that propagate complete Taylor series through arbitrary expressions. In a single evaluation pass, it yields function values and all partial derivatives up to order N. On top of the core type it ships an adaptive ODE integration module (`tax::ode`) and Automatic Domain Splitting (`tax::ads`).
+**tax** is a header-only C++23 library for **Truncated Algebraic eXpansions (TAX)** — truncated multivariate Taylor polynomials that propagate complete Taylor series through arbitrary expressions. In a single evaluation pass, it yields function values and all partial derivatives up to order N. It provides dense and sparse storage, *named* expansions (type-level variable axes), and Eigen integration (`tax::la`).
+
+> **Note:** adaptive ODE integration (`tax::ode`) and Automatic Domain Splitting (`tax::ads`) are no longer part of this repository — they were split out, unchanged, into a separate companion plugin built on top of `tax` (see the README). Do not look for `include/tax/ode` or `include/tax/ads` here.
 
 - **Version:** 0.1.0
 - **License:** BSD 3-Clause
@@ -18,13 +20,12 @@ tax/
 ├── include/tax/              # Header-only library (the entire library lives here)
 │   ├── tax.hpp               # Umbrella header — users include only this
 │   ├── la.hpp                # Facade: linear-algebra / Eigen helpers (tax::la)
-│   ├── ode.hpp               # Facade: ODE integration module (tax::ode, opt-in)
-│   ├── ads.hpp               # Facade: Automatic Domain Splitting (tax::ads, opt-in)
 │   ├── core/                 # The TaylorExpansion type and its foundations
 │   │   ├── concepts.hpp      #   Scalar, TaylorPolynomial, DensePolynomial concepts
 │   │   ├── multi_index.hpp   #   MultiIndex<M>, flatIndex/unflatIndex, numMonomials,
 │   │   │                     #   DegreeOf<N,M> lookup table
 │   │   ├── enumeration.hpp   #   forEachMonomial / forEachSubIndex
+│   │   ├── named.hpp         #   NamedTaylorExpansion<T,N,Axes...>: named, type-level axes
 │   │   ├── storage/          #   Dense (std::array) and Sparse (sorted idx/val
 │   │   │                     #   vectors) storage policies
 │   │   └── taylor_expansion.hpp  # TaylorExpansion<T, N, M, Storage>:
@@ -48,24 +49,17 @@ tax/
 │   │   ├── num_traits.hpp    #   Eigen::NumTraits<TaylorExpansion>
 │   │   ├── values.hpp        #   variables(x0), value(), eval()
 │   │   ├── derivatives.hpp   #   derivative, gradient, hessian, jacobian
+│   │   ├── named.hpp         #   NumTraits + gradient/hessian/jacobian by axis name
 │   │   └── invert.hpp        #   formal polynomial-map inversion (Picard)
-│   ├── ode/                  # Adaptive ODE integration (namespace tax::ode)
-│   └── ads/                  # Automatic Domain Splitting (namespace tax::ads)
-├── tests/                    # Google Test suite (62 ctest targets)
-│   ├── core/                 #   ctor/accessors, multi-index, enumeration, deriv/integ
+├── tests/                    # Google Test suite
+│   ├── core/                 #   ctor/accessors, multi-index, enumeration, deriv/integ, named
 │   ├── kernels/              #   dense/unroll/stencil/sparse Cauchy verification
 │   ├── operators/            #   one file per math-function family
 │   ├── sparse/               #   sparse ctor/arith/conversion/substitution
-│   ├── eigen/                #   tax::la helpers (gradient, jacobian, invert, …)
-│   ├── ode/                  #   steppers/, integrator/, events/, problems/ (CR3BP, Kepler)
-│   ├── ads/                  #   box, tree, criteria, driver, merge, parallel, refine
+│   ├── eigen/                #   tax::la helpers (gradient, jacobian, invert, named, …)
 │   ├── regression/           #   DACE comparison suite (opt-in, TAX_BUILD_REGRESSIONS)
 │   └── testUtils.hpp         #   shared helpers/macros
-├── benchmarks/               # Google Benchmark suite (bench_ode_cr3bp)
-├── examples/                 # two_body/, three_body/, wsb/ — Taylor, ADS, LOADS
-│   ├── common/output.hpp     #   shared I/O scaffolding (JSON schema, banners)
-│   └── plot/                 #   matplotlib scripts rendering the JSON outputs
-├── docs/                     # MkDocs documentation (tutorials/, core/, ode/, …)
+├── docs/                     # MkDocs documentation (core/, eigen/, internals/)
 ├── cmake/                    # CMake package config template
 ├── .github/workflows/        # CI: tests.yml, sanitizers.yml, regressions.yml, docs.yml
 ├── .clang-format             # Code style configuration
@@ -96,8 +90,6 @@ ctest --test-dir build --output-on-failure
 |--------|---------|-------------|
 | `TAX_BUILD_UNITTESTS`   | `ON`  | Build Google Test unit-test suite |
 | `TAX_BUILD_REGRESSIONS` | `OFF` | Build DACE-based regression tests (fetches DACE v2.1.0) |
-| `TAX_BUILD_BENCHMARK`   | `OFF` | Build Google Benchmark suite |
-| `TAX_BUILD_EXAMPLES`    | `OFF` | Build example programs under `examples/` |
 
 Kernel dispatch (`TAX_USE_UNROLL` / `TAX_USE_STENCIL`) is configured **in-header**
 in `<tax/kernels/cauchy.hpp>` and defaults to ON for every consumer. It is
@@ -133,8 +125,8 @@ tax::STE<N, M = 1>  // sparse
 ```
 
 - **Dense:** `std::array<T, numMonomials(N, M)>` coefficients in graded-lex
-  order, full `constexpr` surface, no heap. This is the hot path used by
-  the ODE and ADS modules.
+  order, full `constexpr` surface, no heap. This is the hot path and the basis
+  for named expansions.
 - **Sparse:** two parallel sorted vectors of (flat-index, value) pairs.
   Element access is O(log nnz); arithmetic is a sorted merge walk. Both
   share the same recurrence relations via the kernel layer.
@@ -234,87 +226,39 @@ auto Finv = tax::la::invert(F);         // formal map inversion (Picard)
 ```
 
 `num_traits.hpp` specialises `Eigen::NumTraits` so TE types work as Eigen
-scalars (`tax::la::VecNT<D, TE>` is the ODE/ADS state type).
+scalars (`tax::la::VecNT<D, TE>` is a convenient Eigen vector of TE).
 
 ---
 
-## ODE Integration (`tax::ode`)
+## Named Expansions (`tax::named`)
 
-Adaptive Runge–Kutta and Taylor-method integration with an event system
-(triggers/actions), dense output, and step-size controllers.
-
-```cpp
-#include <tax/ode.hpp>
-using namespace tax::ode::methods;
-
-auto rhs = [](const auto& x, double) { /* return state-shaped value */ };
-tax::la::VecNT<2, double> x0{1.0, 0.0};
-
-auto sol   = tax::ode::propagate(Verner89{}, rhs, x0, 0.0, 2 * M_PI);
-auto sol_d = tax::ode::propagate</*Dense=*/true>(Taylor<16>{}, rhs, x0, 0.0, 2 * M_PI);
-auto x_at  = sol_d(0.42);   // dense output
-```
-
-Methods: `methods::Taylor<N>`, `Verner78`, `Verner89`, `Fehlberg78`,
-`Feagin12`, `Feagin14`.
-
-Key files:
-
-| File | Purpose |
-|------|---------|
-| `propagate.hpp`   | `propagate<Dense>(method, rhs, x0, t0, t1, cfg, events)` + `methods::` tags |
-| `integrator.hpp`  | `Integrator<Stepper, F, Dense>` driver + per-method `Integrator` aliases |
-| `config.hpp`      | `IntegratorConfig<T>` (abstol/reltol/initial/min/max step, max_steps, max_rejects_per_step) |
-| `controllers.hpp` | `I`, `PI` (Gustafsson), `H211b` (Söderlind), `JorbaZou` (Taylor-only), `FixedStep` |
-| `steppers/`       | `taylor.hpp` + five thin per-method headers; all embedded RK methods are aliases of `detail::EmbeddedRKStepper<Tab, State, Controller>` (`detail/embedded_rk_stepper.hpp`) over their Butcher tableaus (`detail/*_tableaus.hpp`) |
-| `solution.hpp`    | `Solution<Stepper, State, Dense>` (dense output via `operator()`) |
-| `event.hpp`       | `Event<Stepper>`, `TriggerContext`, `StepperCtx`, `ControlFlow` |
-| `triggers.hpp`    | `EveryStep`, `ZeroCrossing` (poly-Newton or Brent) |
-| `actions.hpp`     | `Continue`, `Terminate`, `Record`, `Custom`, `EventStorage` |
-| `vector_ops.hpp`  | `VectorOps<S>` trait — norm/axpy/scale_assign (+ optional `diff_norm`) for scalar / TE / Eigen states |
-| `io.hpp` (opt-in) | `linspace`, `writeCsv(sol, times, path)` |
-
----
-
-## Automatic Domain Splitting (`tax::ads`)
-
-Implements Wittig 2015 ADS and the LOADS variant (Losacco/Fossà/Armellin
-2024) by composing with the `tax::ode` event infrastructure.
+`tax::named::NamedTaylorExpansion<T, N, Axes...>` wraps a dense
+`TaylorExpansion<T, N, M>` and attaches a compile-time list of **named axes**
+(`Axis<Name, Dim>`, where `Name` is a `FixedString` NTTP and `Dim` is a block of
+consecutive variables). The whole API is re-exported under `tax`.
 
 ```cpp
-#include <tax/ads.hpp>
-#include <tax/ode.hpp>
-using namespace tax::ode::methods;
+#include <tax/tax.hpp>
 
-tax::ads::Box<double, 2> ic_box{center_vec, half_width_vec};
-
-auto tree = tax::ads::propagate</*P=*/6>(
-    Verner89{},
-    tax::ads::TruncationCriterion{/*tol=*/1e-4, /*maxDepth=*/8},   // or NliCriterion (LOADS)
-    rhs, ic_box, ic_center, 0.0, 2 * M_PI, cfg);
-
-for (int i : tree.done()) { const auto& l = tree.leaf(i); /* l.payload */ }
-
-auto stats = tax::ads::merge(tree, tax::ads::TruncationCriterion{1e-4});  // post-pass merger
+auto x = tax::variable<"x", 4>(1.0);          // 1-D axis "x"      → NE<4, Axis<"x",1>>
+auto p = tax::variables<"p", 4>(arr3);        // 3-D axis "p"      → std::array of NE
+auto f = sin(x) + x * p[0];                   // composes in the union of axes {p, x}
+auto g = f.deriv<"x">().slice<"p">();         // named ∂/∂x, then projected onto axis p
+auto J = tax::named::jacobian<"x">(F);        // Jacobian of Eigen vector F w.r.t. "x"
 ```
 
-Architecture:
-- **Leaf-only arena tree** (`AdsTree<Payload, M, T>`): `std::vector<Leaf>` with
-  `parentIdx`/`siblingIdx` links; splits retire the parent in place, merges revive it.
-- **Event interop**: `(SplitTrigger, SplitAction)` appended to the user's event
-  list; the action records `{dim, t}` and terminates; the driver splits or marks done.
-- **Splits at accepted-step boundaries only** (matches Wittig's original ADS).
-- **Parallel driver**: `AdsDriver` runs `num_threads` jthread workers; integration
-  is lock-free on moved-out leaf inputs, the mutex guards only queue/tree mutation.
-- **Axis substitution** (`da_state.hpp::detail::substituteAxis`): one routine
-  handles both split (`scale = 0.5`) and merge-inverse (`scale = 2`).
+- **Canonical type:** axis lists are sorted-by-name and unique, so `x * p` and
+  `p * x` produce the *same* type (`NE<N, Axes...>` is the `double` alias).
+- **embed / compose / slice:** operands over different axis sets are embedded
+  into the union before the dense kernels run; the result type tracks the union.
+  A narrower expansion promotes implicitly into a wider axis set.
+- **Named differential ops:** `deriv<"name">()`, `integ<"name">()`,
+  `slice<Names...>()`; LA helpers `gradient<"name">`, `hessian<"name">`,
+  `jacobian<"name">` in `la/named.hpp`.
 
-Key files: `box.hpp`, `leaf.hpp`, `tree.hpp`, `criteria.hpp` (`SplitCriterion`
-concept, `TruncationCriterion`, `NliCriterion`), `nonlinearity_index.hpp`,
-`split_event.hpp`, `da_state.hpp`, `driver.hpp`, `propagate.hpp`, `merge.hpp`,
-`refine.hpp` + `refine_criteria.hpp` (the parallel "propagate-then-assess"
-driver `refine()` with `CoefficientMatchCriterion` / `VolumeRatioCriterion`),
-`io.hpp` (opt-in CSV writers).
+Key files: `core/named.hpp` (the type + `variable`/`variables` factories,
+embed/slice/compose) and `la/named.hpp` (Eigen `NumTraits` + name-addressed
+gradient/hessian/jacobian).
 
 ---
 
@@ -324,11 +268,11 @@ driver `refine()` with `CoefficientMatchCriterion` / `VolumeRatioCriterion`),
 
 | Category | Convention | Examples |
 |----------|-----------|---------|
-| Types/Classes | `PascalCase` | `TaylorExpansion`, `MultiIndex`, `AdsTree`, `Integrator` |
-| Template params | `UPPERCASE` or short | `T`, `N`, `M`, `D`, `Tab`, `Derived` |
+| Types/Classes | `PascalCase` | `TaylorExpansion`, `MultiIndex`, `NamedTaylorExpansion`, `Axis` |
+| Template params | `UPPERCASE` or short | `T`, `N`, `M`, `D`, `Derived` |
 | Free functions & methods | `camelCase` | `variable()`, `flatIndex()`, `seriesReciprocal()`, `deriv()`, `popFront()` |
 | Local variables | `snake_case` | `n_coeff`, `dx`, `half_width` |
-| Namespaces | `lowercase` | `tax`, `tax::detail`, `tax::ode`, `tax::ads`, `tax::la` |
+| Namespaces | `lowercase` | `tax`, `tax::detail`, `tax::named`, `tax::la` |
 | Type aliases | Short uppercase | `TE<N, M>`, `TEn<N, M>`, `STE<N, M>` |
 
 ### C++ Patterns
@@ -337,15 +281,15 @@ driver `refine()` with `CoefficientMatchCriterion` / `VolumeRatioCriterion`),
   coefficient operations must stay `constexpr`; kernels that use runtime
   statics (stencil) must keep a `constexpr`-safe fallback behind `if !consteval`
 - **`noexcept` on all operations** (exception: methods that `throw`, e.g.
-  runtime-index `deriv(int)` and the `Integrator` config validation)
+  runtime-index `deriv(int)`)
 - **No heap allocation in core:** `std::array` for dense storage;
-  `std::vector` is acceptable in Sparse storage and the ODE/ADS modules
+  `std::vector` is acceptable in Sparse storage only
 - **Concepts over SFINAE:** `tax::Scalar`, `TaylorPolynomial`,
-  `DensePolynomial`, `tax::ode::concepts::Stepper`, `tax::ads::SplitCriterion`
+  `DensePolynomial`
 - **`if constexpr`** for univariate (M == 1) vs multivariate branches
 - **`[[nodiscard]]`** on accessors, computation results, expensive operations
 - **Internal details in `detail` namespaces:** `tax::detail::kernels`,
-  `tax::ode::detail`, `tax::ads::detail`
+  `tax::named::detail`
 
 ### Formatting
 
@@ -364,8 +308,7 @@ clang-format -i $(git ls-files 'include/**/*.hpp')
 ## Testing
 
 Tests are organized by module, one `.cpp` per concern, each registered via
-`tax_add_test(name SOURCES path.cpp)` in `tests/CMakeLists.txt` (61 ctest
-targets).
+`tax_add_test(name SOURCES path.cpp)` in `tests/CMakeLists.txt`.
 
 ```cpp
 #include <gtest/gtest.h>
@@ -401,16 +344,15 @@ with `-DTAX_BUILD_REGRESSIONS=ON`.
 
 1. All ctest targets pass locally
 2. Code is formatted with `clang-format`
-3. No new dynamic allocations introduced in the core library
+3. No new dynamic allocations introduced in the dense core library
 4. New math operations have kernel tests AND operator tests
-5. ODE/ADS changes have tests in `tests/ode/` or `tests/ads/`
 
 ---
 
 ## Common Pitfalls
 
 - **Do not heap-allocate in core:** dense `TaylorExpansion` must remain
-  allocation-free; `std::vector` belongs to Sparse storage and ODE/ADS only
+  allocation-free; `std::vector` belongs to Sparse storage only
 - **Do not break `constexpr`:** all index arithmetic stays compile-time; if a
   fast path needs runtime statics, guard it with `if !consteval` and keep the
   loop kernel as the constant-evaluation fallback
@@ -422,7 +364,7 @@ with `-DTAX_BUILD_REGRESSIONS=ON`.
   kernels and operators that append directly (`rawIndices()/rawValues()`)
   must emit in ascending flat-index order with no zeros
 - **M = 0 is invalid:** always assert or `static_assert` M >= 1
-- **Include the umbrella headers:** `<tax/tax.hpp>` (core + la),
-  `<tax/ode.hpp>`, `<tax/ads.hpp>` — not individual sub-headers
+- **Include the umbrella header:** `<tax/tax.hpp>` (core + named + la) — not
+  individual sub-headers
 - **`pyproject.toml` is forward-looking:** there are no Python binding sources
   in the tree yet

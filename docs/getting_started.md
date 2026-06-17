@@ -1,7 +1,7 @@
 # Getting Started
 
-This page walks you from a fresh checkout to writing your first Taylor expansion
-and propagating an ODE.
+This page walks you from a fresh checkout to writing your first Taylor
+expansion.
 
 ---
 
@@ -13,7 +13,6 @@ and propagating an ODE.
 | CMake | 3.28 |
 | Eigen | 3.4 |
 | GoogleTest | fetched automatically by CMake if missing |
-| Google Benchmark | fetched automatically when `TAX_BUILD_BENCHMARK=ON` |
 
 ## Build & test from source
 
@@ -30,7 +29,7 @@ ctest --test-dir build --output-on-failure
 | Option | Default | Description |
 |---|:-:|---|
 | `TAX_BUILD_UNITTESTS` | `ON`  | Build the GoogleTest unit-test suite |
-| `TAX_BUILD_BENCHMARK` | `OFF` | Build the Google Benchmark suite |
+| `TAX_BUILD_REGRESSIONS` | `OFF` | Build the DACE-based regression tests |
 
 The fast Cauchy kernel paths (`TAX_USE_UNROLL` for $M=1$, `TAX_USE_STENCIL`
 for $M \ge 2$) default to on in `<tax/kernels/cauchy.hpp>`; pre-define the
@@ -59,14 +58,11 @@ cmake -S . -B build -DCMAKE_PREFIX_PATH=/your/install/prefix
 ## Single umbrella header
 
 ```cpp
-#include <tax/tax.hpp>          // core + Eigen integration
+#include <tax/tax.hpp>          // core + named expansions + Eigen integration
 ```
 
-The ODE module is opt-in via a separate header:
-
-```cpp
-#include <tax/ode.hpp>          // adaptive Taylor + RK steppers
-```
+This single header pulls in the `TaylorExpansion` type, named expansions, and
+the `tax::la` Eigen helpers.
 
 ---
 
@@ -212,40 +208,9 @@ Reference is in [Eigen Integration](eigen/index.md).
 
 ---
 
-## A first ODE
-
-```cpp
-#include <tax/ode.hpp>
-#include <Eigen/Core>
-
-// Harmonic oscillator: dx/dt = v, dv/dt = -x
-auto f = [](const auto& x, const auto& /*t*/) {
-    using S = std::decay_t<decltype(x)>;
-    S out;
-    out(0) =  x(1);
-    out(1) = -x(0);
-    return out;
-};
-
-tax::ode::IntegratorConfig<double> cfg;
-cfg.abstol = cfg.reltol = 1e-12;
-
-auto integ = tax::ode::makeTaylorIntegrator<25, double, 2>(f, cfg);
-
-Eigen::Vector2d x0{1.0, 0.0};
-auto sol = integ.integrate(x0, /*t0=*/0.0, /*tmax=*/2.0 * M_PI);
-
-sol.x.back();  // ≈ (1, 0): one full period
-```
-
-More examples — RK methods, events, dense output — in
-[ODE Examples](ode/examples.md).
-
----
-
 ## Next steps
 
 - [Core / Mathematical Foundations](core/math.md) — the math behind the type.
 - [Core / API Reference](core/api.md) — every public method, listed.
-- [ODE / Methods & Benchmarks](ode/methods.md) — pick the right integrator.
+- [Core / Named Expansions](core/named.md) — axes addressed by name.
 - [Internals](internals/index.md) — how expression templates and recurrences fit together.

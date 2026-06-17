@@ -120,54 +120,17 @@ control-flow predicates that branch on a representative value.
 The integration is symmetric: any Eigen routine that doesn't require sparse
 matrix traits accepts `TE` as a scalar; any user-written generic lambda on
 Eigen vectors can be re-instantiated on `TE`-valued state without source
-changes. The ODE module exploits this when the Taylor stepper composes the
-user RHS on TE-valued state to obtain time-Taylor coefficients via
-[automatic differentiation](../ode/math.md#picard-iteration-via-automatic-differentiation).
+changes. This is exactly what a Taylor ODE integrator built on `tax` exploits:
+its stepper composes the user RHS on TE-valued state to obtain time-Taylor
+coefficients via automatic differentiation.
 
 ---
 
-## ODE module
+## Building on the core
 
-`tax/ode/` adds an integrator on top of the core type. The split:
-
-| Header | Concern |
-|---|---|
-| `config.hpp`, `step_result.hpp`, `solution.hpp` | data types |
-| `concepts.hpp` | `Stepper` / `AdaptiveStepper` concepts the driver uses |
-| `controllers.hpp` | step-size policies as mutable structs |
-| `steppers/*.hpp` | one stepper per file, each parameterised on `<State, Controller>` |
-| `event.hpp`, `triggers.hpp`, `actions.hpp` | the Trigger + Action factoring |
-| `integrator.hpp` | the one `Integrator<Stepper, F, Dense>` class plus `make*Integrator` factories |
-| `detail/*` | shared helpers — Verner/Feagin/Fehlberg tableaus, adaptive_rk_step, cubic-Hermite interp, Brent root finder |
-
-The driver `Integrator<Stepper, F, Dense>::integrate` is templated on `F` so
-the user RHS can be a generic lambda that compiles on both
-`Eigen::Matrix<T, D, 1>` (RK path) and `Eigen::Matrix<TE<N>, D, 1>` (Taylor
-path). The compile-time `Stepper` policy chooses the algorithm; the
-compile-time `Dense` bool chooses whether to keep the per-step
-continuous-extension payload alive on the `Solution`.
-
-### Event flow
-
-```
-Integrator::integrate(...)
-   ↓
-   Stepper::step → StepResult{x_new, dense, ...}
-   ↓
-   for each Event<Stepper> e:
-        ε = e.test(ctx)              // Trigger → optional<τ>
-        if ε.has_value():
-             record (ε, e)            // sort multiple triggers by τ
-   sort detected events by τ ascending
-   for each detected event:
-        flow = e.run(ctx, τ, sink)    // Action returns ControlFlow
-        if flow == Terminate: break the outer loop
-```
-
-`ZeroCrossing` is the only built-in trigger that needs root finding. The
-machinery is method-specific — polynomial-Newton on the Taylor path via
-`g_poly`, Brent on the RK path via `Stepper::eval_dense` — and both return
-`std::optional<T>`.
+Higher-level numerics build on `TaylorExpansion` without modifying it —
+relying only on the dense type, its Eigen scalar integration, and the operator
+surface documented above.
 
 ---
 

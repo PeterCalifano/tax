@@ -25,8 +25,7 @@ f.eval(0.3);        // sin(0.3) within machine precision
 ```
 
 !!! warning "Active development"
-    APIs and behavior may change between minor versions until 1.0. The Stage 2a
-    ODE module landed recently; see the [ODE Integrator](ode/index.md) section.
+    APIs and behavior may change between minor versions until 1.0.
 
 ---
 
@@ -57,17 +56,11 @@ f.eval(0.3);        // sin(0.3) within machine precision
     vectors and matrices; helpers extract values, gradients, Jacobians, and
     Hessians.
 
-- :material-rocket:{ .lg .middle } **Adaptive ODE integration**
+- :material-tag-text:{ .lg .middle } **Named expansions**
 
-    `tax::ode::Integrator<Stepper>` swaps between a high-order Taylor method
-    and five Runge–Kutta pairs (Verner 8(7), Verner 9(8), Fehlberg 7(8),
-    Feagin 12(10), Feagin 14(12)) by compile-time policy.
-
-- :material-bell-ring:{ .lg .middle } **Event detection**
-
-    Zero-crossing events with direction filters, polynomial-Newton root
-    finding on the Taylor path, Brent on the RK path. Custom user actions for
-    integration into larger workflows.
+    `NamedTaylorExpansion<T, N, Axes...>` attaches compile-time *named axes* to
+    an expansion; values over different axis sets compose in their union, and
+    `slice`/`deriv`/`integ` are addressed by name.
 
 </div>
 
@@ -84,8 +77,7 @@ f.eval(0.3);        // sin(0.3) within machine precision
 | `f.derivative<2, 1>()` | $\partial^3 f / \partial x^2 \partial y$ at $x_0$ |
 | `f.eval(dx)` | Horner evaluation of the polynomial at $x_0 + \delta x$ |
 | `tax::jacobian(F, M)` | Eigen Jacobian of a vector function |
-| `tax::ode::makeTaylorIntegrator<25>(f)` | adaptive Taylor IVP integrator |
-| `tax::ode::makeVerner89Integrator(f)` | adaptive Verner 9(8) integrator |
+| `tax::named::NamedTaylorExpansion<T, N, Axes...>` | TE with named, type-level variables |
 
 ---
 
@@ -97,23 +89,15 @@ f.eval(0.3);        // sin(0.3) within machine precision
 
     Install, build, and write your first Taylor expansion.
 
-- [:material-school: __Tutorials__](tutorials/index.md)
-
-    End-to-end worked examples: flow maps and domain splitting on the
-    two-body and three-body problems, with figures.
-
 - [:material-function: __Core__](core/index.md)
 
-    The `TaylorExpansion` type, its math, its API, and worked examples.
+    The `TaylorExpansion` type, its math, its API, named expansions, and
+    worked examples.
 
 - [:material-matrix: __Eigen Integration__](eigen/index.md)
 
     Use `TaylorExpansion` inside Eigen vectors and matrices. Gradients,
     Jacobians, Hessians.
-
-- [:material-chart-line: __ODE Integrator__](ode/index.md)
-
-    Adaptive Taylor + Runge–Kutta IVP solvers with events and dense output.
 
 - [:material-cog: __Internals__](internals/index.md)
 

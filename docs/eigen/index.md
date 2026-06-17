@@ -78,10 +78,10 @@ auto J = tax::jacobian(F);            // 2×2 Jacobian at (1, 0.5)
 auto H0 = tax::hessian(F(0));         // 2×2 Hessian of F₀ at (1, 0.5)
 ```
 
-The same idea drives the [ODE module](../ode/index.md): a user-written generic
-RHS lambda can be instantiated on plain `Eigen::Matrix<T, D, 1>` for the
-RK steppers and on `Eigen::Matrix<tax::TE<N, M>, D, 1>` for the Taylor stepper
-without source changes.
+The same idea drives generic ODE integrators built on `tax`: a user-written
+generic RHS lambda can be instantiated on plain `Eigen::Matrix<T, D, 1>` for
+the RK steppers and on `Eigen::Matrix<tax::TE<N, M>, D, 1>` for the Taylor
+stepper without source changes.
 
 ---
 

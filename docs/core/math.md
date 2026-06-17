@@ -503,6 +503,6 @@ not compute $C$ itself, but two practical proxies are exposed on
   individual $f_\alpha$; the geometric decay rate of the largest-magnitude
   coefficient at each total degree estimates the convergence radius.
 
-This is the same idea the [Jorba–Zou step-size controller](../ode/math.md#step-size-control)
-applies inside the Taylor ODE integrator to choose the step $h$ from the
-last two coefficient norms of the per-step expansion.
+This is the same idea a Jorba–Zou step-size controller applies inside a Taylor
+ODE integrator to choose the step $h$ from the last two coefficient norms of
+the per-step expansion.

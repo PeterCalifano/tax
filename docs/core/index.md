@@ -29,6 +29,7 @@ multivariate expansions.
 | [API Reference](api.md) | Complete signature reference for `TaylorExpansion` |
 | [Examples](examples.md) | Worked examples — variables, expressions, derivatives |
 | [Dense vs Sparse Storage](storage.md) | When to use `TE` vs `STE`, performance trade-offs |
+| [Named Expansions](named.md) | `NamedTaylorExpansion` — axes addressed by name, compose/slice/derive |
 
 ## Key headers
 
@@ -36,6 +37,7 @@ multivariate expansions.
 |---|---|
 | `tax/tax.hpp` | Umbrella header — the only include users need |
 | `tax/core/taylor_expansion.hpp` | Primary `TaylorExpansion` class template + Dense/Sparse specialisations |
+| `tax/core/named.hpp` | `NamedTaylorExpansion` — Taylor expansions with named, type-level axes |
 | `tax/core/multi_index.hpp` | `MultiIndex<M>`, flat-index ↔ multi-index conversion |
 | `tax/core/enumeration.hpp` | Compile-time monomial enumeration utilities |
 | `tax/core/concepts.hpp` | `Scalar` concept and related traits |

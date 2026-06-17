@@ -8,7 +8,6 @@ edit_uri: edit/main/docs/
 # Hide internal dev notes from the published site.
 exclude_docs: |
   superpowers/
-  benchmarks/
 
 theme:
   name: material
@@ -108,31 +107,16 @@ extra:
 nav:
   - Home: index.md
   - Getting Started: getting_started.md
-  - Tutorials:
-      - Overview: tutorials/index.md
-      - Two-Body Problem: tutorials/two_body.md
-      - Parallel ADS by Refinement: tutorials/two_body_refine.md
-      - Three-Body Problem: tutorials/three_body.md
   - Core:
       - Overview: core/index.md
       - Mathematical Foundations: core/math.md
       - API Reference: core/api.md
       - Examples: core/examples.md
       - Dense vs Sparse Storage: core/storage.md
+      - Named Expansions: core/named.md
   - Eigen Integration:
       - Overview: eigen/index.md
       - API Reference: eigen/api.md
-  - ODE Integrator:
-      - Overview: ode/index.md
-      - Mathematical Foundations: ode/math.md
-      - API Reference: ode/api.md
-      - Methods & Benchmarks: ode/methods.md
-      - Events: ode/events.md
-      - Examples: ode/examples.md
-  - Automatic Domain Splitting:
-      - Overview: ads/index.md
-      - API Reference: ads/api.md
-      - Refinement: ads/refine.md
   - Internals:
       - Overview: internals/index.md
       - Architecture: internals/architecture.md
