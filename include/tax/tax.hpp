@@ -1,6 +1,5 @@
 #pragma once
-// Stage 1: progressively populated by each implementation slice.
-// Users should include only this header.
+// Umbrella header (core + linear algebra). Users should include only this.
 
 #include <tax/core/concepts.hpp>
 #include <tax/core/multi_index.hpp>

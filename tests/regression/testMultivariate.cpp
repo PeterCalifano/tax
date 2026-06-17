@@ -1,9 +1,8 @@
 // tests/regression/testMultivariate.cpp
 //
-// Ported from claude/add-verner-integrators-vEgRF:tests/dace/testMultivariate.cpp
-// and retargeted at tax::TE<N, M> with the Stage 1 Eigen-form variables
-// factory. Every input variable is wrapped in tax_regression::prepareInput
-// before the op under test, on both sides.
+// DACE-vs-tax parity for multivariate ops on tax::TE<N, M>, using the
+// Eigen-form variables factory. Every input variable is wrapped in
+// tax_regression::prepareInput before the op under test, on both sides.
 
 #include <dace/dace.h>
 #include <gtest/gtest.h>

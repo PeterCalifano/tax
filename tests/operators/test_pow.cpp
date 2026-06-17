@@ -26,8 +26,8 @@ TEST( Pow, NegativeRealExponent )
     tax::test::ExpectCoeffsNear( a, b, 1e-12 );
 }
 
-// A float exponent (with T == double) used to be ambiguous between pow(.,int)
-// and pow(.,T); the floating-point-constrained overload now binds by exact match.
+// A float exponent (with T == double) must bind the real-exponent overload by
+// exact match, without ambiguity against pow(., int).
 TEST( Pow, FloatExponentNotAmbiguous )
 {
     auto x = tax::TE< 6 >::variable( 2.0 );

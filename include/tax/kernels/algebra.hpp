@@ -13,17 +13,11 @@ namespace tax::detail::kernels
  * @brief Self-product `out = f * f`.
  *
  * For M == 1 this exploits symmetry (each unordered pair {k, d-k} once, with the
- * off-diagonal contribution doubled) for ~2x fewer multiplications; the symmetric
- * reduction is used identically in constant evaluation and at runtime, so the two
- * agree bit-for-bit.
+ * off-diagonal contribution doubled) for ~2x fewer multiplications.
  *
- * For M >= 2 it forwards to the general Cauchy product dispatch. The symmetric
- * enumeration would save ~2x multiplies, but it sums `2*f[b]*f[g]` where the
- * general product sums `f[b]*f[g] + f[g]*f[b]` — a different floating-point
- * reduction. Routing through `cauchyProduct` keeps the constant-evaluation (loop)
- * and runtime (stencil) results bit-identical, which the rest of the library and
- * its tests rely on, and the per-pair flatIndex cost the stencil eliminates at
- * runtime dwarfs the lost multiply saving anyway.
+ * For M >= 2 it forwards to the general Cauchy product dispatch, so the loop and
+ * stencil paths share one floating-point reduction; the symmetric saving is not
+ * worth the divergent reduction and the extra per-pair index bookkeeping.
  *
  * @tparam T  Scalar type.
  * @tparam N  Truncation order.

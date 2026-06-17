@@ -157,7 +157,7 @@ template < typename T, int N, int M >
 // Compound assignment (dense)
 //
 // In-place updates avoid the temporary + copy-assign of `a = a + b`; they are
-// the building blocks of hot loops (e.g. the ODE steppers' axpy updates).
+// the building blocks of hot loops such as axpy-style updates.
 // ---------------------------------------------------------------------------
 
 template < typename T, int N, int M >

@@ -48,8 +48,8 @@ TEST( EigenValue, ElementWise )
     EXPECT_NEAR( val( 1 ), 3.0, 1e-12 );
 }
 
-// NumTraits<TaylorExpansion> must expose the Real-typed value functions (they
-// previously fell through to the scalar base, returning double instead of Real).
+// NumTraits<TaylorExpansion> must expose the Real-typed value functions
+// (epsilon/dummy_precision/highest/lowest), returning Real rather than double.
 TEST( EigenNumTraits, RealReturningValueFunctions )
 {
     using TE = tax::TE< 3, 2 >;

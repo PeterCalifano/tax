@@ -4,8 +4,7 @@
 //
 //   1. Eigen::NumTraits< tax::named::NamedTaylorExpansion<...> > — lets a named
 //      expansion act as a first-class Eigen scalar, so
-//      Eigen::Matrix< NE<...>, D, 1 > works (and, with the ODE
-//      VectorOps specialization, can be integrated as an ODE state).
+//      Eigen::Matrix< NE<...>, D, 1 > works.
 //
 //   2. Per-axis differential helpers in namespace tax::named:
 //        gradient<"axis">(f)  — gradient restricted to one named block.

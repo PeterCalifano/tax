@@ -107,7 +107,7 @@ template < int N, int M >
  *
  * Uses the precomputed table at runtime (TAX_USE_STENCIL); constant
  * evaluation — and TAX_USE_STENCIL=0 builds — enumerate the same rows
- * on the fly in the same order, so results are bit-identical.
+ * on the fly in the same order, so every path follows the same recurrence.
  */
 template < int N, int M, class RowFn >
 constexpr void forEachRecurrenceRow( RowFn&& fn ) noexcept
