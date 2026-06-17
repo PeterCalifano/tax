@@ -5,10 +5,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
-#include <vector>
-
 #include <tax/core/multi_index.hpp>
 #include <tax/core/storage/sparse.hpp>
+#include <vector>
 
 namespace tax::detail::kernels
 {
@@ -24,12 +23,12 @@ namespace tax::detail::kernels
 template < typename T, int N, int M >
 struct SparseCauchyScratch
 {
-    static constexpr std::size_t NC     = numMonomials( N, M );
+    static constexpr std::size_t NC = numMonomials( N, M );
     static constexpr std::size_t kWords = ( NC + 63 ) / 64;
 
-    std::array< T, NC >                 acc{};
+    std::array< T, NC > acc{};
     std::array< std::uint64_t, kWords > touched{};
-    std::vector< MultiIndex< M > >      alpha;  // decoded support of one operand
+    std::vector< MultiIndex< M > > alpha;  // decoded support of one operand
 
     [[nodiscard]] static SparseCauchyScratch& instance() noexcept
     {
@@ -54,7 +53,8 @@ struct SparseCauchyScratch
 
     /// Emit nonzero accumulator slots in ascending flat-index order and
     /// restore the scratch invariant (touched slots reset to zero).
-    void emit( storage::SparseContainer< T, N, M >& out ) noexcept
+    /// Not noexcept: appends to the output vectors, which may allocate.
+    void emit( storage::SparseContainer< T, N, M >& out )
     {
         auto& ri = out.rawIndices();
         auto& rv = out.rawValues();
@@ -63,7 +63,7 @@ struct SparseCauchyScratch
             std::uint64_t bits = touched[w];
             while ( bits )
             {
-                const int         b = std::countr_zero( bits );
+                const int b = std::countr_zero( bits );
                 const std::size_t k = w * 64 + std::size_t( b );
                 if ( acc[k] != T{ 0 } )
                 {
@@ -91,10 +91,12 @@ struct SparseCauchyScratch
  * @tparam N  Truncation order.
  * @tparam M  Number of variables.
  */
+// Not noexcept: decode/emit append to vectors, which may allocate (matches the
+// throwing sparse kernels in sparse_subs.hpp).
 template < typename T, int N, int M >
-void sparseCauchyProduct( storage::SparseContainer< T, N, M >&       out,
+void sparseCauchyProduct( storage::SparseContainer< T, N, M >& out,
                           const storage::SparseContainer< T, N, M >& f,
-                          const storage::SparseContainer< T, N, M >& g ) noexcept
+                          const storage::SparseContainer< T, N, M >& g )
 {
     static const DegreeOf< N, M > deg_table{};
 
@@ -108,10 +110,10 @@ void sparseCauchyProduct( storage::SparseContainer< T, N, M >&       out,
 
     for ( std::size_t a = 0; a < fi.size(); ++a )
     {
-        const std::size_t ia      = fi[a];
-        const int         da      = deg_table.value[ia];
-        const auto        alpha_a = unflatIndex< M >( ia );
-        const T           va      = fv[a];
+        const std::size_t ia = fi[a];
+        const int da = deg_table.value[ia];
+        const auto alpha_a = unflatIndex< M >( ia );
+        const T va = fv[a];
         for ( std::size_t b = 0; b < gi.size(); ++b )
         {
             if ( da + deg_table.value[gi[b]] > N )
@@ -133,9 +135,10 @@ void sparseCauchyProduct( storage::SparseContainer< T, N, M >&       out,
  * Enumerates each unordered pair {a, b} once and doubles off-diagonal
  * contributions, mirroring the dense `cauchySelfProduct` pattern.
  */
+// Not noexcept: decode/emit append to vectors, which may allocate.
 template < typename T, int N, int M >
-void sparseCauchySelfProduct( storage::SparseContainer< T, N, M >&       out,
-                              const storage::SparseContainer< T, N, M >& f ) noexcept
+void sparseCauchySelfProduct( storage::SparseContainer< T, N, M >& out,
+                              const storage::SparseContainer< T, N, M >& f )
 {
     static const DegreeOf< N, M > deg_table{};
 
@@ -147,17 +150,16 @@ void sparseCauchySelfProduct( storage::SparseContainer< T, N, M >&       out,
 
     for ( std::size_t a = 0; a < fi.size(); ++a )
     {
-        const std::size_t ia      = fi[a];
-        const int         da      = deg_table.value[ia];
-        const auto&       alpha_a = scratch.alpha[a];
-        const T           va      = fv[a];
+        const std::size_t ia = fi[a];
+        const int da = deg_table.value[ia];
+        const auto& alpha_a = scratch.alpha[a];
+        const T va = fv[a];
 
         // Diagonal: f[ia]^2 contributes once (if 2*da <= N).
         if ( 2 * da <= N )
         {
             MultiIndex< M > sum{};
-            for ( int i = 0; i < M; ++i )
-                sum[std::size_t( i )] = 2 * alpha_a[std::size_t( i )];
+            for ( int i = 0; i < M; ++i ) sum[std::size_t( i )] = 2 * alpha_a[std::size_t( i )];
             scratch.mark( flatIndex< M >( sum ), va * va );
         }
         // Off-diagonal: pair {ia, ib} with ib > ia contributes 2*va*vb.

@@ -3,7 +3,6 @@
 #include <cmath>
 #include <numbers>
 #include <span>
-
 #include <tax/kernels/algebra.hpp>
 
 namespace tax::detail::kernels
@@ -35,14 +34,12 @@ void seriesExp( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
                 rhs += T( d - k ) * a[std::size_t( d - k )] * out[std::size_t( k )];
             out[std::size_t( d )] = rhs / T( d );
         }
-    }
-    else
+    } else
     {
         forEachRecurrenceRow< N, M >(
             [&]( std::size_t ai, int d, std::span< const RecurrenceEntry > row ) {
                 T rhs = T{ 0 };
-                for ( const RecurrenceEntry& e : row )
-                    rhs += T( e.db ) * a[e.b_idx] * out[e.g_idx];
+                for ( const RecurrenceEntry& e : row ) rhs += T( e.db ) * a[e.b_idx] * out[e.g_idx];
                 out[ai] = rhs / T( d );
             } );
     }
@@ -76,8 +73,7 @@ void seriesLog( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
                 rhs += T( k ) * a[std::size_t( d - k )] * out[std::size_t( k )];
             out[std::size_t( d )] = ( a[std::size_t( d )] - rhs / T( d ) ) * inv_a0;
         }
-    }
-    else
+    } else
     {
         forEachRecurrenceRow< N, M >(
             [&]( std::size_t ai, int d, std::span< const RecurrenceEntry > row ) {
@@ -114,8 +110,7 @@ void seriesSinh( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
 
     out = {};
     out[0] = sinh( a[0] );
-    for ( std::size_t i = 1; i < S; ++i )
-        out[i] = ( ep[i] - em[i] ) * T{ 0.5 };
+    for ( std::size_t i = 1; i < S; ++i ) out[i] = ( ep[i] - em[i] ) * T{ 0.5 };
 }
 
 /**
@@ -142,8 +137,7 @@ void seriesCosh( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
 
     out = {};
     out[0] = cosh( a[0] );
-    for ( std::size_t i = 1; i < S; ++i )
-        out[i] = ( ep[i] + em[i] ) * T{ 0.5 };
+    for ( std::size_t i = 1; i < S; ++i ) out[i] = ( ep[i] + em[i] ) * T{ 0.5 };
 }
 
 /**
@@ -159,13 +153,29 @@ void seriesCosh( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
 template < typename T, int N, int M >
 void seriesTanh( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
 {
+    using std::cosh;
+    using std::sinh;
     using std::tanh;
     constexpr std::size_t S = numMonomials( N, M );
 
-    // h = cosh(a),  s = sinh(a)
+    // h = cosh(a), s = sinh(a). Share a single exp(a)/exp(-a) pair rather than
+    // calling seriesCosh + seriesSinh, each of which would recompute both exps
+    // (4 seriesExp calls -> 2). The derived coefficients are bit-identical to the
+    // dedicated kernels.
+    Coeffs< T, N, M > ep{}, em{}, neg_a{};
+    neg_a = a;
+    for ( std::size_t i = 0; i < S; ++i ) neg_a[i] = -neg_a[i];
+    seriesExp< T, N, M >( ep, a );
+    seriesExp< T, N, M >( em, neg_a );
+
     Coeffs< T, N, M > h{}, s{};
-    seriesCosh< T, N, M >( h, a );
-    seriesSinh< T, N, M >( s, a );
+    h[0] = cosh( a[0] );
+    s[0] = sinh( a[0] );
+    for ( std::size_t i = 1; i < S; ++i )
+    {
+        h[i] = ( ep[i] + em[i] ) * T{ 0.5 };
+        s[i] = ( ep[i] - em[i] ) * T{ 0.5 };
+    }
 
     out = {};
     out[0] = tanh( a[0] );
@@ -178,12 +188,10 @@ void seriesTanh( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
         for ( int d = 1; d <= N; ++d )
         {
             T rhs = s[std::size_t( d )];
-            for ( int k = 1; k <= d; ++k )
-                rhs -= h[std::size_t( k )] * out[std::size_t( d - k )];
+            for ( int k = 1; k <= d; ++k ) rhs -= h[std::size_t( k )] * out[std::size_t( d - k )];
             out[std::size_t( d )] = rhs * inv_h0;
         }
-    }
-    else
+    } else
     {
         forEachRecurrenceRow< N, M >(
             [&]( std::size_t ai, int, std::span< const RecurrenceEntry > row ) {
@@ -231,8 +239,7 @@ void seriesAsinh( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
                 rhs += T( k ) * h[std::size_t( d - k )] * out[std::size_t( k )];
             out[std::size_t( d )] = ( a[std::size_t( d )] - rhs / T( d ) ) * inv_h0;
         }
-    }
-    else
+    } else
     {
         forEachRecurrenceRow< N, M >(
             [&]( std::size_t ai, int d, std::span< const RecurrenceEntry > row ) {
@@ -281,8 +288,7 @@ void seriesAcosh( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
                 rhs += T( k ) * h[std::size_t( d - k )] * out[std::size_t( k )];
             out[std::size_t( d )] = ( a[std::size_t( d )] - rhs / T( d ) ) * inv_h0;
         }
-    }
-    else
+    } else
     {
         forEachRecurrenceRow< N, M >(
             [&]( std::size_t ai, int d, std::span< const RecurrenceEntry > row ) {
@@ -330,8 +336,7 @@ void seriesAtanh( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
                 rhs += T( k ) * h[std::size_t( d - k )] * out[std::size_t( k )];
             out[std::size_t( d )] = ( a[std::size_t( d )] - rhs / T( d ) ) * inv_h0;
         }
-    }
-    else
+    } else
     {
         forEachRecurrenceRow< N, M >(
             [&]( std::size_t ai, int d, std::span< const RecurrenceEntry > row ) {
@@ -383,14 +388,12 @@ void seriesErf( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
                 rhs += T( d - k ) * a[std::size_t( d - k )] * h[std::size_t( k )];
             out[std::size_t( d )] = rhs / T( d );
         }
-    }
-    else
+    } else
     {
         forEachRecurrenceRow< N, M >(
             [&]( std::size_t ai, int d, std::span< const RecurrenceEntry > row ) {
                 T rhs = T{ 0 };
-                for ( const RecurrenceEntry& e : row )
-                    rhs += T( e.db ) * a[e.b_idx] * h[e.g_idx];
+                for ( const RecurrenceEntry& e : row ) rhs += T( e.db ) * a[e.b_idx] * h[e.g_idx];
                 out[ai] = rhs / T( d );
             } );
     }
