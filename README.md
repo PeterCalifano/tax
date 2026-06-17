@@ -45,6 +45,35 @@ up to order \(N\) in a single evaluation pass.
 
 ---
 
+## How it works
+
+A `TaylorExpansion<T, N, M>` stores the coefficients of the order-$N$ truncated
+Taylor polynomial of a function of $M$ variables about an expansion point
+$\mathbf{x}_0$:
+
+$$
+f(\mathbf{x}_0 + \delta\mathbf{x})
+  = \sum_{|\alpha| \le N} f_\alpha \, \delta\mathbf{x}^\alpha,
+\qquad
+f_\alpha = \frac{1}{\alpha!}\,
+  \frac{\partial^{|\alpha|} f}{\partial x_1^{\alpha_1}\cdots\partial x_M^{\alpha_M}}
+  \bigg|_{\mathbf{x}_0}.
+$$
+
+The $\binom{N+M}{M}$ coefficients are laid out in graded-lexicographic order in a
+`std::array` (dense) or a sorted index/value map (sparse). Every operation —
+`*`, `/`, `sin`, `exp`, `log`, `sqrt`, `pow`, … — is a **degree-by-degree
+recurrence relation** that writes the result coefficients directly, so one
+evaluation pass yields the value *and* all derivatives up to order $N$.
+`coeff(α)` returns the raw $f_\alpha$; `derivative(α)` applies the $\alpha!$ scaling.
+
+The full derivation, the per-operation recurrences, and convergence behaviour
+are documented under
+[Concepts](https://andreapasquale94.github.io/tax/concepts/) and
+[Reference / Math & Recurrences](https://andreapasquale94.github.io/tax/reference/math/).
+
+---
+
 ## Requirements
 
 - C++23 compiler — GCC 13+, Clang 17+, Apple Clang 16+
@@ -151,8 +180,9 @@ Hosted at <https://andreapasquale94.github.io/tax/>.
 | Section | Topic |
 |---|---|
 | [Getting Started](https://andreapasquale94.github.io/tax/getting_started/) | Install, build, write your first Taylor expansion |
-| [Core](https://andreapasquale94.github.io/tax/core/) | `TaylorExpansion` math, API, examples, Dense vs Sparse storage |
-| [Eigen Integration](https://andreapasquale94.github.io/tax/eigen/) | `NumTraits`, helpers, map inversion |
+| [Guide](https://andreapasquale94.github.io/tax/guide/) | How-to: variables & expressions, extracting results, storage, named expansions, Eigen |
+| [Reference](https://andreapasquale94.github.io/tax/reference/) | `TaylorExpansion` API, `tax::la`, `tax::named`, and the per-operation recurrence catalog |
+| [Concepts](https://andreapasquale94.github.io/tax/concepts/) | The math: truncated Taylor polynomials, graded-lex ordering, convergence |
 | [Internals](https://andreapasquale94.github.io/tax/internals/) | Architecture, kernels, recurrences |
 
 Source for the docs lives in `docs/` and is built with MkDocs Material:
