@@ -347,7 +347,7 @@ constexpr void seriesPowInt( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a,
     {
         std::array< T, S > rec{};
         seriesReciprocal< T, N, M >( rec, a );
-        seriesPowInt< T, N, M >( out, rec, -n );
+        seriesPowInt< T, N, M >( out, rec, n );
         return;
     }
     // n >= 2: binary exponentiation (square-and-multiply). Squarings go
