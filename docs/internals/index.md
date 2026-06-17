@@ -30,7 +30,3 @@ The headline ideas:
    same algorithm via `forEachSubIndex<M>(alpha, lo, hi, callback)`; the
    univariate path is special-cased through `if constexpr (M == 1)` for tight
    scalar loops.
-
-5. **ODE integrator is policy-based.** A single `Integrator<Stepper, F, Dense>`
-   class drives every shipped method. The stepper is a compile-time policy
-   carrying its own step-size controller as a member.

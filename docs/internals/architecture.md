@@ -1,17 +1,12 @@
 # Architecture
 
 The library is layered so each concern stays focused on one thing: storage
-manages bytes, kernels manage math, operators manage syntax, the Eigen layer
-manages linear-algebra interop, and the ODE module assembles the rest into
-adaptive solvers.
+manages bytes, kernels manage math, operators manage syntax, and the Eigen
+layer manages linear-algebra interop. Downstream projects build solvers on top
+of this surface without touching it.
 
 ```
                 ┌─────────────────────────────────────────┐
-ode             │ Integrator<Stepper, F, Dense>           │  policy-based driver
-                │ Stepper × Controller × Event<Stepper>   │
-                └────────────────┬────────────────────────┘
-                                 │ (consumes TE for the Taylor stepper)
-                ┌────────────────▼────────────────────────┐
 eigen           │ NumTraits + variables/value/eval/       │  Eigen interop
                 │ derivative/gradient/jacobian/invert     │
                 └────────────────┬────────────────────────┘
@@ -56,8 +51,8 @@ in `tax/core/enumeration.hpp` are storage-agnostic.
 Every mathematical recurrence lives in `tax/kernels/`. A kernel takes raw
 coefficient buffers — `T*` for dense, sorted index/value pairs for sparse —
 plus the compile-time shape $(N, M)$ and writes directly into the result.
-The kernel layer is the one place where the math of
-[Mathematical Foundations](../reference/math.md) lives in code.
+The kernel layer is the one place where the recurrences of
+[Math & Recurrences](../reference/math.md) live in code.
 
 Univariate vs multivariate is dispatched by `if constexpr (M == 1)` — the
 univariate path runs scalar loops over flat indices, the multivariate path
@@ -120,9 +115,9 @@ control-flow predicates that branch on a representative value.
 The integration is symmetric: any Eigen routine that doesn't require sparse
 matrix traits accepts `TE` as a scalar; any user-written generic lambda on
 Eigen vectors can be re-instantiated on `TE`-valued state without source
-changes. This is exactly what a Taylor ODE integrator built on `tax` exploits:
-its stepper composes the user RHS on TE-valued state to obtain time-Taylor
-coefficients via automatic differentiation.
+changes. This is exactly what downstream Taylor-based solvers exploit — they
+compose a user function on `TE`-valued state to obtain Taylor coefficients via
+automatic differentiation.
 
 ---
 
@@ -141,5 +136,5 @@ fixed-shape `std::array` payload and the kernels (which write
 coefficient-by-coefficient into a destination buffer) make the eager path
 already free of intermediate `TaylorExpansion` allocations under
 RVO. Expression templates would add compile-time complexity without a measured
-runtime win on the workloads driving the design (ODE integration, polynomial
-maps for ADS in Stage 2b). The door is open if a profile justifies it.
+runtime win on the workloads driving the design (ODE integration and polynomial
+maps in the downstream solvers). The door is open if a profile justifies it.

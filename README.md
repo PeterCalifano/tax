@@ -61,16 +61,26 @@ f_\alpha = \frac{1}{\alpha!}\,
 $$
 
 The $\binom{N+M}{M}$ coefficients are laid out in graded-lexicographic order in a
-`std::array` (dense) or a sorted index/value map (sparse). Every operation —
-`*`, `/`, `sin`, `exp`, `log`, `sqrt`, `pow`, … — is a **degree-by-degree
-recurrence relation** that writes the result coefficients directly, so one
-evaluation pass yields the value *and* all derivatives up to order $N$.
+`std::array` (dense) or a sorted index/value map (sparse). Every operation is a
+**degree-by-degree recurrence relation** that writes the result coefficients
+directly, so one evaluation pass yields the value *and* all derivatives up to
+order $N$. For example, multiplication is the truncated Cauchy product, and the
+exponential follows from $g' = f'g$ (univariate forms shown):
+
+$$
+(f \cdot g)_d = \sum_{k=0}^{d} f_k\, g_{d-k},
+\qquad
+g_0 = e^{f_0},\quad
+g_d = \frac{1}{d} \sum_{k=0}^{d-1} (d-k)\, f_{d-k}\, g_k \;\; (d \ge 1).
+$$
+
+The same pattern covers `/`, `sqrt`, `log`, `sin`/`cos`, `pow`, `atan2`, `erf`, …
 `coeff(α)` returns the raw $f_\alpha$; `derivative(α)` applies the $\alpha!$ scaling.
 
-The full derivation, the per-operation recurrences, and convergence behaviour
-are documented under
-[Concepts](https://andreapasquale94.github.io/tax/concepts/) and
-[Reference / Math & Recurrences](https://andreapasquale94.github.io/tax/reference/math/).
+The full per-operation recurrence catalog, the multivariate forms, and the
+convergence behaviour are documented under
+[Reference / Math & Recurrences](https://andreapasquale94.github.io/tax/reference/math/)
+and [Concepts](https://andreapasquale94.github.io/tax/concepts/).
 
 ---
 
