@@ -66,6 +66,11 @@ class RefineDriver
     using Tree = AdsTree< State, M, T >;
     using BoxT = Box< T, M >;
 
+    // See AdsDriver: the refine driver also uses Stepper::T as the real scalar.
+    static_assert( std::is_floating_point_v< T >,
+                   "tax::ads::refine requires a stepper whose ::T is a real scalar (e.g. an "
+                   "embedded-RK method); methods::Taylor<N> is not supported." );
+
     // split_dirs > 1 turns on aggressive multi-way refinement: a box that
     // fails the quality test is split along its top-`split_dirs` directions
     // at once, into 2^split_dirs children, instead of bisecting one axis.
@@ -240,8 +245,7 @@ class RefineDriver
                         next.reserve( frontier.size() * 2 );
                         for ( const Node& n : frontier )
                         {
-                            auto pr = tree.split( n.idx, v.dims[j], n.box.center( v.dims[j] ),
-                                                  State{}, State{}, t0 );
+                            auto pr = tree.split( n.idx, v.dims[j], State{}, State{}, t0 );
                             auto boxes = n.box.split( v.dims[j] );
                             next.push_back( { pr.first, boxes.first, n.bits } );
                             next.push_back(

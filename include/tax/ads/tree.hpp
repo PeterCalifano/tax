@@ -68,9 +68,8 @@ class AdsTree
         return idx;
     }
 
-    [[nodiscard]] std::pair< int, int > split( int idx, int dim, T splitValue,
-                                               Payload leftPayload, Payload rightPayload,
-                                               T tEntry )
+    [[nodiscard]] std::pair< int, int > split( int idx, int dim, Payload leftPayload,
+                                               Payload rightPayload, T tEntry )
     {
         assert( idx >= 0 && idx < static_cast< int >( leaves_.size() ) );
         assert( !leaves_[idx].done && !leaves_[idx].retired );
@@ -92,7 +91,6 @@ class AdsTree
         L.depth = parentDepth + 1;
         L.parentIdx = idx;
         L.splitDim = dim;
-        L.splitValue = splitValue;
         L.tEntry = tEntry;
 
         LeafT R{};
@@ -101,7 +99,6 @@ class AdsTree
         R.depth = parentDepth + 1;
         R.parentIdx = idx;
         R.splitDim = dim;
-        R.splitValue = splitValue;
         R.tEntry = tEntry;
 
         const int lIdx = static_cast< int >( leaves_.size() );

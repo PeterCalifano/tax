@@ -46,6 +46,14 @@ class AdsDriver
     using Tree = AdsTree< State, M, T >;
     using BoxT = Box< T, M >;
 
+    // The driver uses Stepper::T as the (real) time/scalar type. Embedded-RK
+    // steppers expose T == double; TaylorStepper exposes T == State::Scalar (a
+    // TaylorExpansion), which would make t0/t1/cfg expansion-valued. Reject that
+    // here with a clear message rather than failing deep in instantiation.
+    static_assert( std::is_floating_point_v< T >,
+                   "tax::ads requires a stepper whose ::T is a real scalar (e.g. an "
+                   "embedded-RK method); methods::Taylor<N> is not supported." );
+
     AdsDriver( Criterion crit, Cfg cfg, ExtraEvt extras = {}, int num_threads = 1 )
         : crit_( std::move( crit ) ),
           cfg_( std::move( cfg ) ),
@@ -79,7 +87,6 @@ class AdsDriver
         bool split = false;
         int dim = -1;
         T splitTime{};
-        T splitValue{};
         State left{};
         State right{};
         State finalPayload{};
@@ -110,7 +117,6 @@ class AdsDriver
             v.split = true;
             v.dim = req.dim;
             v.splitTime = req.t;
-            v.splitValue = box.center( req.dim );
             auto pr = tax::ads::split( sol.x.back(), box, req.dim );
             v.left = std::move( pr.first );
             v.right = std::move( pr.second );
@@ -134,8 +140,8 @@ class AdsDriver
 
             if ( v.split )
             {
-                (void)tree.split( idx, v.dim, v.splitValue, std::move( v.left ),
-                                  std::move( v.right ), v.splitTime );
+                (void)tree.split( idx, v.dim, std::move( v.left ), std::move( v.right ),
+                                  v.splitTime );
             } else
             {
                 tree.leaf( idx ).payload = std::move( v.finalPayload );
@@ -205,17 +211,28 @@ class AdsDriver
                 }
 
                 lk.lock();
+                bool do_notify;
                 if ( v.split )
                 {
-                    (void)tree.split( idx, v.dim, v.splitValue, std::move( v.left ),
-                                      std::move( v.right ), v.splitTime );
+                    (void)tree.split( idx, v.dim, std::move( v.left ), std::move( v.right ),
+                                      v.splitTime );
+                    --in_flight;
+                    do_notify = true;  // two new leaves are now available to claim
                 } else
                 {
                     tree.leaf( idx ).payload = std::move( v.finalPayload );
                     tree.finalize( idx );
+                    --in_flight;
+                    // Finalize adds no work, so only wake the pool when this was the
+                    // last in-flight task and the queue is drained — the others then
+                    // observe quiescence and terminate. Otherwise a notify here would
+                    // just wake idle workers that immediately re-block (thundering herd).
+                    do_notify = ( in_flight == 0 && tree.empty() );
                 }
-                --in_flight;
-                cv.notify_all();
+                lk.unlock();
+                // Notify outside the lock so woken workers don't immediately contend
+                // on the mutex we still hold.
+                if ( do_notify ) cv.notify_all();
             }
         };
 

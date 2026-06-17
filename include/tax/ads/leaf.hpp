@@ -24,7 +24,6 @@ struct Leaf
     int parentIdx = -1;
     int siblingIdx = -1;
     int splitDim = -1;
-    T splitValue = T{ 0 };
     T tEntry = T{ 0 };
 };
 

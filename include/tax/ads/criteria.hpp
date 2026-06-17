@@ -31,6 +31,9 @@ template < class C, class State >
 concept SplitCriterion = requires( C c, const State& x, int depth ) {
     { c.shouldSplit( x, depth ) } -> std::convertible_to< bool >;
     { c.splitDim( x ) } -> std::convertible_to< int >;
+    // The split/merge tolerance. merge() reads this directly, so it is part of
+    // the criterion contract rather than an implementation detail of each type.
+    { c.tol } -> std::convertible_to< double >;
 };
 
 struct TruncationCriterion
