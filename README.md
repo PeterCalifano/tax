@@ -77,10 +77,11 @@ $$
 The same pattern covers `/`, `sqrt`, `log`, `sin`/`cos`, `pow`, `atan2`, `erf`, …
 `coeff(α)` returns the raw $f_\alpha$; `derivative(α)` applies the $\alpha!$ scaling.
 
-The full per-operation recurrence catalog, the multivariate forms, and the
-convergence behaviour are documented under
-[Reference / Math & Recurrences](https://andreapasquale94.github.io/tax/reference/math/)
-and [Concepts](https://andreapasquale94.github.io/tax/concepts/).
+The full per-operation recurrence catalog (univariate and multivariate forms)
+lives under
+[Internals / Recurrence Relations](https://andreapasquale94.github.io/tax/internals/recurrences/),
+and the convergence behaviour under
+[Concepts](https://andreapasquale94.github.io/tax/concepts/).
 
 ---
 

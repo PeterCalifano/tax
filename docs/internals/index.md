@@ -7,6 +7,7 @@ above the public API that make the library both fast and ergonomic.
 |---|---|
 | [Architecture](architecture.md) | Layering of storage, kernels, operators, and Eigen |
 | [Kernels & Recurrences](kernels.md) | Where each mathematical operation is implemented and how |
+| [Recurrence Relations](recurrences.md) | The univariate and multivariate recurrence math for every operation |
 
 The headline ideas:
 

@@ -2,7 +2,7 @@
 
 This page covers the mathematical objects **tax** propagates: truncated Taylor polynomials, the graded-lexicographic ordering used to store their coefficients, and how the univariate picture generalises to many variables.
 
-For the per-operation recurrence relations (arithmetic, algebraic, trigonometric, hyperbolic, transcendental, power, and special functions), see [Math & Recurrences](../reference/math.md). For truncation-error bounds and convergence diagnostics, see [Convergence & Truncation](convergence.md).
+For the per-operation recurrence relations (arithmetic, algebraic, trigonometric, hyperbolic, transcendental, power, and special functions), see [Recurrence Relations](../internals/recurrences.md). For truncation-error bounds and convergence diagnostics, see [Convergence & Truncation](convergence.md).
 
 ---
 
@@ -77,7 +77,7 @@ $$
 
 ## Multivariate Generalisation
 
-All univariate recurrences in the [Math & Recurrences](../reference/math.md) reference generalize naturally to the multivariate case. The key substitutions are:
+All univariate recurrences in the [Recurrence Relations](../internals/recurrences.md) reference generalize naturally to the multivariate case. The key substitutions are:
 
 1. **Scalar index $d$** is replaced by **multi-index $\alpha$** with $|\alpha| = d$.
 2. **Inner sums** $\sum_{k=0}^{d}$ become **sub-multi-index sums** $\sum_{\beta \le \alpha}$, iterated over all $\beta$ with $\beta_i \le \alpha_i$ for each component.

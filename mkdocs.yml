@@ -119,7 +119,6 @@ nav:
       - TaylorExpansion API: reference/core.md
       - Eigen API: reference/eigen.md
       - Named API: reference/named.md
-      - Math & Recurrences: reference/math.md
   - Concepts:
       - concepts/index.md
       - Foundations & Ordering: concepts/foundations.md
@@ -128,3 +127,4 @@ nav:
       - internals/index.md
       - Architecture: internals/architecture.md
       - Kernels & Recurrences: internals/kernels.md
+      - Recurrence Relations: internals/recurrences.md

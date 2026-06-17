@@ -225,7 +225,7 @@ through Eigen factorisations and control-flow predicates.
 
 All accept a `TaylorExpansion` and return a `TaylorExpansion` of the same
 shape, using degree-by-degree recurrences (see
-[Mathematical Foundations](math.md)).
+[Recurrence Relations](../internals/recurrences.md)).
 
 | Function     | Domain restriction | Recurrence helper |
 |---|---|---|
