@@ -1,4 +1,5 @@
 .vscode
+.claude
 build*/
 site/
 __pycache__/
@@ -20,9 +21,3 @@ __pycache__/
 /two_body_*.png
 /three_body_*.png
 /wsb_loads.json
-
-# graphify — ephemeral state, never commit
-.graphify/cache/
-.graphify/branch.json
-.graphify/worktree.json
-.graphify/needs_update
