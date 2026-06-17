@@ -397,3 +397,17 @@ $$
 $$
 g_\alpha = \frac{1}{|\alpha|} \sum_{\substack{\beta \le \alpha \\ 1 \le |\beta| \le |\alpha|}} |\beta| \, f_\beta \, h_{\alpha-\beta}
 $$
+
+---
+
+## References
+
+- A. Griewank and A. Walther, *Evaluating Derivatives: Principles and Techniques
+  of Algorithmic Differentiation*, 2nd ed., SIAM, 2008 — forward-mode Taylor
+  coefficient propagation and the recurrences for elementary functions.
+- R. D. Neidinger, *Introduction to Automatic Differentiation and MATLAB
+  Object-Oriented Programming*, SIAM Review 52(3), 545–563, 2010 — explicit
+  degree-by-degree recurrences for the standard transcendental functions.
+- M. Berz, *Modern Map Methods in Particle Beam Physics*, Advances in Imaging
+  and Electron Physics, Vol. 108, Academic Press, 1999 — differential algebra
+  of truncated multivariate Taylor polynomials.

@@ -85,3 +85,16 @@ All univariate recurrences in the [Recurrence Relations](../internals/recurrence
 4. The **weight factor** $d - k$ generalises to $|\alpha| - |\beta|$, and $k$ to $|\beta|$.
 
 In the implementation, the function `forEachSubIndex<M>(alpha, lo, hi, callback)` enumerates all sub-multi-indices $\beta \le \alpha$ with $\text{lo} \le |\beta| \le \text{hi}$, calling `callback(flatIndex(beta), flatIndex(alpha - beta), |beta|)`. This provides a uniform interface for both univariate and multivariate kernels, with the univariate path using simple scalar loops as a fast path via `if constexpr (M == 1)`.
+
+---
+
+## References
+
+- M. Berz, *Modern Map Methods in Particle Beam Physics*, Advances in Imaging
+  and Electron Physics, Vol. 108, Academic Press, 1999 — differential algebra
+  on truncated multivariate Taylor polynomials.
+- A. Griewank and A. Walther, *Evaluating Derivatives: Principles and Techniques
+  of Algorithmic Differentiation*, 2nd ed., SIAM, 2008.
+- K. Makino and M. Berz, *Taylor models and other validated functional
+  inclusion methods*, International Journal of Pure and Applied Mathematics
+  4(4), 379–456, 2003.

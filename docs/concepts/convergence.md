@@ -30,3 +30,16 @@ not compute $C$ itself, but two practical proxies are exposed on
 This is the same idea a Jorba–Zou step-size controller applies inside a Taylor
 ODE integrator to choose the step $h$ from the last two coefficient norms of
 the per-step expansion.
+
+---
+
+## References
+
+- W. Rudin, *Principles of Mathematical Analysis*, 3rd ed., McGraw-Hill, 1976 —
+  Taylor's theorem and the Lagrange form of the remainder.
+- K. Makino and M. Berz, *Taylor models and other validated functional
+  inclusion methods*, International Journal of Pure and Applied Mathematics
+  4(4), 379–456, 2003 — rigorous remainder bounds for truncated Taylor models.
+- À. Jorba and M. Zou, *A Software Package for the Numerical Integration of ODEs
+  by Means of High-Order Taylor Methods*, Experimental Mathematics 14(1),
+  99–117, 2005 — using coefficient decay to estimate the convergence radius.
