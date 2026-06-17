@@ -120,6 +120,46 @@ constexpr void seriesReciprocal( Coeffs< T, N, M >& out, const Coeffs< T, N, M >
 }
 
 /**
+ * @brief Quotient series solve `b * out = a`, i.e. `out = a / b`.
+ *
+ * Requires `b[0] != 0`. A single forward-substitution pass — more accurate and
+ * roughly half the work of forming `reciprocal(b)` and then a Cauchy product:
+ *   out[alpha] = (1/b[0]) * (a[alpha] - sum_{0 < beta <= alpha} b[beta] * out[alpha - beta])
+ *
+ * `out` may alias neither `a` nor `b`.
+ *
+ * @tparam T  Scalar type.
+ * @tparam N  Truncation order.
+ * @tparam M  Number of variables.
+ */
+template < typename T, int N, int M >
+constexpr void seriesDivide( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a,
+                             const Coeffs< T, N, M >& b ) noexcept
+{
+    out = {};
+    const T inv_b0 = T{ 1 } / b[0];
+    out[0] = a[0] * inv_b0;
+
+    if constexpr ( M == 1 )
+    {
+        for ( int d = 1; d <= N; ++d )
+        {
+            T rhs = a[std::size_t( d )];
+            for ( int k = 1; k <= d; ++k ) rhs -= b[std::size_t( k )] * out[std::size_t( d - k )];
+            out[std::size_t( d )] = rhs * inv_b0;
+        }
+    } else
+    {
+        forEachRecurrenceRow< N, M >(
+            [&]( std::size_t ai, int, std::span< const RecurrenceEntry > row ) {
+                T rhs = a[ai];
+                for ( const RecurrenceEntry& e : row ) rhs -= b[e.b_idx] * out[e.g_idx];
+                out[ai] = rhs * inv_b0;
+            } );
+    }
+}
+
+/**
  * @brief Square-root series solve `out * out = a`.
  *
  * Uses the principal branch from `sqrt(a[0])`. Requires `a[0] > 0`.

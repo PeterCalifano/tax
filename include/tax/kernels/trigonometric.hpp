@@ -2,7 +2,6 @@
 
 #include <cmath>
 #include <span>
-
 #include <tax/kernels/algebra.hpp>
 
 namespace tax::detail::kernels
@@ -21,9 +20,7 @@ namespace tax::detail::kernels
  * @tparam M  Number of variables.
  */
 template < typename T, int N, int M >
-void seriesSinCos( Coeffs< T, N, M >& s,
-                   Coeffs< T, N, M >& c,
-                   const Coeffs< T, N, M >& a ) noexcept
+void seriesSinCos( Coeffs< T, N, M >& s, Coeffs< T, N, M >& c, const Coeffs< T, N, M >& a ) noexcept
 {
     using std::cos;
     using std::sin;
@@ -47,8 +44,7 @@ void seriesSinCos( Coeffs< T, N, M >& s,
             s[std::size_t( d )] = sr * inv_d;
             c[std::size_t( d )] = -cr * inv_d;
         }
-    }
-    else
+    } else
     {
         forEachRecurrenceRow< N, M >(
             [&]( std::size_t ai, int d, std::span< const RecurrenceEntry > row ) {
@@ -125,12 +121,10 @@ void seriesTan( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
         for ( int d = 1; d <= N; ++d )
         {
             T rhs = s[std::size_t( d )];
-            for ( int k = 1; k <= d; ++k )
-                rhs -= c[std::size_t( k )] * out[std::size_t( d - k )];
+            for ( int k = 1; k <= d; ++k ) rhs -= c[std::size_t( k )] * out[std::size_t( d - k )];
             out[std::size_t( d )] = rhs * inv_c0;
         }
-    }
-    else
+    } else
     {
         forEachRecurrenceRow< N, M >(
             [&]( std::size_t ai, int, std::span< const RecurrenceEntry > row ) {
@@ -178,8 +172,7 @@ void seriesAsin( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
                 rhs += T( k ) * h[std::size_t( d - k )] * out[std::size_t( k )];
             out[std::size_t( d )] = ( a[std::size_t( d )] - rhs / T( d ) ) * inv_h0;
         }
-    }
-    else
+    } else
     {
         forEachRecurrenceRow< N, M >(
             [&]( std::size_t ai, int d, std::span< const RecurrenceEntry > row ) {
@@ -229,8 +222,7 @@ void seriesAcos( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
                 rhs += T( k ) * h[std::size_t( d - k )] * out[std::size_t( k )];
             out[std::size_t( d )] = ( -a[std::size_t( d )] - rhs / T( d ) ) * inv_h0;
         }
-    }
-    else
+    } else
     {
         forEachRecurrenceRow< N, M >(
             [&]( std::size_t ai, int d, std::span< const RecurrenceEntry > row ) {
@@ -278,8 +270,7 @@ void seriesAtan( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
                 rhs += T( k ) * h[std::size_t( d - k )] * out[std::size_t( k )];
             out[std::size_t( d )] = ( a[std::size_t( d )] - rhs / T( d ) ) * inv_h0;
         }
-    }
-    else
+    } else
     {
         forEachRecurrenceRow< N, M >(
             [&]( std::size_t ai, int d, std::span< const RecurrenceEntry > row ) {
@@ -304,19 +295,15 @@ void seriesAtan( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
  * @tparam M  Number of variables.
  */
 template < typename T, int N, int M >
-void seriesAtan2( Coeffs< T, N, M >& out,
-                  const Coeffs< T, N, M >& y,
+void seriesAtan2( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& y,
                   const Coeffs< T, N, M >& x ) noexcept
 {
     using std::atan2;
     constexpr std::size_t S = numMonomials( N, M );
 
-    // Compute r = y / x  (seriesReciprocal then Cauchy product)
-    Coeffs< T, N, M > inv_x{}, r{};
-    seriesReciprocal< T, N, M >( inv_x, x );
-
-    // r = y * (1/x) via Cauchy product
-    cauchyProduct< T, N, M >( r, y, inv_x );
+    // Compute r = y / x in a single forward-substitution pass.
+    Coeffs< T, N, M > r{};
+    seriesDivide< T, N, M >( r, y, x );
 
     // h = 1 + r^2
     Coeffs< T, N, M > rsq{}, h{};
@@ -337,8 +324,7 @@ void seriesAtan2( Coeffs< T, N, M >& out,
                 rhs += T( k ) * h[std::size_t( d - k )] * out[std::size_t( k )];
             out[std::size_t( d )] = ( r[std::size_t( d )] - rhs / T( d ) ) * inv_h0;
         }
-    }
-    else
+    } else
     {
         forEachRecurrenceRow< N, M >(
             [&]( std::size_t ai, int d, std::span< const RecurrenceEntry > row ) {

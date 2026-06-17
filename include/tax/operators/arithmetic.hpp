@@ -147,11 +147,9 @@ template < typename T, int N, int M >
 [[nodiscard]] constexpr TaylorExpansion< T, N, M > operator/(
     const TaylorExpansion< T, N, M >& a, const TaylorExpansion< T, N, M >& b ) noexcept
 {
-    TaylorExpansion< T, N, M > inv_b;
-    detail::kernels::seriesReciprocal< T, N, M >( inv_b.coefficients(), b.coefficients() );
     TaylorExpansion< T, N, M > r;
-    detail::kernels::cauchyProduct< T, N, M >( r.coefficients(), a.coefficients(),
-                                               inv_b.coefficients() );
+    detail::kernels::seriesDivide< T, N, M >( r.coefficients(), a.coefficients(),
+                                              b.coefficients() );
     return r;
 }
 
