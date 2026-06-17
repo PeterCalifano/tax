@@ -1,11 +1,13 @@
 #pragma once
 
-#include <type_traits>
-
+#include <cmath>
+#include <concepts>
 #include <tax/core/taylor_expansion.hpp>
 #include <tax/kernels/algebra.hpp>
 #include <tax/kernels/sparse_subs.hpp>
 #include <tax/kernels/trigonometric.hpp>
+#include <tax/operators/math_unary.hpp>
+#include <type_traits>
 
 namespace tax
 {
@@ -21,8 +23,8 @@ namespace tax
  * @tparam M  Number of variables.
  */
 template < typename T, int N, int M >
-[[nodiscard]] constexpr TaylorExpansion< T, N, M > pow(
-    const TaylorExpansion< T, N, M >& x, int n ) noexcept
+[[nodiscard]] constexpr TaylorExpansion< T, N, M > pow( const TaylorExpansion< T, N, M >& x,
+                                                        int n ) noexcept
 {
     TaylorExpansion< T, N, M > r;
     detail::kernels::seriesPowInt< T, N, M >( r.coefficients(), x.coefficients(), n );
@@ -36,17 +38,51 @@ template < typename T, int N, int M >
  * NOT constexpr because `std::pow(a[0], p)` is not constexpr for floating-point
  * types in C++23. Requires `x.value() != 0`.
  *
+ * The exponent is constrained to a floating-point type: this disambiguates calls
+ * such as `pow(x, 2.0f)` (with `T == double`), which would otherwise be ambiguous
+ * between this overload and the integer one — a floating-point argument now binds
+ * here by exact match rather than tying with `float -> int`.
+ *
+ * @tparam T  Scalar type.
+ * @tparam N  Truncation order.
+ * @tparam M  Number of variables.
+ */
+template < typename T, int N, int M, std::floating_point P >
+[[nodiscard]] TaylorExpansion< T, N, M > pow( const TaylorExpansion< T, N, M >& x, P p ) noexcept
+{
+    TaylorExpansion< T, N, M > r;
+    detail::kernels::seriesPow< T, N, M >( r.coefficients(), x.coefficients(), T( p ) );
+    return r;
+}
+
+/**
+ * @brief Compute `out = a^b` for a Taylor-valued exponent: `a^b = exp(b * log(a))`.
+ *
+ * Requires `a.value() > 0`. NOT constexpr (relies on `log`/`exp`).
+ *
  * @tparam T  Scalar type.
  * @tparam N  Truncation order.
  * @tparam M  Number of variables.
  */
 template < typename T, int N, int M >
-[[nodiscard]] TaylorExpansion< T, N, M > pow(
-    const TaylorExpansion< T, N, M >& x, std::type_identity_t< T > p ) noexcept
+[[nodiscard]] TaylorExpansion< T, N, M > pow( const TaylorExpansion< T, N, M >& a,
+                                              const TaylorExpansion< T, N, M >& b ) noexcept
 {
-    TaylorExpansion< T, N, M > r;
-    detail::kernels::seriesPow< T, N, M >( r.coefficients(), x.coefficients(), p );
-    return r;
+    return exp( b * log( a ) );
+}
+
+/**
+ * @brief Compute `out = s^b` for a positive scalar base and Taylor exponent:
+ *        `s^b = exp(b * log(s))`.
+ *
+ * Requires `s > 0`. NOT constexpr (relies on `exp`).
+ */
+template < typename T, int N, int M >
+[[nodiscard]] TaylorExpansion< T, N, M > pow( std::type_identity_t< T > s,
+                                              const TaylorExpansion< T, N, M >& b ) noexcept
+{
+    using std::log;
+    return exp( b * log( s ) );
 }
 
 /**
@@ -60,14 +96,28 @@ template < typename T, int N, int M >
  * @tparam M  Number of variables.
  */
 template < typename T, int N, int M >
-[[nodiscard]] TaylorExpansion< T, N, M > atan2(
-    const TaylorExpansion< T, N, M >& y,
-    const TaylorExpansion< T, N, M >& x ) noexcept
+[[nodiscard]] TaylorExpansion< T, N, M > atan2( const TaylorExpansion< T, N, M >& y,
+                                                const TaylorExpansion< T, N, M >& x ) noexcept
 {
     TaylorExpansion< T, N, M > r;
-    detail::kernels::seriesAtan2< T, N, M >( r.coefficients(), y.coefficients(),
-                                              x.coefficients() );
+    detail::kernels::seriesAtan2< T, N, M >( r.coefficients(), y.coefficients(), x.coefficients() );
     return r;
+}
+
+/// @brief `atan2(y, x)` with a constant `x` (promoted to a flat expansion).
+template < typename T, int N, int M >
+[[nodiscard]] TaylorExpansion< T, N, M > atan2( const TaylorExpansion< T, N, M >& y,
+                                                std::type_identity_t< T > x ) noexcept
+{
+    return atan2( y, TaylorExpansion< T, N, M >{ x } );
+}
+
+/// @brief `atan2(y, x)` with a constant `y` (promoted to a flat expansion).
+template < typename T, int N, int M >
+[[nodiscard]] TaylorExpansion< T, N, M > atan2( std::type_identity_t< T > y,
+                                                const TaylorExpansion< T, N, M >& x ) noexcept
+{
+    return atan2( TaylorExpansion< T, N, M >{ y }, x );
 }
 
 /**
