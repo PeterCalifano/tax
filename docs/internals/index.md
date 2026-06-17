@@ -5,7 +5,7 @@ above the public API that make the library both fast and ergonomic.
 
 | Page | Topic |
 |---|---|
-| [Architecture](architecture.md) | Layering of storage, kernels, operators, Eigen, and the ODE module |
+| [Architecture](architecture.md) | Layering of storage, kernels, operators, and Eigen |
 | [Kernels & Recurrences](kernels.md) | Where each mathematical operation is implemented and how |
 
 The headline ideas:

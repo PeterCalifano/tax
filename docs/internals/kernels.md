@@ -2,7 +2,7 @@
 
 The kernel layer is where the math lives in code. Each function in
 `tax/kernels/` implements one of the degree-by-degree recurrence relations
-from [Mathematical Foundations](../core/math.md), operating on raw coefficient
+from [Mathematical Foundations](../reference/math.md), operating on raw coefficient
 buffers rather than the user-facing `TaylorExpansion` type. The operator layer
 in `tax/operators/` is a thin wrapper that calls a kernel and returns a fresh
 `TaylorExpansion`.
@@ -39,7 +39,7 @@ Every recurrence picks one of two paths via `if constexpr (M == 1)`:
   $(\beta, \gamma)$ with $\beta + \gamma = \alpha$ and $|\beta| \ge 1$ —
   each entry carrying precomputed `flatIndex(beta)`, `flatIndex(gamma)`
   and $|\beta|$. That row shape is exactly what every recurrence in
-  [Mathematical Foundations](../core/math.md) needs; the weight
+  [Mathematical Foundations](../reference/math.md) needs; the weight
   ($1$, $|\beta|$, $|\gamma|$, $c|\beta| - |\gamma|$, …) stays in the kernel.
 
 With `TAX_USE_STENCIL=1` (the in-header default) the rows come from a

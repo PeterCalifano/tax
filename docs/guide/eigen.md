@@ -21,7 +21,8 @@ auto J   = tax::jacobian(F);          // 2×2 Jacobian
 auto vp  = tax::eval(F, Eigen::Vector2d{0.05, -0.1});  // displace + evaluate
 ```
 
-The complete signature list lives in [API Reference](api.md).
+The complete signature list lives in the [Eigen API reference](../reference/eigen.md);
+this page is the how-to.
 
 ---
 

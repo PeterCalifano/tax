@@ -89,15 +89,20 @@ f.eval(0.3);        // sin(0.3) within machine precision
 
     Install, build, and write your first Taylor expansion.
 
-- [:material-function: __Core__](core/index.md)
+- [:material-school: __Guide__](guide/index.md)
 
-    The `TaylorExpansion` type, its math, its API, named expansions, and
-    worked examples.
+    How-to walkthroughs: variables and expressions, extracting results,
+    storage, named expansions, Eigen integration.
 
-- [:material-matrix: __Eigen Integration__](eigen/index.md)
+- [:material-book-open-variant: __Reference__](reference/index.md)
 
-    Use `TaylorExpansion` inside Eigen vectors and matrices. Gradients,
-    Jacobians, Hessians.
+    Exact signatures — the `TaylorExpansion` API, `tax::la`, `tax::named`,
+    and the per-operation recurrence catalog.
+
+- [:material-lightbulb-on: __Concepts__](concepts/index.md)
+
+    The theory: truncated Taylor polynomials, graded-lex ordering, and
+    convergence.
 
 - [:material-cog: __Internals__](internals/index.md)
 

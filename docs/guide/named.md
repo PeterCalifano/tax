@@ -11,6 +11,9 @@ The named layer lets you build, combine, and project Taylor expansions by
 **variable name** instead of by raw flat index — the dependency set of a result
 is tracked in its type and derived automatically from its operands.
 
+The full signature list lives in the [Named API reference](../reference/named.md);
+this page is the how-to.
+
 ```cpp
 #include <tax/tax.hpp>
 
@@ -118,11 +121,5 @@ auto Hx = tax::named::hessian<"x">(f);    // Hessian  w.r.t. axis "x"
 auto Jx = tax::named::jacobian<"x">(F);   // Jacobian of an Eigen vector F w.r.t. "x"
 ```
 
----
-
-## Key headers
-
-| Header | Contents |
-|---|---|
-| `tax/core/named.hpp` | `NamedTaylorExpansion`, `Axis`, `FixedString`, `NE`, `variable`/`variables`, embed/slice/compose |
-| `tax/la/named.hpp`   | `NumTraits` for named expansions + `gradient`/`hessian`/`jacobian` by axis name |
+See the [Named API reference](../reference/named.md) for the full list of types,
+factories, member operations, and Eigen helpers.

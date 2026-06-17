@@ -1,7 +1,6 @@
 # Getting Started
 
-This page walks you from a fresh checkout to writing your first Taylor
-expansion.
+Install `tax`, build the tests, and write your first Taylor expansion.
 
 ---
 
@@ -55,162 +54,32 @@ cmake -S . -B build -DCMAKE_PREFIX_PATH=/your/install/prefix
 
 ---
 
-## Single umbrella header
+## Your first expansion
+
+Everything is reachable through a single umbrella header:
 
 ```cpp
-#include <tax/tax.hpp>          // core + named expansions + Eigen integration
-```
+#include <tax/tax.hpp>          // core type + named expansions + Eigen integration
+#include <iostream>
 
-This single header pulls in the `TaylorExpansion` type, named expansions, and
-the `tax::la` Eigen helpers.
+int main() {
+    auto x = tax::TE<5>::variable(0.0);   // 5th-order variable at x₀ = 0
+    tax::TE<5> f = sin(x);                // propagate the whole Taylor series
 
----
-
-## The core type
-
-```cpp
-namespace tax {
-    template <typename T, int N, int M = 1, typename Storage = storage::Dense>
-    class TaylorExpansion;
+    std::cout << f.value()         << '\n';   // sin(0)  = 0
+    std::cout << f.derivative<1>() << '\n';   // cos(0)  = 1
+    std::cout << f.derivative<3>() << '\n';   // −cos(0) = −1
+    std::cout << f.eval(0.3)       << '\n';   // ≈ sin(0.3)
 }
 ```
 
-| Parameter | Meaning |
-|---|---|
-| `T`       | Scalar coefficient type (`double`, `float`) |
-| `N`       | Maximum total polynomial order, $N \ge 0$ |
-| `M`       | Number of independent variables, $M \ge 1$ (default `1`) |
-| `Storage` | `tax::storage::Dense` (default) or `tax::storage::Sparse` |
-
-### Convenience aliases
-
-```cpp
-tax::TE<N>          // dense univariate  — TaylorExpansion<double, N, 1, Dense>
-tax::TE<N, M>       // dense multivariate
-tax::STE<N>         // sparse univariate — TaylorExpansion<double, N, 1, Sparse>
-tax::STE<N, M>      // sparse multivariate
-```
-
-See [Dense vs Sparse Storage](core/storage.md) for the trade-offs.
-
----
-
-## Creating variables
-
-=== "Univariate (dense)"
-
-    ```cpp
-    auto x = tax::TE<5>::variable(1.0);   // x = 1 + δx
-    ```
-
-=== "Multivariate (dense)"
-
-    ```cpp
-    using TE2 = tax::TE<3, 2>;
-    auto x = TE2::variable<0>({1.0, 2.0});   // coordinate 0
-    auto y = TE2::variable<1>({1.0, 2.0});   // coordinate 1
-    ```
-
-=== "Eigen vector form"
-
-    ```cpp
-    // Same as above, returned as Eigen::Vector<TE2, 2>
-    auto v = tax::variables<tax::TE<3, 2>>(Eigen::Vector2d{1.0, 2.0});
-    auto& x = v(0); auto& y = v(1);
-    ```
-
-=== "Sparse"
-
-    ```cpp
-    auto x = tax::STE<5>::variable(1.0);   // identical factories, sparse storage
-    ```
-
----
-
-## Building expressions
-
-Arithmetic and math functions work naturally; the right-hand side builds a lazy
-expression tree that is materialised only on assignment.
-
-```cpp
-auto x = tax::TE<6>::variable(0.0);
-tax::TE<6> f = tax::sin(x) + tax::square(x) / 2.0;
-```
-
-A complete list of supported operations is in the [API Reference](core/api.md).
-
----
-
-## Extracting results
-
-```cpp
-f.value();              // f(x₀) — the constant term
-f.coeff({k});           // coefficient of δxᵏ
-f.derivative({k});      // k-th derivative (= k! · coeff)
-f.eval(0.3);            // evaluate Taylor polynomial at x₀ + 0.3
-```
-
-For multivariate objects:
-
-```cpp
-using TE2 = tax::TE<3, 2>;
-auto x = TE2::variable<0>({0.0, 0.0});
-auto y = TE2::variable<1>({0.0, 0.0});
-TE2 g = x*x + x*y + y*y;
-
-g.derivative({2, 0});   // ∂²g/∂x²   = 2
-g.derivative({1, 1});   // ∂²g/∂x∂y  = 1
-g.coeff<1, 1>();        // compile-time index access
-```
-
-### Coefficients vs derivatives
-
-A Taylor expansion stores **coefficients** of the monomial basis:
-
-$$
-f(\mathbf{x}_0 + \delta\mathbf{x})
-  = \sum_{|\alpha| \le N} f_\alpha \, \delta\mathbf{x}^\alpha
-$$
-
-The relationship to partial derivatives is
-
-$$
-f_\alpha
-  = \frac{1}{\alpha!} \,
-    \frac{\partial^{|\alpha|} f}
-         {\partial x_1^{\alpha_1} \cdots \partial x_M^{\alpha_M}}
-    \bigg|_{\mathbf{x}_0}
-$$
-
-so `derivative()` returns `coeff()` multiplied by $\alpha!$.
-
----
-
-## Eigen integration
-
-`tax::TaylorExpansion` ships with a `NumTraits` specialisation so it can live
-inside Eigen vectors and matrices unchanged.
-
-```cpp
-#include <tax/tax.hpp>
-
-using TE2 = tax::TE<3, 2>;
-auto x = TE2::variable<0>({1.0, 2.0});
-auto y = TE2::variable<1>({1.0, 2.0});
-Eigen::Vector2<TE2> F = {tax::sin(x), tax::cos(y)};
-
-auto vals = tax::value(F);           // Eigen::Vector2d of constant terms
-auto J    = tax::jacobian(F, 2);     // 2×2 Jacobian at expansion point
-auto H    = tax::hessian(F[0], 2);   // 2×2 Hessian of F[0]
-```
-
-Reference is in [Eigen Integration](eigen/index.md).
+One evaluation pass yields the value **and** every derivative up to order 5.
 
 ---
 
 ## Next steps
 
-- [Core / Mathematical Foundations](core/math.md) — the math behind the type.
-- [Core / API Reference](core/api.md) — every public method, listed.
-- [Core / Named Expansions](core/named.md) — axes addressed by name.
-- [Internals](internals/index.md) — how expression templates and recurrences fit together.
+- [Guide / Variables & Expressions](guide/expressions.md) — create variables and build expressions.
+- [Guide / Extracting Results](guide/results.md) — coefficients, derivatives, evaluation.
+- [Concepts / Foundations & Ordering](concepts/foundations.md) — what a truncated Taylor expansion is.
+- [Reference / TaylorExpansion API](reference/core.md) — every public method, listed.

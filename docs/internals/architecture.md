@@ -57,7 +57,7 @@ Every mathematical recurrence lives in `tax/kernels/`. A kernel takes raw
 coefficient buffers — `T*` for dense, sorted index/value pairs for sparse —
 plus the compile-time shape $(N, M)$ and writes directly into the result.
 The kernel layer is the one place where the math of
-[Mathematical Foundations](../core/math.md) lives in code.
+[Mathematical Foundations](../reference/math.md) lives in code.
 
 Univariate vs multivariate is dispatched by `if constexpr (M == 1)` — the
 univariate path runs scalar loops over flat indices, the multivariate path

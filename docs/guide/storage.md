@@ -118,3 +118,22 @@ ordering effects in the Cauchy sum but the agreement is tested via the
 
 When in doubt, write the code template-generic on the storage tag and switch
 between `TE` and `STE` to compare wall time on your actual problem.
+
+---
+
+## Sparse storage drop-in
+
+The factories on `STE<N, M>` mirror those on `TE<N, M>`; the storage layout
+differs but the API is identical.
+
+```cpp
+using STE2 = tax::STE<5, 2>;
+const std::array<double, 2> p{0.0, 0.0};
+auto x = STE2::variable<0>(p);
+auto y = STE2::variable<1>(p);
+
+STE2 f = x*x + y*y;                  // only 2 nonzeros stored
+auto nnz = f.nnz();                  // = 2
+
+auto fd = f.dense();                 // → TaylorExpansion<…, Dense> conversion
+```

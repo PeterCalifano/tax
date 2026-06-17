@@ -87,7 +87,7 @@ template <int I>
 
 For an Eigen column-vector of all $M$ coordinate variables at once, use the
 free function `tax::variables<TE>(x0)` from
-[Eigen integration](../eigen/index.md).
+[Eigen integration](../guide/eigen.md).
 
 ---
 
@@ -188,7 +188,7 @@ For multivariate dense expansions, on-object convenience helpers are provided:
 ```
 
 Vector-valued counterparts (Jacobian of a vector function) live in
-`tax/eigen.hpp` — see [Eigen / API Reference](../eigen/api.md).
+`tax/eigen.hpp` — see [Eigen / API Reference](eigen.md).
 
 ---
 
@@ -283,7 +283,7 @@ truncation remainder $\mathcal{O}(\delta\mathbf{x}^{N+1})$ appended.
 
 ## Eigen integration helpers
 
-Free functions in `namespace tax` (see [Eigen / API Reference](../eigen/api.md)):
+Free functions in `namespace tax` (see [Eigen / API Reference](eigen.md)):
 
 ```cpp
 tax::variables<TE>(x0)               // Eigen column vector of M coordinate vars

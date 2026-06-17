@@ -107,17 +107,24 @@ extra:
 nav:
   - Home: index.md
   - Getting Started: getting_started.md
-  - Core:
-      - Overview: core/index.md
-      - Mathematical Foundations: core/math.md
-      - API Reference: core/api.md
-      - Examples: core/examples.md
-      - Dense vs Sparse Storage: core/storage.md
-      - Named Expansions: core/named.md
-  - Eigen Integration:
-      - Overview: eigen/index.md
-      - API Reference: eigen/api.md
+  - Guide:
+      - guide/index.md
+      - Variables & Expressions: guide/expressions.md
+      - Extracting Results: guide/results.md
+      - Dense vs Sparse Storage: guide/storage.md
+      - Named Expansions: guide/named.md
+      - Eigen Integration: guide/eigen.md
+  - Reference:
+      - reference/index.md
+      - TaylorExpansion API: reference/core.md
+      - Eigen API: reference/eigen.md
+      - Named API: reference/named.md
+      - Math & Recurrences: reference/math.md
+  - Concepts:
+      - concepts/index.md
+      - Foundations & Ordering: concepts/foundations.md
+      - Convergence & Truncation: concepts/convergence.md
   - Internals:
-      - Overview: internals/index.md
+      - internals/index.md
       - Architecture: internals/architecture.md
       - Kernels & Recurrences: internals/kernels.md

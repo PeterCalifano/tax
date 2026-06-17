@@ -59,7 +59,7 @@ tax/
 │   ├── eigen/                #   tax::la helpers (gradient, jacobian, invert, named, …)
 │   ├── regression/           #   DACE comparison suite (opt-in, TAX_BUILD_REGRESSIONS)
 │   └── testUtils.hpp         #   shared helpers/macros
-├── docs/                     # MkDocs documentation (core/, eigen/, internals/)
+├── docs/                     # MkDocs docs: guide/, reference/, concepts/, internals/
 ├── cmake/                    # CMake package config template
 ├── .github/workflows/        # CI: tests.yml, sanitizers.yml, regressions.yml, docs.yml
 ├── .clang-format             # Code style configuration
