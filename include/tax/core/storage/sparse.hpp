@@ -4,9 +4,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
-#include <vector>
-
 #include <tax/core/multi_index.hpp>
+#include <utility>
+#include <vector>
 
 namespace tax::storage
 {
@@ -36,9 +36,9 @@ struct Sparse
 template < typename T, int N, int M >
 class SparseContainer
 {
-public:
-    using value_type                                    = T;
-    static constexpr std::size_t nCoefficientsMax       = numMonomials( N, M );
+   public:
+    using value_type = T;
+    static constexpr std::size_t nCoefficientsMax = numMonomials( N, M );
 
     constexpr SparseContainer() = default;
 
@@ -74,8 +74,7 @@ public:
     [[nodiscard]] T coeffAtFlat( std::size_t k ) const noexcept
     {
         auto it = std::lower_bound( idx_.begin(), idx_.end(), flat_index_t( k ) );
-        if ( it == idx_.end() || *it != flat_index_t( k ) )
-            return T{ 0 };
+        if ( it == idx_.end() || *it != flat_index_t( k ) ) return T{ 0 };
         return val_[std::size_t( it - idx_.begin() )];
     }
 
@@ -100,13 +99,11 @@ public:
             {
                 idx_.erase( idx_.begin() + std::ptrdiff_t( pos ) );
                 val_.erase( val_.begin() + std::ptrdiff_t( pos ) );
-            }
-            else
+            } else
             {
                 val_[pos] = v;
             }
-        }
-        else if ( v != T{ 0 } )
+        } else if ( v != T{ 0 } )
         {
             // Slot absent — insert in sorted position.
             const std::size_t pos = std::size_t( it - idx_.begin() );
@@ -122,8 +119,7 @@ public:
      */
     void accumulate( std::size_t k, T v ) noexcept
     {
-        if ( v == T{ 0 } )
-            return;
+        if ( v == T{ 0 } ) return;
 
         auto it = std::lower_bound( idx_.begin(), idx_.end(), flat_index_t( k ) );
         if ( it != idx_.end() && *it == flat_index_t( k ) )
@@ -135,8 +131,7 @@ public:
                 idx_.erase( idx_.begin() + std::ptrdiff_t( pos ) );
                 val_.erase( val_.begin() + std::ptrdiff_t( pos ) );
             }
-        }
-        else
+        } else
         {
             // Not present — insert at sorted position.
             const std::size_t pos = std::size_t( it - idx_.begin() );
@@ -154,10 +149,10 @@ public:
      * `Fn` must not mutate the container.
      */
     template < typename Fn >
-    void forEachNonzero( Fn&& fn ) const noexcept
+    void forEachNonzero( Fn&& fn ) const
+        noexcept( noexcept( fn( std::size_t{ 0 }, std::declval< T >() ) ) )
     {
-        for ( std::size_t i = 0; i < idx_.size(); ++i )
-            fn( std::size_t( idx_[i] ), val_[i] );
+        for ( std::size_t i = 0; i < idx_.size(); ++i ) fn( std::size_t( idx_[i] ), val_[i] );
     }
 
     /**
@@ -170,7 +165,8 @@ public:
      * Runs in O(nnz(*this) + nnz(other)) time.
      */
     template < typename Fn >
-    void forEachPair( const SparseContainer& other, Fn&& fn ) const noexcept
+    void forEachPair( const SparseContainer& other, Fn&& fn ) const
+        noexcept( noexcept( fn( std::size_t{ 0 }, std::declval< T >(), std::declval< T >() ) ) )
     {
         std::size_t i = 0;
         std::size_t j = 0;
@@ -182,21 +178,18 @@ public:
             {
                 fn( std::size_t( ia ), val_[i], T{ 0 } );
                 ++i;
-            }
-            else if ( ib < ia )
+            } else if ( ib < ia )
             {
                 fn( std::size_t( ib ), T{ 0 }, other.val_[j] );
                 ++j;
-            }
-            else
+            } else
             {
                 fn( std::size_t( ia ), val_[i], other.val_[j] );
                 ++i;
                 ++j;
             }
         }
-        for ( ; i < idx_.size(); ++i )
-            fn( std::size_t( idx_[i] ), val_[i], T{ 0 } );
+        for ( ; i < idx_.size(); ++i ) fn( std::size_t( idx_[i] ), val_[i], T{ 0 } );
         for ( ; j < other.idx_.size(); ++j )
             fn( std::size_t( other.idx_[j] ), T{ 0 }, other.val_[j] );
     }
@@ -205,14 +198,14 @@ public:
     // Raw access (for kernels that build content incrementally)
     // -----------------------------------------------------------------------
 
-    [[nodiscard]] std::vector< flat_index_t >&       rawIndices() noexcept { return idx_; }
-    [[nodiscard]] std::vector< T >&                  rawValues()  noexcept { return val_; }
+    [[nodiscard]] std::vector< flat_index_t >& rawIndices() noexcept { return idx_; }
+    [[nodiscard]] std::vector< T >& rawValues() noexcept { return val_; }
     [[nodiscard]] const std::vector< flat_index_t >& rawIndices() const noexcept { return idx_; }
-    [[nodiscard]] const std::vector< T >&            rawValues()  const noexcept { return val_; }
+    [[nodiscard]] const std::vector< T >& rawValues() const noexcept { return val_; }
 
-private:
+   private:
     std::vector< flat_index_t > idx_;
-    std::vector< T >            val_;
+    std::vector< T > val_;
 };
 
 }  // namespace tax::storage

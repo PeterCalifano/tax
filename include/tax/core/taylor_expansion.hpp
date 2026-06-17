@@ -35,7 +35,7 @@ template < typename T, int N, int M >
     requires Scalar< T >
 class TaylorExpansion< T, N, M, storage::Dense >
 {
-public:
+   public:
     static_assert( N >= 0, "TaylorExpansion order must be non-negative" );
     static_assert( M >= 1, "TaylorExpansion variable count must be at least 1" );
 
@@ -44,15 +44,15 @@ public:
     // ------------------------------------------------------------------
     using scalar_type = T;
     using container_t = storage::DenseContainer< T, N, M >;
-    using Input       = std::array< T, std::size_t( M ) >;
-    using Data        = Coeffs< T, N, M >;
+    using Input = std::array< T, std::size_t( M ) >;
+    using Data = Coeffs< T, N, M >;
 
     // ------------------------------------------------------------------
     // Compile-time properties
     // ------------------------------------------------------------------
-    static constexpr int         order_v        = N;
-    static constexpr int         vars_v         = M;
-    static constexpr std::size_t nCoefficients  = numMonomials( N, M );
+    static constexpr int order_v = N;
+    static constexpr int vars_v = M;
+    static constexpr std::size_t nCoefficients = numMonomials( N, M );
 
     // ------------------------------------------------------------------
     // Constructors
@@ -86,8 +86,7 @@ public:
         requires( M == 1 )
     {
         TaylorExpansion r{ x0 };
-        if constexpr ( N >= 1 )
-            r.c_.set( 1, T{ 1 } );
+        if constexpr ( N >= 1 ) r.c_.set( 1, T{ 1 } );
         return r;
     }
 
@@ -187,11 +186,12 @@ public:
      */
     [[nodiscard]] constexpr T derivative( const MultiIndex< M >& alpha ) const noexcept
     {
-        std::size_t fac = 1;
+        // Accumulate the factorial in T: std::size_t overflows at 21! on 64-bit,
+        // silently corrupting high-order derivatives.
+        T fac = T{ 1 };
         for ( int i = 0; i < M; ++i )
-            for ( int j = 1; j <= alpha[std::size_t( i )]; ++j )
-                fac *= std::size_t( j );
-        return coeff( alpha ) * T( fac );
+            for ( int j = 1; j <= alpha[std::size_t( i )]; ++j ) fac *= T( j );
+        return coeff( alpha ) * fac;
     }
 
     /**
@@ -205,20 +205,18 @@ public:
     {
         static_assert( sizeof...( Alpha ) == std::size_t( M ),
                        "derivative<Alpha...>(): arity must match variable count" );
-        static_assert( ( ( Alpha >= 0 ) && ... ),
-                       "derivative<Alpha...>(): negative exponent" );
+        static_assert( ( ( Alpha >= 0 ) && ... ), "derivative<Alpha...>(): negative exponent" );
         constexpr int total = ( Alpha + ... + 0 );
         static_assert( total <= N, "derivative<Alpha...>(): total degree exceeds N" );
 
-        constexpr auto factorial = []( int n ) constexpr noexcept -> std::size_t
-        {
-            std::size_t r = 1;
-            for ( int i = 2; i <= n; ++i )
-                r *= std::size_t( i );
+        // Accumulate in T to avoid std::size_t factorial overflow (21! > UINT64_MAX).
+        constexpr auto factorial = []( int n ) constexpr noexcept -> T {
+            T r = T{ 1 };
+            for ( int i = 2; i <= n; ++i ) r *= T( i );
             return r;
         };
-        constexpr std::size_t fac = ( factorial( Alpha ) * ... * std::size_t( 1 ) );
-        return coeff< Alpha... >() * T( fac );
+        constexpr T fac = ( factorial( Alpha ) * ... * T( 1 ) );
+        return coeff< Alpha... >() * fac;
     }
 
     // ------------------------------------------------------------------
@@ -262,8 +260,7 @@ public:
             // Degree-by-degree accumulation: enumerate all monomials of total degree d
             // and accumulate c_alpha * dx^alpha.
             auto accumulate = [&]( auto& self, int var, int rem, MultiIndex< M > alpha,
-                                   T partial ) constexpr -> void
-            {
+                                   T partial ) constexpr -> void {
                 if ( var == M - 1 )
                 {
                     alpha[std::size_t( var )] = rem;
@@ -273,7 +270,7 @@ public:
                 }
                 for ( int k = rem; k >= 0; --k )
                 {
-                    auto a2                = alpha;
+                    auto a2 = alpha;
                     a2[std::size_t( var )] = k;
                     self( self, var + 1, rem - k, a2,
                           partial * pw[std::size_t( var )][std::size_t( k )] );
@@ -296,10 +293,11 @@ public:
      * @return `f(x0 + dx)` as a scalar of type `T`.
      */
     template < typename DxDerived >
-    [[nodiscard]] T eval( const Eigen::MatrixBase< DxDerived >& dx ) const noexcept
+    [[nodiscard]] T eval( const Eigen::MatrixBase< DxDerived >& dx ) const
     {
-        static_assert( DxDerived::SizeAtCompileTime == M || DxDerived::SizeAtCompileTime == Eigen::Dynamic,
-                       "eval(Eigen): size must match number of variables M" );
+        static_assert(
+            DxDerived::SizeAtCompileTime == M || DxDerived::SizeAtCompileTime == Eigen::Dynamic,
+            "eval(Eigen): size must match number of variables M" );
         Input p{};
         for ( int i = 0; i < M; ++i ) p[std::size_t( i )] = T( dx( i ) );
         return eval( p );
@@ -346,8 +344,7 @@ public:
     [[nodiscard]] TaylorExpansion deriv( int var ) const
     {
         if ( var < 0 || var >= M )
-            throw std::out_of_range(
-                "tax::TaylorExpansion::deriv(var): var must be in [0, M)" );
+            throw std::out_of_range( "tax::TaylorExpansion::deriv(var): var must be in [0, M)" );
         Data out{};
         for ( std::size_t i = 0; i < nCoefficients; ++i )
         {
@@ -399,8 +396,7 @@ public:
     [[nodiscard]] TaylorExpansion integ( int var ) const
     {
         if ( var < 0 || var >= M )
-            throw std::out_of_range(
-                "tax::TaylorExpansion::integ(var): var must be in [0, M)" );
+            throw std::out_of_range( "tax::TaylorExpansion::integ(var): var must be in [0, M)" );
         Data out{};
         for ( std::size_t i = 0; i < nCoefficients; ++i )
         {
@@ -466,7 +462,7 @@ public:
     [[nodiscard]] constexpr const Data& coefficients() const noexcept { return c_.data; }
     [[nodiscard]] constexpr Data& coefficients() noexcept { return c_.data; }
 
-private:
+   private:
     container_t c_{};
 };
 
@@ -509,7 +505,7 @@ template < typename T, int N, int M >
     requires Scalar< T >
 class TaylorExpansion< T, N, M, storage::Sparse >
 {
-public:
+   public:
     static_assert( N >= 0, "TaylorExpansion<Sparse> order must be non-negative" );
     static_assert( M >= 1, "TaylorExpansion<Sparse> variable count must be at least 1" );
 
@@ -518,14 +514,14 @@ public:
     // ------------------------------------------------------------------
     using scalar_type = T;
     using container_t = storage::SparseContainer< T, N, M >;
-    using Input       = std::array< T, std::size_t( M ) >;
-    using Dense       = TaylorExpansion< T, N, M, storage::Dense >;
+    using Input = std::array< T, std::size_t( M ) >;
+    using Dense = TaylorExpansion< T, N, M, storage::Dense >;
 
     // ------------------------------------------------------------------
     // Compile-time properties
     // ------------------------------------------------------------------
-    static constexpr int         order_v       = N;
-    static constexpr int         vars_v        = M;
+    static constexpr int order_v = N;
+    static constexpr int vars_v = M;
     /// Dense-equivalent upper bound on the number of monomials.
     static constexpr std::size_t nCoefficients = numMonomials( N, M );
 
@@ -539,8 +535,7 @@ public:
     /// @brief Constant polynomial with value `c`.
     /*implicit*/ TaylorExpansion( T c )
     {
-        if ( c != T{ 0 } )
-            c_.set( 0, c );
+        if ( c != T{ 0 } ) c_.set( 0, c );
     }
 
     /**
@@ -552,8 +547,7 @@ public:
     {
         for ( std::size_t k = 0; k < Dense::nCoefficients; ++k )
         {
-            if ( d[k] != T{ 0 } )
-                c_.set( k, d[k] );
+            if ( d[k] != T{ 0 } ) c_.set( k, d[k] );
         }
     }
 
@@ -572,10 +566,8 @@ public:
         requires( M == 1 )
     {
         TaylorExpansion r;
-        if ( x0 != T{ 0 } )
-            r.c_.set( 0, x0 );
-        if constexpr ( N >= 1 )
-            r.c_.set( 1, T{ 1 } );
+        if ( x0 != T{ 0 } ) r.c_.set( 0, x0 );
+        if constexpr ( N >= 1 ) r.c_.set( 1, T{ 1 } );
         return r;
     }
 
@@ -590,8 +582,7 @@ public:
         requires( M >= 1 && I >= 0 && I < M )
     {
         TaylorExpansion r;
-        if ( p[std::size_t( I )] != T{ 0 } )
-            r.c_.set( 0, p[std::size_t( I )] );
+        if ( p[std::size_t( I )] != T{ 0 } ) r.c_.set( 0, p[std::size_t( I )] );
         if constexpr ( N >= 1 )
         {
             MultiIndex< M > alpha{};
@@ -643,11 +634,11 @@ public:
      */
     [[nodiscard]] T derivative( const MultiIndex< M >& alpha ) const noexcept
     {
-        std::size_t fac = 1;
+        // Accumulate in T: std::size_t overflows at 21! (see dense variant).
+        T fac = T{ 1 };
         for ( int i = 0; i < M; ++i )
-            for ( int j = 1; j <= alpha[std::size_t( i )]; ++j )
-                fac *= std::size_t( j );
-        return coeff( alpha ) * T( fac );
+            for ( int j = 1; j <= alpha[std::size_t( i )]; ++j ) fac *= T( j );
+        return coeff( alpha ) * fac;
     }
 
     /**
@@ -661,15 +652,14 @@ public:
         constexpr int total = ( Alpha + ... + 0 );
         static_assert( total <= N );
 
-        constexpr auto factorial = []( int n ) constexpr noexcept -> std::size_t
-        {
-            std::size_t r = 1;
-            for ( int i = 2; i <= n; ++i )
-                r *= std::size_t( i );
+        // Accumulate in T to avoid std::size_t factorial overflow (21! > UINT64_MAX).
+        constexpr auto factorial = []( int n ) constexpr noexcept -> T {
+            T r = T{ 1 };
+            for ( int i = 2; i <= n; ++i ) r *= T( i );
             return r;
         };
-        constexpr std::size_t fac = ( factorial( Alpha ) * ... * std::size_t( 1 ) );
-        return coeff< Alpha... >() * T( fac );
+        constexpr T fac = ( factorial( Alpha ) * ... * T( 1 ) );
+        return coeff< Alpha... >() * fac;
     }
 
     // ------------------------------------------------------------------
@@ -706,9 +696,9 @@ public:
     // ------------------------------------------------------------------
 
     [[nodiscard]] const container_t& container() const noexcept { return c_; }
-    [[nodiscard]] container_t&       container()       noexcept { return c_; }
+    [[nodiscard]] container_t& container() noexcept { return c_; }
 
-private:
+   private:
     container_t c_;
 };
 
@@ -735,8 +725,8 @@ using STE = TaylorExpansion< double, N, M, storage::Sparse >;
  * @return   Equivalent sparse polynomial.
  */
 template < typename T, int N, int M >
-[[nodiscard]] TaylorExpansion< T, N, M, storage::Sparse >
-    sparse( const TaylorExpansion< T, N, M, storage::Dense >& d ) noexcept
+[[nodiscard]] TaylorExpansion< T, N, M, storage::Sparse > sparse(
+    const TaylorExpansion< T, N, M, storage::Dense >& d ) noexcept
 {
     return TaylorExpansion< T, N, M, storage::Sparse >( d );
 }

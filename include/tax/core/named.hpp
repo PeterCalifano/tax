@@ -74,7 +74,12 @@ template < std::size_t A, std::size_t B >
     const std::size_t n = la < lb ? la : lb;
     for ( std::size_t i = 0; i < n; ++i )
     {
-        if ( a[i] != b[i] ) return a[i] < b[i] ? -1 : 1;
+        // Compare as unsigned char: plain char signedness is implementation-defined,
+        // so signed comparison would order non-ASCII axis names inconsistently and
+        // could make the canonical merged-type ordering platform-dependent.
+        const unsigned char ca = static_cast< unsigned char >( a[i] );
+        const unsigned char cb = static_cast< unsigned char >( b[i] );
+        if ( ca != cb ) return ca < cb ? -1 : 1;
     }
     if ( la == lb ) return 0;
     return la < lb ? -1 : 1;
@@ -104,10 +109,9 @@ struct Axis
 };
 
 /// @brief Sign of the name comparison of two axes (-1 / 0 / 1).
+/// `fixedCompare` already returns exactly -1/0/1, so no further clamping is needed.
 template < typename A, typename B >
-inline constexpr int axisSign =
-    ( fixedCompare< A::name, B::name > < 0 ) ? -1
-                                             : ( fixedCompare< A::name, B::name > > 0 ? 1 : 0 );
+inline constexpr int axisSign = fixedCompare< A::name, B::name >;
 
 // ---------------------------------------------------------------------------
 // Compile-time axis-list machinery
@@ -352,6 +356,11 @@ class NamedTaylorExpansion
     using Inner = TaylorExpansion< T, N, vars_v, storage::Dense >;
     using Input = typename Inner::Input;
 
+    // Mirror the underlying storage traits so NamedTaylorExpansion satisfies the
+    // tax::TaylorPolynomial concept and can flow through concept-constrained helpers.
+    using container_t = typename Inner::container_t;
+    static constexpr std::size_t nCoefficients = Inner::nCoefficients;
+
     // ------------------------------------------------------------------
     // Constructors
     // ------------------------------------------------------------------
@@ -451,12 +460,15 @@ class NamedTaylorExpansion
     [[nodiscard]] constexpr auto slice() const noexcept
     {
         static_assert( sizeof...( Names ) >= 1, "slice() needs at least one axis name" );
+        // Check name existence *before* forming Axis< Name, DimOfName::value >: an
+        // absent name yields Dim == -1, which would otherwise trip Axis's own
+        // "dimension must be at least 1" assert with a confusing message.
+        static_assert( ( ( detail::DimOfName< axis_list, Names >::value >= 1 ) && ... ),
+                       "slice(): every requested axis name must exist in this expansion" );
         using Tgt = typename detail::MergeFold<
             detail::TypeList<>,
             detail::TypeList< Axis< Names, detail::DimOfName< axis_list, Names >::value > >... >::
             type;
-        static_assert( ( ( detail::DimOfName< axis_list, Names >::value >= 1 ) && ... ),
-                       "slice(): every requested axis name must exist in this expansion" );
         using R = typename detail::Rebind< T, N, Tgt >::type;
 
         constexpr auto map = detail::buildAxisMap< axis_list, Tgt, /*allowDrop=*/true >();
