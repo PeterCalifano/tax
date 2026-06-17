@@ -1,0 +1,1697 @@
+{
+  "communities": {
+    "0": [
+      "cmake_tax_add_test",
+      "test_ads_box",
+      "test_ads_criteria",
+      "test_ads_da_state",
+      "test_ads_driver",
+      "test_ads_leaf_tree",
+      "test_ads_merge",
+      "test_ads_nonlinearity_index",
+      "test_ads_parallel",
+      "test_ads_refine",
+      "test_ads_split_event",
+      "test_algebra_inverse",
+      "test_algebra_square_cube",
+      "test_arith_dense",
+      "test_cauchy_dense",
+      "test_cauchy_stencil_diff",
+      "test_cauchy_unroll_diff",
+      "test_deriv_integ",
+      "test_eigen_derivative",
+      "test_eigen_eval",
+      "test_eigen_gradient",
+      "test_eigen_hessian",
+      "test_eigen_invert",
+      "test_eigen_jacobian",
+      "test_eigen_numtraits",
+      "test_eigen_variables",
+      "test_enumeration",
+      "test_erf",
+      "test_exp_log",
+      "test_hyperbolic",
+      "test_inverse_trig",
+      "test_multi_index",
+      "test_ode_concepts",
+      "test_ode_config",
+      "test_ode_controllers",
+      "test_ode_cr3bp_events",
+      "test_ode_cr3bp_propagation",
+      "test_ode_events_every_step",
+      "test_ode_events_zero_crossing",
+      "test_ode_feagin12_stepper",
+      "test_ode_feagin14_stepper",
+      "test_ode_fehlberg78_stepper",
+      "test_ode_fixed_step",
+      "test_ode_integrator_basic",
+      "test_ode_integrator_dense",
+      "test_ode_integrator_static",
+      "test_ode_rk_da_state",
+      "test_ode_rk_helpers",
+      "test_ode_solution",
+      "test_ode_taylor_stepper",
+      "test_ode_two_body_kepler",
+      "test_ode_vector_ops",
+      "test_ode_verner78_stepper",
+      "test_ode_verner89_stepper",
+      "test_pow",
+      "test_sparse_arith",
+      "test_sparse_cauchy",
+      "test_sparse_conversion",
+      "test_sparse_ctor",
+      "test_sparse_subs",
+      "test_taylor_expansion_accessors",
+      "test_taylor_expansion_ctor",
+      "test_trig"
+    ],
+    "1": [
+      "bench_cr3bp",
+      "concept_brent_root",
+      "concept_controller_h211b",
+      "concept_controller_i",
+      "concept_controller_jorba_zou",
+      "concept_controller_pi",
+      "concept_cubic_hermite",
+      "concept_dense_output",
+      "concept_embedded_rk_stepper",
+      "concept_event",
+      "concept_every_step",
+      "concept_feagin12",
+      "concept_feagin14",
+      "concept_fehlberg78",
+      "concept_integrator",
+      "concept_integrator_config",
+      "concept_jorba_zou",
+      "concept_layer_architecture",
+      "concept_map_inversion",
+      "concept_mixed_tolerance",
+      "concept_picard_iteration",
+      "concept_polynomial_newton",
+      "concept_solution",
+      "concept_step_result",
+      "concept_stepper_concept",
+      "concept_taylor_method",
+      "concept_taylor_stepper",
+      "concept_vector_ops",
+      "concept_verner78",
+      "concept_verner89",
+      "concept_zero_crossing",
+      "doc_architecture",
+      "doc_ode_api",
+      "doc_ode_events",
+      "doc_ode_examples",
+      "doc_ode_index",
+      "doc_ode_math",
+      "doc_ode_methods"
+    ],
+    "2": [
+      "concept_ads_merge",
+      "concept_ads_module",
+      "concept_ads_propagate",
+      "concept_ads_refine",
+      "concept_ads_tree",
+      "concept_ads_truncation_criterion",
+      "concept_coefficient_match",
+      "concept_coefficient_match_criterion",
+      "concept_cr3bp",
+      "concept_da_vector_state",
+      "concept_flow_map",
+      "concept_kepler_orbit",
+      "concept_l1_unstable_manifold",
+      "concept_loads_2024",
+      "concept_monte_carlo_validation",
+      "concept_nli_criterion",
+      "concept_nonlinearity_index",
+      "concept_ode_module",
+      "concept_volume_ratio",
+      "concept_volume_ratio_criterion",
+      "doc_tutorial_three_body",
+      "doc_tutorial_two_body",
+      "doc_tutorial_two_body_refine",
+      "doc_tutorials_index",
+      "img_two_body_refine_big_convergence",
+      "img_two_body_refine_big_gif",
+      "img_two_body_refine_big_regions",
+      "img_two_body_refine_convergence",
+      "img_two_body_refine_gif",
+      "img_two_body_refine_regions"
+    ],
+    "3": [
+      "alias_ste",
+      "alias_te",
+      "concept_cauchy_product",
+      "concept_cauchy_product_loop",
+      "concept_cauchy_product_stencil",
+      "concept_cauchy_product_unroll",
+      "concept_degree_by_degree_recurrence",
+      "concept_dense_storage",
+      "concept_eigen_helpers",
+      "concept_graded_lex_order",
+      "concept_gradient",
+      "concept_hessian",
+      "concept_jacobian",
+      "concept_num_traits",
+      "concept_recurrence_stencil",
+      "concept_series_exp",
+      "concept_series_sincos",
+      "concept_sparse_storage",
+      "concept_taylor_expansion",
+      "doc_eigen_api",
+      "doc_eigen_index",
+      "doc_getting_started",
+      "doc_index",
+      "doc_internals_index",
+      "doc_kernels",
+      "doc_storage"
+    ],
+    "4": [
+      "cmake_tax_add_example",
+      "docs_ads_refine",
+      "docs_core_math",
+      "docs_core_storage",
+      "docs_internals_architecture",
+      "docs_internals_kernels",
+      "docs_ode_events",
+      "docs_ode_math",
+      "docs_ode_methods",
+      "docs_site",
+      "docs_tutorials_three_body",
+      "docs_tutorials_two_body",
+      "docs_tutorials_two_body_refine",
+      "example_three_body_ads",
+      "example_three_body_loads",
+      "example_three_body_taylor",
+      "example_two_body_ads",
+      "example_two_body_loads",
+      "example_two_body_refine",
+      "example_two_body_taylor",
+      "example_two_body_validation",
+      "example_wsb_ads",
+      "example_wsb_search",
+      "example_wsb_taylor",
+      "examples_cmakelists",
+      "mkdocs_yml"
+    ],
+    "5": [
+      "operators_math_unary",
+      "operators_math_unary_acos",
+      "operators_math_unary_acosh",
+      "operators_math_unary_asin",
+      "operators_math_unary_asinh",
+      "operators_math_unary_atan",
+      "operators_math_unary_atanh",
+      "operators_math_unary_cbrt",
+      "operators_math_unary_cos",
+      "operators_math_unary_cosh",
+      "operators_math_unary_cube",
+      "operators_math_unary_erf",
+      "operators_math_unary_exp",
+      "operators_math_unary_log",
+      "operators_math_unary_reciprocal",
+      "operators_math_unary_sin",
+      "operators_math_unary_sinh",
+      "operators_math_unary_sqrt",
+      "operators_math_unary_square",
+      "operators_math_unary_tan",
+      "operators_math_unary_tanh"
+    ],
+    "6": [
+      "cmake_option_tax_build_regressions",
+      "cmake_option_tax_dace_target",
+      "cmake_root",
+      "cmake_tax_add_regression",
+      "dep_dace",
+      "dep_eigen3",
+      "lib_tax",
+      "test_regression_deriv_integ",
+      "test_regression_eval",
+      "test_regression_invert",
+      "test_regression_multivariate",
+      "test_regression_univariate",
+      "test_regression_vector_calc",
+      "tests_regression_cmakelists"
+    ],
+    "7": [
+      "common_output",
+      "common_output_adsthreads",
+      "common_output_boxpolygon",
+      "common_output_evalpolygon",
+      "common_output_jsonarray",
+      "common_output_jsonnumber",
+      "common_output_printbanner",
+      "common_output_sampleorbit",
+      "common_output_stopwatch",
+      "common_output_stopwatch_stopwatch",
+      "common_output_unitsquareboundary",
+      "common_output_writejsonarray",
+      "common_output_writerunjson"
+    ],
+    "8": [
+      "concept_ads",
+      "concept_loads",
+      "concept_taylor_tube",
+      "concept_three_body",
+      "concept_truncation_criterion",
+      "concept_two_body",
+      "concept_wittig_2015",
+      "img_three_body_ads",
+      "img_three_body_flow",
+      "img_three_body_leaves",
+      "img_two_body_ads",
+      "img_two_body_flow",
+      "img_two_body_leaves"
+    ],
+    "9": [
+      "core_taylor_expansion",
+      "core_taylor_expansion_coeff",
+      "core_taylor_expansion_deriv",
+      "core_taylor_expansion_derivative",
+      "core_taylor_expansion_eval",
+      "core_taylor_expansion_integ",
+      "core_taylor_expansion_sparse",
+      "core_taylor_expansion_taylorexpansion",
+      "core_taylor_expansion_taylorexpansion_t_n_m_storage_dense",
+      "core_taylor_expansion_taylorexpansion_t_n_m_storage_dense_taylorexpansion",
+      "core_taylor_expansion_taylorexpansion_t_n_m_storage_sparse",
+      "core_taylor_expansion_taylorexpansion_t_n_m_storage_sparse_taylorexpansion",
+      "core_taylor_expansion_variable"
+    ],
+    "10": [
+      "two_body_plot_validation",
+      "two_body_plot_validation_cells_at_p",
+      "two_body_plot_validation_cells_at_tol",
+      "two_body_plot_validation_cells_for",
+      "two_body_plot_validation_figure_envelope",
+      "two_body_plot_validation_figure_error",
+      "two_body_plot_validation_figure_timing",
+      "two_body_plot_validation_load_validation",
+      "two_body_plot_validation_main",
+      "two_body_plot_validation_plot_vs_p",
+      "two_body_plot_validation_plot_vs_tol",
+      "two_body_plot_validation_taylor_by_p",
+      "two_body_plot_validation_true_anomaly"
+    ],
+    "11": [
+      "benchmarks_bench_ads_refine",
+      "benchmarks_bench_ads_refine_bm_classicads",
+      "benchmarks_bench_ads_refine_bm_ordernli",
+      "benchmarks_bench_ads_refine_bm_ordertruncation",
+      "benchmarks_bench_ads_refine_bm_refinecoeff",
+      "benchmarks_bench_ads_refine_bm_refinecoeff4way",
+      "benchmarks_bench_ads_refine_bm_refinevolume",
+      "benchmarks_bench_ads_refine_center",
+      "benchmarks_bench_ads_refine_cfg",
+      "benchmarks_bench_ads_refine_icbox",
+      "benchmarks_bench_ads_refine_rhs"
+    ],
+    "12": [
+      "plot_plot_three_body",
+      "plot_plot_three_body_draw_frame",
+      "plot_plot_three_body_load",
+      "plot_plot_three_body_main",
+      "plot_plot_three_body_plot_ads",
+      "plot_plot_three_body_plot_flow",
+      "plot_plot_three_body_plot_leaves",
+      "plot_plot_three_body_rationale_107",
+      "plot_plot_three_body_rationale_149",
+      "plot_plot_three_body_rationale_47",
+      "plot_plot_three_body_rationale_56"
+    ],
+    "13": [
+      "plot_plot_two_body",
+      "plot_plot_two_body_load",
+      "plot_plot_two_body_main",
+      "plot_plot_two_body_plot_ads",
+      "plot_plot_two_body_plot_ads_orbit",
+      "plot_plot_two_body_plot_flow",
+      "plot_plot_two_body_plot_leaves",
+      "plot_plot_two_body_rationale_121",
+      "plot_plot_two_body_rationale_154",
+      "plot_plot_two_body_rationale_47",
+      "plot_plot_two_body_rationale_80"
+    ],
+    "14": [
+      "wsb_wsb_search",
+      "wsb_wsb_search_earthhillr",
+      "wsb_wsb_search_main",
+      "wsb_wsb_search_makeic",
+      "wsb_wsb_search_moonorbitr",
+      "wsb_wsb_search_normalisedeg",
+      "wsb_wsb_search_rhs",
+      "wsb_wsb_search_runsweep",
+      "wsb_wsb_search_scanone",
+      "wsb_wsb_search_writearray",
+      "wsb_wsb_search_writesweeparray"
+    ],
+    "15": [
+      "kernels_transcendental",
+      "kernels_transcendental_seriesacosh",
+      "kernels_transcendental_seriesasinh",
+      "kernels_transcendental_seriesatanh",
+      "kernels_transcendental_seriescosh",
+      "kernels_transcendental_serieserf",
+      "kernels_transcendental_seriesexp",
+      "kernels_transcendental_serieslog",
+      "kernels_transcendental_seriessinh",
+      "kernels_transcendental_seriestanh"
+    ],
+    "16": [
+      "kernels_algebra",
+      "kernels_algebra_cauchyselfproduct",
+      "kernels_algebra_seriescbrt",
+      "kernels_algebra_seriescube",
+      "kernels_algebra_seriespow",
+      "kernels_algebra_seriespowint",
+      "kernels_algebra_seriesreciprocal",
+      "kernels_algebra_seriessqrt",
+      "kernels_algebra_seriessquare"
+    ],
+    "17": [
+      "kernels_trigonometric",
+      "kernels_trigonometric_seriesacos",
+      "kernels_trigonometric_seriesasin",
+      "kernels_trigonometric_seriesatan",
+      "kernels_trigonometric_seriesatan2",
+      "kernels_trigonometric_seriescos",
+      "kernels_trigonometric_seriessin",
+      "kernels_trigonometric_seriessincos",
+      "kernels_trigonometric_seriestan"
+    ],
+    "18": [
+      "ode_test_rk_da_state",
+      "ode_test_rk_da_state_check_constant_term_matches_double",
+      "ode_test_rk_da_state_check_linear_term_matches_analytical_stm",
+      "ode_test_rk_da_state_make_harmonic_ic_da",
+      "ode_test_rk_da_state_make_harmonic_rhs",
+      "ode_test_rk_da_state_make_kepler_ic_da",
+      "ode_test_rk_da_state_make_kepler_ic_double",
+      "ode_test_rk_da_state_make_kepler_rhs",
+      "ode_test_rk_da_state_test"
+    ],
+    "19": [
+      "ads_refine",
+      "ads_refine_assess",
+      "ads_refine_drive",
+      "ads_refine_propagateleaf",
+      "ads_refine_refine",
+      "ads_refine_refinedriver",
+      "ads_refine_refinedriver_refinedriver",
+      "ads_refine_run"
+    ],
+    "20": [
+      "benchmarks_bench_ode_cr3bp",
+      "benchmarks_bench_ode_cr3bp_bm_reffehlberg78_i_1e12",
+      "benchmarks_bench_ode_cr3bp_bm_taylorh211b_n24",
+      "benchmarks_bench_ode_cr3bp_bm_taylorpi_n12",
+      "benchmarks_bench_ode_cr3bp_endpoint_error",
+      "benchmarks_bench_ode_cr3bp_ensure_reference",
+      "benchmarks_bench_ode_cr3bp_run_rk",
+      "benchmarks_bench_ode_cr3bp_run_taylor"
+    ],
+    "21": [
+      "two_body_plot_refine",
+      "two_body_plot_refine_cloud_limits",
+      "two_body_plot_refine_draw_convergence",
+      "two_body_plot_refine_main",
+      "two_body_plot_refine_make_convergence_png",
+      "two_body_plot_refine_make_gif",
+      "two_body_plot_refine_make_regions_png",
+      "two_body_plot_refine_rationale_106"
+    ],
+    "22": [
+      "ads_driver",
+      "ads_driver_adsdriver",
+      "ads_driver_adsdriver_adsdriver",
+      "ads_driver_driveparallel",
+      "ads_driver_driveserial",
+      "ads_driver_run",
+      "ads_driver_stepleaf"
+    ],
+    "23": [
+      "ads_refine_criteria",
+      "ads_refine_criteria_acceptable",
+      "ads_refine_criteria_childmismatch",
+      "ads_refine_criteria_imagevolume",
+      "ads_refine_criteria_splitdim",
+      "ads_refine_criteria_topdegreesplitdim",
+      "ads_refine_criteria_topkdims"
+    ],
+    "24": [
+      "core_multi_index",
+      "core_multi_index_binom",
+      "core_multi_index_degreeof",
+      "core_multi_index_flatindex",
+      "core_multi_index_nummonomials",
+      "core_multi_index_totaldegree",
+      "core_multi_index_unflatindex"
+    ],
+    "25": [
+      "problems_test_two_body_kepler",
+      "problems_test_two_body_kepler_check_invariants",
+      "problems_test_two_body_kepler_make_ic",
+      "problems_test_two_body_kepler_make_rhs",
+      "problems_test_two_body_kepler_specific_angmom",
+      "problems_test_two_body_kepler_specific_energy",
+      "problems_test_two_body_kepler_test"
+    ],
+    "26": [
+      "two_body_plot",
+      "two_body_plot_draw_panel",
+      "two_body_plot_load",
+      "two_body_plot_main",
+      "two_body_plot_panel_xy_limits",
+      "two_body_plot_rationale_66",
+      "two_body_plot_true_anomaly"
+    ],
+    "27": [
+      "two_body_validation",
+      "two_body_validation_main",
+      "two_body_validation_poserrors",
+      "two_body_validation_runadslike",
+      "two_body_validation_runtaylor",
+      "two_body_validation_sweepp",
+      "two_body_validation_tolocal"
+    ],
+    "28": [
+      "wsb_common",
+      "wsb_common_boundarytobox",
+      "wsb_common_earthhillr",
+      "wsb_common_icbox",
+      "wsb_common_iccenter",
+      "wsb_common_moonorbitr",
+      "wsb_common_rhs"
+    ],
+    "29": [
+      "ads_test_refine",
+      "ads_test_refine_evalleaf",
+      "ads_test_refine_icbox",
+      "ads_test_refine_rhs",
+      "ads_test_refine_scalarreference",
+      "ads_test_refine_test"
+    ],
+    "30": [
+      "la_invert",
+      "la_invert_composemap",
+      "la_invert_composeone",
+      "la_invert_identitymap",
+      "la_invert_invert",
+      "la_invert_linear"
+    ],
+    "31": [
+      "three_body_common",
+      "three_body_common_boundarytobox",
+      "three_body_common_icbox",
+      "three_body_common_iccenter",
+      "three_body_common_linearisationl1",
+      "three_body_common_rhs"
+    ],
+    "32": [
+      "wsb_plot_box",
+      "wsb_plot_box_draw_panel",
+      "wsb_plot_box_load",
+      "wsb_plot_box_main",
+      "wsb_plot_box_panel_xy_limits",
+      "wsb_plot_box_rationale_64"
+    ],
+    "33": [
+      "ads_da_state",
+      "ads_da_state_binom",
+      "ads_da_state_create",
+      "ads_da_state_split",
+      "ads_da_state_substituteaxis"
+    ],
+    "34": [
+      "ads_nonlinearity_index",
+      "ads_nonlinearity_index_jacobianvariationbound",
+      "ads_nonlinearity_index_linrowbound",
+      "ads_nonlinearity_index_nlisplitdim",
+      "ads_nonlinearity_index_nonlinearityindex"
+    ],
+    "35": [
+      "ads_test_parallel",
+      "ads_test_parallel_expecttreesequal",
+      "ads_test_parallel_rhs",
+      "ads_test_parallel_runwith",
+      "ads_test_parallel_test"
+    ],
+    "36": [
+      "kernels_sparse_subs",
+      "kernels_sparse_subs_additiveclosure",
+      "kernels_sparse_subs_seriespowintsparse",
+      "kernels_sparse_subs_seriesreciprocalsparse",
+      "kernels_sparse_subs_seriessqrtsparse"
+    ],
+    "37": [
+      "la_derivatives",
+      "la_derivatives_derivative",
+      "la_derivatives_gradient",
+      "la_derivatives_hessian",
+      "la_derivatives_jacobian"
+    ],
+    "38": [
+      "ode_actions",
+      "ode_actions_continue",
+      "ode_actions_custom",
+      "ode_actions_record",
+      "ode_actions_terminate"
+    ],
+    "39": [
+      "storage_sparse",
+      "storage_sparse_foreachnonzero",
+      "storage_sparse_foreachpair",
+      "storage_sparse_sparsecontainer",
+      "storage_sparse_sparsecontainer_sparsecontainer"
+    ],
+    "40": [
+      "three_body_plot",
+      "three_body_plot_draw_panel",
+      "three_body_plot_load",
+      "three_body_plot_main",
+      "three_body_plot_panel_xy_limits"
+    ],
+    "41": [
+      "two_body_common",
+      "two_body_common_boundarytobox",
+      "two_body_common_icbox",
+      "two_body_common_iccenter",
+      "two_body_common_rhs"
+    ],
+    "42": [
+      "ads_criteria",
+      "ads_criteria_shouldsplit",
+      "ads_criteria_splitdim",
+      "ads_criteria_totaltopdegreemass"
+    ],
+    "43": [
+      "ads_io",
+      "ads_io_collectleafspans",
+      "ads_io_writeboxcountcsv",
+      "ads_io_writetreecsv"
+    ],
+    "44": [
+      "ads_test_driver",
+      "ads_test_driver_rhs",
+      "ads_test_driver_scalarreference",
+      "ads_test_driver_test"
+    ],
+    "45": [
+      "cmake_fetchcontent",
+      "dep_googletest",
+      "tests_cmakelists",
+      "tests_ode_cmakelists"
+    ],
+    "46": [
+      "core_enumeration",
+      "core_enumeration_foreachmonomial",
+      "core_enumeration_foreachmonomialofdegree",
+      "core_enumeration_foreachsubindex"
+    ],
+    "47": [
+      "detail_adaptive_rk_step",
+      "detail_adaptive_rk_step_adaptive_rk_step",
+      "detail_adaptive_rk_step_select_rk_step",
+      "detail_adaptive_rk_step_select_taylor_step"
+    ],
+    "48": [
+      "kernels_cauchy_unroll",
+      "kernels_cauchy_unroll_cauchyproductunroll",
+      "kernels_cauchy_unroll_cauchyuniimpl",
+      "kernels_cauchy_unroll_cauchyunirow"
+    ],
+    "49": [
+      "la_values",
+      "la_values_eval",
+      "la_values_value",
+      "la_values_variables"
+    ],
+    "50": [
+      "ode_integrator",
+      "ode_integrator_integrate",
+      "ode_integrator_integrator",
+      "ode_integrator_integrator_integrator"
+    ],
+    "51": [
+      "ode_solution",
+      "ode_solution_solution",
+      "ode_solution_solution_stepper_state_dense_false",
+      "ode_solution_solution_stepper_state_dense_true"
+    ],
+    "52": [
+      "ode_test_fixed_step",
+      "ode_test_fixed_step_check_uniform_grid",
+      "ode_test_fixed_step_identity_rhs",
+      "ode_test_fixed_step_test"
+    ],
+    "53": [
+      "ode_triggers",
+      "ode_triggers_dir_match",
+      "ode_triggers_everystep",
+      "ode_triggers_zerocrossing"
+    ],
+    "54": [
+      "problems_cr3bp_problem",
+      "problems_cr3bp_problem_cr3bp_jacobi",
+      "problems_cr3bp_problem_cr3bp_rhs",
+      "problems_cr3bp_problem_cr3bp_transit_ic"
+    ],
+    "55": [
+      "problems_test_cr3bp_propagation",
+      "problems_test_cr3bp_propagation_check_jacobi_preserved",
+      "problems_test_cr3bp_propagation_compute_reference",
+      "problems_test_cr3bp_propagation_test"
+    ],
+    "56": [
+      "regression_testeigenvectorcalc",
+      "regression_testeigenvectorcalc_dacecoeff1",
+      "regression_testeigenvectorcalc_dacecoeff2",
+      "regression_testeigenvectorcalc_test"
+    ],
+    "57": [
+      "two_body_refine",
+      "two_body_refine_leafinit",
+      "two_body_refine_main",
+      "two_body_refine_polygonarea"
+    ],
+    "58": [
+      "ads_box",
+      "ads_box_contains",
+      "ads_box_denormalize"
+    ],
+    "59": [
+      "ads_merge",
+      "ads_merge_maxcoeffdiff",
+      "ads_merge_merge"
+    ],
+    "60": [
+      "ads_split_event",
+      "ads_split_event_splitaction",
+      "ads_split_event_splittrigger"
+    ],
+    "61": [
+      "ads_test_criteria",
+      "ads_test_criteria_make_xy",
+      "ads_test_criteria_test"
+    ],
+    "62": [
+      "ads_test_da_state",
+      "ads_test_da_state_evalte",
+      "ads_test_da_state_test"
+    ],
+    "63": [
+      "ads_test_leaf_tree",
+      "ads_test_leaf_tree_test",
+      "ads_test_leaf_tree_unitbox"
+    ],
+    "64": [
+      "ads_test_nonlinearity_index",
+      "ads_test_nonlinearity_index_make_xy",
+      "ads_test_nonlinearity_index_test"
+    ],
+    "65": [
+      "ads_test_split_event",
+      "ads_test_split_event_makequadraticstate",
+      "ads_test_split_event_test"
+    ],
+    "66": [
+      "ads_tree",
+      "ads_tree_adstree",
+      "ads_tree_leaf"
+    ],
+    "67": [
+      "integrator_test_static",
+      "integrator_test_static_harmonic_rhs",
+      "integrator_test_static_test"
+    ],
+    "68": [
+      "kernels_cauchy_stencil",
+      "kernels_cauchy_stencil_cauchyproductstencil",
+      "kernels_cauchy_stencil_cauchystencil"
+    ],
+    "69": [
+      "kernels_cauchy",
+      "kernels_cauchy_cauchyproduct",
+      "kernels_cauchy_cauchyproductloop"
+    ],
+    "70": [
+      "kernels_recurrence_stencil",
+      "kernels_recurrence_stencil_foreachrecurrencerow",
+      "kernels_recurrence_stencil_recurrencestencil"
+    ],
+    "71": [
+      "kernels_sparse_cauchy",
+      "kernels_sparse_cauchy_sparsecauchyproduct",
+      "kernels_sparse_cauchy_sparsecauchyselfproduct"
+    ],
+    "72": [
+      "kernels_test_cauchy_stencil_diff",
+      "kernels_test_cauchy_stencil_diff_rundiffmulti",
+      "kernels_test_cauchy_stencil_diff_test"
+    ],
+    "73": [
+      "kernels_test_cauchy_unroll_diff",
+      "kernels_test_cauchy_unroll_diff_rundiffuni",
+      "kernels_test_cauchy_unroll_diff_test"
+    ],
+    "74": [
+      "ode_event",
+      "ode_event_event",
+      "ode_event_stepperctx"
+    ],
+    "75": [
+      "ode_io",
+      "ode_io_linspace",
+      "ode_io_writecsv"
+    ],
+    "76": [
+      "operators_math_binary",
+      "operators_math_binary_atan2",
+      "operators_math_binary_pow"
+    ],
+    "77": [
+      "regression_regressionutils",
+      "regression_regressionutils_expectcoeffsmatch",
+      "regression_regressionutils_prepareinput"
+    ],
+    "78": [
+      "regression_testmultivariate",
+      "regression_testmultivariate_scaletounit",
+      "regression_testmultivariate_test"
+    ],
+    "79": [
+      "regression_testunivariate",
+      "regression_testunivariate_scaletounit",
+      "regression_testunivariate_test"
+    ],
+    "80": [
+      "steppers_taylor",
+      "steppers_taylor_eval_dense",
+      "steppers_taylor_step"
+    ],
+    "81": [
+      "ads_propagate",
+      "ads_propagate_propagate"
+    ],
+    "82": [
+      "ads_test_box",
+      "ads_test_box_test"
+    ],
+    "83": [
+      "ads_test_merge",
+      "ads_test_merge_test"
+    ],
+    "84": [
+      "cmake_benchmarks",
+      "dep_google_benchmark"
+    ],
+    "85": [
+      "core_test_deriv_integ",
+      "core_test_deriv_integ_test"
+    ],
+    "86": [
+      "core_test_enumeration",
+      "core_test_enumeration_test"
+    ],
+    "87": [
+      "core_test_multi_index",
+      "core_test_multi_index_test"
+    ],
+    "88": [
+      "core_test_taylor_expansion_accessors",
+      "core_test_taylor_expansion_accessors_test"
+    ],
+    "89": [
+      "core_test_taylor_expansion_ctor",
+      "core_test_taylor_expansion_ctor_test"
+    ],
+    "90": [
+      "detail_brent_root",
+      "detail_brent_root_brent_root"
+    ],
+    "91": [
+      "detail_embedded_rk_stepper",
+      "detail_embedded_rk_stepper_step"
+    ],
+    "92": [
+      "detail_hermite_interp",
+      "detail_hermite_interp_hermite_interp"
+    ],
+    "93": [
+      "eigen_test_eigen_derivative",
+      "eigen_test_eigen_derivative_test"
+    ],
+    "94": [
+      "eigen_test_eigen_eval",
+      "eigen_test_eigen_eval_test"
+    ],
+    "95": [
+      "eigen_test_eigen_gradient",
+      "eigen_test_eigen_gradient_test"
+    ],
+    "96": [
+      "eigen_test_eigen_hessian",
+      "eigen_test_eigen_hessian_test"
+    ],
+    "97": [
+      "eigen_test_eigen_invert",
+      "eigen_test_eigen_invert_test"
+    ],
+    "98": [
+      "eigen_test_eigen_jacobian",
+      "eigen_test_eigen_jacobian_test"
+    ],
+    "99": [
+      "eigen_test_eigen_numtraits",
+      "eigen_test_eigen_numtraits_test"
+    ],
+    "100": [
+      "eigen_test_eigen_variables",
+      "eigen_test_eigen_variables_test"
+    ],
+    "101": [
+      "events_test_every_step",
+      "events_test_every_step_test"
+    ],
+    "102": [
+      "events_test_zero_crossing",
+      "events_test_zero_crossing_test"
+    ],
+    "103": [
+      "integrator_test_basic",
+      "integrator_test_basic_test"
+    ],
+    "104": [
+      "integrator_test_dense",
+      "integrator_test_dense_test"
+    ],
+    "105": [
+      "kernels_test_cauchy_dense",
+      "kernels_test_cauchy_dense_test"
+    ],
+    "106": [
+      "kernels_test_sparse_cauchy",
+      "kernels_test_sparse_cauchy_test"
+    ],
+    "107": [
+      "ode_controllers",
+      "ode_controllers_clamp_factor"
+    ],
+    "108": [
+      "ode_propagate",
+      "ode_propagate_propagate"
+    ],
+    "109": [
+      "ode_test_concepts",
+      "ode_test_concepts_test"
+    ],
+    "110": [
+      "ode_test_config",
+      "ode_test_config_test"
+    ],
+    "111": [
+      "ode_test_controllers",
+      "ode_test_controllers_test"
+    ],
+    "112": [
+      "ode_test_rk_helpers",
+      "ode_test_rk_helpers_test"
+    ],
+    "113": [
+      "ode_test_solution",
+      "ode_test_solution_test"
+    ],
+    "114": [
+      "ode_test_vector_ops",
+      "ode_test_vector_ops_test"
+    ],
+    "115": [
+      "operators_test_algebra_inverse",
+      "operators_test_algebra_inverse_test"
+    ],
+    "116": [
+      "operators_test_algebra_square_cube",
+      "operators_test_algebra_square_cube_test"
+    ],
+    "117": [
+      "operators_test_arith_dense",
+      "operators_test_arith_dense_test"
+    ],
+    "118": [
+      "operators_test_erf",
+      "operators_test_erf_test"
+    ],
+    "119": [
+      "operators_test_exp_log",
+      "operators_test_exp_log_test"
+    ],
+    "120": [
+      "operators_test_hyperbolic",
+      "operators_test_hyperbolic_test"
+    ],
+    "121": [
+      "operators_test_inverse_trig",
+      "operators_test_inverse_trig_test"
+    ],
+    "122": [
+      "operators_test_pow",
+      "operators_test_pow_test"
+    ],
+    "123": [
+      "operators_test_trig",
+      "operators_test_trig_test"
+    ],
+    "124": [
+      "problems_test_cr3bp_events",
+      "problems_test_cr3bp_events_test"
+    ],
+    "125": [
+      "regression_testderivinteg",
+      "regression_testderivinteg_test"
+    ],
+    "126": [
+      "regression_testeval",
+      "regression_testeval_test"
+    ],
+    "127": [
+      "regression_testinvert",
+      "regression_testinvert_test"
+    ],
+    "128": [
+      "sparse_test_sparse_arith",
+      "sparse_test_sparse_arith_test"
+    ],
+    "129": [
+      "sparse_test_sparse_conversion",
+      "sparse_test_sparse_conversion_test"
+    ],
+    "130": [
+      "sparse_test_sparse_ctor",
+      "sparse_test_sparse_ctor_test"
+    ],
+    "131": [
+      "sparse_test_sparse_subs",
+      "sparse_test_sparse_subs_test"
+    ],
+    "132": [
+      "steppers_test_feagin12",
+      "steppers_test_feagin12_test"
+    ],
+    "133": [
+      "steppers_test_feagin14",
+      "steppers_test_feagin14_test"
+    ],
+    "134": [
+      "steppers_test_fehlberg78",
+      "steppers_test_fehlberg78_test"
+    ],
+    "135": [
+      "steppers_test_taylor",
+      "steppers_test_taylor_test"
+    ],
+    "136": [
+      "steppers_test_verner78",
+      "steppers_test_verner78_test"
+    ],
+    "137": [
+      "steppers_test_verner89",
+      "steppers_test_verner89_test"
+    ],
+    "138": [
+      "storage_dense",
+      "storage_dense_foreach"
+    ],
+    "139": [
+      "tests_testutils",
+      "tests_testutils_expectcoeffsnear"
+    ],
+    "140": [
+      "three_body_ads",
+      "three_body_ads_main"
+    ],
+    "141": [
+      "three_body_loads",
+      "three_body_loads_main"
+    ],
+    "142": [
+      "three_body_taylor",
+      "three_body_taylor_main"
+    ],
+    "143": [
+      "two_body_ads",
+      "two_body_ads_main"
+    ],
+    "144": [
+      "two_body_loads",
+      "two_body_loads_main"
+    ],
+    "145": [
+      "two_body_taylor",
+      "two_body_taylor_main"
+    ],
+    "146": [
+      "wsb_ads",
+      "wsb_ads_main"
+    ],
+    "147": [
+      "wsb_plot_search",
+      "wsb_plot_search_main"
+    ],
+    "148": [
+      "wsb_taylor",
+      "wsb_taylor_main"
+    ],
+    "149": [
+      "ads_leaf"
+    ],
+    "150": [
+      "concept_ads_box"
+    ],
+    "151": [
+      "concept_ads_leaf"
+    ],
+    "152": [
+      "concept_eigen_integration"
+    ],
+    "153": [
+      "concept_flat_index"
+    ],
+    "154": [
+      "concept_multi_index"
+    ],
+    "155": [
+      "concept_num_monomials"
+    ],
+    "156": [
+      "core_concepts"
+    ],
+    "157": [
+      "dep_google_test"
+    ],
+    "158": [
+      "detail_feagin_tableaus"
+    ],
+    "159": [
+      "detail_fehlberg_tableaus"
+    ],
+    "160": [
+      "detail_verner_tableaus"
+    ],
+    "161": [
+      "img_two_body_ads_orbit"
+    ],
+    "162": [
+      "javascripts_mathjax"
+    ],
+    "163": [
+      "la_num_traits"
+    ],
+    "164": [
+      "la_types"
+    ],
+    "165": [
+      "ode_aliases"
+    ],
+    "166": [
+      "ode_concepts"
+    ],
+    "167": [
+      "ode_config"
+    ],
+    "168": [
+      "ode_step_result"
+    ],
+    "169": [
+      "ode_vector_ops"
+    ],
+    "170": [
+      "operators_arithmetic"
+    ],
+    "171": [
+      "steppers_feagin12"
+    ],
+    "172": [
+      "steppers_feagin14"
+    ],
+    "173": [
+      "steppers_fehlberg78"
+    ],
+    "174": [
+      "steppers_verner78"
+    ],
+    "175": [
+      "steppers_verner89"
+    ],
+    "176": [
+      "tax_ads"
+    ],
+    "177": [
+      "tax_la"
+    ],
+    "178": [
+      "tax_ode"
+    ],
+    "179": [
+      "tax_tax"
+    ],
+    "180": [
+      "workflow_docs"
+    ],
+    "181": [
+      "workflow_regressions"
+    ],
+    "182": [
+      "workflow_sanitizers"
+    ],
+    "183": [
+      "workflow_tests"
+    ]
+  },
+  "cohesion": {
+    "0": 0.031746031746031744,
+    "1": 0.10241820768136557,
+    "2": 0.12873563218390804,
+    "3": 0.12307692307692308,
+    "4": 0.08307692307692308,
+    "5": 0.09523809523809523,
+    "6": 0.16483516483516483,
+    "7": 0.1794871794871795,
+    "8": 0.21794871794871795,
+    "9": 0.15384615384615385,
+    "10": 0.3076923076923077,
+    "11": 0.6363636363636364,
+    "12": 0.2727272727272727,
+    "13": 0.2727272727272727,
+    "14": 0.4,
+    "15": 0.2,
+    "16": 0.2222222222222222,
+    "17": 0.2222222222222222,
+    "18": 0.3333333333333333,
+    "19": 0.42857142857142855,
+    "20": 0.39285714285714285,
+    "21": 0.42857142857142855,
+    "22": 0.47619047619047616,
+    "23": 0.42857142857142855,
+    "24": 0.5238095238095238,
+    "25": 0.5238095238095238,
+    "26": 0.47619047619047616,
+    "27": 0.47619047619047616,
+    "28": 0.3333333333333333,
+    "29": 0.6666666666666666,
+    "30": 0.3333333333333333,
+    "31": 0.4,
+    "32": 0.5333333333333333,
+    "33": 0.6,
+    "34": 0.7,
+    "35": 0.7,
+    "36": 0.4,
+    "37": 0.5,
+    "38": 0.4,
+    "39": 0.4,
+    "40": 0.7,
+    "41": 0.5,
+    "42": 0.6666666666666666,
+    "43": 0.8333333333333334,
+    "44": 1,
+    "45": 0.5,
+    "46": 0.5,
+    "47": 0.5,
+    "48": 0.5,
+    "49": 0.5,
+    "50": 0.5,
+    "51": 0.5,
+    "52": 0.6666666666666666,
+    "53": 0.6666666666666666,
+    "54": 0.5,
+    "55": 0.8333333333333334,
+    "56": 0.8333333333333334,
+    "57": 0.8333333333333334,
+    "58": 0.6666666666666666,
+    "59": 1,
+    "60": 0.6666666666666666,
+    "61": 0.6666666666666666,
+    "62": 1,
+    "63": 1,
+    "64": 0.6666666666666666,
+    "65": 1,
+    "66": 0.6666666666666666,
+    "67": 1,
+    "68": 0.6666666666666666,
+    "69": 0.6666666666666666,
+    "70": 0.6666666666666666,
+    "71": 0.6666666666666666,
+    "72": 0.6666666666666666,
+    "73": 0.6666666666666666,
+    "74": 0.6666666666666666,
+    "75": 0.6666666666666666,
+    "76": 0.6666666666666666,
+    "77": 0.6666666666666666,
+    "78": 1,
+    "79": 1,
+    "80": 0.6666666666666666,
+    "81": 1,
+    "82": 1,
+    "83": 1,
+    "84": 1,
+    "85": 1,
+    "86": 1,
+    "87": 1,
+    "88": 1,
+    "89": 1,
+    "90": 1,
+    "91": 1,
+    "92": 1,
+    "93": 1,
+    "94": 1,
+    "95": 1,
+    "96": 1,
+    "97": 1,
+    "98": 1,
+    "99": 1,
+    "100": 1,
+    "101": 1,
+    "102": 1,
+    "103": 1,
+    "104": 1,
+    "105": 1,
+    "106": 1,
+    "107": 1,
+    "108": 1,
+    "109": 1,
+    "110": 1,
+    "111": 1,
+    "112": 1,
+    "113": 1,
+    "114": 1,
+    "115": 1,
+    "116": 1,
+    "117": 1,
+    "118": 1,
+    "119": 1,
+    "120": 1,
+    "121": 1,
+    "122": 1,
+    "123": 1,
+    "124": 1,
+    "125": 1,
+    "126": 1,
+    "127": 1,
+    "128": 1,
+    "129": 1,
+    "130": 1,
+    "131": 1,
+    "132": 1,
+    "133": 1,
+    "134": 1,
+    "135": 1,
+    "136": 1,
+    "137": 1,
+    "138": 1,
+    "139": 1,
+    "140": 1,
+    "141": 1,
+    "142": 1,
+    "143": 1,
+    "144": 1,
+    "145": 1,
+    "146": 1,
+    "147": 1,
+    "148": 1,
+    "149": 1,
+    "150": 1,
+    "151": 1,
+    "152": 1,
+    "153": 1,
+    "154": 1,
+    "155": 1,
+    "156": 1,
+    "157": 1,
+    "158": 1,
+    "159": 1,
+    "160": 1,
+    "161": 1,
+    "162": 1,
+    "163": 1,
+    "164": 1,
+    "165": 1,
+    "166": 1,
+    "167": 1,
+    "168": 1,
+    "169": 1,
+    "170": 1,
+    "171": 1,
+    "172": 1,
+    "173": 1,
+    "174": 1,
+    "175": 1,
+    "176": 1,
+    "177": 1,
+    "178": 1,
+    "179": 1,
+    "180": 1,
+    "181": 1,
+    "182": 1,
+    "183": 1
+  },
+  "gods": [
+    {
+      "id": "cmake_tax_add_test",
+      "label": "CMake Function: tax_add_test",
+      "edges": 66,
+      "degree": 66
+    },
+    {
+      "id": "doc_ode_api",
+      "label": "ODE API Reference",
+      "edges": 17,
+      "degree": 17
+    },
+    {
+      "id": "concept_taylor_expansion",
+      "label": "TaylorExpansion<T, N, M, Storage>",
+      "edges": 13,
+      "degree": 13
+    },
+    {
+      "id": "cmake_tax_add_example",
+      "label": "CMake Function: tax_add_example",
+      "edges": 13,
+      "degree": 13
+    },
+    {
+      "id": "doc_ode_math",
+      "label": "ODE Mathematical Foundations",
+      "edges": 12,
+      "degree": 12
+    },
+    {
+      "id": "concept_ads_refine",
+      "label": "ads::refine (Propagate-Then-Assess)",
+      "edges": 11,
+      "degree": 11
+    },
+    {
+      "id": "doc_ode_methods",
+      "label": "ODE Methods & Benchmarks",
+      "edges": 11,
+      "degree": 11
+    },
+    {
+      "id": "doc_tutorial_two_body",
+      "label": "Two-Body Problem Tutorial",
+      "edges": 9,
+      "degree": 9
+    },
+    {
+      "id": "cmake_tax_add_regression",
+      "label": "CMake Function: tax_add_regression",
+      "edges": 9,
+      "degree": 9
+    },
+    {
+      "id": "benchmarks_bench_ads_refine_center",
+      "label": "center()",
+      "edges": 8,
+      "degree": 8
+    }
+  ],
+  "surprises": [
+    {
+      "source": "Example: three_body_taylor",
+      "target": "Tutorial: Three-Body Problem",
+      "source_files": [
+        "examples/three_body/taylor.cpp",
+        "docs/tutorials/three_body.md"
+      ],
+      "confidence": "INFERRED",
+      "relation": "semantically_similar_to",
+      "why": "inferred connection - not explicitly stated in source; crosses file types (code ↔ doc); connects across different repos/directories; semantically similar concepts with no structural link"
+    },
+    {
+      "source": "Example: two_body_refine",
+      "target": "Tutorial: Parallel ADS by Refinement",
+      "source_files": [
+        "examples/two_body/refine.cpp",
+        "docs/tutorials/two_body_refine.md"
+      ],
+      "confidence": "INFERRED",
+      "relation": "semantically_similar_to",
+      "why": "inferred connection - not explicitly stated in source; crosses file types (code ↔ doc); connects across different repos/directories; semantically similar concepts with no structural link"
+    },
+    {
+      "source": "Example: two_body_taylor",
+      "target": "Tutorial: Two-Body Problem",
+      "source_files": [
+        "examples/two_body/taylor.cpp",
+        "docs/tutorials/two_body.md"
+      ],
+      "confidence": "INFERRED",
+      "relation": "semantically_similar_to",
+      "why": "inferred connection - not explicitly stated in source; crosses file types (code ↔ doc); connects across different repos/directories; semantically similar concepts with no structural link"
+    },
+    {
+      "source": "CMake Function: tax_add_test",
+      "target": "CMake Function: tax_add_example",
+      "source_files": [
+        "tests/CMakeLists.txt",
+        "examples/CMakeLists.txt"
+      ],
+      "confidence": "INFERRED",
+      "relation": "semantically_similar_to",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities; semantically similar concepts with no structural link"
+    },
+    {
+      "source": "Test: test_ode_cr3bp_propagation",
+      "target": "Example: three_body_taylor",
+      "source_files": [
+        "tests/ode/problems/test_cr3bp_propagation.cpp",
+        "examples/three_body/taylor.cpp"
+      ],
+      "confidence": "INFERRED",
+      "relation": "semantically_similar_to",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities; semantically similar concepts with no structural link"
+    }
+  ],
+  "labels": {
+    "0": "ADS Test Suite",
+    "1": "ODE Methods & Controllers",
+    "2": "ADS Module Core",
+    "3": "TaylorExpansion Core Type",
+    "4": "Documentation & Tutorials",
+    "5": "Math Unary Operators",
+    "6": "Examples I/O Helpers",
+    "7": "ADS Concepts & Visuals",
+    "8": "TaylorExpansion Methods",
+    "9": "Validation Plot Scripts",
+    "10": "ADS Refine Benchmarks",
+    "11": "Three-Body Plot Scripts",
+    "12": "Two-Body Plot Scripts",
+    "13": "WSB Search Example",
+    "14": "Transcendental Series Kernels",
+    "15": "Algebra Series Kernels",
+    "16": "Trigonometric Series Kernels",
+    "17": "RK DA-State Tests",
+    "18": "ADS Refine Driver",
+    "19": "ODE CR3BP Benchmarks",
+    "20": "DACE Regression Suite",
+    "21": "Refine Convergence Scripts",
+    "22": "ADS Parallel Driver",
+    "23": "ADS Refine Criteria",
+    "24": "Multi-Index Utilities",
+    "25": "Kepler Two-Body Tests",
+    "26": "Orbit Plot Scripts",
+    "27": "Two-Body Validation",
+    "28": "Two-Body Common Helpers",
+    "29": "ADS Refine Tests",
+    "30": "Formal Map Inversion",
+    "31": "Three-Body Common Helpers",
+    "32": "Box Region Plot Scripts",
+    "33": "DA State Utilities",
+    "34": "Nonlinearity Index",
+    "35": "ADS Parallel Tests",
+    "36": "Sparse Substitution Kernels",
+    "37": "Eigen Derivative Helpers",
+    "38": "ODE Event Actions",
+    "39": "Sparse Container Core",
+    "40": "WSB Plot Scripts",
+    "41": "WSB Common Helpers",
+    "42": "ADS Split Criteria",
+    "43": "ADS CSV I/O",
+    "44": "ADS Driver Tests",
+    "45": "Monomial Enumeration",
+    "46": "Adaptive RK Step",
+    "47": "Cauchy Unrolled Kernel",
+    "48": "Eigen Value Helpers",
+    "49": "ODE Integrator Driver",
+    "50": "ODE Solution Type",
+    "51": "Fixed-Step ODE Tests",
+    "52": "ODE Event Triggers",
+    "53": "CR3BP Problem Setup",
+    "54": "CR3BP Propagation Tests",
+    "55": "Eigen Regression Tests",
+    "56": "Two-Body Refine Example",
+    "57": "ADS Box Type",
+    "58": "ADS Merge Pass",
+    "59": "ADS Split Event",
+    "60": "ADS Criteria Tests",
+    "61": "DA State Tests",
+    "62": "ADS Leaf Tree Tests",
+    "63": "Nonlinearity Index Tests",
+    "64": "Split Event Tests",
+    "65": "ADS Tree Structure",
+    "66": "Static ODE Tests",
+    "67": "Cauchy Stencil Kernel",
+    "68": "Cauchy Product Dispatch",
+    "69": "Recurrence Stencil Table",
+    "70": "Sparse Cauchy Kernels",
+    "71": "Stencil Kernel Diff Tests",
+    "72": "Unrolled Kernel Diff Tests",
+    "73": "ODE Event Types",
+    "74": "ODE CSV I/O",
+    "75": "Binary Math Operators",
+    "76": "Regression Test Utilities",
+    "77": "Multivariate Regression Tests",
+    "78": "Univariate Regression Tests",
+    "79": "Taylor Stepper",
+    "80": "ADS Propagate Entry",
+    "81": "ADS Box Tests",
+    "82": "ADS Merge Tests",
+    "83": "Deriv/Integ Tests",
+    "84": "Enumeration Tests",
+    "85": "Multi-Index Tests",
+    "86": "TE Accessor Tests",
+    "87": "TE Constructor Tests",
+    "88": "Brent Root Finder",
+    "89": "Embedded RK Stepper",
+    "90": "Hermite Interpolation",
+    "91": "Eigen Derivative Tests",
+    "92": "Eigen Eval Tests",
+    "93": "Eigen Gradient Tests",
+    "94": "Eigen Hessian Tests",
+    "95": "Eigen Invert Tests",
+    "96": "Eigen Jacobian Tests",
+    "97": "Eigen NumTraits Tests",
+    "98": "Eigen Variables Tests",
+    "99": "EveryStep Event Tests",
+    "100": "ZeroCrossing Event Tests",
+    "101": "Integrator Basic Tests",
+    "102": "Dense Output Tests",
+    "103": "Cauchy Dense Tests",
+    "104": "Sparse Cauchy Tests",
+    "105": "Step-Size Controllers",
+    "106": "ODE Propagate Entry",
+    "107": "ODE Concept Tests",
+    "108": "ODE Config Tests",
+    "109": "ODE Controller Tests",
+    "110": "RK Helper Tests",
+    "111": "ODE Solution Tests",
+    "112": "Vector Ops Tests",
+    "113": "Algebra Inverse Tests",
+    "114": "Algebra Square/Cube Tests",
+    "115": "Arithmetic Dense Tests",
+    "116": "Error Function Tests",
+    "117": "Exp/Log Operator Tests",
+    "118": "Hyperbolic Function Tests",
+    "119": "Inverse Trig Tests",
+    "120": "Power Function Tests",
+    "121": "Trig Function Tests",
+    "122": "CR3BP Event Tests",
+    "123": "Deriv/Integ Regression",
+    "124": "Eval Regression Tests",
+    "125": "Invert Regression Tests",
+    "126": "Sparse Arithmetic Tests",
+    "127": "Sparse Conversion Tests",
+    "128": "Sparse Constructor Tests",
+    "129": "Sparse Substitution Tests",
+    "130": "Feagin12 Stepper Tests",
+    "131": "Feagin14 Stepper Tests",
+    "132": "Fehlberg78 Stepper Tests",
+    "133": "Taylor Stepper Tests",
+    "134": "Verner78 Stepper Tests",
+    "135": "Verner89 Stepper Tests",
+    "136": "Dense Iterator",
+    "137": "Shared Test Utilities",
+    "138": "WSB ADS Example",
+    "139": "WSB LOADS Example",
+    "140": "WSB Taylor Example",
+    "141": "Three-Body ADS Example",
+    "142": "Three-Body LOADS Example",
+    "143": "Three-Body Taylor Example",
+    "144": "Two-Body ADS Example",
+    "145": "WSB Search Plots",
+    "146": "Two-Body Taylor Example",
+    "147": "ADS Leaf Header",
+    "148": "CMake FetchContent",
+    "149": "DACE Build Option",
+    "150": "DACE Target Variable",
+    "151": "ADS Box Concept",
+    "152": "ADS Leaf Concept",
+    "153": "Eigen Integration Facade",
+    "154": "Flat Index Concept",
+    "155": "MultiIndex Type",
+    "156": "Monomial Count Formula",
+    "157": "Core Concepts Header",
+    "158": "Google Benchmark Dep.",
+    "159": "Google Test Dep.",
+    "160": "Google Test v1.17",
+    "161": "Feagin Butcher Tableaus",
+    "162": "Fehlberg Butcher Tableaus",
+    "163": "Verner Butcher Tableaus",
+    "164": "Two-Body ADS Orbit Image",
+    "165": "MathJax Library",
+    "166": "Eigen NumTraits Header",
+    "167": "Eigen Type Aliases",
+    "168": "TE Aliases Header",
+    "169": "ODE Concepts Header",
+    "170": "ODE Config Header",
+    "171": "Step Result Header",
+    "172": "Vector Ops Header",
+    "173": "Arithmetic Operators Header",
+    "174": "Feagin12 Header",
+    "175": "Feagin14 Header",
+    "176": "Fehlberg78 Header",
+    "177": "Verner78 Header",
+    "178": "Verner89 Header",
+    "179": "ADS Facade Header",
+    "180": "Eigen LA Facade",
+    "181": "ODE Facade Header",
+    "182": "Core Umbrella Header",
+    "183": "Community 183"
+  },
+  "questions": [
+    {
+      "type": "bridge_node",
+      "question": "Why does `CMake Function: tax_add_test` connect `ADS Test Suite` to `Examples I/O Helpers`, `Documentation & Tutorials`, `Monomial Enumeration`?",
+      "why": "High betweenness centrality (0.047) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `CMake Function: tax_add_regression` connect `Examples I/O Helpers` to `ADS Test Suite`?",
+      "why": "High betweenness centrality (0.037) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `tax Library (header-only C++23)` connect `Examples I/O Helpers` to `ADS Module Core`, `TaylorExpansion Core Type`?",
+      "why": "High betweenness centrality (0.037) - this node is a cross-community bridge."
+    },
+    {
+      "type": "verify_inferred",
+      "question": "Are the 2 inferred relationships involving `CMake Function: tax_add_test` (e.g. with `CMake Function: tax_add_regression` and `CMake Function: tax_add_example`) actually correct?",
+      "why": "`CMake Function: tax_add_test` has 2 INFERRED edges - model-reasoned connections that need verification."
+    },
+    {
+      "type": "verify_inferred",
+      "question": "Are the 4 inferred relationships involving `TaylorExpansion<T, N, M, Storage>` (e.g. with `Polynomial Flow Map` and `Gradient Helper`) actually correct?",
+      "why": "`TaylorExpansion<T, N, M, Storage>` has 4 INFERRED edges - model-reasoned connections that need verification."
+    },
+    {
+      "type": "isolated_nodes",
+      "question": "What connects `Moon + L1 markers shared by both spatial figures (labelled for legends).`, `IC box image under one flow polynomial, drifting from L1 to the Moon.`, `Single polynomial vs ADS partition at the Moon-approach breakdown.` to the rest of the system?",
+      "why": "142 weakly-connected nodes found - possible documentation gaps or missing edges."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `ADS Test Suite` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.031746031746031744 - nodes in this community are weakly interconnected."
+    }
+  ]
+}
