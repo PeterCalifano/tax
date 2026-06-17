@@ -16,17 +16,16 @@
 
 #pragma once
 
-#include <tax/la/types.hpp>
 #include <cmath>
 #include <cstddef>
 #include <limits>
 #include <optional>
-#include <type_traits>
-#include <utility>
-
 #include <tax/core/taylor_expansion.hpp>
+#include <tax/la/types.hpp>
 #include <tax/ode/detail/brent_root.hpp>
 #include <tax/ode/event.hpp>
+#include <type_traits>
+#include <utility>
 
 namespace tax::ode
 {
@@ -36,24 +35,29 @@ namespace tax::ode
 template < class T >
 [[nodiscard]] inline bool dir_match( T s0, T s1, Direction d ) noexcept
 {
-    const bool sign_change = ( s0 < T{ 0 } && s1 > T{ 0 } )
-                          || ( s0 > T{ 0 } && s1 < T{ 0 } );
-    if ( !sign_change ) return false;
+    // Half-open crossing detection: s0 must be strictly on one side of zero and
+    // s1 must reach or pass zero. Including s1 == 0 catches a root that lands
+    // exactly on a step boundary; excluding s0 == 0 prevents the next step (whose
+    // s0 is that same zero) from firing it a second time. (A root exactly at the
+    // initial point t0 is therefore not reported — the integrator starts on it.)
+    const bool up = ( s0 < T{ 0 } && s1 >= T{ 0 } );
+    const bool down = ( s0 > T{ 0 } && s1 <= T{ 0 } );
     switch ( d )
     {
-        case Direction::Any:        return true;
-        case Direction::Increasing: return s0 < s1;
-        case Direction::Decreasing: return s0 > s1;
+        case Direction::Any:
+            return up || down;
+        case Direction::Increasing:
+            return up;
+        case Direction::Decreasing:
+            return down;
     }
-    return true;
+    return up || down;
 }
 
 // EveryStep — fires at the boundary, τ = h_used.
 inline auto EveryStep()
 {
-    return []< class Ctx >( const Ctx& ctx )
-        -> std::optional< typename Ctx::T_type >
-    {
+    return []< class Ctx >( const Ctx& ctx ) -> std::optional< typename Ctx::T_type > {
         return ctx.h_used;
     };
 }
@@ -65,13 +69,15 @@ namespace detail
 // is a tax::TE-like type (i.e. exposes a static order_v and supports
 // operator[]).
 template < class, class = void >
-struct has_te_scalar : std::false_type {};
+struct has_te_scalar : std::false_type
+{
+};
 
 template < class D >
-struct has_te_scalar<
-    D,
-    std::void_t< typename D::Scalar,
-                 decltype( D::Scalar::order_v ) > > : std::true_type {};
+struct has_te_scalar< D, std::void_t< typename D::Scalar, decltype( D::Scalar::order_v ) > >
+    : std::true_type
+{
+};
 
 }  // namespace detail
 
@@ -80,14 +86,12 @@ struct has_te_scalar<
 template < class GFn >
 auto ZeroCrossing( GFn g, Direction dir = Direction::Any )
 {
-    return [ g = std::move( g ), dir ]<
-               class Ctx >( const Ctx& ctx )
-        -> std::optional< typename Ctx::T_type >
-    {
-        using T         = typename Ctx::T_type;
-        using State     = typename Ctx::State_type;
+    return [g = std::move( g ),
+            dir]< class Ctx >( const Ctx& ctx ) -> std::optional< typename Ctx::T_type > {
+        using T = typename Ctx::T_type;
+        using State = typename Ctx::State_type;
         using DenseData = typename Ctx::DenseData_type;
-        using Stepper   = typename Ctx::Stepper_type;
+        using Stepper = typename Ctx::Stepper_type;
 
         // Scalar evaluation at the step boundaries (always supported —
         // user g is at minimum invocable on the concrete State type).
@@ -100,8 +104,8 @@ auto ZeroCrossing( GFn g, Direction dir = Direction::Any )
         {
             using TE = typename DenseData::Scalar;
             constexpr int Order = TE::order_v;
-            constexpr int Rows  = State::RowsAtCompileTime;
-            using StateTE       = tax::la::VecNT< Rows, TE >;
+            constexpr int Rows = State::RowsAtCompileTime;
+            using StateTE = tax::la::VecNT< Rows, TE >;
 
             // Compile-time check that g accepts TE-valued state.
             if constexpr ( std::is_invocable_v< const GFn&, const StateTE&, const TE& > )
@@ -110,15 +114,13 @@ auto ZeroCrossing( GFn g, Direction dir = Direction::Any )
 
                 // x_te(τ) = per-step expansion in τ; copy from dense.
                 StateTE x_te{ dim };
-                for ( Eigen::Index i = 0; i < dim; ++i )
-                    x_te( i ) = ctx.dense( i );
+                for ( Eigen::Index i = 0; i < dim; ++i ) x_te( i ) = ctx.dense( i );
 
                 // t_te(τ) = t_old + τ as a TE in τ.
                 TE t_te;
-                t_te[ 0 ] = ctx.t_old;
-                if constexpr ( Order >= 1 ) t_te[ 1 ] = T{ 1 };
-                for ( int k = 2; k <= Order; ++k )
-                    t_te[ static_cast< std::size_t >( k ) ] = T{ 0 };
+                t_te[0] = ctx.t_old;
+                if constexpr ( Order >= 1 ) t_te[1] = T{ 1 };
+                for ( int k = 2; k <= Order; ++k ) t_te[static_cast< std::size_t >( k )] = T{ 0 };
 
                 TE g_poly = g( x_te, t_te );
 
@@ -127,53 +129,49 @@ auto ZeroCrossing( GFn g, Direction dir = Direction::Any )
                 TE g_poly_deriv;
                 for ( int k = 0; k <= Order; ++k )
                 {
-                    g_poly_deriv[ static_cast< std::size_t >( k ) ] =
+                    g_poly_deriv[static_cast< std::size_t >( k )] =
                         ( k + 1 <= Order )
-                            ? T( k + 1 ) * g_poly[ static_cast< std::size_t >( k + 1 ) ]
+                            ? T( k + 1 ) * g_poly[static_cast< std::size_t >( k + 1 )]
                             : T{ 0 };
                 }
 
                 // Safeguarded Newton on g_poly within τ ∈ [0, h_used].
                 T tau_lo = T{ 0 };
                 T tau_hi = ctx.h_used;
-                T flo    = s0;
-                T tau    = ( tau_lo + tau_hi ) * T{ 0.5 };
+                T flo = s0;
+                T tau = ( tau_lo + tau_hi ) * T{ 0.5 };
 
                 for ( int it = 0; it < 50; ++it )
                 {
                     // Horner: g_poly(tau) and g_poly'(tau).
-                    T eval = g_poly[ static_cast< std::size_t >( Order ) ];
+                    T eval = g_poly[static_cast< std::size_t >( Order )];
                     for ( int k = Order - 1; k >= 0; --k )
-                        eval = eval * tau + g_poly[ static_cast< std::size_t >( k ) ];
+                        eval = eval * tau + g_poly[static_cast< std::size_t >( k )];
 
-                    T eval_d = g_poly_deriv[ static_cast< std::size_t >( Order ) ];
+                    T eval_d = g_poly_deriv[static_cast< std::size_t >( Order )];
                     for ( int k = Order - 1; k >= 0; --k )
-                        eval_d = eval_d * tau
-                               + g_poly_deriv[ static_cast< std::size_t >( k ) ];
+                        eval_d = eval_d * tau + g_poly_deriv[static_cast< std::size_t >( k )];
 
                     // Tighten bracket using sign of eval vs flo.
                     if ( ( flo < T{ 0 } ) == ( eval < T{ 0 } ) )
                     {
                         tau_lo = tau;
-                        flo    = eval;
-                    }
-                    else
+                        flo = eval;
+                    } else
                     {
                         tau_hi = tau;
                     }
 
                     // Convergence on bracket width.
                     const T width = tau_hi - tau_lo;
-                    const T mid   = ( tau_hi + tau_lo ) * T{ 0.5 };
+                    const T mid = ( tau_hi + tau_lo ) * T{ 0.5 };
                     const T scale = T{ 1 } + std::abs( mid );
-                    if ( width < T{ 16 } * std::numeric_limits< T >::epsilon() * scale )
-                        return mid;
+                    if ( width < T{ 16 } * std::numeric_limits< T >::epsilon() * scale ) return mid;
 
                     // Newton trial; fall back to bisection if it leaves
                     // the bracket.
-                    const T tau_newton = ( eval_d != T{ 0 } )
-                                             ? tau - eval / eval_d
-                                             : ( tau_lo + tau_hi ) * T{ 0.5 };
+                    const T tau_newton =
+                        ( eval_d != T{ 0 } ) ? tau - eval / eval_d : ( tau_lo + tau_hi ) * T{ 0.5 };
                     tau = ( tau_newton > tau_lo && tau_newton < tau_hi )
                               ? tau_newton
                               : ( tau_lo + tau_hi ) * T{ 0.5 };
@@ -184,11 +182,8 @@ auto ZeroCrossing( GFn g, Direction dir = Direction::Any )
         }
 
         // Brent fallback on scalar samples via Stepper::eval_dense.
-        auto sample = [ & ]( T tau ) -> T
-        {
-            auto x_at = Stepper::eval_dense( ctx.dense,
-                                             ctx.t_old,
-                                             ctx.t_old + tau );
+        auto sample = [&]( T tau ) -> T {
+            auto x_at = Stepper::eval_dense( ctx.dense, ctx.t_old, ctx.t_old + tau );
             return T( g( x_at, ctx.t_old + tau ) );
         };
         return detail::brent_root< T >( sample, T{ 0 }, ctx.h_used, s0, s1 );

@@ -10,12 +10,11 @@
 #include <Eigen/Core>
 #include <Eigen/LU>
 #include <stdexcept>
-#include <utility>
-
 #include <tax/core/enumeration.hpp>
 #include <tax/core/multi_index.hpp>
 #include <tax/la/derivatives.hpp>
 #include <tax/la/num_traits.hpp>
+#include <utility>
 
 namespace tax::la::detail
 {
@@ -28,8 +27,7 @@ template < typename TE >
     using Map = Eigen::Matrix< TE, M, 1 >;
     Map out{};
     typename TE::Input x0{};
-    [&]< std::size_t... I >( std::index_sequence< I... > )
-    {
+    [&]< std::size_t... I >( std::index_sequence< I... > ) {
         ( ( out( Eigen::Index( I ) ) = TE::template variable< int( I ) >( x0 ) ), ... );
     }( std::make_index_sequence< std::size_t( M ) >{} );
     return out;
@@ -46,8 +44,7 @@ template < typename TE, typename Map >
     TE out = TE::zero();
     for ( int d = 0; d <= N; ++d )
     {
-        forEachMonomialOfDegree< M >( d, [&]( const MultiIndex< M >& alpha )
-        {
+        forEachMonomialOfDegree< M >( d, [&]( const MultiIndex< M >& alpha ) {
             const T coeff = f.coeff( alpha );
             if ( coeff == T{} ) return;
             TE term = TE::constant( coeff );
@@ -70,8 +67,8 @@ template < typename TE, typename Map >
 
 /// @brief Build the linear map `J * vars` as a TE vector.
 template < typename TE, typename Mat >
-[[nodiscard]] Eigen::Matrix< TE, Mat::RowsAtCompileTime, 1 >
-    linear( const Mat& J, const Eigen::Matrix< TE, Mat::ColsAtCompileTime, 1 >& vars )
+[[nodiscard]] Eigen::Matrix< TE, Mat::RowsAtCompileTime, 1 > linear(
+    const Mat& J, const Eigen::Matrix< TE, Mat::ColsAtCompileTime, 1 >& vars )
 {
     Eigen::Matrix< TE, Mat::RowsAtCompileTime, 1 > out{};
     for ( Eigen::Index i = 0; i < J.rows(); ++i )
@@ -91,12 +88,21 @@ namespace tax::la
  * @brief Formally invert a square polynomial map represented as an Eigen vector of
  *        `TaylorExpansion` components.
  *
- * The constant terms of the input components are ignored; the inversion operates on the
- * non-constant (perturbation) part.  The linear part must be invertible.  The formal
- * inverse is computed via Picard iterations up to order N.
+ * Both the input map and the returned inverse are treated as *origin-centered
+ * perturbation maps*: the constant term of every input component is dropped, and
+ * the result's constant term is likewise zero. Concretely, for a map written as
+ * `y = y0 + map(dx)` (with `map(0) = 0`), this returns `g` such that
+ * `g(map(dx)) = dx` to order N — i.e. it inverts the perturbation part only.
+ *
+ * It does NOT restore the expansion points: the caller is responsible for the
+ * affine shift. To invert a flow map `F(x0 + dx) = y0 + ...` in the usual
+ * displacement-to-displacement sense, evaluate the returned map at `(y - y0)` and
+ * add `x0` yourself. The linear part must be invertible.  The formal inverse is
+ * computed via Picard iterations up to order N.
  *
  * @param map_in  Eigen vector of M `TaylorExpansion` components.
- * @return        Inverse map, same Eigen shape as `map_in`.
+ * @return        Inverse perturbation map, same Eigen shape as `map_in`
+ *                (constant terms are zero).
  * @throws std::invalid_argument if the linear part is singular.
  */
 template < typename Derived >
@@ -104,7 +110,7 @@ template < typename Derived >
 [[nodiscard]] auto invert( const Eigen::MatrixBase< Derived >& map_in )
 {
     using TE = typename Derived::Scalar;
-    using T  = typename detail::te_traits< TE >::scalar_type;
+    using T = typename detail::te_traits< TE >::scalar_type;
     constexpr int N = detail::te_traits< TE >::order_v;
     constexpr int M = detail::te_traits< TE >::vars_v;
 
@@ -123,15 +129,15 @@ template < typename Derived >
     }
 
     // Build the identity map and Jacobian of the non-constant map.
-    const Map I    = detail::identityMap< TE >();
-    const Mat J    = jacobian( map );
+    const Map I = detail::identityMap< TE >();
+    const Mat J = jacobian( map );
     const Eigen::FullPivLU< Mat > lu( J );
     if ( !lu.isInvertible() )
         throw std::invalid_argument( "invert failed: linear part is singular" );
 
-    const Mat Jinv   = lu.inverse();
-    const Map Mlin   = detail::linear< TE >( J, I );
-    const Map Minv   = detail::linear< TE >( Jinv, I );
+    const Mat Jinv = lu.inverse();
+    const Map Mlin = detail::linear< TE >( J, I );
+    const Map Minv = detail::linear< TE >( Jinv, I );
 
     // nonlinear = map - linear_part
     Map nonlinear{};

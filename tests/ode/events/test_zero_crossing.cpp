@@ -7,11 +7,10 @@
 
 #include <gtest/gtest.h>
 
-#include <tax/la/types.hpp>
 #include <cmath>
-#include <vector>
-
+#include <tax/la/types.hpp>
 #include <tax/ode.hpp>
+#include <vector>
 
 using tax::ode::Direction;
 using tax::ode::Event;
@@ -26,11 +25,10 @@ TEST( OdeEventsZeroCrossing, HarmonicTerminateAtZero )
     constexpr int N = 16;
     using State = tax::la::VecNT< 2, double >;
 
-    const auto f = []( const auto& x, const auto& )
-    {
+    const auto f = []( const auto& x, const auto& ) {
         using S = std::decay_t< decltype( x ) >;
         S out;
-        out( 0 ) =  x( 1 );
+        out( 0 ) = x( 1 );
         out( 1 ) = -x( 0 );
         return out;
     };
@@ -41,12 +39,14 @@ TEST( OdeEventsZeroCrossing, HarmonicTerminateAtZero )
     using Stepper = TaylorStepper< N, State >;
     std::vector< Event< Stepper > > events;
     events.emplace_back(
-        ZeroCrossing( []( const auto& x, const auto& ) { return x( 0 ); },
-                      Direction::Decreasing ),
+        ZeroCrossing( []( const auto& x, const auto& ) { return x( 0 ); }, Direction::Decreasing ),
         Terminate() );
 
-    tax::ode::Taylor< N, State, tax::ode::controllers::JorbaZou< double >, false, decltype( f ) > integ{ f, cfg, events };
-    State x0; x0( 0 ) = 1.0; x0( 1 ) = 0.0;
+    tax::ode::Taylor< N, State, tax::ode::controllers::JorbaZou< double >, false, decltype( f ) >
+        integ{ f, cfg, events };
+    State x0;
+    x0( 0 ) = 1.0;
+    x0( 1 ) = 0.0;
     // x(t) = cos t, so x(0)=1, decreasing through 0 at t = π/2.
     auto sol = integ.integrate( x0, 0.0, 5.0 );
 
@@ -59,11 +59,10 @@ TEST( OdeEventsZeroCrossing, HarmonicVZeroRecord )
     constexpr int N = 16;
     using State = tax::la::VecNT< 2, double >;
 
-    const auto f = []( const auto& x, const auto& )
-    {
+    const auto f = []( const auto& x, const auto& ) {
         using S = std::decay_t< decltype( x ) >;
         S out;
-        out( 0 ) =  x( 1 );
+        out( 0 ) = x( 1 );
         out( 1 ) = -x( 0 );
         return out;
     };
@@ -74,12 +73,14 @@ TEST( OdeEventsZeroCrossing, HarmonicVZeroRecord )
     using Stepper = TaylorStepper< N, State >;
     std::vector< Event< Stepper > > events;
     events.emplace_back(
-        ZeroCrossing( []( const auto& x, const auto& ) { return x( 1 ); },
-                      Direction::Any ),
+        ZeroCrossing( []( const auto& x, const auto& ) { return x( 1 ); }, Direction::Any ),
         Record( "v_zero" ) );
 
-    tax::ode::Taylor< N, State, tax::ode::controllers::JorbaZou< double >, false, decltype( f ) > integ{ f, cfg, events };
-    State x0; x0( 0 ) = 1.0; x0( 1 ) = 0.0;
+    tax::ode::Taylor< N, State, tax::ode::controllers::JorbaZou< double >, false, decltype( f ) >
+        integ{ f, cfg, events };
+    State x0;
+    x0( 0 ) = 1.0;
+    x0( 1 ) = 0.0;
     // v(t) = -sin t : zero at t = 0 (boundary), π, 2π. Over (0, 2π]
     // we expect events at π and 2π (the t=0 boundary is filtered by
     // the strict sign-change requirement inside ZeroCrossing).
@@ -98,6 +99,52 @@ TEST( OdeEventsZeroCrossing, HarmonicVZeroRecord )
     }
 }
 
+// When several events fire in one step, termination must truncate at the
+// *terminating* event's time — not the earliest fired event — and events
+// scheduled after the terminating one must not run.
+TEST( OdeEventsZeroCrossing, TerminationUsesTerminatingEventTime )
+{
+    constexpr int N = 8;
+    using State = tax::la::VecNT< 1, double >;
+
+    // x' = 1  =>  x(t) = t  (exact for any Taylor order).
+    const auto f = []( const auto& x, const auto& ) {
+        using S = std::decay_t< decltype( x ) >;
+        S o;
+        o( 0 ) = typename S::Scalar( 1.0 );
+        return o;
+    };
+
+    IntegratorConfig< double > cfg;
+    cfg.abstol = cfg.reltol = 1e-12;
+    cfg.initial_step = 10.0;  // force a single step clamped to [0, tmax]
+
+    using Stepper = TaylorStepper< N, State >;
+    std::vector< Event< Stepper > > events;
+    // Earlier crossing at t = 1: Record (non-terminating).
+    events.emplace_back( ZeroCrossing( []( const auto& x, const auto& ) { return x( 0 ) - 1.0; },
+                                       Direction::Increasing ),
+                         Record( "g1" ) );
+    // Later crossing at t = 2: Terminate.
+    events.emplace_back( ZeroCrossing( []( const auto& x, const auto& ) { return x( 0 ) - 2.0; },
+                                       Direction::Increasing ),
+                         Terminate() );
+
+    tax::ode::Taylor< N, State, tax::ode::controllers::JorbaZou< double >, false, decltype( f ) >
+        integ{ f, cfg, events };
+    State x0;
+    x0( 0 ) = 0.0;
+    auto sol = integ.integrate( x0, 0.0, 3.0 );
+
+    // Terminate at the terminating event (t = 2), not the earlier Record (t = 1).
+    EXPECT_NEAR( sol.t.back(), 2.0, 1e-9 );
+    EXPECT_NEAR( sol.x.back()( 0 ), 2.0, 1e-9 );
+
+    // The earlier Record event did happen (at t = 1).
+    ASSERT_GE( sol.events.size(), 1u );
+    EXPECT_NEAR( sol.events.front().t, 1.0, 1e-9 );
+}
+
 TEST( OdeEventsZeroCrossing, EmptyEventListRunsToTmax )
 {
     constexpr int N = 12;
@@ -111,8 +158,10 @@ TEST( OdeEventsZeroCrossing, EmptyEventListRunsToTmax )
     using Stepper = TaylorStepper< N, State >;
     std::vector< Event< Stepper > > events;  // empty
 
-    tax::ode::Taylor< N, State, tax::ode::controllers::JorbaZou< double >, false, decltype( f ) > integ{ f, cfg, events };
-    State x0; x0( 0 ) = 1.0;
+    tax::ode::Taylor< N, State, tax::ode::controllers::JorbaZou< double >, false, decltype( f ) >
+        integ{ f, cfg, events };
+    State x0;
+    x0( 0 ) = 1.0;
     auto sol = integ.integrate( x0, 0.0, 1.0 );
 
     EXPECT_DOUBLE_EQ( sol.t.back(), 1.0 );
@@ -126,16 +175,17 @@ TEST( OdeEventsZeroCrossing, HarmonicTerminateAcrossAllMethods )
     tax::ode::IntegratorConfig< double > cfg;
     cfg.abstol = cfg.reltol = 1e-12;
 
-    const auto f = []( const auto& x, const auto& )
-    {
+    const auto f = []( const auto& x, const auto& ) {
         State out;
-        out( 0 ) =  x( 1 );
+        out( 0 ) = x( 1 );
         out( 1 ) = -x( 0 );
         return out;
     };
 
-    State x0; x0( 0 ) = 1.0; x0( 1 ) = 0.0;
-    const double tmax       = 5.0;
+    State x0;
+    x0( 0 ) = 1.0;
+    x0( 1 ) = 0.0;
+    const double tmax = 5.0;
     const double t_expected = M_PI / 2;
     // Verner78/89 and Fehlberg78 achieve ~1e-7 via Brent-on-Hermite.
     // Feagin12/14's sparse error tables produce slightly larger step sizes
@@ -146,9 +196,8 @@ TEST( OdeEventsZeroCrossing, HarmonicTerminateAcrossAllMethods )
         using Stepper = tax::ode::Verner78Stepper< State >;
         std::vector< tax::ode::Event< Stepper > > events;
         events.emplace_back(
-            tax::ode::ZeroCrossing(
-                []( const auto& x, const auto& ) { return x( 0 ); },
-                tax::ode::Direction::Decreasing ),
+            tax::ode::ZeroCrossing( []( const auto& x, const auto& ) { return x( 0 ); },
+                                    tax::ode::Direction::Decreasing ),
             tax::ode::Terminate() );
 
         tax::ode::Verner78< State > integ{ f, cfg, std::move( events ) };
@@ -160,9 +209,8 @@ TEST( OdeEventsZeroCrossing, HarmonicTerminateAcrossAllMethods )
         using Stepper = tax::ode::Verner89Stepper< State >;
         std::vector< tax::ode::Event< Stepper > > events;
         events.emplace_back(
-            tax::ode::ZeroCrossing(
-                []( const auto& x, const auto& ) { return x( 0 ); },
-                tax::ode::Direction::Decreasing ),
+            tax::ode::ZeroCrossing( []( const auto& x, const auto& ) { return x( 0 ); },
+                                    tax::ode::Direction::Decreasing ),
             tax::ode::Terminate() );
 
         tax::ode::Verner89< State > integ{ f, cfg, std::move( events ) };
@@ -174,9 +222,8 @@ TEST( OdeEventsZeroCrossing, HarmonicTerminateAcrossAllMethods )
         using Stepper = tax::ode::Fehlberg78Stepper< State >;
         std::vector< tax::ode::Event< Stepper > > events;
         events.emplace_back(
-            tax::ode::ZeroCrossing(
-                []( const auto& x, const auto& ) { return x( 0 ); },
-                tax::ode::Direction::Decreasing ),
+            tax::ode::ZeroCrossing( []( const auto& x, const auto& ) { return x( 0 ); },
+                                    tax::ode::Direction::Decreasing ),
             tax::ode::Terminate() );
 
         tax::ode::Fehlberg78< State > integ{ f, cfg, std::move( events ) };
@@ -188,9 +235,8 @@ TEST( OdeEventsZeroCrossing, HarmonicTerminateAcrossAllMethods )
         using Stepper = tax::ode::Feagin12Stepper< State >;
         std::vector< tax::ode::Event< Stepper > > events;
         events.emplace_back(
-            tax::ode::ZeroCrossing(
-                []( const auto& x, const auto& ) { return x( 0 ); },
-                tax::ode::Direction::Decreasing ),
+            tax::ode::ZeroCrossing( []( const auto& x, const auto& ) { return x( 0 ); },
+                                    tax::ode::Direction::Decreasing ),
             tax::ode::Terminate() );
 
         tax::ode::Feagin12< State > integ{ f, cfg, std::move( events ) };
@@ -202,9 +248,8 @@ TEST( OdeEventsZeroCrossing, HarmonicTerminateAcrossAllMethods )
         using Stepper = tax::ode::Feagin14Stepper< State >;
         std::vector< tax::ode::Event< Stepper > > events;
         events.emplace_back(
-            tax::ode::ZeroCrossing(
-                []( const auto& x, const auto& ) { return x( 0 ); },
-                tax::ode::Direction::Decreasing ),
+            tax::ode::ZeroCrossing( []( const auto& x, const auto& ) { return x( 0 ); },
+                                    tax::ode::Direction::Decreasing ),
             tax::ode::Terminate() );
 
         tax::ode::Feagin14< State > integ{ f, cfg, std::move( events ) };

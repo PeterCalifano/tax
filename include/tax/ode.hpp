@@ -22,3 +22,4 @@
 #include <tax/ode/integrator.hpp>
 #include <tax/ode/aliases.hpp>
 #include <tax/ode/propagate.hpp>
+#include <tax/ode/named.hpp>

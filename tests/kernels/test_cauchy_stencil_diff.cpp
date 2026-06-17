@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+
 #include <tax/kernels/algebra.hpp>
 #include <tax/kernels/cauchy.hpp>
 #include <tax/kernels/cauchy_stencil.hpp>
@@ -25,15 +26,12 @@ TEST( CauchyStencil, Diff_N5_M4 ) { runDiffMulti< 5, 4 >(); }
 
 // Entry count is exact: ordered pairs (beta, gamma) with |beta| + |gamma| <= N
 // biject with monomials of degree <= N in 2M variables.
-static_assert( tax::detail::kernels::CauchyStencil< 3, 2 >::kEntries
-               == tax::numMonomials( 3, 4 ) );
-static_assert( tax::detail::kernels::CauchyStencil< 4, 3 >::kEntries
-               == tax::numMonomials( 4, 6 ) );
+static_assert( tax::detail::kernels::CauchyStencil< 3, 2 >::kEntries == tax::numMonomials( 3, 4 ) );
+static_assert( tax::detail::kernels::CauchyStencil< 4, 3 >::kEntries == tax::numMonomials( 4, 6 ) );
 
 // cauchyProduct must remain usable in constant evaluation for M >= 2
 // (the stencil path is runtime-only; constexpr callers take the loop kernel).
-constexpr tax::Coeffs< double, 2, 2 > kConstexprProduct = []
-{
+constexpr tax::Coeffs< double, 2, 2 > kConstexprProduct = [] {
     tax::Coeffs< double, 2, 2 > a{}, b{}, out{};
     a[0] = 1.0;  // 1 + 2x
     a[1] = 2.0;
@@ -55,17 +53,52 @@ TEST( CauchyStencil, ConstexprFallbackCompiles )
     SUCCEED();  // assertions above are compile-time
 }
 
+// cauchySelfProduct (M >= 2) must be bit-identical between constant evaluation
+// (loop kernel) and runtime (stencil): the symmetric enumeration that previously
+// ran in consteval summed 2*f[b]*f[g] while the runtime stencil sums the full
+// ordered convolution, giving last-ULP divergence. Both paths now route through
+// cauchyProduct, so the results must match exactly (EXPECT_EQ, not EXPECT_NEAR).
+template < int N, int M >
+constexpr tax::Coeffs< double, N, M > selfProductConstexpr()
+{
+    tax::Coeffs< double, N, M > f{}, out{};
+    for ( std::size_t k = 0; k < f.size(); ++k ) f[k] = 0.1 * double( k + 1 ) - 0.37;
+    tax::detail::kernels::cauchySelfProduct< double, N, M >( out, f );
+    return out;
+}
+
+template < int N, int M >
+void runSelfProductConstevalMatchesRuntime()
+{
+    constexpr tax::Coeffs< double, N, M > ct = selfProductConstexpr< N, M >();
+
+    tax::Coeffs< double, N, M > f{}, rt{};
+    for ( std::size_t k = 0; k < f.size(); ++k ) f[k] = 0.1 * double( k + 1 ) - 0.37;
+    tax::detail::kernels::cauchySelfProduct< double, N, M >( rt, f );  // runtime path
+
+    for ( std::size_t k = 0; k < f.size(); ++k )
+        EXPECT_EQ( rt[k], ct[k] ) << "N=" << N << " M=" << M << " k=" << k;
+}
+
+TEST( CauchySelfProduct, ConstevalMatchesRuntime_N3_M2 )
+{
+    runSelfProductConstevalMatchesRuntime< 3, 2 >();
+}
+TEST( CauchySelfProduct, ConstevalMatchesRuntime_N4_M3 )
+{
+    runSelfProductConstevalMatchesRuntime< 4, 3 >();
+}
+
 // RecurrenceStencil entry count: the |beta| >= 1 decompositions are the
 // Cauchy pairs minus the |beta| = 0 ones (one per gamma).
-static_assert( tax::detail::kernels::RecurrenceStencil< 3, 2 >::kEntries
-               == tax::numMonomials( 3, 4 ) - tax::numMonomials( 3, 2 ) );
-static_assert( tax::detail::kernels::RecurrenceStencil< 4, 3 >::kEntries
-               == tax::numMonomials( 4, 6 ) - tax::numMonomials( 4, 3 ) );
+static_assert( tax::detail::kernels::RecurrenceStencil< 3, 2 >::kEntries ==
+               tax::numMonomials( 3, 4 ) - tax::numMonomials( 3, 2 ) );
+static_assert( tax::detail::kernels::RecurrenceStencil< 4, 3 >::kEntries ==
+               tax::numMonomials( 4, 6 ) - tax::numMonomials( 4, 3 ) );
 
 // seriesReciprocal must remain usable in constant evaluation for M >= 2
 // (forEachRecurrenceRow enumerates rows on the fly when consteval).
-constexpr tax::Coeffs< double, 2, 2 > kConstexprReciprocal = []
-{
+constexpr tax::Coeffs< double, 2, 2 > kConstexprReciprocal = [] {
     tax::Coeffs< double, 2, 2 > a{}, out{};
     a[0] = 2.0;  // 2 + x
     a[1] = 1.0;
@@ -102,16 +135,16 @@ TEST( RecurrenceStencil, RowsMatchConstexprEnumeration )
         if ( d == 0 ) return;
         ASSERT_EQ( tax::flatIndex< M >( alpha ), ai_expected++ );
         std::size_t count = 0;
-        tax::forEachSubIndex< M >( alpha, [&]( const tax::MultiIndex< M >& beta,
-                                               const tax::MultiIndex< M >& gamma ) {
-            int db = 0;
-            for ( int i = 0; i < M; ++i ) db += beta[std::size_t( i )];
-            if ( db == 0 ) return;
-            enum_rows.push_back( RecurrenceEntry{
-                std::uint32_t( tax::flatIndex< M >( beta ) ),
-                std::uint32_t( tax::flatIndex< M >( gamma ) ), std::uint32_t( db ) } );
-            ++count;
-        } );
+        tax::forEachSubIndex< M >(
+            alpha, [&]( const tax::MultiIndex< M >& beta, const tax::MultiIndex< M >& gamma ) {
+                int db = 0;
+                for ( int i = 0; i < M; ++i ) db += beta[std::size_t( i )];
+                if ( db == 0 ) return;
+                enum_rows.push_back( RecurrenceEntry{ std::uint32_t( tax::flatIndex< M >( beta ) ),
+                                                      std::uint32_t( tax::flatIndex< M >( gamma ) ),
+                                                      std::uint32_t( db ) } );
+                ++count;
+            } );
         enum_bounds.push_back( count );
     } );
 

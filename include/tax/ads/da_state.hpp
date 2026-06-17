@@ -88,6 +88,12 @@ template < int P, int M, class Storage = tax::storage::Dense, class T, int D >
 [[nodiscard]] Eigen::Matrix< tax::TaylorExpansion< T, P, M, Storage >, D, 1 > create(
     const Box< T, M >& box, const Eigen::Matrix< T, D, 1 >& x0 )
 {
+    // Each box axis i in [0, M) seeds the identity direction of state component i.
+    // If D < M, axes [D, M) would silently get no direction (the box would carry
+    // dead uncertainty axes), so require the state to cover every axis.
+    static_assert( D == Eigen::Dynamic || D >= M,
+                   "ads::create(): state dimension D must be >= M (every box axis must "
+                   "map to a state component)." );
     Eigen::Matrix< tax::TaylorExpansion< T, P, M, Storage >, D, 1 > out;
     if constexpr ( D == Eigen::Dynamic ) out.resize( x0.size() );
     for ( Eigen::Index i = 0; i < x0.size(); ++i )

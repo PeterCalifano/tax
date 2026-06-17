@@ -3,7 +3,6 @@
 #include <array>
 #include <cmath>
 #include <span>
-
 #include <tax/kernels/cauchy.hpp>
 #include <tax/kernels/recurrence_stencil.hpp>
 
@@ -11,10 +10,20 @@ namespace tax::detail::kernels
 {
 
 /**
- * @brief Symmetric self-product `out = f * f`, exploiting symmetry for ~2x fewer multiplications.
+ * @brief Self-product `out = f * f`.
  *
- * Enumerates each unordered pair {beta, gamma} with beta+gamma=alpha only once,
- * doubling the off-diagonal contribution.
+ * For M == 1 this exploits symmetry (each unordered pair {k, d-k} once, with the
+ * off-diagonal contribution doubled) for ~2x fewer multiplications; the symmetric
+ * reduction is used identically in constant evaluation and at runtime, so the two
+ * agree bit-for-bit.
+ *
+ * For M >= 2 it forwards to the general Cauchy product dispatch. The symmetric
+ * enumeration would save ~2x multiplies, but it sums `2*f[b]*f[g]` where the
+ * general product sums `f[b]*f[g] + f[g]*f[b]` — a different floating-point
+ * reduction. Routing through `cauchyProduct` keeps the constant-evaluation (loop)
+ * and runtime (stencil) results bit-identical, which the rest of the library and
+ * its tests rely on, and the per-pair flatIndex cost the stencil eliminates at
+ * runtime dwarfs the lost multiply saving anyway.
  *
  * @tparam T  Scalar type.
  * @tparam N  Truncation order.
@@ -23,39 +32,19 @@ namespace tax::detail::kernels
 template < typename T, int N, int M >
 constexpr void cauchySelfProduct( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& f ) noexcept
 {
-    out = {};
     if constexpr ( M == 1 )
     {
+        out = {};
         for ( int d = 0; d <= N; ++d )
         {
             for ( int k = 0; k + k < d; ++k )
                 out[std::size_t( d )] += T{ 2 } * f[std::size_t( k )] * f[std::size_t( d - k )];
             if ( d % 2 == 0 )
-                out[std::size_t( d )] +=
-                    f[std::size_t( d / 2 )] * f[std::size_t( d / 2 )];
+                out[std::size_t( d )] += f[std::size_t( d / 2 )] * f[std::size_t( d / 2 )];
         }
     } else
     {
-        // At runtime the dispatched general product (stencil for M >= 2)
-        // beats the symmetric enumeration: the ~2x multiply saving is
-        // dwarfed by the per-pair flatIndex cost the table eliminates.
-        if !consteval
-        {
-            cauchyProduct< T, N, M >( out, f, f );
-            return;
-        }
-        tax::forEachMonomial< M, N >( [&]( const MultiIndex< M >& alpha ) {
-            const std::size_t ai = flatIndex< M >( alpha );
-            tax::forEachSubIndex< M >( alpha, [&]( const MultiIndex< M >& beta,
-                                                   const MultiIndex< M >& gamma ) {
-                const std::size_t bi = flatIndex< M >( beta );
-                const std::size_t gi = flatIndex< M >( gamma );
-                if ( bi < gi )
-                    out[ai] += T{ 2 } * f[bi] * f[gi];
-                else if ( bi == gi )
-                    out[ai] += f[bi] * f[bi];
-            } );
-        } );
+        cauchyProduct< T, N, M >( out, f, f );
     }
 }
 
@@ -105,8 +94,7 @@ constexpr void seriesCube( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) 
  * @tparam M  Number of variables.
  */
 template < typename T, int N, int M >
-constexpr void seriesReciprocal( Coeffs< T, N, M >& out,
-                                 const Coeffs< T, N, M >& a ) noexcept
+constexpr void seriesReciprocal( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
 {
     out = {};
     const T inv_a0 = T{ 1 } / a[0];
@@ -120,14 +108,53 @@ constexpr void seriesReciprocal( Coeffs< T, N, M >& out,
             for ( int k = 1; k <= d; ++k ) rhs -= a[std::size_t( k )] * out[std::size_t( d - k )];
             out[std::size_t( d )] = rhs * inv_a0;
         }
-    }
-    else
+    } else
     {
         forEachRecurrenceRow< N, M >(
             [&]( std::size_t ai, int, std::span< const RecurrenceEntry > row ) {
                 T rhs = T{ 0 };
                 for ( const RecurrenceEntry& e : row ) rhs -= a[e.b_idx] * out[e.g_idx];
                 out[ai] = rhs * inv_a0;
+            } );
+    }
+}
+
+/**
+ * @brief Quotient series solve `b * out = a`, i.e. `out = a / b`.
+ *
+ * Requires `b[0] != 0`. A single forward-substitution pass — more accurate and
+ * roughly half the work of forming `reciprocal(b)` and then a Cauchy product:
+ *   out[alpha] = (1/b[0]) * (a[alpha] - sum_{0 < beta <= alpha} b[beta] * out[alpha - beta])
+ *
+ * `out` may alias neither `a` nor `b`.
+ *
+ * @tparam T  Scalar type.
+ * @tparam N  Truncation order.
+ * @tparam M  Number of variables.
+ */
+template < typename T, int N, int M >
+constexpr void seriesDivide( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a,
+                             const Coeffs< T, N, M >& b ) noexcept
+{
+    out = {};
+    const T inv_b0 = T{ 1 } / b[0];
+    out[0] = a[0] * inv_b0;
+
+    if constexpr ( M == 1 )
+    {
+        for ( int d = 1; d <= N; ++d )
+        {
+            T rhs = a[std::size_t( d )];
+            for ( int k = 1; k <= d; ++k ) rhs -= b[std::size_t( k )] * out[std::size_t( d - k )];
+            out[std::size_t( d )] = rhs * inv_b0;
+        }
+    } else
+    {
+        forEachRecurrenceRow< N, M >(
+            [&]( std::size_t ai, int, std::span< const RecurrenceEntry > row ) {
+                T rhs = a[ai];
+                for ( const RecurrenceEntry& e : row ) rhs -= b[e.b_idx] * out[e.g_idx];
+                out[ai] = rhs * inv_b0;
             } );
     }
 }
@@ -158,12 +185,10 @@ void seriesSqrt( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
             T rhs = a[std::size_t( d )];
             for ( int k = 1; k + k < d; ++k )
                 rhs -= T{ 2 } * out[std::size_t( k )] * out[std::size_t( d - k )];
-            if ( d % 2 == 0 )
-                rhs -= out[std::size_t( d / 2 )] * out[std::size_t( d / 2 )];
+            if ( d % 2 == 0 ) rhs -= out[std::size_t( d / 2 )] * out[std::size_t( d / 2 )];
             out[std::size_t( d )] = rhs * inv2g0;
         }
-    }
-    else
+    } else
     {
         forEachRecurrenceRow< N, M >(
             [&]( std::size_t ai, int, std::span< const RecurrenceEntry > row ) {
@@ -205,8 +230,7 @@ void seriesCbrt( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
             T sq_d_partial = T{ 0 };
             for ( int k = 1; k + k < d; ++k )
                 sq_d_partial += T{ 2 } * out[std::size_t( k )] * out[std::size_t( d - k )];
-            if ( d % 2 == 0 )
-                sq_d_partial += out[std::size_t( d / 2 )] * out[std::size_t( d / 2 )];
+            if ( d % 2 == 0 ) sq_d_partial += out[std::size_t( d / 2 )] * out[std::size_t( d / 2 )];
 
             T rhs = out[0] * sq_d_partial;
             for ( int j = 1; j < d; ++j ) rhs += out[std::size_t( j )] * sq[std::size_t( d - j )];
@@ -214,8 +238,7 @@ void seriesCbrt( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
             out[std::size_t( d )] = ( a[std::size_t( d )] - rhs ) * inv3g0sq;
             sq[std::size_t( d )] = T{ 2 } * out[0] * out[std::size_t( d )] + sq_d_partial;
         }
-    }
-    else
+    } else
     {
         std::array< T, S > sq{};
         sq[0] = out[0] * out[0];
@@ -269,11 +292,11 @@ void seriesPow( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a, T c ) noexce
         {
             T rhs = T{ 0 };
             for ( int k = 0; k < d; ++k )
-                rhs += ( c * T( d - k ) - T( k ) ) * a[std::size_t( d - k )] * out[std::size_t( k )];
+                rhs +=
+                    ( c * T( d - k ) - T( k ) ) * a[std::size_t( d - k )] * out[std::size_t( k )];
             out[std::size_t( d )] = rhs * inv_a0 / T( d );
         }
-    }
-    else
+    } else
     {
         forEachRecurrenceRow< N, M >(
             [&]( std::size_t ai, int d, std::span< const RecurrenceEntry > row ) {
@@ -300,8 +323,7 @@ void seriesPow( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a, T c ) noexce
  * @tparam M  Number of variables.
  */
 template < typename T, int N, int M >
-constexpr void seriesPowInt( Coeffs< T, N, M >& out,
-                             const Coeffs< T, N, M >& a, int n ) noexcept
+constexpr void seriesPowInt( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a, int n ) noexcept
 {
     constexpr auto S = numMonomials( N, M );
 
@@ -325,7 +347,7 @@ constexpr void seriesPowInt( Coeffs< T, N, M >& out,
     {
         std::array< T, S > rec{};
         seriesReciprocal< T, N, M >( rec, a );
-        seriesPowInt< T, N, M >( out, rec, -n );
+        seriesPowInt< T, N, M >( out, rec, n );
         return;
     }
     // n >= 2: binary exponentiation (square-and-multiply). Squarings go

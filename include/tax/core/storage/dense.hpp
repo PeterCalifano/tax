@@ -3,6 +3,7 @@
 #include <array>
 #include <cstddef>
 #include <tax/core/multi_index.hpp>
+#include <utility>
 
 namespace tax::storage
 {
@@ -26,8 +27,8 @@ struct Dense
 template < typename T, int N, int M >
 struct DenseContainer
 {
-    using value_type                            = T;
-    using coeffs_type                           = Coeffs< T, N, M >;
+    using value_type = T;
+    using coeffs_type = Coeffs< T, N, M >;
     static constexpr std::size_t nCoefficients = numMonomials( N, M );
 
     coeffs_type data{};
@@ -41,11 +42,13 @@ struct DenseContainer
     constexpr void accumulate( std::size_t k, T v ) noexcept { data[k] += v; }
 
     /// @brief Visit every coefficient slot in flat-index order: fn(k, data[k]).
+    /// Conditionally noexcept: propagates the callable's own exception specification
+    /// rather than calling std::terminate when a throwing `fn` is supplied.
     template < typename Fn >
-    constexpr void forEach( Fn&& fn ) const noexcept
+    constexpr void forEach( Fn&& fn ) const
+        noexcept( noexcept( fn( std::size_t{ 0 }, std::declval< T >() ) ) )
     {
-        for ( std::size_t k = 0; k < nCoefficients; ++k )
-            fn( k, data[k] );
+        for ( std::size_t k = 0; k < nCoefficients; ++k ) fn( k, data[k] );
     }
 };
 

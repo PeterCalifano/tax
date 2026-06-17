@@ -8,6 +8,7 @@
 #include <tax/core/storage/dense.hpp>
 #include <tax/core/storage/sparse.hpp>
 #include <tax/core/taylor_expansion.hpp>
+#include <tax/core/named.hpp>
 #include <tax/operators/arithmetic.hpp>
 #include <tax/operators/math_unary.hpp>
 #include <tax/operators/math_binary.hpp>
