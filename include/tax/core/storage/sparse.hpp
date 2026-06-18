@@ -11,28 +11,15 @@
 namespace tax::storage
 {
 
-/// @brief Flat-index type used by sparse containers (32-bit is sufficient for any practical N, M).
+/// Flat-index type used by sparse containers (32-bit is sufficient for any practical N, M).
 using flat_index_t = std::uint32_t;
 
-/// @brief Tag type selecting the sparse (sorted-index-pair) storage policy.
+/// Tag type selecting the sparse (sorted-index-pair) storage policy.
 struct Sparse
 {
 };
 
-/**
- * @brief Sparse coefficient container for a TaylorExpansion.
- *
- * Stores only the nonzero monomials as two parallel sorted vectors:
- *   - `idx_[k]`: flat graded-lex index of the k-th nonzero (strictly increasing)
- *   - `val_[k]`: the coefficient at that flat index
- *
- * Sorted order enables O(nnz_a + nnz_b) two-pointer merges in arithmetic
- * operators and O(log nnz) binary-search element access.
- *
- * @tparam T  Scalar type.
- * @tparam N  Truncation order (>= 0).
- * @tparam M  Number of variables (>= 1).
- */
+/// Sparse coefficient container for a TaylorExpansion.
 template < typename T, int N, int M >
 class SparseContainer
 {
@@ -46,31 +33,28 @@ class SparseContainer
     // Queries
     // -----------------------------------------------------------------------
 
-    /// @brief Number of currently stored nonzero monomials.
+    /// Number of currently stored nonzero monomials.
     [[nodiscard]] std::size_t nnz() const noexcept { return idx_.size(); }
 
-    /// @brief Constant (zeroth) coefficient; returns 0 if the constant slot is absent.
+    /// Constant (zeroth) coefficient; returns 0 if the constant slot is absent.
     [[nodiscard]] T value() const noexcept
     {
         return ( !idx_.empty() && idx_.front() == 0 ) ? val_.front() : T{ 0 };
     }
 
-    /// @brief Read-only view of the sorted flat indices of all nonzero slots.
+    /// Read-only view of the sorted flat indices of all nonzero slots.
     [[nodiscard]] std::span< const flat_index_t > support() const noexcept
     {
         return { idx_.data(), idx_.size() };
     }
 
-    /// @brief Read-only view of the values aligned with `support()`.
+    /// Read-only view of the values aligned with `support()`.
     [[nodiscard]] std::span< const T > values() const noexcept
     {
         return { val_.data(), val_.size() };
     }
 
-    /**
-     * @brief Coefficient at flat index `k`; returns `T{0}` if the slot is absent.
-     * O(log nnz) binary search — intended for tests and inspection, not hot loops.
-     */
+    /// Coefficient at flat index `k`; returns `T{0}` if the slot is absent. O(log nnz) binary search — intended for tests and inspection, not hot loops.
     [[nodiscard]] T coeffAtFlat( std::size_t k ) const noexcept
     {
         auto it = std::lower_bound( idx_.begin(), idx_.end(), flat_index_t( k ) );
@@ -82,12 +66,7 @@ class SparseContainer
     // Mutation primitives
     // -----------------------------------------------------------------------
 
-    /**
-     * @brief Set the coefficient at flat index `k` to `v`, preserving sorted order.
-     *
-     * - If the slot already exists: overwrite with `v`; if `v == T{0}` remove it.
-     * - If the slot is absent and `v != T{0}`: insert in sorted position.
-     */
+    /// Set the coefficient at flat index `k` to `v`, preserving sorted order.
     void set( std::size_t k, T v ) noexcept
     {
         auto it = std::lower_bound( idx_.begin(), idx_.end(), flat_index_t( k ) );
@@ -112,11 +91,7 @@ class SparseContainer
         }
     }
 
-    /**
-     * @brief Add `v` to the coefficient at flat index `k`.
-     *
-     * Inserts the slot if it was absent; removes it if the result is exactly zero.
-     */
+    /// Add `v` to the coefficient at flat index `k`.
     void accumulate( std::size_t k, T v ) noexcept
     {
         if ( v == T{ 0 } ) return;
@@ -144,10 +119,7 @@ class SparseContainer
     // Traversal
     // -----------------------------------------------------------------------
 
-    /**
-     * @brief Visit every nonzero in flat-index order: `fn(k, val)`.
-     * `Fn` must not mutate the container.
-     */
+    /// Visit every nonzero in flat-index order: `fn(k, val)`. `Fn` must not mutate the container.
     template < typename Fn >
     void forEachNonzero( Fn&& fn ) const
         noexcept( noexcept( fn( std::size_t{ 0 }, std::declval< T >() ) ) )
@@ -155,15 +127,7 @@ class SparseContainer
         for ( std::size_t i = 0; i < idx_.size(); ++i ) fn( std::size_t( idx_[i] ), val_[i] );
     }
 
-    /**
-     * @brief Merged walk over the union of `support(*this)` and `support(other)`.
-     *
-     * Calls `fn(k, va, vb)` for every index `k` appearing in either container.
-     * `va` defaults to `T{0}` when index `k` is absent in `*this`;
-     * `vb` defaults to `T{0}` when absent in `other`.
-     *
-     * Runs in O(nnz(*this) + nnz(other)) time.
-     */
+    /// Merged walk over the union of `support(*this)` and `support(other)`.
     template < typename Fn >
     void forEachPair( const SparseContainer& other, Fn&& fn ) const
         noexcept( noexcept( fn( std::size_t{ 0 }, std::declval< T >(), std::declval< T >() ) ) )

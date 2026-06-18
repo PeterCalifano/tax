@@ -8,22 +8,12 @@
 namespace tax::storage
 {
 
-/// @brief Tag type selecting the dense (std::array) storage policy.
+/// Tag type selecting the dense (std::array) storage policy.
 struct Dense
 {
 };
 
-/**
- * @brief Dense coefficient container for a TaylorExpansion.
- *
- * Stores `numMonomials(N, M)` coefficients in a stack-allocated `std::array`.
- * Provides element access, mutation helpers, and a `forEach` traversal that
- * visits every slot in flat order.
- *
- * @tparam T  Scalar type.
- * @tparam N  Truncation order (>= 0).
- * @tparam M  Number of variables (>= 1).
- */
+/// Dense coefficient container for a TaylorExpansion.
 template < typename T, int N, int M >
 struct DenseContainer
 {
@@ -41,7 +31,7 @@ struct DenseContainer
     constexpr void set( std::size_t k, T v ) noexcept { data[k] = v; }
     constexpr void accumulate( std::size_t k, T v ) noexcept { data[k] += v; }
 
-    /// @brief Visit every coefficient slot in flat-index order: fn(k, data[k]).
+    /// Visit every coefficient slot in flat-index order: fn(k, data[k]).
     /// Conditionally noexcept: propagates the callable's own exception specification
     /// rather than calling std::terminate when a throwing `fn` is supplied.
     template < typename Fn >

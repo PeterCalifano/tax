@@ -1,29 +1,8 @@
 #pragma once
 
-// include/tax/core/named.hpp
-//
-// Named, sliceable, composable Taylor expansions (dense, static case).
-//
-// A `tax::named::NamedTaylorExpansion< T, N, Axes... >` wraps a dense
-// `TaylorExpansion< T, N, M >` and attaches a compile-time list of *named
-// axes* to it.  Each axis is a contiguous block of the underlying M
-// variables identified by a compile-time string (`Axis< "x", 3 >`).
-//
-// The named layer adds three capabilities on top of the bare expansion:
-//
-//   * embed   — inject a value over a subset of axes into a superset by
-//               remapping multi-indices (value-preserving, same order N);
-//   * compose — `+`, `-`, `*`, `/` between expansions over *different* axis
-//               sets run in the union of the two sets: both operands are
-//               embedded first, then the existing dense kernels do the work.
-//               The result type carries the union of axes, so the dependency
-//               set is derived automatically from the operands;
-//   * slice   — project an expansion back onto a subset of its axes by
-//               keeping the monomials that do not depend on the dropped axes
-//               (i.e. restricting the dropped axes to their expansion point).
-//
-// The axis list of every `NamedTaylorExpansion` is kept in canonical order (sorted by
-// name, unique), so `x * p` and `p * x` produce the *same* type.
+// Named, sliceable, composable Taylor expansions (dense): NamedTaylorExpansion
+// wraps a dense TaylorExpansion and attaches a canonical (sorted, unique) list
+// of named axes, supporting embed / compose-across-axis-sets / slice.
 
 #include <array>
 #include <cstddef>
@@ -42,12 +21,7 @@ namespace tax::named
 // FixedString — a structural compile-time string usable as an NTTP
 // ---------------------------------------------------------------------------
 
-/**
- * @brief A null-terminated compile-time string suitable as a non-type template
- *        parameter (e.g. `Axis< "x", 3 >`).
- *
- * @tparam K  Size of the backing array including the terminating null.
- */
+/// A null-terminated compile-time string suitable as a non-type template parameter (e.g. `Axis< "x", 3 >`).
 template < std::size_t K >
 struct FixedString
 {
@@ -58,13 +32,13 @@ struct FixedString
         for ( std::size_t i = 0; i < K; ++i ) data[i] = s[i];
     }
 
-    /// @brief Length of the string excluding the terminating null.
+    /// Length of the string excluding the terminating null.
     [[nodiscard]] static constexpr std::size_t size() noexcept { return K - 1; }
 
     [[nodiscard]] constexpr char operator[]( std::size_t i ) const noexcept { return data[i]; }
 };
 
-/// @brief Three-way lexicographic comparison of two FixedStrings (-1 / 0 / 1).
+/// Three-way lexicographic comparison of two FixedStrings (-1 / 0 / 1).
 template < std::size_t A, std::size_t B >
 [[nodiscard]] constexpr int compareFixed( const FixedString< A >& a,
                                           const FixedString< B >& b ) noexcept
@@ -85,7 +59,7 @@ template < std::size_t A, std::size_t B >
     return la < lb ? -1 : 1;
 }
 
-/// @brief Three-way comparison of two FixedString NTTP values (-1 / 0 / 1).
+/// Three-way comparison of two FixedString NTTP values (-1 / 0 / 1).
 template < FixedString A, FixedString B >
 inline constexpr int fixedCompare = compareFixed( A, B );
 
@@ -93,13 +67,7 @@ inline constexpr int fixedCompare = compareFixed( A, B );
 // Axis — a named block of `Dim` consecutive variables
 // ---------------------------------------------------------------------------
 
-/**
- * @brief A named axis: the compile-time string `Name` labels a block of `Dim`
- *        consecutive variables of the underlying expansion.
- *
- * @tparam Name  Compile-time axis name.
- * @tparam Dim   Number of variables in the block (>= 1).
- */
+/// A named axis: the compile-time string `Name` labels a block of `Dim` consecutive variables of the underlying expansion.
 template < FixedString Name, int Dim >
 struct Axis
 {
@@ -108,7 +76,7 @@ struct Axis
     static_assert( Dim >= 1, "Axis dimension must be at least 1" );
 };
 
-/// @brief Sign of the name comparison of two axes (-1 / 0 / 1).
+/// Sign of the name comparison of two axes (-1 / 0 / 1).
 /// `fixedCompare` already returns exactly -1/0/1, so no further clamping is needed.
 template < typename A, typename B >
 inline constexpr int axisSign = fixedCompare< A::name, B::name >;
@@ -120,7 +88,7 @@ inline constexpr int axisSign = fixedCompare< A::name, B::name >;
 namespace detail
 {
 
-/// @brief A list of axis types.
+/// A list of axis types.
 template < typename... Ts >
 struct TypeList
 {
@@ -189,7 +157,7 @@ struct MergeChoose< 0, TypeList< A0, As... >, TypeList< B0, Bs... > >
         typename Prepend< A0, typename Merge< TypeList< As... >, TypeList< Bs... > >::type >::type;
 };
 
-/// @brief Left-fold `Merge` over a pack of (singleton) axis lists.
+/// Left-fold `Merge` over a pack of (singleton) axis lists.
 template < typename Acc, typename... Rest >
 struct MergeFold
 {
@@ -203,7 +171,7 @@ struct MergeFold< Acc, First, Rest... >
 
 // --- Lookups ----------------------------------------------------------------
 
-/// @brief Variable offset of an axis (matched by name) within a list, or -1.
+/// Variable offset of an axis (matched by name) within a list, or -1.
 template < typename List, typename Ax >
 struct OffsetOf;
 template < typename Ax >
@@ -221,7 +189,7 @@ struct OffsetOf< TypeList< H, Ts... >, Ax >
     static constexpr int value = ( axisSign< H, Ax > == 0 ) ? 0 : ( tail < 0 ? -1 : H::dim + tail );
 };
 
-/// @brief Dimension of the axis named `Name` within a list, or -1 if absent.
+/// Dimension of the axis named `Name` within a list, or -1 if absent.
 template < typename List, FixedString Name >
 struct DimOfName;
 template < FixedString Name >
@@ -237,7 +205,7 @@ struct DimOfName< TypeList< H, Ts... >, Name >
                                      : DimOfName< TypeList< Ts... >, Name >::value;
 };
 
-/// @brief Total number of variables (sum of axis dimensions) in a list.
+/// Total number of variables (sum of axis dimensions) in a list.
 template < typename List >
 struct TotalDim;
 template < typename... Axes >
@@ -246,7 +214,7 @@ struct TotalDim< TypeList< Axes... > >
     static constexpr int value = ( Axes::dim + ... + 0 );
 };
 
-/// @brief True if the axes are sorted by name with no duplicates.
+/// True if the axes are sorted by name with no duplicates.
 template < typename List >
 struct IsCanonical : std::true_type
 {
@@ -262,7 +230,7 @@ struct IsCanonical< TypeList< A0, A1, Rest... > >
 {
 };
 
-/// @brief True if every axis of `Sub` is present in `Super` with the same dim.
+/// True if every axis of `Sub` is present in `Super` with the same dim.
 template < typename Sub, typename Super >
 struct IsSubsetOf;
 template < typename Super, typename... Bs >
@@ -291,15 +259,7 @@ template < typename Tgt, bool allowDrop, typename... SrcAxes >
     return map;
 }
 
-/**
- * @brief Build the per-variable index map from a source axis layout to a
- *        target axis layout.
- *
- * Returns `std::array<int, TotalDim<Src>>` where entry `j` is the target
- * variable index of source variable `j`, or -1 when the source variable's
- * axis is absent from the target.  With `allowDrop == false` a missing axis is
- * a hard error (used for embedding into a superset).
- */
+/// Build the per-variable index map from a source axis layout to a target axis layout.
 template < typename Src, typename Tgt, bool allowDrop >
 [[nodiscard]] constexpr auto buildAxisMap() noexcept
 {
@@ -316,7 +276,7 @@ class NamedTaylorExpansion;
 namespace detail
 {
 
-/// @brief Rebind a `TypeList` of axes into an `NamedTaylorExpansion< T, N, Axes... >`.
+/// Rebind a `TypeList` of axes into an `NamedTaylorExpansion< T, N, Axes... >`.
 template < typename T, int N, typename List >
 struct Rebind;
 template < typename T, int N, typename... Axes >
@@ -325,7 +285,7 @@ struct Rebind< T, N, TypeList< Axes... > >
     using type = NamedTaylorExpansion< T, N, Axes... >;
 };
 
-/// @brief The named type over the merged (union) axis set of two operands.
+/// The named type over the merged (union) axis set of two operands.
 template < typename T, int N, typename ListA, typename ListB >
 using MergedNamedTaylorExpansion =
     typename Rebind< T, N, typename Merge< ListA, ListB >::type >::type;
@@ -348,11 +308,11 @@ class NamedTaylorExpansion
                    "NamedTaylorExpansion axes must be sorted by name and unique; build via "
                    "variables()/composition rather than spelling them by hand" );
 
-    /// @brief Number of underlying variables (sum of axis dimensions).
+    /// Number of underlying variables (sum of axis dimensions).
     static constexpr int vars_v = detail::TotalDim< axis_list >::value;
     static constexpr int order_v = N;
 
-    /// @brief Underlying anonymous dense expansion type.
+    /// Underlying anonymous dense expansion type.
     using Inner = TaylorExpansion< T, N, vars_v, storage::Dense >;
     using Input = typename Inner::Input;
 
@@ -367,21 +327,13 @@ class NamedTaylorExpansion
 
     constexpr NamedTaylorExpansion() noexcept = default;
 
-    /// @brief Constant expansion (value in every axis direction is flat).
+    /// Constant expansion (value in every axis direction is flat).
     /*implicit*/ constexpr NamedTaylorExpansion( T v ) noexcept : inner_{ v } {}
 
-    /// @brief Wrap an existing anonymous expansion carrying these axes.
+    /// Wrap an existing anonymous expansion carrying these axes.
     explicit constexpr NamedTaylorExpansion( const Inner& inner ) noexcept : inner_{ inner } {}
 
-    /**
-     * @brief Implicit promotion from an expansion over a subset of these axes.
-     *
-     * A value that depends on fewer axes embeds into this (wider) axis set
-     * automatically, so e.g. an `{x}` value can be assigned where an `{x, p}`
-     * value is expected — no manual `+ 0 * p` padding required.  The promotion
-     * is the value-preserving multi-index embedding (absent axes get zero
-     * exponents).
-     */
+    /// Implicit promotion from an expansion over a subset of these axes.
     template < typename... B >
         requires( !std::is_same_v< detail::TypeList< B... >, axis_list > &&
                   detail::IsSubsetOf< detail::TypeList< B... >, axis_list >::value )
@@ -395,11 +347,7 @@ class NamedTaylorExpansion
     // Coordinate variables
     // ------------------------------------------------------------------
 
-    /**
-     * @brief The I-th coordinate variable of the joint variable space at `p`.
-     *
-     * Equivalent to `Inner::variable<I>(p)` lifted into the named type.
-     */
+    /// The I-th coordinate variable of the joint variable space at `p`.
     template < int I >
     [[nodiscard]] static constexpr NamedTaylorExpansion variable( const Input& p ) noexcept
         requires( I >= 0 && I < vars_v )
@@ -411,10 +359,10 @@ class NamedTaylorExpansion
     // Access
     // ------------------------------------------------------------------
 
-    /// @brief Constant (zeroth) coefficient.
+    /// Constant (zeroth) coefficient.
     [[nodiscard]] constexpr T value() const noexcept { return inner_.value(); }
 
-    /// @brief The underlying anonymous expansion.
+    /// The underlying anonymous expansion.
     [[nodiscard]] constexpr const Inner& inner() const noexcept { return inner_; }
     [[nodiscard]] constexpr Inner& inner() noexcept { return inner_; }
 
@@ -422,13 +370,7 @@ class NamedTaylorExpansion
     // Embedding and slicing
     // ------------------------------------------------------------------
 
-    /**
-     * @brief Embed into the target named type `R`, whose axes must be a
-     *        superset of this expansion's axes.
-     *
-     * Each monomial multi-index is remapped from this expansion's variable
-     * layout to `R`'s; absent axes receive zero exponents.  Value-preserving.
-     */
+    /// Embed into the target named type `R`, whose axes must be a superset of this expansion's axes.
     template < typename R >
     [[nodiscard]] constexpr R embed() const noexcept
     {
@@ -448,14 +390,7 @@ class NamedTaylorExpansion
         return R{ out };
     }
 
-    /**
-     * @brief Project onto the subset of axes named by `Names...`.
-     *
-     * Keeps only the monomials whose exponents on the dropped axes are all
-     * zero — i.e. the restriction of the polynomial obtained by setting every
-     * dropped axis to its expansion point.  The result type carries exactly
-     * the requested axes (canonicalised), with their original dimensions.
-     */
+    /// Project onto the subset of axes named by `Names...`.
     template < FixedString... Names >
     [[nodiscard]] constexpr auto slice() const noexcept
     {
@@ -504,7 +439,7 @@ class NamedTaylorExpansion
     // Per-axis differentiation and integration (axis set preserved)
     // ------------------------------------------------------------------
 
-    /// @brief Global variable index of local coordinate `Local` of axis `Name`.
+    /// Global variable index of local coordinate `Local` of axis `Name`.
     template < FixedString Name, int Local >
     static constexpr int axisVar() noexcept
     {
@@ -514,26 +449,14 @@ class NamedTaylorExpansion
         return detail::OffsetOf< axis_list, Axis< Name, dim > >::value + Local;
     }
 
-    /**
-     * @brief Partial derivative with respect to one coordinate of a named axis.
-     *
-     * `Name` selects the axis, `Local` (default 0) the coordinate within that
-     * axis.  The axis set is preserved.  Composing with `slice()` yields the
-     * "sub-derivative" projection: `f.deriv<"p">().slice<"x">()` is the
-     * p-derivative of `f` viewed as a function of `x` at the expansion point.
-     */
+    /// Partial derivative with respect to one coordinate of a named axis.
     template < FixedString Name, int Local = 0 >
     [[nodiscard]] constexpr NamedTaylorExpansion deriv() const noexcept
     {
         return NamedTaylorExpansion{ inner_.template deriv< axisVar< Name, Local >() >() };
     }
 
-    /**
-     * @brief Indefinite integral with respect to one coordinate of a named axis.
-     *
-     * Mirrors `deriv()`; the axis set is preserved and the order stays `N`
-     * (degree-`N` terms are dropped, matching `TaylorExpansion::integ`).
-     */
+    /// Indefinite integral with respect to one coordinate of a named axis.
     template < FixedString Name, int Local = 0 >
     [[nodiscard]] constexpr NamedTaylorExpansion integ() const noexcept
     {
@@ -653,7 +576,7 @@ TAX_NAMED_UNARY_FN( erf )
 // Binary math functions
 // ---------------------------------------------------------------------------
 
-/// @brief `x^n` for an integer exponent (axis set preserved).
+/// `x^n` for an integer exponent (axis set preserved).
 template < typename T, int N, typename... A >
 [[nodiscard]] NamedTaylorExpansion< T, N, A... > pow( const NamedTaylorExpansion< T, N, A... >& x,
                                                       int n ) noexcept
@@ -661,7 +584,7 @@ template < typename T, int N, typename... A >
     return NamedTaylorExpansion< T, N, A... >{ tax::pow( x.inner(), n ) };
 }
 
-/// @brief `x^p` for a real exponent (axis set preserved; requires x.value() != 0).
+/// `x^p` for a real exponent (axis set preserved; requires x.value() != 0).
 template < typename T, int N, typename... A >
 [[nodiscard]] NamedTaylorExpansion< T, N, A... > pow( const NamedTaylorExpansion< T, N, A... >& x,
                                                       std::type_identity_t< T > p ) noexcept
@@ -669,7 +592,7 @@ template < typename T, int N, typename... A >
     return NamedTaylorExpansion< T, N, A... >{ tax::pow( x.inner(), p ) };
 }
 
-/// @brief `atan2(y, x)` over the union of the two operands' axis sets.
+/// `atan2(y, x)` over the union of the two operands' axis sets.
 template < typename T, int N, typename... A, typename... B >
 [[nodiscard]] auto atan2( const NamedTaylorExpansion< T, N, A... >& y,
                           const NamedTaylorExpansion< T, N, B... >& x ) noexcept
@@ -683,18 +606,7 @@ template < typename T, int N, typename... A, typename... B >
 // Coordinate-variable factory for a single named axis
 // ---------------------------------------------------------------------------
 
-/**
- * @brief Build the `D` coordinate variables of a single named axis `Name`.
- *
- * Returns an array of `D` named expansions, each over just the axis
- * `Axis< Name, D >`, expanded about the point `x0`.  These single-axis values
- * compose freely with variables of other axes — the result type tracks the
- * union of the axes involved.
- *
- * @tparam Name  Axis name.
- * @tparam N     Truncation order.
- * @param  x0    Expansion point for the `D` coordinates.
- */
+/// Build the `D` coordinate variables of a single named axis `Name`.
 template < FixedString Name, int N, typename T, std::size_t D >
 [[nodiscard]] constexpr auto variables( const std::array< T, D >& x0 ) noexcept
 {
@@ -707,18 +619,7 @@ template < FixedString Name, int N, typename T, std::size_t D >
     return out;
 }
 
-/**
- * @brief Build the single coordinate variable of a 1-D named axis `Name`.
- *
- * Convenience factory for a scalar expansion point: returns one
- * `NamedTaylorExpansion` over `Axis< Name, 1 >`.  Named in the singular (cf.
- * the plural `variables` factories that return a collection) since the result
- * is a single value.
- *
- * @tparam Name  Axis name.
- * @tparam N     Truncation order.
- * @param  x0    Expansion point.
- */
+/// Build the single coordinate variable of a 1-D named axis `Name`.
 template < FixedString Name, int N, typename T >
     requires Scalar< T >
 [[nodiscard]] constexpr auto variable( T x0 ) noexcept
@@ -732,7 +633,7 @@ template < FixedString Name, int N, typename T >
 // Convenience alias (double-valued)
 // ---------------------------------------------------------------------------
 
-/// @brief `NE< N, Axes... >` — double-valued named expansion of order N.
+/// `NE< N, Axes... >` — double-valued named expansion of order N.
 template < int N, typename... Axes >
 using NE = NamedTaylorExpansion< double, N, Axes... >;
 

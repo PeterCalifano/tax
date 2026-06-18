@@ -6,20 +6,14 @@
 namespace tax
 {
 
-/**
- * @brief Exponent vector `(a_0, ..., a_{M-1})` for multivariate monomials.
- * @tparam M Number of variables (int, matching graded-lex kernel conventions).
- */
+/// Exponent vector `(a_0, ..., a_{M-1})` for multivariate monomials.
 template < int M >
 using MultiIndex = std::array< int, static_cast< std::size_t >( M ) >;
 
 namespace detail
 {
 
-/**
- * @brief Compute the binomial coefficient `n choose k`.
- * @return `0` when arguments are out of range.
- */
+/// Binomial coefficient `n choose k`; returns 0 when arguments are out of range.
 constexpr std::size_t binom( int n, int k ) noexcept
 {
     if ( k < 0 || n < 0 || k > n ) return 0;
@@ -36,26 +30,17 @@ constexpr std::size_t binom( int n, int k ) noexcept
 
 }  // namespace detail
 
-/// @brief Number of monomials with total degree `<= N` in `M` variables.
+/// Number of monomials with total degree `<= N` in `M` variables.
 constexpr std::size_t numMonomials( int N, int M ) noexcept
 {
     return detail::binom( N + M, M );
 }
 
-/**
- * @brief Compile-time storage type for `numMonomials(N, M)` coefficients.
- * @tparam T Scalar type.
- * @tparam N Truncation order.
- * @tparam M Number of variables.
- */
+/// Storage type for `numMonomials(N, M)` coefficients.
 template < typename T, int N, int M >
 using Coeffs = std::array< T, numMonomials( N, M ) >;
 
-/**
- * @brief Total degree `|a| = sum_i a[i]` of a multi-index.
- * @details Parameterized on the array extent `N` (std::size_t) so deduction
- *          works directly from `MultiIndex<M> = std::array<int, std::size_t(M)>`.
- */
+/// Total degree `|a| = sum_i a[i]` of a multi-index.
 template < std::size_t N >
 constexpr int totalDegree( const std::array< int, N >& a ) noexcept
 {
@@ -64,10 +49,7 @@ constexpr int totalDegree( const std::array< int, N >& a ) noexcept
     return d;
 }
 
-/**
- * @brief Map a multi-index to the internal flat storage index.
- * @details The ordering matches the graded-lex convention used by the kernels.
- */
+/// Map a multi-index to the internal flat storage index.
 template < int M >
 constexpr std::size_t flatIndex( const MultiIndex< M >& alpha ) noexcept
 {
@@ -84,10 +66,7 @@ constexpr std::size_t flatIndex( const MultiIndex< M >& alpha ) noexcept
     return idx;
 }
 
-/**
- * @brief Map a flat storage index back to the corresponding multi-index.
- * @details Inverse of `flatIndex` for the same graded-lex ordering.
- */
+/// Map a flat storage index back to the corresponding multi-index.
 template < int M >
 constexpr MultiIndex< M > unflatIndex( std::size_t k ) noexcept
 {
@@ -119,11 +98,7 @@ constexpr MultiIndex< M > unflatIndex( std::size_t k ) noexcept
     return alpha;
 }
 
-/**
- * @brief Compile-time table mapping flat index k to its total degree.
- * @tparam N Truncation order.
- * @tparam M Number of variables.
- */
+/// Compile-time table mapping flat index k to its total degree.
 template < int N, int M >
 struct DegreeOf
 {

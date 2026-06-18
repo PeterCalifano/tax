@@ -6,21 +6,11 @@
 namespace tax
 {
 
-/// @brief Scalar constraint used for DA coefficients and function values.
+/// Scalar constraint for coefficients and function values.
 template < typename T >
 concept Scalar = std::floating_point< T >;
 
-/**
- * @brief Concept for any truncated Taylor polynomial type.
- *
- * A type `P` satisfies `TaylorPolynomial` if it exposes:
- *   - `scalar_type`     — the coefficient/value scalar type
- *   - `container_t`     — the underlying storage container type
- *   - `order_v`         — compile-time truncation order (int)
- *   - `vars_v`          — compile-time variable count (int)
- *   - `nCoefficients`   — total number of stored coefficients (std::size_t)
- *   - `p.value()`       — the constant (zeroth) coefficient
- */
+/// Any truncated Taylor polynomial type.
 template < typename P >
 concept TaylorPolynomial = requires( const P& p, std::size_t k )
 {
@@ -32,25 +22,14 @@ concept TaylorPolynomial = requires( const P& p, std::size_t k )
     { p.value() } -> std::convertible_to< typename P::scalar_type >;
 };
 
-/**
- * @brief Refinement of `TaylorPolynomial` for dense (flat-index) storage.
- *
- * Additionally requires `p[k]` — coefficient access by flat storage index.
- */
+/// Refinement of `TaylorPolynomial` for dense (flat-index) storage.
 template < typename P >
 concept DensePolynomial = TaylorPolynomial< P > && requires( const P& p, std::size_t k )
 {
     { p[k] } -> std::convertible_to< typename P::scalar_type >;
 };
 
-/**
- * @brief Refinement of `TaylorPolynomial` for sparse storage.
- *
- * Additionally requires:
- *   - `p.nnz()`     — number of stored nonzero monomials
- *   - `p.support()` — sorted flat-index view of the support
- *   - `p.values()`  — coefficient values aligned with `support()`
- */
+/// Refinement of `TaylorPolynomial` for sparse storage.
 template < typename P >
 concept SparsePolynomial = TaylorPolynomial< P > && requires( const P& p )
 {

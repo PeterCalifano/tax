@@ -5,10 +5,7 @@
 namespace tax
 {
 
-/**
- * @brief Enumerate all multi-indices of total degree exactly `degree` in `M`
- *        variables, calling `func(alpha)` for each in graded-lex order.
- */
+/// Call `func(alpha)` for every multi-index of total degree exactly `degree`, in graded-lex order.
 template < int M, typename Func >
 constexpr void forEachMonomialOfDegree( int degree, Func&& func )
 {
@@ -29,12 +26,7 @@ constexpr void forEachMonomialOfDegree( int degree, Func&& func )
     fill( fill, 0, degree );
 }
 
-/**
- * @brief Enumerate all multi-indices with total degree in `[0, N]` in `M`
- *        variables, calling `func(alpha)` for each in graded-lex order.
- * @tparam M Number of variables (first template parameter).
- * @tparam N Truncation order (second template parameter).
- */
+/// Call `func(alpha)` for every multi-index of total degree in `[0, N]`, in graded-lex order.
 template < int M, int N, typename Func >
 constexpr void forEachMonomial( Func&& func )
 {
@@ -44,11 +36,7 @@ constexpr void forEachMonomial( Func&& func )
     }
 }
 
-/**
- * @brief Enumerate all (k, alpha-k) sub-index pairs where k is componentwise
- *        `<= alpha`, calling `func(k, alpha-k)` for each pair.
- * @tparam M Number of variables.
- */
+/// Call `func(beta, alpha-beta)` for every beta componentwise `<= alpha`.
 template < int M, typename Func >
 constexpr void forEachSubIndex( const MultiIndex< M >& alpha, Func&& func )
 {
