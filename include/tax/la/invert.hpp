@@ -19,7 +19,7 @@
 namespace tax::la::detail
 {
 
-/// @brief Build the identity map as `Eigen::Matrix<TE, M, 1>` around the zero expansion point.
+/// Build the identity map as `Eigen::Matrix<TE, M, 1>` around the zero expansion point.
 template < typename TE >
 [[nodiscard]] auto identityMap()
 {
@@ -33,7 +33,7 @@ template < typename TE >
     return out;
 }
 
-/// @brief Compose a single scalar TE `f` with a map `g` (substitution: x_j -> g_j).
+/// Compose a single scalar TE `f` with a map `g` (substitution: x_j -> g_j).
 template < typename TE, typename Map >
 [[nodiscard]] TE composeOne( const TE& f, const Map& g )
 {
@@ -56,7 +56,7 @@ template < typename TE, typename Map >
     return out;
 }
 
-/// @brief Compose a vector map `a` with map `b` component-wise.
+/// Compose a vector map `a` with map `b` component-wise.
 template < typename TE, typename Map >
 [[nodiscard]] Map composeMap( const Map& a, const Map& b )
 {
@@ -65,7 +65,7 @@ template < typename TE, typename Map >
     return out;
 }
 
-/// @brief Build the linear map `J * vars` as a TE vector.
+/// Build the linear map `J * vars` as a TE vector.
 template < typename TE, typename Mat >
 [[nodiscard]] Eigen::Matrix< TE, Mat::RowsAtCompileTime, 1 > linear(
     const Mat& J, const Eigen::Matrix< TE, Mat::ColsAtCompileTime, 1 >& vars )
@@ -84,27 +84,8 @@ template < typename TE, typename Mat >
 namespace tax::la
 {
 
-/**
- * @brief Formally invert a square polynomial map represented as an Eigen vector of
- *        `TaylorExpansion` components.
- *
- * Both the input map and the returned inverse are treated as *origin-centered
- * perturbation maps*: the constant term of every input component is dropped, and
- * the result's constant term is likewise zero. Concretely, for a map written as
- * `y = y0 + map(dx)` (with `map(0) = 0`), this returns `g` such that
- * `g(map(dx)) = dx` to order N — i.e. it inverts the perturbation part only.
- *
- * It does NOT restore the expansion points: the caller is responsible for the
- * affine shift. To invert a flow map `F(x0 + dx) = y0 + ...` in the usual
- * displacement-to-displacement sense, evaluate the returned map at `(y - y0)` and
- * add `x0` yourself. The linear part must be invertible.  The formal inverse is
- * computed via Picard iterations up to order N.
- *
- * @param map_in  Eigen vector of M `TaylorExpansion` components.
- * @return        Inverse perturbation map, same Eigen shape as `map_in`
- *                (constant terms are zero).
- * @throws std::invalid_argument if the linear part is singular.
- */
+/// Formally invert a square polynomial map (perturbation part only; constant terms are
+/// dropped). Requires an invertible linear part; throws std::invalid_argument if singular.
 template < typename Derived >
     requires( detail::is_te_v< typename Derived::Scalar > )
 [[nodiscard]] auto invert( const Eigen::MatrixBase< Derived >& map_in )

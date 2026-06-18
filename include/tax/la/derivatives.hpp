@@ -1,12 +1,5 @@
-// include/tax/la/derivatives.hpp
-//
-// Differential operators on TaylorExpansion objects, exposed as
-// free functions that consume scalar TEs or Eigen matrices of TEs:
-//
-//   derivative<Alpha...>(F)  — element-wise mixed partial derivative.
-//   gradient(f)              — gradient vector (scalar TE).
-//   hessian(f)               — Hessian matrix (scalar TE).
-//   jacobian(F)              — Jacobian matrix (vector-valued TE).
+// Differential operators on TaylorExpansion (scalar TEs or Eigen matrices of TEs):
+// derivative<Alpha...>, gradient, hessian, jacobian.
 
 #pragma once
 
@@ -22,16 +15,7 @@ namespace tax::la
 // derivative — element-wise partial derivative extraction
 // -----------------------------------------------------------------------------
 
-/**
- * @brief Extract a compile-time partial derivative from each element of an Eigen
- *        matrix/vector of `TaylorExpansion` objects.
- *
- * Usage: `tax::la::derivative<1, 0>(F)` extracts `dF/dx_0` from a 2-variable TE matrix.
- *
- * @tparam Alpha  Derivative orders (one per variable, must sum to <= N).
- * @param  F      Eigen matrix/vector of `TaylorExpansion` objects.
- * @return        Eigen matrix/vector of the underlying scalar type.
- */
+/// Extract a compile-time partial derivative from each element of an Eigen matrix/vector of `TaylorExpansion` objects.
 template < int... Alpha, typename Derived >
     requires( detail::is_te_v< typename Derived::Scalar > )
 [[nodiscard]] auto derivative( const Eigen::MatrixBase< Derived >& F )
@@ -49,10 +33,7 @@ template < int... Alpha, typename Derived >
 // gradient — free-function wrapper around TaylorExpansion::gradient()
 // -----------------------------------------------------------------------------
 
-/**
- * @brief Compute the gradient of a scalar `TaylorExpansion` at its expansion point.
- * @return `Eigen::Matrix<T, M, 1>` of first-order partial derivatives.
- */
+/// Compute the gradient of a scalar `TaylorExpansion` at its expansion point.
 template < typename T, int N, int M, typename S >
 [[nodiscard]] Eigen::Matrix< T, M, 1 > gradient( const TaylorExpansion< T, N, M, S >& f ) noexcept
 {
@@ -63,10 +44,7 @@ template < typename T, int N, int M, typename S >
 // hessian — free-function wrapper around TaylorExpansion::hessian()
 // -----------------------------------------------------------------------------
 
-/**
- * @brief Compute the Hessian matrix of a scalar `TaylorExpansion` at its expansion point.
- * @return `Eigen::Matrix<T, M, M>` of second-order mixed partial derivatives.
- */
+/// Compute the Hessian matrix of a scalar `TaylorExpansion` at its expansion point.
 template < typename T, int N, int M, typename S >
 [[nodiscard]] Eigen::Matrix< T, M, M > hessian( const TaylorExpansion< T, N, M, S >& f ) noexcept
 {
@@ -77,12 +55,7 @@ template < typename T, int N, int M, typename S >
 // jacobian — Jacobian of a vector-valued TE function
 // -----------------------------------------------------------------------------
 
-/**
- * @brief Compute the Jacobian matrix of a vector-valued `TaylorExpansion` function.
- *
- * @param F  Eigen matrix/vector of `TaylorExpansion` objects with `K` components.
- * @return   Eigen matrix of shape `(K, M)` where `J(i, j) = dF_i / dx_j`.
- */
+/// Compute the Jacobian matrix of a vector-valued `TaylorExpansion` function.
 template < typename Derived >
     requires( detail::is_te_v< typename Derived::Scalar > )
 [[nodiscard]] auto jacobian( const Eigen::MatrixBase< Derived >& F )

@@ -1,16 +1,5 @@
-// include/tax/la/num_traits.hpp
-//
-// Two pieces that make `tax::TaylorExpansion` interoperate with
-// Eigen:
-//
-//   1. `Eigen::NumTraits` specialization — declares the TE as a
-//      first-class Eigen scalar so an Eigen::Matrix of TEs picks up
-//      ABI-correct cost estimates and dispatch.
-//
-//   2. Internal traits inside `tax::la::detail` used by every other
-//      la/ header to introspect TE template parameters
-//      (te_traits, is_te) and to rebind an Eigen matrix expression's
-//      scalar type (rebind_matrix_t).
+// Eigen::NumTraits<TaylorExpansion> (makes a TE a first-class Eigen scalar) and
+// the tax::la::detail traits used across la/ (te_traits, is_te, rebind_matrix_t).
 
 #pragma once
 
@@ -94,7 +83,7 @@ struct is_te< TaylorExpansion< T, N, M, S > > : std::true_type
 template < typename T >
 inline constexpr bool is_te_v = is_te< T >::value;
 
-/// @brief Rebind the scalar type of an Eigen matrix expression.
+/// Rebind the scalar type of an Eigen matrix expression.
 template < typename Derived, typename Scalar >
 using rebind_matrix_t =
     Eigen::Matrix< Scalar, Derived::RowsAtCompileTime, Derived::ColsAtCompileTime, Derived::Options,

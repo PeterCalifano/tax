@@ -68,19 +68,7 @@ namespace tax::named
 // variables — Eigen-vector overload of the single-axis coordinate factory
 // -----------------------------------------------------------------------------
 
-/**
- * @brief Build the coordinate variables of a single named axis `Name` from an
- *        Eigen vector expansion point.
- *
- * Mirrors the `std::array` overload in <tax/core/named.hpp> but takes (and
- * returns) Eigen types: given an Eigen vector of compile-time size `D`, yields
- * an `Eigen::Matrix< NamedTaylorExpansion<T, N, Axis<Name, D>>, D, 1 >` of the
- * `D` coordinate variables — convenient for building named ODE/la states.
- *
- * @tparam Name  Axis name.
- * @tparam N     Truncation order.
- * @param  x0    Eigen vector expansion point (compile-time size).
- */
+/// Build the coordinate variables of a single named axis `Name` from an Eigen vector expansion point.
 template < FixedString Name, int N, typename Derived >
 [[nodiscard]] auto variables( const Eigen::MatrixBase< Derived >& x0 )
 {
@@ -107,11 +95,11 @@ template < FixedString Name, int N, typename Derived >
 namespace detail
 {
 
-/// @brief Dimension of axis `Name` within an expansion type `E`, or -1.
+/// Dimension of axis `Name` within an expansion type `E`, or -1.
 template < typename E, FixedString Name >
 inline constexpr int axisDim = DimOfName< typename E::axis_list, Name >::value;
 
-/// @brief Variable offset of axis `Name` within an expansion type `E`, or -1.
+/// Variable offset of axis `Name` within an expansion type `E`, or -1.
 ///
 /// The dimension passed to `Axis` is clamped to >= 1 so that, when the axis is
 /// absent (axisDim == -1), this does not instantiate `Axis< Name, -1 >` and trip
@@ -125,13 +113,7 @@ inline constexpr int axisOffset =
 
 }  // namespace detail
 
-/**
- * @brief Gradient of a named scalar expansion with respect to one named axis.
- *
- * Returns an `Eigen::Matrix<T, dim, 1>` whose i-th entry is the first-order
- * partial derivative with respect to the i-th coordinate of axis `Name`,
- * evaluated at the expansion point.
- */
+/// Gradient of a named scalar expansion with respect to one named axis.
 template < FixedString Name, typename T, int N, typename... Axes >
 [[nodiscard]] auto gradient( const NamedTaylorExpansion< T, N, Axes... >& f ) noexcept
 {
@@ -151,12 +133,7 @@ template < FixedString Name, typename T, int N, typename... Axes >
     return g;
 }
 
-/**
- * @brief Hessian of a named scalar expansion restricted to one named axis.
- *
- * Returns an `Eigen::Matrix<T, dim, dim>` of second-order mixed partials
- * `d^2 f / (dx_i dx_j)` over the coordinates of axis `Name`.
- */
+/// Hessian of a named scalar expansion restricted to one named axis.
 template < FixedString Name, typename T, int N, typename... Axes >
 [[nodiscard]] auto hessian( const NamedTaylorExpansion< T, N, Axes... >& f ) noexcept
 {
@@ -179,13 +156,7 @@ template < FixedString Name, typename T, int N, typename... Axes >
     return H;
 }
 
-/**
- * @brief Jacobian of a vector of named expansions w.r.t. one named axis.
- *
- * @param F  Eigen column vector of `NamedTaylorExpansion<T, N, Axes...>` with `K` rows.
- * @return   `Eigen::Matrix<T, K, dim>` with `J(i, j) = dF_i / dx_j` over the
- *           coordinates of axis `Name`.
- */
+/// Jacobian of a vector of named expansions w.r.t. one named axis.
 template < FixedString Name, typename Derived >
 [[nodiscard]] auto jacobian( const Eigen::MatrixBase< Derived >& F )
 {
@@ -230,14 +201,14 @@ inline constexpr bool is_named_v = is_named< T >::value;
 
 }  // namespace detail
 
-/// @brief Constant term of a single named expansion.
+/// Constant term of a single named expansion.
 template < typename T, int N, typename... Axes >
 [[nodiscard]] T value( const NamedTaylorExpansion< T, N, Axes... >& f ) noexcept
 {
     return f.value();
 }
 
-/// @brief Constant terms of an Eigen matrix/vector of named expansions.
+/// Constant terms of an Eigen matrix/vector of named expansions.
 template < typename Derived >
     requires( detail::is_named_v< typename Derived::Scalar > )
 [[nodiscard]] auto value( const Eigen::MatrixBase< Derived >& F )
@@ -250,7 +221,7 @@ template < typename Derived >
     return out;
 }
 
-/// @brief Evaluate a single named expansion at a joint displacement `dx`.
+/// Evaluate a single named expansion at a joint displacement `dx`.
 template < typename T, int N, typename... Axes, typename DxDerived >
 [[nodiscard]] T eval( const NamedTaylorExpansion< T, N, Axes... >& f,
                       const Eigen::MatrixBase< DxDerived >& dx )
@@ -258,7 +229,7 @@ template < typename T, int N, typename... Axes, typename DxDerived >
     return f.inner().eval( dx );
 }
 
-/// @brief Evaluate each element of an Eigen matrix/vector of named expansions at
+/// Evaluate each element of an Eigen matrix/vector of named expansions at
 ///        a shared joint displacement `dx` (size == joint variable count).
 template < typename Derived, typename DxDerived >
     requires( detail::is_named_v< typename Derived::Scalar > )

@@ -12,20 +12,13 @@ namespace tax
 // ===========================================================================
 // Dense unary math wrappers
 //
-// Every dense wrapper has the identical shape — default-construct a result, run
-// the matching series kernel on the coefficient arrays, return it — so they are
-// generated from a single definition. This keeps the [[nodiscard]] / noexcept
-// qualifiers and the constexpr split uniform and prevents drift.
+// Generated from one macro: TAX_UNARY_OP_CE is constexpr (pure recurrence);
+// TAX_UNARY_OP is runtime-only (the kernel evaluates std::exp/sin/... at the
+// constant term).
 //
-//   TAX_UNARY_OP_CE : constexpr-usable (pure polynomial recurrence)
-//   TAX_UNARY_OP    : runtime-only (kernel evaluates std::exp/sin/... at the
-//                     constant term, which is not constexpr in C++23)
-//
-// Domain preconditions on the constant term x.value():
-//   sqrt        : x0 > 0           reciprocal : x0 != 0
-//   cbrt        : x0 != 0          log        : x0 > 0
-//   acosh       : x0 > 1           atanh/asin/acos : |x0| < 1
-// Violating a precondition yields inf/nan (the dense kernels do not throw).
+// Domain preconditions on x.value() (violations yield inf/nan; no throw):
+//   sqrt: x0 > 0   reciprocal/cbrt: x0 != 0   log: x0 > 0
+//   acosh: x0 > 1   atanh/asin/acos: |x0| < 1
 // ===========================================================================
 
 #define TAX_UNARY_OP_CE( NAME, KERNEL )                                           \
@@ -86,11 +79,7 @@ TAX_UNARY_OP( atan, seriesAtan )
 // Sparse overloads: sqrt, reciprocal
 // ===========================================================================
 
-/**
- * @brief Sparse `sqrt(f)` via support-set forward substitution.
- *
- * Constant term must be strictly positive.
- */
+/// Sparse `sqrt(f)` via support-set forward substitution.
 template < typename T, int N, int M >
 [[nodiscard]] TaylorExpansion< T, N, M, storage::Sparse > sqrt(
     const TaylorExpansion< T, N, M, storage::Sparse >& x )
@@ -100,11 +89,7 @@ template < typename T, int N, int M >
     return r;
 }
 
-/**
- * @brief Sparse `1/f` via support-set forward substitution.
- *
- * Constant term must be nonzero.
- */
+/// Sparse `1/f` via support-set forward substitution.
 template < typename T, int N, int M >
 [[nodiscard]] TaylorExpansion< T, N, M, storage::Sparse > reciprocal(
     const TaylorExpansion< T, N, M, storage::Sparse >& x )
