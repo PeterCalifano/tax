@@ -21,7 +21,8 @@ namespace tax::named
 // FixedString — a structural compile-time string usable as an NTTP
 // ---------------------------------------------------------------------------
 
-/// A null-terminated compile-time string suitable as a non-type template parameter (e.g. `Axis< "x", 3 >`).
+/// A null-terminated compile-time string suitable as a non-type template parameter (e.g. `Axis<
+/// "x", 3 >`).
 template < std::size_t K >
 struct FixedString
 {
@@ -67,7 +68,8 @@ inline constexpr int fixedCompare = compareFixed( A, B );
 // Axis — a named block of `Dim` consecutive variables
 // ---------------------------------------------------------------------------
 
-/// A named axis: the compile-time string `Name` labels a block of `Dim` consecutive variables of the underlying expansion.
+/// A named axis: the compile-time string `Name` labels a block of `Dim` consecutive variables of
+/// the underlying expansion.
 template < FixedString Name, int Dim >
 struct Axis
 {
@@ -370,7 +372,8 @@ class NamedTaylorExpansion
     // Embedding and slicing
     // ------------------------------------------------------------------
 
-    /// Embed into the target named type `R`, whose axes must be a superset of this expansion's axes.
+    /// Embed into the target named type `R`, whose axes must be a superset of this expansion's
+    /// axes.
     template < typename R >
     [[nodiscard]] constexpr R embed() const noexcept
     {
@@ -461,6 +464,24 @@ class NamedTaylorExpansion
     [[nodiscard]] constexpr NamedTaylorExpansion integ() const noexcept
     {
         return NamedTaylorExpansion{ inner_.template integ< axisVar< Name, Local >() >() };
+    }
+
+    // ------------------------------------------------------------------
+    // Truncation (axis set preserved)
+    // ------------------------------------------------------------------
+
+    /// Order-reducing truncation: drop monomials of degree > N2, yielding a lower-order expansion.
+    template < int N2 >
+    [[nodiscard]] constexpr NamedTaylorExpansion< T, N2, Axes... > truncate() const noexcept
+        requires( N2 >= 0 && N2 <= N )
+    {
+        return NamedTaylorExpansion< T, N2, Axes... >{ inner_.template truncate< N2 >() };
+    }
+
+    /// Same-order truncation: zero every coefficient of total degree > d (d>=N copies, d<0 zeroes).
+    [[nodiscard]] constexpr NamedTaylorExpansion truncate( int d ) const noexcept
+    {
+        return NamedTaylorExpansion{ inner_.truncate( d ) };
     }
 
    private:

@@ -266,7 +266,8 @@ class TaylorExpansion< T, N, M, storage::Dense >
         return TaylorExpansion{ out };
     }
 
-    /// Partial derivative polynomial with respect to variable `var`. Throws std::out_of_range if `var` is outside [0, M).
+    /// Partial derivative polynomial with respect to variable `var`. Throws std::out_of_range if
+    /// `var` is outside [0, M).
     [[nodiscard]] TaylorExpansion deriv( int var ) const
     {
         if ( var < 0 || var >= M )
@@ -302,7 +303,8 @@ class TaylorExpansion< T, N, M, storage::Dense >
         return TaylorExpansion{ out };
     }
 
-    /// Indefinite integral polynomial with respect to variable `var`. Throws std::out_of_range if `var` is outside [0, M).
+    /// Indefinite integral polynomial with respect to variable `var`. Throws std::out_of_range if
+    /// `var` is outside [0, M).
     [[nodiscard]] TaylorExpansion integ( int var ) const
     {
         if ( var < 0 || var >= M )
@@ -317,6 +319,31 @@ class TaylorExpansion< T, N, M, storage::Dense >
             alpha[std::size_t( var )] = exp + 1;
             out[flatIndex< M >( alpha )] = c_[i] / T( exp + 1 );
         }
+        return TaylorExpansion{ out };
+    }
+
+    // ------------------------------------------------------------------
+    // Truncation
+    // ------------------------------------------------------------------
+
+    /// Order-reducing truncation: drop monomials of degree > N2, yielding a lower-order expansion.
+    template < int N2 >
+    [[nodiscard]] constexpr TaylorExpansion< T, N2, M, storage::Dense > truncate() const noexcept
+        requires( N2 >= 0 && N2 <= N )
+    {
+        typename TaylorExpansion< T, N2, M, storage::Dense >::Data out{};
+        // Graded-lex: degree-<=N2 monomials are a shared prefix of the order-N layout.
+        for ( std::size_t k = 0; k < numMonomials( N2, M ); ++k ) out[k] = c_[k];
+        return TaylorExpansion< T, N2, M, storage::Dense >{ out };
+    }
+
+    /// Same-order truncation: zero every coefficient of total degree > d (d>=N copies, d<0 zeroes).
+    [[nodiscard]] constexpr TaylorExpansion truncate( int d ) const noexcept
+    {
+        if ( d >= N ) return *this;
+        Data out{};
+        if ( d >= 0 )
+            for ( std::size_t k = 0; k < numMonomials( d, M ); ++k ) out[k] = c_[k];
         return TaylorExpansion{ out };
     }
 
@@ -554,6 +581,26 @@ class TaylorExpansion< T, N, M, storage::Sparse >
     }
 
     // ------------------------------------------------------------------
+    // Truncation
+    // ------------------------------------------------------------------
+
+    /// Order-reducing truncation: drop monomials of degree > N2, yielding a lower-order expansion.
+    template < int N2 >
+    [[nodiscard]] TaylorExpansion< T, N2, M, storage::Sparse > truncate() const noexcept
+        requires( N2 >= 0 && N2 <= N )
+    {
+        return truncatedBelow< TaylorExpansion< T, N2, M, storage::Sparse > >(
+            numMonomials( N2, M ) );
+    }
+
+    /// Same-order truncation: zero every coefficient of total degree > d (d>=N copies, d<0 zeroes).
+    [[nodiscard]] TaylorExpansion truncate( int d ) const noexcept
+    {
+        if ( d >= N ) return *this;
+        return truncatedBelow< TaylorExpansion >( d >= 0 ? numMonomials( d, M ) : 0 );
+    }
+
+    // ------------------------------------------------------------------
     // Container access
     // ------------------------------------------------------------------
 
@@ -561,6 +608,25 @@ class TaylorExpansion< T, N, M, storage::Sparse >
     [[nodiscard]] container_t& container() noexcept { return c_; }
 
    private:
+    /// Copy the sorted prefix of stored slots with flat index < `limit` into a fresh result.
+    template < typename Result >
+    [[nodiscard]] Result truncatedBelow( std::size_t limit ) const noexcept
+    {
+        Result r;
+        const auto cap = storage::flat_index_t( limit );
+        auto& oi = r.container().rawIndices();
+        auto& ov = r.container().rawValues();
+        const auto sup = support();
+        const auto vals = values();
+        for ( std::size_t i = 0; i < sup.size(); ++i )
+        {
+            if ( sup[i] >= cap ) break;  // support is sorted ascending
+            oi.push_back( sup[i] );
+            ov.push_back( vals[i] );
+        }
+        return r;
+    }
+
     container_t c_;
 };
 
