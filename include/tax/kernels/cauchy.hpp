@@ -26,18 +26,7 @@
 namespace tax::detail::kernels
 {
 
-/**
- * @brief Loop-based Cauchy (convolution) product over graded-lex monomials.
- *
- * Computes:
- *   out[alpha] = sum_{k <= alpha (componentwise)} a[k] * b[alpha - k]
- *
- * for every multi-index alpha with |alpha| <= N.
- *
- * @tparam T  Scalar type.
- * @tparam N  Truncation order.
- * @tparam M  Number of variables.
- */
+/// Loop-based Cauchy (convolution) product over graded-lex monomials.
 template < typename T, int N, int M >
 constexpr void cauchyProductLoop( Coeffs< T, N, M >& out,
                                   const Coeffs< T, N, M >& a,
@@ -53,18 +42,7 @@ constexpr void cauchyProductLoop( Coeffs< T, N, M >& out,
     } );
 }
 
-/**
- * @brief Public dispatch entry for the Cauchy product.
- *
- * Routes to the appropriate fast-path variant when enabled:
- *   - TAX_USE_UNROLL=1: uses the fully-unrolled template for M=1
- *   - TAX_USE_STENCIL=1: uses the precomputed stencil table for M>=2
- * Falls through to the loop variant when neither flag is set.
- *
- * @tparam T  Scalar type.
- * @tparam N  Truncation order.
- * @tparam M  Number of variables.
- */
+/// Public dispatch entry for the Cauchy product.
 template < typename T, int N, int M >
 constexpr void cauchyProduct( Coeffs< T, N, M >& out,
                                const Coeffs< T, N, M >& a,

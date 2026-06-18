@@ -8,16 +8,7 @@
 namespace tax::detail::kernels
 {
 
-/**
- * @brief Natural exponential series `out = exp(a)`.
- *
- * Degree-by-degree recurrence derived from differentiating `out = exp(a)`:
- *   d * out[d] = sum_{k=0}^{d-1} (d-k) * a[d-k] * out[k]
- *
- * @tparam T  Scalar type.
- * @tparam N  Truncation order.
- * @tparam M  Number of variables.
- */
+/// Natural exponential series `out = exp(a)`.
 template < typename T, int N, int M >
 void seriesExp( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
 {
@@ -45,17 +36,7 @@ void seriesExp( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
     }
 }
 
-/**
- * @brief Natural logarithm series `out = log(a)`.
- *
- * Requires `a[0] > 0`. Degree-by-degree recurrence derived from
- * differentiating `a = exp(out)`:
- *   out[d] = (1 / a[0]) * (a[d] - (1/d) * sum_{k=1}^{d-1} k * a[d-k] * out[k])
- *
- * @tparam T  Scalar type.
- * @tparam N  Truncation order.
- * @tparam M  Number of variables.
- */
+/// Natural logarithm series `out = log(a)`. Requires `a[0] > 0`.
 template < typename T, int N, int M >
 void seriesLog( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
 {
@@ -86,15 +67,7 @@ void seriesLog( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
     }
 }
 
-/**
- * @brief Hyperbolic sine series `out = sinh(a)`.
- *
- * Computed via the identity `sinh(a) = (exp(a) - exp(-a)) / 2`.
- *
- * @tparam T  Scalar type.
- * @tparam N  Truncation order.
- * @tparam M  Number of variables.
- */
+/// Hyperbolic sine series `out = sinh(a)`.
 template < typename T, int N, int M >
 void seriesSinh( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
 {
@@ -113,15 +86,7 @@ void seriesSinh( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
     for ( std::size_t i = 1; i < S; ++i ) out[i] = ( ep[i] - em[i] ) * T{ 0.5 };
 }
 
-/**
- * @brief Hyperbolic cosine series `out = cosh(a)`.
- *
- * Computed via the identity `cosh(a) = (exp(a) + exp(-a)) / 2`.
- *
- * @tparam T  Scalar type.
- * @tparam N  Truncation order.
- * @tparam M  Number of variables.
- */
+/// Hyperbolic cosine series `out = cosh(a)`.
 template < typename T, int N, int M >
 void seriesCosh( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
 {
@@ -140,16 +105,7 @@ void seriesCosh( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
     for ( std::size_t i = 1; i < S; ++i ) out[i] = ( ep[i] + em[i] ) * T{ 0.5 };
 }
 
-/**
- * @brief Hyperbolic tangent series `out = tanh(a)`.
- *
- * Degree-by-degree recurrence derived from the identity `cosh(a) * tanh(a) = sinh(a)`:
- *   cosh[0] * out[d] = sinh[d] - sum_{k=1}^{d} cosh[k] * out[d-k]
- *
- * @tparam T  Scalar type.
- * @tparam N  Truncation order.
- * @tparam M  Number of variables.
- */
+/// Hyperbolic tangent series `out = tanh(a)`.
 template < typename T, int N, int M >
 void seriesTanh( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
 {
@@ -202,16 +158,7 @@ void seriesTanh( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
     }
 }
 
-/**
- * @brief Inverse hyperbolic sine series `out = asinh(a)`.
- *
- * Recurrence derived from `sqrt(1+a^2) * out' = a'`:
- *   h = sqrt(1+a^2),  h[0]*d*out[d] = d*a[d] - sum_{k=1}^{d-1} k*h[d-k]*out[k]
- *
- * @tparam T  Scalar type.
- * @tparam N  Truncation order.
- * @tparam M  Number of variables.
- */
+/// Inverse hyperbolic sine series `out = asinh(a)`.
 template < typename T, int N, int M >
 void seriesAsinh( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
 {
@@ -252,16 +199,7 @@ void seriesAsinh( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
     }
 }
 
-/**
- * @brief Inverse hyperbolic cosine series `out = acosh(a)`.
- *
- * Recurrence derived from `sqrt(a^2-1) * out' = a'`. Requires `a[0] > 1`.
- *   h = sqrt(a^2-1),  h[0]*d*out[d] = d*a[d] - sum_{k=1}^{d-1} k*h[d-k]*out[k]
- *
- * @tparam T  Scalar type.
- * @tparam N  Truncation order.
- * @tparam M  Number of variables.
- */
+/// Inverse hyperbolic cosine series `out = acosh(a)`. Requires `a[0] > 1`.
 template < typename T, int N, int M >
 void seriesAcosh( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
 {
@@ -301,16 +239,7 @@ void seriesAcosh( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
     }
 }
 
-/**
- * @brief Inverse hyperbolic tangent series `out = atanh(a)`.
- *
- * Recurrence derived from `(1-a^2) * out' = a'`. Requires `|a[0]| < 1`.
- *   h = 1 - a^2,  h[0]*d*out[d] = d*a[d] - sum_{k=1}^{d-1} k*h[d-k]*out[k]
- *
- * @tparam T  Scalar type.
- * @tparam N  Truncation order.
- * @tparam M  Number of variables.
- */
+/// Inverse hyperbolic tangent series `out = atanh(a)`. Requires `|a[0]| < 1`.
 template < typename T, int N, int M >
 void seriesAtanh( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
 {
@@ -349,17 +278,7 @@ void seriesAtanh( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
     }
 }
 
-/**
- * @brief Error function series `out = erf(a)`.
- *
- * Recurrence derived from `erf' = (2/sqrt(pi)) * exp(-a^2) * a'`:
- *   Let h = (2/sqrt(pi)) * exp(-a^2), then
- *   d * out[d] = sum_{k=0}^{d-1} (d-k) * a[d-k] * h[k]
- *
- * @tparam T  Scalar type.
- * @tparam N  Truncation order.
- * @tparam M  Number of variables.
- */
+/// Error function series `out = erf(a)`.
 template < typename T, int N, int M >
 void seriesErf( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
 {

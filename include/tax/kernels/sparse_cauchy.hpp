@@ -12,14 +12,7 @@
 namespace tax::detail::kernels
 {
 
-/**
- * @brief Scratch state shared by the sparse Cauchy kernels.
- *
- * One dense accumulator per (T, N, M) instantiation, reused across calls
- * (thread_local) so the kernels do not heap-allocate per multiplication.
- * Invariant: outside a kernel call every accumulator slot is T{0}; the
- * emit pass restores the slots it touched.
- */
+/// Scratch state shared by the sparse Cauchy kernels (thread_local; reused across calls, so no per-call heap allocation).
 template < typename T, int N, int M >
 struct SparseCauchyScratch
 {
@@ -78,19 +71,7 @@ struct SparseCauchyScratch
     }
 };
 
-/**
- * @brief Truncated sparse Cauchy product `out += f * g`, accumulating into `out`.
- *
- * Iterates only the nonzero entries of `f` and `g`. Each operand's support is
- * decoded to multi-indices once (O(nnz) unflatten instead of O(nnz_f * nnz_g)).
- * Supports are sorted in graded-lex order, so total degree is non-decreasing
- * along each support: the inner loop terminates (rather than skips) at the
- * first pair whose degree sum exceeds N.
- *
- * @tparam T  Scalar type.
- * @tparam N  Truncation order.
- * @tparam M  Number of variables.
- */
+/// Truncated sparse Cauchy product `out += f * g`, accumulating into `out`.
 // Not noexcept: decode/emit append to vectors, which may allocate (matches the
 // throwing sparse kernels in sparse_subs.hpp).
 template < typename T, int N, int M >
@@ -129,12 +110,7 @@ void sparseCauchyProduct( storage::SparseContainer< T, N, M >& out,
     scratch.emit( out );
 }
 
-/**
- * @brief Truncated sparse self-product `out = f * f`, exploiting pair symmetry.
- *
- * Enumerates each unordered pair {a, b} once and doubles off-diagonal
- * contributions, mirroring the dense `cauchySelfProduct` pattern.
- */
+/// Truncated sparse self-product `out = f * f`, exploiting pair symmetry.
 // Not noexcept: decode/emit append to vectors, which may allocate.
 template < typename T, int N, int M >
 void sparseCauchySelfProduct( storage::SparseContainer< T, N, M >& out,

@@ -13,15 +13,7 @@
 namespace tax::detail::kernels
 {
 
-/**
- * @brief Additive closure of seed multi-indices under multi-index addition,
- *        truncated to total degree `N`. Always includes flat index `0`.
- *
- * Enumerates every flat index reachable as a non-negative integer combination
- * of `seeds`, with total degree <= N. For a 2-sparse operand `c + α·x_var`
- * the closure is `{0, x_var, 2·x_var, ..., N·x_var}` — N+1 entries
- * regardless of ambient `M`.
- */
+/// Additive closure of seed multi-indices under multi-index addition, truncated to total degree `N`. Always includes flat index `0`.
 template < int N, int M >
 [[nodiscard]] inline std::vector< storage::flat_index_t >
 additiveClosure( const std::vector< storage::flat_index_t >& seeds )
@@ -66,17 +58,7 @@ additiveClosure( const std::vector< storage::flat_index_t >& seeds )
     return result;
 }
 
-/**
- * @brief Sparse reciprocal `out = 1 / f` via forward substitution.
- *
- * Iterates only the support set (additive closure of f's perturbation indices).
- * Per-monomial inner loop walks f's nonzero indices directly.
- * Total work: O(|support| * nnz_f).
- *
- * @param out  Output container (must be empty on entry; filled in sorted order).
- * @param f    Input sparse container; must have nonzero constant term at flat index 0.
- * @throws std::domain_error if the constant term is zero.
- */
+/// Sparse reciprocal `out = 1 / f` via forward substitution. Throws std::domain_error if the constant term is zero.
 template < typename T, int N, int M >
 void seriesReciprocalSparse( storage::SparseContainer< T, N, M >&       out,
                               const storage::SparseContainer< T, N, M >& f )
@@ -144,18 +126,7 @@ void seriesReciprocalSparse( storage::SparseContainer< T, N, M >&       out,
     }
 }
 
-/**
- * @brief Sparse square root `out = sqrt(f)` via forward substitution.
- *
- * Same support-set trick as `seriesReciprocalSparse`. The output is nonzero
- * exactly on the additive closure of f's perturbation indices. Inner
- * convolution `out[β] * out[α-β]` walks support[1..k-1].
- * Total work: O(|support|^2) instead of O(numMonomials^2).
- *
- * @param out  Output container (must be empty on entry).
- * @param f    Input; constant term must be strictly positive.
- * @throws std::domain_error if constant term is <= 0.
- */
+/// Sparse square root `out = sqrt(f)` via forward substitution. Throws std::domain_error if the constant term is <= 0.
 template < typename T, int N, int M >
 void seriesSqrtSparse( storage::SparseContainer< T, N, M >&       out,
                        const storage::SparseContainer< T, N, M >& f )
@@ -228,12 +199,7 @@ void seriesSqrtSparse( storage::SparseContainer< T, N, M >&       out,
     }
 }
 
-/**
- * @brief Sparse integer power `out = f^n` via binary exponentiation.
- *
- * Uses `sparseCauchySelfProduct` for squaring and `sparseCauchyProduct` for
- * multiply. Negative exponents throw `std::invalid_argument`. n==0 returns 1.
- */
+/// Sparse integer power `out = f^n` via binary exponentiation. Negative exponents throw std::invalid_argument.
 template < typename T, int N, int M >
 void seriesPowIntSparse( storage::SparseContainer< T, N, M >&       out,
                          const storage::SparseContainer< T, N, M >& f,

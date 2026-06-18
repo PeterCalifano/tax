@@ -9,15 +9,7 @@
 namespace tax::detail::kernels
 {
 
-/**
- * @brief A single entry in the Cauchy stencil table.
- *
- * Encodes: out[out_idx] += a[a_idx] * b[b_idx]
- *
- * 32-bit indices keep the entry at 12 bytes (vs 24 with std::size_t),
- * halving the memory traffic of the table walk; 32 bits comfortably cover
- * any practically instantiable numMonomials(N, M).
- */
+/// A single entry in the Cauchy stencil table.
 struct StencilEntry
 {
     std::uint32_t out_idx;
@@ -25,20 +17,7 @@ struct StencilEntry
     std::uint32_t b_idx;
 };
 
-/**
- * @brief Table of all (out, a, b) Cauchy product contributions for a given
- *        (N, M) expansion, for M >= 2.
- *
- * The table contains every triple (i, j, k) such that alpha_j + alpha_k = alpha_i,
- * for all multi-indices alpha_i with |alpha_i| <= N.
- *
- * The entry count is exact: contributions are the ordered pairs (beta, gamma)
- * with |beta| + |gamma| <= N, which biject with monomials of total degree <= N
- * in 2M variables, i.e. numMonomials(N, 2M) entries.
- *
- * @tparam N  Truncation order.
- * @tparam M  Number of variables.
- */
+/// Table of all (out, a, b) Cauchy product contributions for a given (N, M) expansion, for M >= 2.
 template < int N, int M >
 struct CauchyStencil
 {
@@ -70,19 +49,7 @@ struct CauchyStencil
     }
 };
 
-/**
- * @brief Precomputed-stencil Cauchy product for M >= 2.
- *
- * Iterates the stencil table (built once, at first use) and accumulates
- * contributions, avoiding redundant multi-index arithmetic at runtime.
- *
- * Not usable in constant evaluation (the table is a runtime-initialised
- * static); `cauchyProduct` routes constant evaluation to the loop kernel.
- *
- * @tparam T  Scalar type.
- * @tparam N  Truncation order.
- * @tparam M  Number of variables (must be >= 2).
- */
+/// Precomputed-stencil Cauchy product for M >= 2. Not usable in constant evaluation (runtime-static table).
 template < typename T, int N, int M >
 void cauchyProductStencil( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a,
                            const Coeffs< T, N, M >& b ) noexcept

@@ -7,18 +7,7 @@
 namespace tax::detail::kernels
 {
 
-/**
- * @brief Coupled trigonometric series: jointly compute `sin(a)` and `cos(a)`.
- *
- * Degree-by-degree recurrence derived from differentiating `sin(a)' = cos(a)*a'`
- * and `cos(a)' = -sin(a)*a'`:
- *   d * s[d] = sum_{k=0}^{d-1} (d-k) * a[d-k] * c[k]
- *   d * c[d] = -sum_{k=0}^{d-1} (d-k) * a[d-k] * s[k]
- *
- * @tparam T  Scalar type.
- * @tparam N  Truncation order.
- * @tparam M  Number of variables.
- */
+/// Coupled trigonometric series: jointly compute `sin(a)` and `cos(a)`.
 template < typename T, int N, int M >
 void seriesSinCos( Coeffs< T, N, M >& s, Coeffs< T, N, M >& c, const Coeffs< T, N, M >& a ) noexcept
 {
@@ -63,15 +52,7 @@ void seriesSinCos( Coeffs< T, N, M >& s, Coeffs< T, N, M >& c, const Coeffs< T, 
     }
 }
 
-/**
- * @brief Sine series `out = sin(a)`.
- *
- * Thin wrapper around `seriesSinCos`.
- *
- * @tparam T  Scalar type.
- * @tparam N  Truncation order.
- * @tparam M  Number of variables.
- */
+/// Sine series `out = sin(a)`.
 template < typename T, int N, int M >
 void seriesSin( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
 {
@@ -79,15 +60,7 @@ void seriesSin( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
     seriesSinCos< T, N, M >( out, c, a );
 }
 
-/**
- * @brief Cosine series `out = cos(a)`.
- *
- * Thin wrapper around `seriesSinCos`.
- *
- * @tparam T  Scalar type.
- * @tparam N  Truncation order.
- * @tparam M  Number of variables.
- */
+/// Cosine series `out = cos(a)`.
 template < typename T, int N, int M >
 void seriesCos( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
 {
@@ -95,16 +68,7 @@ void seriesCos( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
     seriesSinCos< T, N, M >( s, out, a );
 }
 
-/**
- * @brief Tangent series `out = tan(a)`.
- *
- * Solves `cos(a) * out = sin(a)` degree-by-degree:
- *   cos[0] * out[d] = sin[d] - sum_{k=1}^{d} cos[k] * out[d-k]
- *
- * @tparam T  Scalar type.
- * @tparam N  Truncation order.
- * @tparam M  Number of variables.
- */
+/// Tangent series `out = tan(a)`.
 template < typename T, int N, int M >
 void seriesTan( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
 {
@@ -135,16 +99,7 @@ void seriesTan( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
     }
 }
 
-/**
- * @brief Inverse sine series `out = asin(a)`.
- *
- * Recurrence derived from `sqrt(1-a^2) * out' = a'`:
- *   h = sqrt(1-a^2),  h[0]*d*out[d] = d*a[d] - sum_{k=1}^{d-1} k*h[d-k]*out[k]
- *
- * @tparam T  Scalar type.
- * @tparam N  Truncation order.
- * @tparam M  Number of variables.
- */
+/// Inverse sine series `out = asin(a)`.
 template < typename T, int N, int M >
 void seriesAsin( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
 {
@@ -185,16 +140,7 @@ void seriesAsin( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
     }
 }
 
-/**
- * @brief Inverse cosine series `out = acos(a)`.
- *
- * Recurrence derived from `sqrt(1-a^2) * out' = -a'`:
- *   h = sqrt(1-a^2),  h[0]*d*out[d] = -d*a[d] - sum_{k=1}^{d-1} k*h[d-k]*out[k]
- *
- * @tparam T  Scalar type.
- * @tparam N  Truncation order.
- * @tparam M  Number of variables.
- */
+/// Inverse cosine series `out = acos(a)`.
 template < typename T, int N, int M >
 void seriesAcos( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
 {
@@ -235,16 +181,7 @@ void seriesAcos( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
     }
 }
 
-/**
- * @brief Inverse tangent series `out = atan(a)`.
- *
- * Recurrence derived from `(1+a^2) * out' = a'`:
- *   h = 1 + a^2,  h[0]*d*out[d] = d*a[d] - sum_{k=1}^{d-1} k*h[d-k]*out[k]
- *
- * @tparam T  Scalar type.
- * @tparam N  Truncation order.
- * @tparam M  Number of variables.
- */
+/// Inverse tangent series `out = atan(a)`.
 template < typename T, int N, int M >
 void seriesAtan( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
 {
@@ -283,17 +220,7 @@ void seriesAtan( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
     }
 }
 
-/**
- * @brief Two-argument arctangent series `out = atan2(y, x)`.
- *
- * For Taylor series, computed as `atan(y/x)` with seed `atan2(y[0], x[0])`:
- *   Let r = y/x, then use the atan recurrence on r but with seed `atan2(y[0], x[0])`.
- *   This resolves the correct quadrant via the constant term.
- *
- * @tparam T  Scalar type.
- * @tparam N  Truncation order.
- * @tparam M  Number of variables.
- */
+/// Two-argument arctangent series `out = atan2(y, x)`.
 template < typename T, int N, int M >
 void seriesAtan2( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& y,
                   const Coeffs< T, N, M >& x ) noexcept

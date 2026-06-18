@@ -12,13 +12,7 @@
 namespace tax::detail::kernels
 {
 
-/**
- * @brief A single decomposition entry of the recurrence stencil.
- *
- * For an output monomial alpha, encodes one ordered pair (beta, gamma)
- * with beta + gamma = alpha and |beta| >= 1:
- *   b_idx = flatIndex(beta), g_idx = flatIndex(gamma), db = |beta|.
- */
+/// A single decomposition entry of the recurrence stencil.
 struct RecurrenceEntry
 {
     std::uint32_t b_idx;
@@ -26,25 +20,7 @@ struct RecurrenceEntry
     std::uint32_t db;
 };
 
-/**
- * @brief Decomposition table driving the degree-by-degree recurrence
- *        kernels for M >= 2.
- *
- * For every output monomial alpha with |alpha| >= 1 (grouped per alpha,
- * alphas in graded-lex flat-index order) the table stores all ordered
- * pairs (beta, gamma) with beta + gamma = alpha and |beta| >= 1. Every
- * multivariate series recurrence (exp, log, sin/cos, tan, pow,
- * reciprocal, sqrt, ...) is a weighted sum over exactly these pairs, so
- * one table per (N, M) replaces the per-term multi-index arithmetic
- * (flatIndex of beta and gamma, |beta| summation) in all of them.
- *
- * Entry count: pairs with |beta| + |gamma| <= N biject with monomials in
- * 2M variables; removing the |beta| = 0 pairs (one per gamma) leaves
- * numMonomials(N, 2M) - numMonomials(N, M).
- *
- * @tparam N  Truncation order.
- * @tparam M  Number of variables (must be >= 2).
- */
+/// Decomposition table driving the degree-by-degree recurrence kernels for M >= 2.
 template < int N, int M >
 struct RecurrenceStencil
 {
@@ -95,20 +71,7 @@ template < int N, int M >
     return s;
 }
 
-/**
- * @brief Walk all recurrence rows in graded-lex order, for M >= 2.
- *
- * Calls `fn(ai, d, row)` for every output flat index ai with degree
- * d = |alpha| >= 1, where `row` is a std::span<const RecurrenceEntry>
- * of the (beta, gamma) decompositions of alpha with |beta| >= 1. Rows
- * arrive in ascending flat-index (graded) order, so a kernel writing
- * out[ai] from out[g_idx] entries sees every lower-degree value
- * already computed.
- *
- * Uses the precomputed table at runtime (TAX_USE_STENCIL); constant
- * evaluation — and TAX_USE_STENCIL=0 builds — enumerate the same rows
- * on the fly in the same order, so every path follows the same recurrence.
- */
+/// Walk all recurrence rows (M >= 2) in graded-lex order, so each output sees its lower-degree dependencies already computed. Loop and stencil paths enumerate the same rows.
 template < int N, int M, class RowFn >
 constexpr void forEachRecurrenceRow( RowFn&& fn ) noexcept
 {
