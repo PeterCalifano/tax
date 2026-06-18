@@ -111,11 +111,7 @@ template < typename T, int N, int M >
     return a * ( T( 1 ) / s );
 }
 
-/// @brief Scalar / expansion: `s / a = s * (1 / a)`.
-///
-/// Computes the series reciprocal and scales it, which is cheaper than promoting
-/// `s` to a constant expansion and running a full Cauchy product. Mirrors the
-/// other mixed-scalar operators (which all provide both operand orderings).
+/// Scalar / expansion: `s / a = s * (1 / a)`.
 template < typename T, int N, int M >
 [[nodiscard]] constexpr TaylorExpansion< T, N, M > operator/(
     std::type_identity_t< T > s, const TaylorExpansion< T, N, M >& a ) noexcept
@@ -155,9 +151,6 @@ template < typename T, int N, int M >
 
 // ---------------------------------------------------------------------------
 // Compound assignment (dense)
-//
-// In-place updates avoid the temporary + copy-assign of `a = a + b`; they are
-// the building blocks of hot loops such as axpy-style updates.
 // ---------------------------------------------------------------------------
 
 template < typename T, int N, int M >
@@ -207,9 +200,7 @@ constexpr TaylorExpansion< T, N, M >& operator/=( TaylorExpansion< T, N, M >& a,
     return a *= ( T( 1 ) / s );
 }
 
-/// @brief In-place Cauchy product. A scratch buffer is unavoidable (the
-///        convolution reads earlier coefficients of `a`), but the temporary
-///        TaylorExpansion of `a = a * b` is not.
+/// In-place Cauchy product.
 template < typename T, int N, int M >
 constexpr TaylorExpansion< T, N, M >& operator*=( TaylorExpansion< T, N, M >& a,
                                                   const TaylorExpansion< T, N, M >& b ) noexcept
@@ -238,9 +229,7 @@ constexpr TaylorExpansion< T, N, M >& operator/=( TaylorExpansion< T, N, M >& a,
 
 using Sparse = storage::Sparse;
 
-/// @brief Sparse + Sparse: two-pointer merge over sorted flat indices.
-/// `forEachPair` visits indices in ascending order, so results are appended
-/// directly (O(nnz)) instead of inserted via per-element binary search.
+/// Sparse + Sparse: two-pointer merge over sorted flat indices.
 template < typename T, int N, int M >
 [[nodiscard]] TaylorExpansion< T, N, M, Sparse > operator+(
     const TaylorExpansion< T, N, M, Sparse >& a,
@@ -260,7 +249,7 @@ template < typename T, int N, int M >
     return r;
 }
 
-/// @brief Sparse - Sparse: two-pointer merge over sorted flat indices.
+/// Sparse - Sparse: two-pointer merge over sorted flat indices.
 template < typename T, int N, int M >
 [[nodiscard]] TaylorExpansion< T, N, M, Sparse > operator-(
     const TaylorExpansion< T, N, M, Sparse >& a,
@@ -280,7 +269,7 @@ template < typename T, int N, int M >
     return r;
 }
 
-/// @brief Unary negation (support is unchanged; values are negated).
+/// Unary negation (support unchanged; values negated).
 template < typename T, int N, int M >
 [[nodiscard]] TaylorExpansion< T, N, M, Sparse > operator-(
     const TaylorExpansion< T, N, M, Sparse >& a ) noexcept
@@ -295,7 +284,7 @@ template < typename T, int N, int M >
     return r;
 }
 
-/// @brief Sparse * scalar (support is unchanged for s != 0).
+/// Sparse * scalar (support unchanged for s != 0).
 template < typename T, int N, int M >
 [[nodiscard]] TaylorExpansion< T, N, M, Sparse > operator*(
     const TaylorExpansion< T, N, M, Sparse >& a, std::type_identity_t< T > s ) noexcept
@@ -311,7 +300,7 @@ template < typename T, int N, int M >
     return r;
 }
 
-/// @brief Scalar * Sparse.
+/// Scalar * Sparse.
 template < typename T, int N, int M >
 [[nodiscard]] TaylorExpansion< T, N, M, Sparse > operator*(
     std::type_identity_t< T > s, const TaylorExpansion< T, N, M, Sparse >& a ) noexcept
@@ -319,7 +308,7 @@ template < typename T, int N, int M >
     return a * s;
 }
 
-/// @brief Sparse / scalar.
+/// Sparse / scalar.
 template < typename T, int N, int M >
 [[nodiscard]] TaylorExpansion< T, N, M, Sparse > operator/(
     const TaylorExpansion< T, N, M, Sparse >& a, std::type_identity_t< T > s ) noexcept
@@ -327,7 +316,7 @@ template < typename T, int N, int M >
     return a * ( T{ 1 } / s );
 }
 
-/// @brief Sparse + scalar: add to constant term.
+/// Sparse + scalar: add to constant term.
 template < typename T, int N, int M >
 [[nodiscard]] TaylorExpansion< T, N, M, Sparse > operator+(
     const TaylorExpansion< T, N, M, Sparse >& a, std::type_identity_t< T > s ) noexcept
@@ -364,7 +353,7 @@ template < typename T, int N, int M >
     return r;
 }
 
-/// @brief Scalar + Sparse.
+/// Scalar + Sparse.
 template < typename T, int N, int M >
 [[nodiscard]] TaylorExpansion< T, N, M, Sparse > operator+(
     std::type_identity_t< T > s, const TaylorExpansion< T, N, M, Sparse >& a ) noexcept
@@ -372,7 +361,7 @@ template < typename T, int N, int M >
     return a + s;
 }
 
-/// @brief Sparse - scalar.
+/// Sparse - scalar.
 template < typename T, int N, int M >
 [[nodiscard]] TaylorExpansion< T, N, M, Sparse > operator-(
     const TaylorExpansion< T, N, M, Sparse >& a, std::type_identity_t< T > s ) noexcept
@@ -380,7 +369,7 @@ template < typename T, int N, int M >
     return a + ( -s );
 }
 
-/// @brief Scalar - Sparse.
+/// Scalar - Sparse.
 template < typename T, int N, int M >
 [[nodiscard]] TaylorExpansion< T, N, M, Sparse > operator-(
     std::type_identity_t< T > s, const TaylorExpansion< T, N, M, Sparse >& a ) noexcept
@@ -388,9 +377,7 @@ template < typename T, int N, int M >
     return ( -a ) + s;
 }
 
-/// @brief Sparse * Sparse: truncated Cauchy product via the sparse kernel.
-/// Not noexcept: the sparse Cauchy kernel appends to vectors, which may allocate
-/// (consistent with the sparse `operator/` below).
+/// Sparse * Sparse: truncated Cauchy product via the sparse kernel (may allocate).
 template < typename T, int N, int M >
 [[nodiscard]] TaylorExpansion< T, N, M, Sparse > operator*(
     const TaylorExpansion< T, N, M, Sparse >& a, const TaylorExpansion< T, N, M, Sparse >& b )
@@ -400,7 +387,7 @@ template < typename T, int N, int M >
     return r;
 }
 
-/// @brief Sparse / Sparse: Cauchy product of a and 1/b.
+/// Sparse / Sparse: Cauchy product of a and 1/b.
 template < typename T, int N, int M >
 [[nodiscard]] TaylorExpansion< T, N, M, Sparse > operator/(
     const TaylorExpansion< T, N, M, Sparse >& a, const TaylorExpansion< T, N, M, Sparse >& b )

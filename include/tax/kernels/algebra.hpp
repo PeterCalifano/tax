@@ -9,20 +9,7 @@
 namespace tax::detail::kernels
 {
 
-/**
- * @brief Self-product `out = f * f`.
- *
- * For M == 1 this exploits symmetry (each unordered pair {k, d-k} once, with the
- * off-diagonal contribution doubled) for ~2x fewer multiplications.
- *
- * For M >= 2 it forwards to the general Cauchy product dispatch, so the loop and
- * stencil paths share one floating-point reduction; the symmetric saving is not
- * worth the divergent reduction and the extra per-pair index bookkeeping.
- *
- * @tparam T  Scalar type.
- * @tparam N  Truncation order.
- * @tparam M  Number of variables.
- */
+/// Self-product `out = f * f` (M == 1 exploits pair symmetry; M >= 2 forwards to cauchyProduct).
 template < typename T, int N, int M >
 constexpr void cauchySelfProduct( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& f ) noexcept
 {
@@ -42,32 +29,14 @@ constexpr void cauchySelfProduct( Coeffs< T, N, M >& out, const Coeffs< T, N, M 
     }
 }
 
-/**
- * @brief Square series `out = a^2` using the symmetric self-product.
- *
- * Uses `cauchySelfProduct` which saves ~half the multiplications vs a general
- * Cauchy product call.
- *
- * @tparam T  Scalar type.
- * @tparam N  Truncation order.
- * @tparam M  Number of variables.
- */
+/// Square series `out = a^2` via the symmetric self-product.
 template < typename T, int N, int M >
 constexpr void seriesSquare( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
 {
     cauchySelfProduct< T, N, M >( out, a );
 }
 
-/**
- * @brief Cube series `out = a^3` via two Cauchy products.
- *
- * Computes `tmp = a^2` (via symmetric self-product), then `out = tmp * a`.
- * O(N^2) for M=1, O(S^2) for M>1.
- *
- * @tparam T  Scalar type.
- * @tparam N  Truncation order.
- * @tparam M  Number of variables.
- */
+/// Cube series `out = a^3` via two Cauchy products.
 template < typename T, int N, int M >
 constexpr void seriesCube( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
 {
@@ -77,16 +46,7 @@ constexpr void seriesCube( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) 
     cauchyProduct< T, N, M >( out, tmp, a );
 }
 
-/**
- * @brief Reciprocal series solve `a * out = 1`.
- *
- * Requires `a[0] != 0`. Degree-by-degree forward substitution:
- *   out[alpha] = -(1/a[0]) * sum_{0 < beta <= alpha} a[beta] * out[alpha - beta]
- *
- * @tparam T  Scalar type.
- * @tparam N  Truncation order.
- * @tparam M  Number of variables.
- */
+/// Reciprocal series `a * out = 1` by forward substitution. Requires `a[0] != 0`.
 template < typename T, int N, int M >
 constexpr void seriesReciprocal( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
 {
@@ -113,19 +73,8 @@ constexpr void seriesReciprocal( Coeffs< T, N, M >& out, const Coeffs< T, N, M >
     }
 }
 
-/**
- * @brief Quotient series solve `b * out = a`, i.e. `out = a / b`.
- *
- * Requires `b[0] != 0`. A single forward-substitution pass — more accurate and
- * roughly half the work of forming `reciprocal(b)` and then a Cauchy product:
- *   out[alpha] = (1/b[0]) * (a[alpha] - sum_{0 < beta <= alpha} b[beta] * out[alpha - beta])
- *
- * `out` may alias neither `a` nor `b`.
- *
- * @tparam T  Scalar type.
- * @tparam N  Truncation order.
- * @tparam M  Number of variables.
- */
+/// Quotient series `out = a / b` by forward substitution. Requires `b[0] != 0`; `out` must not
+/// alias `a` or `b`.
 template < typename T, int N, int M >
 constexpr void seriesDivide( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a,
                              const Coeffs< T, N, M >& b ) noexcept
@@ -153,17 +102,7 @@ constexpr void seriesDivide( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a,
     }
 }
 
-/**
- * @brief Square-root series solve `out * out = a`.
- *
- * Uses the principal branch from `sqrt(a[0])`. Requires `a[0] > 0`.
- * Recurrence at degree d:
- *   out[d] = (1 / (2*out[0])) * (a[d] - sum_{0 < k < d} out[k]*out[d-k])
- *
- * @tparam T  Scalar type.
- * @tparam N  Truncation order.
- * @tparam M  Number of variables.
- */
+/// Square-root series `out * out = a` (principal branch). Requires `a[0] > 0`.
 template < typename T, int N, int M >
 void seriesSqrt( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
 {
@@ -195,16 +134,7 @@ void seriesSqrt( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
     }
 }
 
-/**
- * @brief Cubic-root series solve `out * out * out = a`.
- *
- * Uses the real branch from `cbrt(a[0])`. Requires `a[0] != 0`.
- * Maintains `sq = out^2` incrementally for O(N^2) total work (M=1).
- *
- * @tparam T  Scalar type.
- * @tparam N  Truncation order.
- * @tparam M  Number of variables.
- */
+/// Cubic-root series `out^3 = a` (real branch). Requires `a[0] != 0`.
 template < typename T, int N, int M >
 void seriesCbrt( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
 {
@@ -256,22 +186,7 @@ void seriesCbrt( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
     }
 }
 
-/**
- * @brief Real-exponent power series `out = a^c` via degree-by-degree recurrence.
- *
- * Derived from logarithmic differentiation of `f = a^c`:
- *   d * a[0] * f[d] = sum_{k=0}^{d-1} (c*(d-k) - k) * a[d-k] * f[k]
- *
- * Multivariate generalisation with |alpha|=d:
- *   d * a[0] * f[alpha] = sum_{0 < |beta| <= d}
- *                           (c*|beta| - (d-|beta|)) * a[beta] * f[alpha-beta]
- *
- * Requires `a[0] != 0`. NOT constexpr because it calls `std::pow`.
- *
- * @tparam T  Scalar type.
- * @tparam N  Truncation order.
- * @tparam M  Number of variables.
- */
+/// Real-exponent power series `out = a^c`. Requires `a[0] != 0`; not constexpr (uses std::pow).
 template < typename T, int N, int M >
 void seriesPow( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a, T c ) noexcept
 {
@@ -302,20 +217,7 @@ void seriesPow( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a, T c ) noexce
     }
 }
 
-/**
- * @brief Integer-exponent power series `out = a^n` via binary exponentiation.
- *
- * Special cases handled directly:
- *   - n == 0  → constant 1
- *   - n == 1  → copy of a
- *   - n == -1 → seriesReciprocal(a)
- *   - n <  0  → seriesReciprocal(a), then seriesPowInt(rec, -n)
- *   - n >= 2  → binary exponentiation using cauchyProduct
- *
- * @tparam T  Scalar type.
- * @tparam N  Truncation order.
- * @tparam M  Number of variables.
- */
+/// Integer-exponent power series `out = a^n` via binary exponentiation (negative n via reciprocal).
 template < typename T, int N, int M >
 constexpr void seriesPowInt( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a, int n ) noexcept
 {
