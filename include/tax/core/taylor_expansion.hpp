@@ -9,9 +9,15 @@
 #include <tax/core/storage/dense.hpp>
 #include <tax/core/storage/sparse.hpp>
 #include <tax/la/types.hpp>
+#include <type_traits>
 
 namespace tax
 {
+
+// Forward declaration so the public `TE` alias can name the batched coefficient
+// type without including <tax/core/batch.hpp> (which includes this header).
+template < typename T, int K >
+struct Batch;
 
 // Primary template (forward declaration for partial specialisations).
 template < typename T, int N, int M = 1, typename Storage = storage::Dense >
@@ -401,9 +407,14 @@ class TaylorExpansion< T, N, M, storage::Dense >
 // Convenience aliases  (dense)
 // ---------------------------------------------------------------------------
 
-/// `TE<N>` — univariate `double` expansion of order N.
-template < int N, int M = 1 >
-using TE = TaylorExpansion< double, N, M, storage::Dense >;
+/// `TE<N, M, K>` — order-N, M-variate dense `double` expansion.
+///
+/// `K == 1` (default) is a plain `double` expansion. `K > 1` makes each
+/// coefficient a `Batch< double, K >`, evaluating K independent expansions in
+/// lock-step. `M` defaults to 1.
+template < int N, int M = 1, int K = 1 >
+using TE = TaylorExpansion< std::conditional_t< K == 1, double, Batch< double, K > >, N, M,
+                            storage::Dense >;
 
 /// `TEn<N, M>` — explicit M-variate alias, same as `TE<N, M>`.
 template < int N, int M >
