@@ -174,10 +174,13 @@ Register with `tax_add_test(test_batch SOURCES core/test_batch.cpp)` in `tests/C
 Update the prototype's `BatchTE<N,K,M>` spellings to the unified `TE<N,M,K>` order. Add a short
 la-focused assertion (value/eval/gradient over a batched `TE<N,M,K>`) if §6 surfaces a gap.
 
-### 8. Docs — `docs/core/batch.md` (+ nav)
+### 8. Docs — `docs/guide/batch.md` (+ nav)
 
-Port the prototype's `docs/core/batch.md`. Add it to the `mkdocs.yml` nav under the core
-section. (Confirm the exact nav key during implementation; recent nav layout to be matched.)
+Port the prototype's batch doc. Current docs have no `core/` section, so place it under
+`docs/guide/` (a usage page) and add it to the `Guide` nav in `mkdocs.yml`. Update the
+prototype's `BatchTE<N,K,M>` spellings to the unified `TE<N,M,K>`, drop the `BatchTE` row from
+the alias table, and **remove the "Batched ODE integration" section** — `tax::ode` lives in
+the `tax-flow` companion, not here.
 
 ## Data flow
 
