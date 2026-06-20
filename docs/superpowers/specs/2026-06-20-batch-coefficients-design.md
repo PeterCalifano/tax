@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-20
 **Status:** Approved for planning
-**Topic:** Port the prototype `tax::Batch<T,K>` / `tax::BatchTE<N,K,M>` vectorised-coefficient
+**Topic:** Port the prototype `tax::Batch<T,K>` vectorised-coefficient
 type onto current `main`, with full math surface, `tax::la` support, tests, and docs.
 
 ## Motivation
@@ -40,7 +40,7 @@ lanes and found by the kernels through ADL. Substituting `Batch<double,K>` for t
 coefficient type therefore makes
 
 ```cpp
-TaylorExpansion<Batch<double,K>, N, M, storage::Dense>   // == BatchTE<N,K,M>
+TaylorExpansion<Batch<double,K>, N, M, storage::Dense>   // == TE<N, M, K>
 ```
 
 run `K` independent expansions in lock-step: one pass through the kernels, `K` results,
@@ -85,9 +85,39 @@ Ported essentially verbatim from the prototype (282 lines), already matching hou
   acosh atanh abs` (Eigen array methods); `pow` (Eigen `.pow`); `cbrt erf atan2` (per-lane
   `unaryExpr`/`binaryExpr` fallbacks Eigen-core lacks).
 - Trait opt-ins: `is_tax_scalar<Batch>` → `true_type`, `real_scalar<Batch>::type = T`.
-- Aliases: `Batchd<K>`, `Batchf<K>`, `BatchTE<N,K,M=1>`.
+- Aliases: `Batchd<K>`, `Batchf<K>` only. **No `BatchTE`** — the batched expansion is reached
+  through the unified `TE<N, M, K>` alias (§2b).
 - `Eigen::NumTraits<Batch<T,K>>` specialisation so Eigen matrices can hold `Batch` (and thus
   `TaylorExpansion<Batch,...>`) as their scalar.
+
+### 2b. `include/tax/core/taylor_expansion.hpp` (unified `TE` alias)
+
+Fold the batch lane count into the existing public `TE` alias as a trailing defaulted
+parameter, so there is a single name for both scalar and batched dense expansions. Alias
+templates cannot be overloaded by arity (a second `TE` is a redeclaration error — confirmed
+with the compiler), so `BatchTE` is dropped in favour of this:
+
+```cpp
+// forward declaration so the alias can name Batch without including batch.hpp
+// (batch.hpp includes this header — avoids a circular include)
+template < typename T, int K >
+struct Batch;
+
+template < int N, int M = 1, int K = 1 >
+using TE = TaylorExpansion<
+    std::conditional_t< K == 1, double, Batch< double, K > >, N, M, storage::Dense >;
+```
+
+- `TE<6>` → `double` univariate, `TE<4, 3>` → `double` trivariate — **unchanged** (`K = 1`
+  selects plain `double`, never names `Batch`).
+- `TE<6, 1, 8>` → 8-lane batched univariate, `TE<4, 3, 8>` → 8-lane batched trivariate.
+
+`K = 1` deliberately resolves to `double` (not `Batch<double,1>`) to preserve the existing
+`constexpr` surface and exact semantics of scalar `TE`. The constraint `requires Scalar<T>` on
+`TaylorExpansion` and `Batch`'s completeness are only checked when a `K > 1` instantiation is
+formed — which only happens in code that has included `batch.hpp` via the umbrella, so the
+forward declaration is sufficient at the alias's definition site. `TEn<N, M>` and `STE<N, M>`
+are unchanged.
 
 ### 3. `include/tax/kernels/transcendental.hpp` (erf constant)
 
@@ -123,10 +153,10 @@ and `taylor_expansion.hpp`, so it is self-sufficient if included standalone too.
 ### 6. `tax::la` support (verify & fix)
 
 `tax::la` (`values.hpp`, `derivatives.hpp`) is already scalar-generic — every helper derives
-`T` / `scalar_type` from traits, with no hardcoded `double`. Expectation: `variables<BatchTE>`,
+`T` / `scalar_type` from traits, with no hardcoded `double`. Expectation: `variables<TE<N,M,K>>`,
 `value`, `eval`, `gradient`, `hessian`, `jacobian` work once `NumTraits<Batch>` is present
 (the prototype's `MultivariateGradientAndEigenInterop` test already exercises this path). Task:
-instantiate each la helper with `BatchTE` in tests and fix anything that breaks (most likely
+instantiate each la helper with a batched `TE<N,M,K>` in tests and fix anything that breaks (most likely
 none; if a helper assumes an ordered/`abs`-able scalar, address narrowly).
 
 ### 7. Tests — `tests/core/test_batch.cpp` (+ registration)
@@ -136,12 +166,13 @@ Port the prototype's 6 self-contained tests (gtest + `<tax/tax.hpp>` only):
 - `ScalarLaneArithmetic`, `ScalarBroadcastAndFromLanes` — `Batch` value semantics.
 - `MathSurfaceLaneEquivalence` — every math fn: each lane equals its scalar `TE` run.
 - `IntegerVsRealPowSelectsCorrectKernel` — exercises the `math_binary` change (§4).
-- `MultivariateGradientAndEigenInterop` — multivariate `BatchTE` + `tax::la` gradient +
+- `MultivariateGradientAndEigenInterop` — multivariate batched `TE<N,M,K>` + `tax::la` gradient +
   Eigen matrix interop (covers §6).
 - `EvalPerLaneDisplacement` — `eval` with distinct per-lane displacements.
 
 Register with `tax_add_test(test_batch SOURCES core/test_batch.cpp)` in `tests/CMakeLists.txt`.
-Add a short la-focused assertion (value/eval/gradient over `BatchTE`) if §6 surfaces a gap.
+Update the prototype's `BatchTE<N,K,M>` spellings to the unified `TE<N,M,K>` order. Add a short
+la-focused assertion (value/eval/gradient over a batched `TE<N,M,K>`) if §6 surfaces a gap.
 
 ### 8. Docs — `docs/core/batch.md` (+ nav)
 
@@ -152,12 +183,12 @@ section. (Confirm the exact nav key during implementation; recent nav layout to 
 
 ```
 user code / tax-flow refine
-        │  builds BatchTE<N,K,M> (K instances per lane) via tax::la::variables or directly
+        │  builds TE<N,M,K> (K instances per lane) via tax::la::variables or directly
         ▼
 TaylorExpansion<Batch<double,K>, N, M, Dense>
         │  arithmetic + math via existing dense kernels (generic on T)
         ▼   (kernels call element-wise Batch ops through ADL — one pass, K lanes)
-result BatchTE  →  value()/eval()/gradient() give per-lane (Batch) results
+result TE<N,M,K>  →  value()/eval()/gradient() give per-lane (Batch) results
         │  lane i == the i-th independent scalar run, bit-for-bit
 ```
 
