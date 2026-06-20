@@ -15,7 +15,7 @@
 - Batch is **dense storage only** — never wire it into sparse storage (sparse keys off exact-zero coefficients, undefined per-lane).
 - `K=1` must resolve to `double` (not `Batch<double,1>`) to preserve the scalar `constexpr` surface and exact semantics.
 - Keep existing `concepts.hpp` formatting; do **not** import the prototype's unrelated `requires {` brace reflow.
-- Format every touched header with `.clang-format` (Google style, 4-space indent, 100 col, spaces inside `< >` and `( )`) before committing: `clang-format -i <files>`.
+- Format **newly added code** with `.clang-format` (Google style, 4-space indent, 100 col, spaces inside `< >` and `( )`). **clang-format version caveat:** the locally installed clang-format is v21, newer than the one used to format `main`; it introduces gratuitous churn on two pre-existing constructs — (a) it reflows `requires(...)`-expression braces (only in `concepts.hpp`) onto the same line, and (b) it alphabetically **sorts the `tax.hpp` include block**, which is deliberately in dependency order (sorting it breaks the umbrella). After running `clang-format -i`, run `git diff` against the task's base commit and **revert any such gratuitous reformatting of pre-existing lines** — the committed diff must contain only the task's intended logical changes. Never reorder `tax.hpp`'s includes; add a new include in dependency order at the specified position by hand. All other existing files in this plan (`taylor_expansion.hpp`, `transcendental.hpp`, `math_binary.hpp`) are already v21-clean.
 - Kernel config macros stay in-header; introduce no build-system `-D` macros.
 - Commit messages end with: `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`
 - Work on branch `feature/batch-coefficients` (already checked out).
@@ -1020,7 +1020,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ## Final verification
 
 - [ ] **Full suite green:** `cmake --build build -j && ctest --test-dir build --output-on-failure` — all tests PASS, including `test_batch`.
-- [ ] **Formatting clean:** `clang-format -i $(git ls-files 'include/**/*.hpp' 'tests/**/*.cpp')` produces no diff (`git diff --quiet`).
+- [ ] **Formatting clean:** each task's committed diff contains only intended logical changes — no gratuitous reflow of pre-existing `requires`-expression braces (`concepts.hpp`) and no `tax.hpp` include reordering (local clang-format is v21, newer than the one `main` was formatted with; see Global Constraints). New code is v21-formatted.
 - [ ] **No new core allocation:** `Batch` adds only a stack `Eigen::Array`; no `new`/`std::vector` introduced in dense headers (`git diff main -- include/tax/core include/tax/kernels include/tax/operators | grep -nE 'new |std::vector' ` returns nothing batch-related).
 - [ ] **Scalar `TE` untouched:** `TE<N>` / `TE<N,M>` still resolve to `double` expansions (covered by the regression gate and `Batch.UnifiedAliasConstructAndValue`).
 

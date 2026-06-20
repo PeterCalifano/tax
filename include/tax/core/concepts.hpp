@@ -38,7 +38,8 @@ using real_scalar_t = typename real_scalar< T >::type;
 
 /// Any truncated Taylor polynomial type.
 template < typename P >
-concept TaylorPolynomial = requires( const P& p, std::size_t k ) {
+concept TaylorPolynomial = requires( const P& p, std::size_t k )
+{
     typename P::scalar_type;
     typename P::container_t;
     { P::order_v } -> std::convertible_to< int >;
@@ -49,13 +50,15 @@ concept TaylorPolynomial = requires( const P& p, std::size_t k ) {
 
 /// Refinement of `TaylorPolynomial` for dense (flat-index) storage.
 template < typename P >
-concept DensePolynomial = TaylorPolynomial< P > && requires( const P& p, std::size_t k ) {
+concept DensePolynomial = TaylorPolynomial< P > && requires( const P& p, std::size_t k )
+{
     { p[k] } -> std::convertible_to< typename P::scalar_type >;
 };
 
 /// Refinement of `TaylorPolynomial` for sparse storage.
 template < typename P >
-concept SparsePolynomial = TaylorPolynomial< P > && requires( const P& p ) {
+concept SparsePolynomial = TaylorPolynomial< P > && requires( const P& p )
+{
     { p.nnz() } -> std::convertible_to< std::size_t >;
     { p.support() };
     { p.values() };
