@@ -186,3 +186,55 @@ TEST( Batch, EvalPerLaneDisplacement )
         EXPECT_NEAR( eb[k], fs.eval( ds ), 1e-12 );
     }
 }
+
+TEST( Batch, MultivariateGradientAndEigenInterop )
+{
+    constexpr int N = 4, M = 2;
+    using TEb = tax::TE< N, M, K >;
+    using TEs = tax::TE< N, M >;
+    using tax::exp;
+    using tax::sin;
+
+    auto lane = []( int k ) { return std::array< double, 2 >{ 0.3 + 0.05 * k, -0.2 + 0.03 * k }; };
+
+    typename TEb::Input pb{};
+    Batch< double, K > c0, c1;
+    for ( int k = 0; k < K; ++k )
+    {
+        c0[k] = lane( k )[0];
+        c1[k] = lane( k )[1];
+    }
+    pb[0] = c0;
+    pb[1] = c1;
+    auto xb = TEb::template variable< 0 >( pb );
+    auto yb = TEb::template variable< 1 >( pb );
+
+    auto fb = sin( xb * yb ) + exp( xb );
+
+    // member gradient -> Eigen vector of Batch (needs NumTraits<Batch>)
+    auto gb = fb.gradient();
+
+    // la helpers over an Eigen vector state of batched expansions
+    tax::la::VecNT< 2, TEb > Fb;
+    Fb( 0 ) = fb;
+    Fb( 1 ) = xb - yb;
+    auto valb = tax::la::value( Fb );
+    auto Jb = tax::la::jacobian( Fb );
+
+    for ( int k = 0; k < K; ++k )
+    {
+        auto L = lane( k );
+        typename TEs::Input ps{ L[0], L[1] };
+        auto xs = TEs::template variable< 0 >( ps );
+        auto ys = TEs::template variable< 1 >( ps );
+        auto fs = sin( xs * ys ) + exp( xs );
+        auto gs = fs.gradient();
+
+        EXPECT_NEAR( valb( 0 )[k], fs.value(), 1e-12 );
+        for ( int i = 0; i < 2; ++i )
+        {
+            EXPECT_NEAR( gb( i )[k], gs( i ), 1e-12 );
+            EXPECT_NEAR( Jb( 0, i )[k], gs( i ), 1e-12 );
+        }
+    }
+}
