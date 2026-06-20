@@ -3,6 +3,7 @@
 #include <cmath>
 #include <numbers>
 #include <span>
+#include <tax/core/concepts.hpp>
 #include <tax/kernels/algebra.hpp>
 
 namespace tax::detail::kernels
@@ -284,7 +285,10 @@ void seriesErf( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
 {
     using std::erf;
     constexpr std::size_t S = numMonomials( N, M );
-    constexpr T two_over_sqrtpi = T{ 2 } * std::numbers::inv_sqrtpi_v< T >;
+    // Name the constant in the underlying real scalar so vectorised coefficient
+    // types (whose lanes are floating-point) work too; broadcast into T.
+    using R = real_scalar_t< T >;
+    const T two_over_sqrtpi = T( R{ 2 } * std::numbers::inv_sqrtpi_v< R > );
 
     // h = (2/sqrt(pi)) * exp(-a^2)
     Coeffs< T, N, M > asq{}, neg_asq{}, e{}, h{};
