@@ -51,9 +51,8 @@ struct IsotropicScheme
     }
 
     /// Scheme-owned self-product (M == 1: bespoke symmetric loop; M >= 2: cauchyProduct(f,f)).
-    /// The M == 1 loop is duplicated in detail::kernels::cauchySelfProduct<T,Scheme>
-    /// (algebra.hpp) because that header includes this one, not the reverse; keep
-    /// the two bodies in sync.
+    /// Sole owner of the M == 1 symmetric loop; the free
+    /// detail::kernels::cauchySelfProduct<T,Scheme> delegates here.
     template < typename T >
     static constexpr void cauchySelfProduct( std::array< T, nCoeff >& out,
                                              const std::array< T, nCoeff >& f ) noexcept

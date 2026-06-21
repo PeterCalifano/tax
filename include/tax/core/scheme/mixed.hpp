@@ -24,6 +24,7 @@
 #include <array>
 #include <cstddef>
 #include <span>
+#include <tax/core/enumeration.hpp>
 #include <tax/core/multi_index.hpp>
 #include <tax/core/scheme/concept.hpp>
 #include <tax/kernels/mixed_stencils.hpp>
@@ -90,9 +91,6 @@ struct MixedScheme
         return g;
     }();
 
-    /// Box size = product of per-group simplex sizes.
-    static constexpr std::size_t keptCount = ( numMonomials( Groups::order, Groups::dim ) * ... );
-
     /// Global flat index of the first degree-`d` monomial over `m` variables.
     static constexpr std::size_t degreeBlockBase( int d, int m ) noexcept
     {
@@ -100,7 +98,8 @@ struct MixedScheme
     }
 
    public:
-    static constexpr std::size_t nCoeff = keptCount;
+    /// Box size = product of per-group simplex sizes.
+    static constexpr std::size_t nCoeff = ( numMonomials( Groups::order, Groups::dim ) * ... );
 
     /// Flat index of `a`, or `kNotInBox` if any group block exceeds its order.
     [[nodiscard]] static constexpr std::size_t flatOf( const MultiIndex< vars >& a ) noexcept
@@ -219,11 +218,8 @@ struct MixedScheme
         for ( std::size_t ai = 0; ai < nCoeff; ++ai )
         {
             const MultiIndex< vars > alpha = multiOf( ai );
-            enumerateSubIndicesCE(
-                alpha, MultiIndex< vars >{}, 0, [&]( const MultiIndex< vars >& beta ) {
-                    MultiIndex< vars > gamma{};
-                    for ( int v = 0; v < vars; ++v )
-                        gamma[std::size_t( v )] = alpha[std::size_t( v )] - beta[std::size_t( v )];
+            forEachSubIndex< vars >(
+                alpha, [&]( const MultiIndex< vars >& beta, const MultiIndex< vars >& gamma ) {
                     out[ai] += a[flatOf( beta )] * b[flatOf( gamma )];
                 } );
         }
@@ -263,38 +259,17 @@ struct MixedScheme
             const MultiIndex< vars > alpha = multiOf( ai );
             const int deg = totalDegree( alpha );
             std::size_t n = 0;
-            enumerateSubIndicesCE(
-                alpha, MultiIndex< vars >{}, 0, [&]( const MultiIndex< vars >& beta ) {
+            forEachSubIndex< vars >(
+                alpha, [&]( const MultiIndex< vars >& beta, const MultiIndex< vars >& gamma ) {
                     int db = 0;
                     for ( int v = 0; v < vars; ++v ) db += beta[std::size_t( v )];
                     if ( db == 0 ) return;
-                    MultiIndex< vars > gamma{};
-                    for ( int v = 0; v < vars; ++v )
-                        gamma[std::size_t( v )] = alpha[std::size_t( v )] - beta[std::size_t( v )];
                     buf[n++] = detail::kernels::RecurrenceEntry{
                         static_cast< std::uint32_t >( flatOf( beta ) ),
                         static_cast< std::uint32_t >( flatOf( gamma ) ),
                         static_cast< std::uint32_t >( db ) };
                 } );
             fn( ai, deg, std::span< const detail::kernels::RecurrenceEntry >( buf.data(), n ) );
-        }
-    }
-
-   private:
-    /// Constexpr sub-index enumerator (used by the on-the-fly fallback paths above).
-    template < class Fn >
-    static constexpr void enumerateSubIndicesCE( const MultiIndex< vars >& alpha,
-                                                 MultiIndex< vars > beta, int v, Fn&& fn ) noexcept
-    {
-        if ( v == vars )
-        {
-            fn( beta );
-            return;
-        }
-        for ( int b = 0; b <= alpha[std::size_t( v )]; ++b )
-        {
-            beta[std::size_t( v )] = b;
-            enumerateSubIndicesCE( alpha, beta, v + 1, fn );
         }
     }
 

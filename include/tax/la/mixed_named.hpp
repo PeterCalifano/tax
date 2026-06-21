@@ -88,11 +88,9 @@ inline constexpr int mixedAxisOffset = []() constexpr -> int {
     if constexpr ( dim < 1 )
         return -1;
     else
-    {
-        // Obtain order from the axis_list for the matching axis.
-        constexpr int order = OrderOfName< typename E::axis_list, Name >::value;
-        return OffsetOf< typename E::axis_list, OrderedAxis< Name, dim, order > >::value;
-    }
+        // The global variable index of the axis' first coordinate is exactly
+        // its block offset (MixedTaylorExpansion::axisVar<Name, 0>()).
+        return E::template axisVar< Name, 0 >();
 }();
 
 }  // namespace detail

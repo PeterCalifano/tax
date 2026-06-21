@@ -25,6 +25,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <tax/core/enumeration.hpp>
 #include <tax/core/multi_index.hpp>
 #include <tax/kernels/cauchy_stencil.hpp>
 #include <tax/kernels/recurrence_stencil.hpp>
@@ -51,14 +52,10 @@ template < typename... Groups >
 inline constexpr std::size_t mixedCauchyEntries =
     ( numMonomials( Groups::order, 2 * Groups::dim ) * ... );
 
-/// nCoeff for MixedScheme<Groups...>: Π_g numMonomials(order_g, dim_g).
-template < typename... Groups >
-inline constexpr std::size_t mixedNCoeff = ( numMonomials( Groups::order, Groups::dim ) * ... );
-
 /// Recurrence entry count = Cauchy count − nCoeff (drop |β|==0 row per output).
 template < typename... Groups >
 inline constexpr std::size_t mixedRecurrenceEntries =
-    mixedCauchyEntries< Groups... > - mixedNCoeff< Groups... >;
+    mixedCauchyEntries< Groups... > - tax::MixedScheme< Groups... >::nCoeff;
 
 // ---------------------------------------------------------------------------
 // MixedBoxCauchyStencil<Groups...>
@@ -69,7 +66,7 @@ inline constexpr std::size_t mixedRecurrenceEntries =
 template < typename... Groups >
 struct MixedBoxCauchyStencil
 {
-    static constexpr std::size_t kNCoeff = mixedNCoeff< Groups... >;
+    static constexpr std::size_t kNCoeff = tax::MixedScheme< Groups... >::nCoeff;
     static constexpr std::size_t kEntries = mixedCauchyEntries< Groups... >;
     static_assert( kEntries * sizeof( StencilEntry ) <= ( std::size_t{ 128 } << 20 ),
                    "MixedBoxCauchyStencil exceeds 128 MB — reduce group orders." );
@@ -122,7 +119,7 @@ struct MixedBoxCauchyStencil
 template < typename... Groups >
 struct MixedBoxRecurrenceStencil
 {
-    static constexpr std::size_t kNCoeff = mixedNCoeff< Groups... >;
+    static constexpr std::size_t kNCoeff = tax::MixedScheme< Groups... >::nCoeff;
     static constexpr std::size_t kEntries = mixedRecurrenceEntries< Groups... >;
     static_assert( kEntries * sizeof( RecurrenceEntry ) <= ( std::size_t{ 128 } << 20 ),
                    "MixedBoxRecurrenceStencil exceeds 128 MB — reduce group orders." );
@@ -146,37 +143,18 @@ struct MixedBoxRecurrenceStencil
             degree[ai] = totalDegree( alpha );
 
             // Enumerate β ≤ α, skip |β|==0.
-            enumerateSubIndices( alpha, MultiIndex< V >{}, 0, [&]( const MultiIndex< V >& beta ) {
-                int db = 0;
-                for ( int v = 0; v < V; ++v ) db += beta[std::size_t( v )];
-                if ( db == 0 ) return;
-                MultiIndex< V > gamma{};
-                for ( int v = 0; v < V; ++v )
-                    gamma[std::size_t( v )] = alpha[std::size_t( v )] - beta[std::size_t( v )];
-                entries[n++] =
-                    RecurrenceEntry{ static_cast< std::uint32_t >( Scheme::flatOf( beta ) ),
-                                     static_cast< std::uint32_t >( Scheme::flatOf( gamma ) ),
-                                     static_cast< std::uint32_t >( db ) };
-            } );
+            forEachSubIndex< V >(
+                alpha, [&]( const MultiIndex< V >& beta, const MultiIndex< V >& gamma ) {
+                    int db = 0;
+                    for ( int v = 0; v < V; ++v ) db += beta[std::size_t( v )];
+                    if ( db == 0 ) return;
+                    entries[n++] =
+                        RecurrenceEntry{ static_cast< std::uint32_t >( Scheme::flatOf( beta ) ),
+                                         static_cast< std::uint32_t >( Scheme::flatOf( gamma ) ),
+                                         static_cast< std::uint32_t >( db ) };
+                } );
         }
         row[kNCoeff] = static_cast< std::uint32_t >( n );
-    }
-
-   private:
-    template < class Fn >
-    static constexpr void enumerateSubIndices( const MultiIndex< V >& alpha, MultiIndex< V > beta,
-                                               int v, Fn&& fn ) noexcept
-    {
-        if ( v == V )
-        {
-            fn( beta );
-            return;
-        }
-        for ( int b = 0; b <= alpha[std::size_t( v )]; ++b )
-        {
-            beta[std::size_t( v )] = b;
-            enumerateSubIndices( alpha, beta, v + 1, fn );
-        }
     }
 };
 
