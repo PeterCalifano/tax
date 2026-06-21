@@ -4,7 +4,7 @@
 #include <numbers>
 #include <span>
 #include <tax/core/concepts.hpp>
-#include <tax/core/index_scheme.hpp>
+#include <tax/core/scheme/isotropic.hpp>
 #include <tax/kernels/algebra.hpp>
 
 namespace tax::detail::kernels

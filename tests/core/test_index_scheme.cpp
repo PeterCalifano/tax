@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include <tax/core/index_scheme.hpp>
+#include <tax/core/scheme.hpp>
 #include <tax/kernels/recurrence_stencil.hpp>
 #include <tax/tax.hpp>
 

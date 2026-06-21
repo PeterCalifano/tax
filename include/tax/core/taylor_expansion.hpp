@@ -5,8 +5,7 @@
 #include <span>
 #include <stdexcept>
 #include <tax/core/concepts.hpp>
-#include <tax/core/index_scheme.hpp>
-#include <tax/core/mixed_scheme.hpp>
+#include <tax/core/scheme.hpp>
 #include <tax/core/multi_index.hpp>
 #include <tax/core/storage/dense.hpp>
 #include <tax/core/storage/sparse.hpp>

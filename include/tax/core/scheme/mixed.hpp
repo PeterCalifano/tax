@@ -25,6 +25,7 @@
 #include <cstddef>
 #include <span>
 #include <tax/core/multi_index.hpp>
+#include <tax/core/scheme/concept.hpp>
 #include <tax/kernels/mixed_stencils.hpp>
 
 namespace tax

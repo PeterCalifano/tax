@@ -3,7 +3,7 @@
 #include <array>
 #include <cmath>
 #include <span>
-#include <tax/core/index_scheme.hpp>
+#include <tax/core/scheme/isotropic.hpp>
 #include <tax/kernels/cauchy.hpp>
 #include <tax/kernels/recurrence_stencil.hpp>
 

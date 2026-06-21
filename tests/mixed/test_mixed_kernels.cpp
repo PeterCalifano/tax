@@ -1,8 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
-#include <tax/core/index_scheme.hpp>
-#include <tax/core/mixed_scheme.hpp>
+#include <tax/core/scheme.hpp>
 #include <tax/core/multi_index.hpp>
 #include <tax/kernels/algebra.hpp>
 #include <tax/kernels/transcendental.hpp>
