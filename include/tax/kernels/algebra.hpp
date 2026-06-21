@@ -3,6 +3,7 @@
 #include <array>
 #include <cmath>
 #include <span>
+#include <tax/core/index_scheme.hpp>
 #include <tax/kernels/cauchy.hpp>
 #include <tax/kernels/recurrence_stencil.hpp>
 
@@ -46,17 +47,18 @@ constexpr void seriesCube( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) 
     cauchyProduct< T, N, M >( out, tmp, a );
 }
 
-/// Reciprocal series `a * out = 1` by forward substitution. Requires `a[0] != 0`.
-template < typename T, int N, int M >
-constexpr void seriesReciprocal( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
+/// Reciprocal series `a * out = 1` by forward substitution (scheme-generic). Requires `a[0] != 0`.
+template < typename T, tax::IndexScheme Scheme >
+constexpr void seriesReciprocal( std::array< T, Scheme::nCoeff >& out,
+                                 const std::array< T, Scheme::nCoeff >& a ) noexcept
 {
     out = {};
     const T inv_a0 = T{ 1 } / a[0];
     out[0] = inv_a0;
 
-    if constexpr ( M == 1 )
+    if constexpr ( Scheme::isUnivariate )
     {
-        for ( int d = 1; d <= N; ++d )
+        for ( int d = 1; d <= Scheme::order; ++d )
         {
             T rhs = T{ 0 };
             for ( int k = 1; k <= d; ++k ) rhs -= a[std::size_t( k )] * out[std::size_t( d - k )];
@@ -64,11 +66,48 @@ constexpr void seriesReciprocal( Coeffs< T, N, M >& out, const Coeffs< T, N, M >
         }
     } else
     {
-        forEachRecurrenceRow< N, M >(
+        Scheme::forEachRecurrenceRow(
             [&]( std::size_t ai, int, std::span< const RecurrenceEntry > row ) {
                 T rhs = T{ 0 };
                 for ( const RecurrenceEntry& e : row ) rhs -= a[e.b_idx] * out[e.g_idx];
                 out[ai] = rhs * inv_a0;
+            } );
+    }
+}
+
+/// Reciprocal series `a * out = 1` by forward substitution. Requires `a[0] != 0`.
+template < typename T, int N, int M >
+constexpr void seriesReciprocal( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
+{
+    seriesReciprocal< T, tax::IsotropicScheme< N, M > >( out, a );
+}
+
+/// Quotient series `out = a / b` by forward substitution (scheme-generic). Requires `b[0] != 0`;
+/// `out` must not alias `a` or `b`.
+template < typename T, tax::IndexScheme Scheme >
+constexpr void seriesDivide( std::array< T, Scheme::nCoeff >& out,
+                             const std::array< T, Scheme::nCoeff >& a,
+                             const std::array< T, Scheme::nCoeff >& b ) noexcept
+{
+    out = {};
+    const T inv_b0 = T{ 1 } / b[0];
+    out[0] = a[0] * inv_b0;
+
+    if constexpr ( Scheme::isUnivariate )
+    {
+        for ( int d = 1; d <= Scheme::order; ++d )
+        {
+            T rhs = a[std::size_t( d )];
+            for ( int k = 1; k <= d; ++k ) rhs -= b[std::size_t( k )] * out[std::size_t( d - k )];
+            out[std::size_t( d )] = rhs * inv_b0;
+        }
+    } else
+    {
+        Scheme::forEachRecurrenceRow(
+            [&]( std::size_t ai, int, std::span< const RecurrenceEntry > row ) {
+                T rhs = a[ai];
+                for ( const RecurrenceEntry& e : row ) rhs -= b[e.b_idx] * out[e.g_idx];
+                out[ai] = rhs * inv_b0;
             } );
     }
 }
@@ -79,41 +118,22 @@ template < typename T, int N, int M >
 constexpr void seriesDivide( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a,
                              const Coeffs< T, N, M >& b ) noexcept
 {
-    out = {};
-    const T inv_b0 = T{ 1 } / b[0];
-    out[0] = a[0] * inv_b0;
-
-    if constexpr ( M == 1 )
-    {
-        for ( int d = 1; d <= N; ++d )
-        {
-            T rhs = a[std::size_t( d )];
-            for ( int k = 1; k <= d; ++k ) rhs -= b[std::size_t( k )] * out[std::size_t( d - k )];
-            out[std::size_t( d )] = rhs * inv_b0;
-        }
-    } else
-    {
-        forEachRecurrenceRow< N, M >(
-            [&]( std::size_t ai, int, std::span< const RecurrenceEntry > row ) {
-                T rhs = a[ai];
-                for ( const RecurrenceEntry& e : row ) rhs -= b[e.b_idx] * out[e.g_idx];
-                out[ai] = rhs * inv_b0;
-            } );
-    }
+    seriesDivide< T, tax::IsotropicScheme< N, M > >( out, a, b );
 }
 
-/// Square-root series `out * out = a` (principal branch). Requires `a[0] > 0`.
-template < typename T, int N, int M >
-void seriesSqrt( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
+/// Square-root series `out * out = a` (principal branch, scheme-generic). Requires `a[0] > 0`.
+template < typename T, tax::IndexScheme Scheme >
+void seriesSqrt( std::array< T, Scheme::nCoeff >& out,
+                 const std::array< T, Scheme::nCoeff >& a ) noexcept
 {
     using std::sqrt;
     out = {};
     out[0] = sqrt( a[0] );
     const T inv2g0 = T{ 1 } / ( T{ 2 } * out[0] );
 
-    if constexpr ( M == 1 )
+    if constexpr ( Scheme::isUnivariate )
     {
-        for ( int d = 1; d <= N; ++d )
+        for ( int d = 1; d <= Scheme::order; ++d )
         {
             T rhs = a[std::size_t( d )];
             for ( int k = 1; k + k < d; ++k )
@@ -123,7 +143,7 @@ void seriesSqrt( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
         }
     } else
     {
-        forEachRecurrenceRow< N, M >(
+        Scheme::forEachRecurrenceRow(
             [&]( std::size_t ai, int, std::span< const RecurrenceEntry > row ) {
                 T rhs = a[ai];
                 // |beta| == d entries read out[ai], which is still zero here,
@@ -134,22 +154,30 @@ void seriesSqrt( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
     }
 }
 
-/// Cubic-root series `out^3 = a` (real branch). Requires `a[0] != 0`.
+/// Square-root series `out * out = a` (principal branch). Requires `a[0] > 0`.
 template < typename T, int N, int M >
-void seriesCbrt( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
+void seriesSqrt( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
+{
+    seriesSqrt< T, tax::IsotropicScheme< N, M > >( out, a );
+}
+
+/// Cubic-root series `out^3 = a` (real branch, scheme-generic). Requires `a[0] != 0`.
+template < typename T, tax::IndexScheme Scheme >
+void seriesCbrt( std::array< T, Scheme::nCoeff >& out,
+                 const std::array< T, Scheme::nCoeff >& a ) noexcept
 {
     using std::cbrt;
-    constexpr auto S = numMonomials( N, M );
+    constexpr std::size_t S = Scheme::nCoeff;
 
     out = {};
     out[0] = cbrt( a[0] );
     const T inv3g0sq = T{ 1 } / ( T{ 3 } * out[0] * out[0] );
 
-    if constexpr ( M == 1 )
+    if constexpr ( Scheme::isUnivariate )
     {
         std::array< T, S > sq{};
         sq[0] = out[0] * out[0];
-        for ( int d = 1; d <= N; ++d )
+        for ( int d = 1; d <= Scheme::order; ++d )
         {
             T sq_d_partial = T{ 0 };
             for ( int k = 1; k + k < d; ++k )
@@ -166,7 +194,7 @@ void seriesCbrt( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
     {
         std::array< T, S > sq{};
         sq[0] = out[0] * out[0];
-        forEachRecurrenceRow< N, M >(
+        Scheme::forEachRecurrenceRow(
             [&]( std::size_t ai, int, std::span< const RecurrenceEntry > row ) {
                 T rhs = a[ai];
                 // |beta| == d entries read out[ai], which is still zero here,
@@ -186,18 +214,26 @@ void seriesCbrt( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
     }
 }
 
-/// Real-exponent power series `out = a^c`. Requires `a[0] != 0`; not constexpr (uses std::pow).
+/// Cubic-root series `out^3 = a` (real branch). Requires `a[0] != 0`.
 template < typename T, int N, int M >
-void seriesPow( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a, T c ) noexcept
+void seriesCbrt( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
+{
+    seriesCbrt< T, tax::IsotropicScheme< N, M > >( out, a );
+}
+
+/// Real-exponent power series `out = a^c` (scheme-generic). Requires `a[0] != 0`; not constexpr.
+template < typename T, tax::IndexScheme Scheme >
+void seriesPow( std::array< T, Scheme::nCoeff >& out, const std::array< T, Scheme::nCoeff >& a,
+                T c ) noexcept
 {
     using std::pow;
     out = {};
     out[0] = pow( a[0], c );
     const T inv_a0 = T{ 1 } / a[0];
 
-    if constexpr ( M == 1 )
+    if constexpr ( Scheme::isUnivariate )
     {
-        for ( int d = 1; d <= N; ++d )
+        for ( int d = 1; d <= Scheme::order; ++d )
         {
             T rhs = T{ 0 };
             for ( int k = 0; k < d; ++k )
@@ -207,7 +243,7 @@ void seriesPow( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a, T c ) noexce
         }
     } else
     {
-        forEachRecurrenceRow< N, M >(
+        Scheme::forEachRecurrenceRow(
             [&]( std::size_t ai, int d, std::span< const RecurrenceEntry > row ) {
                 T rhs = T{ 0 };
                 for ( const RecurrenceEntry& e : row )
@@ -215,6 +251,13 @@ void seriesPow( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a, T c ) noexce
                 out[ai] = rhs * inv_a0 / T( d );
             } );
     }
+}
+
+/// Real-exponent power series `out = a^c`. Requires `a[0] != 0`; not constexpr (uses std::pow).
+template < typename T, int N, int M >
+void seriesPow( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a, T c ) noexcept
+{
+    seriesPow< T, tax::IsotropicScheme< N, M > >( out, a, c );
 }
 
 /// Integer-exponent power series `out = a^n` via binary exponentiation (negative n via reciprocal).

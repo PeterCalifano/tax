@@ -2,14 +2,16 @@
 
 #include <cmath>
 #include <span>
+#include <tax/core/index_scheme.hpp>
 #include <tax/kernels/algebra.hpp>
 
 namespace tax::detail::kernels
 {
 
-/// Coupled trigonometric series: jointly compute `sin(a)` and `cos(a)`.
-template < typename T, int N, int M >
-void seriesSinCos( Coeffs< T, N, M >& s, Coeffs< T, N, M >& c, const Coeffs< T, N, M >& a ) noexcept
+/// Coupled trigonometric series: jointly compute `sin(a)` and `cos(a)` (scheme-generic).
+template < typename T, tax::IndexScheme Scheme >
+void seriesSinCos( std::array< T, Scheme::nCoeff >& s, std::array< T, Scheme::nCoeff >& c,
+                   const std::array< T, Scheme::nCoeff >& a ) noexcept
 {
     using std::cos;
     using std::sin;
@@ -18,9 +20,9 @@ void seriesSinCos( Coeffs< T, N, M >& s, Coeffs< T, N, M >& c, const Coeffs< T, 
     s[0] = sin( a[0] );
     c[0] = cos( a[0] );
 
-    if constexpr ( M == 1 )
+    if constexpr ( Scheme::isUnivariate )
     {
-        for ( int d = 1; d <= N; ++d )
+        for ( int d = 1; d <= Scheme::order; ++d )
         {
             T sr = T{ 0 }, cr = T{ 0 };
             for ( int k = 0; k < d; ++k )
@@ -35,7 +37,7 @@ void seriesSinCos( Coeffs< T, N, M >& s, Coeffs< T, N, M >& c, const Coeffs< T, 
         }
     } else
     {
-        forEachRecurrenceRow< N, M >(
+        Scheme::forEachRecurrenceRow(
             [&]( std::size_t ai, int d, std::span< const RecurrenceEntry > row ) {
                 T sin_rhs = T{ 0 };
                 T cos_rhs = T{ 0 };
@@ -52,37 +54,61 @@ void seriesSinCos( Coeffs< T, N, M >& s, Coeffs< T, N, M >& c, const Coeffs< T, 
     }
 }
 
+/// Coupled trigonometric series: jointly compute `sin(a)` and `cos(a)`.
+template < typename T, int N, int M >
+void seriesSinCos( Coeffs< T, N, M >& s, Coeffs< T, N, M >& c, const Coeffs< T, N, M >& a ) noexcept
+{
+    seriesSinCos< T, tax::IsotropicScheme< N, M > >( s, c, a );
+}
+
+/// Sine series `out = sin(a)` (scheme-generic).
+template < typename T, tax::IndexScheme Scheme >
+void seriesSin( std::array< T, Scheme::nCoeff >& out,
+                const std::array< T, Scheme::nCoeff >& a ) noexcept
+{
+    std::array< T, Scheme::nCoeff > c{};
+    seriesSinCos< T, Scheme >( out, c, a );
+}
+
 /// Sine series `out = sin(a)`.
 template < typename T, int N, int M >
 void seriesSin( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
 {
-    Coeffs< T, N, M > c{};
-    seriesSinCos< T, N, M >( out, c, a );
+    seriesSin< T, tax::IsotropicScheme< N, M > >( out, a );
+}
+
+/// Cosine series `out = cos(a)` (scheme-generic).
+template < typename T, tax::IndexScheme Scheme >
+void seriesCos( std::array< T, Scheme::nCoeff >& out,
+                const std::array< T, Scheme::nCoeff >& a ) noexcept
+{
+    std::array< T, Scheme::nCoeff > s{};
+    seriesSinCos< T, Scheme >( s, out, a );
 }
 
 /// Cosine series `out = cos(a)`.
 template < typename T, int N, int M >
 void seriesCos( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
 {
-    Coeffs< T, N, M > s{};
-    seriesSinCos< T, N, M >( s, out, a );
+    seriesCos< T, tax::IsotropicScheme< N, M > >( out, a );
 }
 
-/// Tangent series `out = tan(a)`.
-template < typename T, int N, int M >
-void seriesTan( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
+/// Tangent series `out = tan(a)` (scheme-generic).
+template < typename T, tax::IndexScheme Scheme >
+void seriesTan( std::array< T, Scheme::nCoeff >& out,
+                const std::array< T, Scheme::nCoeff >& a ) noexcept
 {
-    constexpr std::size_t S = numMonomials( N, M );
-    Coeffs< T, N, M > s{}, c{};
-    seriesSinCos< T, N, M >( s, c, a );
+    constexpr std::size_t S = Scheme::nCoeff;
+    std::array< T, S > s{}, c{};
+    seriesSinCos< T, Scheme >( s, c, a );
 
     out = {};
     out[0] = s[0] / c[0];
     const T inv_c0 = T{ 1 } / c[0];
 
-    if constexpr ( M == 1 )
+    if constexpr ( Scheme::isUnivariate )
     {
-        for ( int d = 1; d <= N; ++d )
+        for ( int d = 1; d <= Scheme::order; ++d )
         {
             T rhs = s[std::size_t( d )];
             for ( int k = 1; k <= d; ++k ) rhs -= c[std::size_t( k )] * out[std::size_t( d - k )];
@@ -90,7 +116,7 @@ void seriesTan( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
         }
     } else
     {
-        forEachRecurrenceRow< N, M >(
+        Scheme::forEachRecurrenceRow(
             [&]( std::size_t ai, int, std::span< const RecurrenceEntry > row ) {
                 T rhs = s[ai];
                 for ( const RecurrenceEntry& e : row ) rhs -= c[e.b_idx] * out[e.g_idx];
@@ -99,28 +125,36 @@ void seriesTan( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
     }
 }
 
-/// Inverse sine series `out = asin(a)`.
+/// Tangent series `out = tan(a)`.
 template < typename T, int N, int M >
-void seriesAsin( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
+void seriesTan( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
+{
+    seriesTan< T, tax::IsotropicScheme< N, M > >( out, a );
+}
+
+/// Inverse sine series `out = asin(a)` (scheme-generic).
+template < typename T, tax::IndexScheme Scheme >
+void seriesAsin( std::array< T, Scheme::nCoeff >& out,
+                 const std::array< T, Scheme::nCoeff >& a ) noexcept
 {
     using std::asin;
-    constexpr std::size_t S = numMonomials( N, M );
+    constexpr std::size_t S = Scheme::nCoeff;
 
     // h = sqrt(1 - a^2)
-    Coeffs< T, N, M > asq{}, omf{}, h{};
-    cauchySelfProduct< T, N, M >( asq, a );
+    std::array< T, S > asq{}, omf{}, h{};
+    cauchySelfProduct< T, Scheme::order, Scheme::vars >( asq, a );
     omf = {};
     omf[0] = T{ 1 };
     for ( std::size_t i = 0; i < S; ++i ) omf[i] -= asq[i];
-    seriesSqrt< T, N, M >( h, omf );
+    seriesSqrt< T, Scheme >( h, omf );
 
     out = {};
     out[0] = asin( a[0] );
     const T inv_h0 = T{ 1 } / h[0];
 
-    if constexpr ( M == 1 )
+    if constexpr ( Scheme::isUnivariate )
     {
-        for ( int d = 1; d <= N; ++d )
+        for ( int d = 1; d <= Scheme::order; ++d )
         {
             T rhs = T{ 0 };
             for ( int k = 1; k < d; ++k )
@@ -129,7 +163,7 @@ void seriesAsin( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
         }
     } else
     {
-        forEachRecurrenceRow< N, M >(
+        Scheme::forEachRecurrenceRow(
             [&]( std::size_t ai, int d, std::span< const RecurrenceEntry > row ) {
                 T rhs = T{ 0 };
                 // |beta| == d entries carry weight (d - db) == 0.
@@ -140,28 +174,36 @@ void seriesAsin( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
     }
 }
 
-/// Inverse cosine series `out = acos(a)`.
+/// Inverse sine series `out = asin(a)`.
 template < typename T, int N, int M >
-void seriesAcos( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
+void seriesAsin( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
+{
+    seriesAsin< T, tax::IsotropicScheme< N, M > >( out, a );
+}
+
+/// Inverse cosine series `out = acos(a)` (scheme-generic).
+template < typename T, tax::IndexScheme Scheme >
+void seriesAcos( std::array< T, Scheme::nCoeff >& out,
+                 const std::array< T, Scheme::nCoeff >& a ) noexcept
 {
     using std::acos;
-    constexpr std::size_t S = numMonomials( N, M );
+    constexpr std::size_t S = Scheme::nCoeff;
 
     // h = sqrt(1 - a^2)
-    Coeffs< T, N, M > asq{}, omf{}, h{};
-    cauchySelfProduct< T, N, M >( asq, a );
+    std::array< T, S > asq{}, omf{}, h{};
+    cauchySelfProduct< T, Scheme::order, Scheme::vars >( asq, a );
     omf = {};
     omf[0] = T{ 1 };
     for ( std::size_t i = 0; i < S; ++i ) omf[i] -= asq[i];
-    seriesSqrt< T, N, M >( h, omf );
+    seriesSqrt< T, Scheme >( h, omf );
 
     out = {};
     out[0] = acos( a[0] );
     const T inv_h0 = T{ 1 } / h[0];
 
-    if constexpr ( M == 1 )
+    if constexpr ( Scheme::isUnivariate )
     {
-        for ( int d = 1; d <= N; ++d )
+        for ( int d = 1; d <= Scheme::order; ++d )
         {
             T rhs = T{ 0 };
             for ( int k = 1; k < d; ++k )
@@ -170,7 +212,7 @@ void seriesAcos( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
         }
     } else
     {
-        forEachRecurrenceRow< N, M >(
+        Scheme::forEachRecurrenceRow(
             [&]( std::size_t ai, int d, std::span< const RecurrenceEntry > row ) {
                 T rhs = T{ 0 };
                 // |beta| == d entries carry weight (d - db) == 0.
@@ -181,16 +223,24 @@ void seriesAcos( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
     }
 }
 
-/// Inverse tangent series `out = atan(a)`.
+/// Inverse cosine series `out = acos(a)`.
 template < typename T, int N, int M >
-void seriesAtan( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
+void seriesAcos( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
+{
+    seriesAcos< T, tax::IsotropicScheme< N, M > >( out, a );
+}
+
+/// Inverse tangent series `out = atan(a)` (scheme-generic).
+template < typename T, tax::IndexScheme Scheme >
+void seriesAtan( std::array< T, Scheme::nCoeff >& out,
+                 const std::array< T, Scheme::nCoeff >& a ) noexcept
 {
     using std::atan;
-    constexpr std::size_t S = numMonomials( N, M );
+    constexpr std::size_t S = Scheme::nCoeff;
 
     // h = 1 + a^2
-    Coeffs< T, N, M > asq{}, h{};
-    cauchySelfProduct< T, N, M >( asq, a );
+    std::array< T, S > asq{}, h{};
+    cauchySelfProduct< T, Scheme::order, Scheme::vars >( asq, a );
     h = asq;
     h[0] += T{ 1 };
 
@@ -198,9 +248,9 @@ void seriesAtan( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
     out[0] = atan( a[0] );
     const T inv_h0 = T{ 1 } / h[0];
 
-    if constexpr ( M == 1 )
+    if constexpr ( Scheme::isUnivariate )
     {
-        for ( int d = 1; d <= N; ++d )
+        for ( int d = 1; d <= Scheme::order; ++d )
         {
             T rhs = T{ 0 };
             for ( int k = 1; k < d; ++k )
@@ -209,7 +259,7 @@ void seriesAtan( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
         }
     } else
     {
-        forEachRecurrenceRow< N, M >(
+        Scheme::forEachRecurrenceRow(
             [&]( std::size_t ai, int d, std::span< const RecurrenceEntry > row ) {
                 T rhs = T{ 0 };
                 // |beta| == d entries carry weight (d - db) == 0.
@@ -220,21 +270,28 @@ void seriesAtan( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
     }
 }
 
-/// Two-argument arctangent series `out = atan2(y, x)`.
+/// Inverse tangent series `out = atan(a)`.
 template < typename T, int N, int M >
-void seriesAtan2( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& y,
-                  const Coeffs< T, N, M >& x ) noexcept
+void seriesAtan( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
+{
+    seriesAtan< T, tax::IsotropicScheme< N, M > >( out, a );
+}
+
+/// Two-argument arctangent series `out = atan2(y, x)` (scheme-generic).
+template < typename T, tax::IndexScheme Scheme >
+void seriesAtan2( std::array< T, Scheme::nCoeff >& out, const std::array< T, Scheme::nCoeff >& y,
+                  const std::array< T, Scheme::nCoeff >& x ) noexcept
 {
     using std::atan2;
-    constexpr std::size_t S = numMonomials( N, M );
+    constexpr std::size_t S = Scheme::nCoeff;
 
     // Compute r = y / x in a single forward-substitution pass.
-    Coeffs< T, N, M > r{};
-    seriesDivide< T, N, M >( r, y, x );
+    std::array< T, S > r{};
+    seriesDivide< T, Scheme >( r, y, x );
 
     // h = 1 + r^2
-    Coeffs< T, N, M > rsq{}, h{};
-    cauchySelfProduct< T, N, M >( rsq, r );
+    std::array< T, S > rsq{}, h{};
+    cauchySelfProduct< T, Scheme::order, Scheme::vars >( rsq, r );
     h = rsq;
     h[0] += T{ 1 };
 
@@ -242,9 +299,9 @@ void seriesAtan2( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& y,
     out[0] = atan2( y[0], x[0] );
     const T inv_h0 = T{ 1 } / h[0];
 
-    if constexpr ( M == 1 )
+    if constexpr ( Scheme::isUnivariate )
     {
-        for ( int d = 1; d <= N; ++d )
+        for ( int d = 1; d <= Scheme::order; ++d )
         {
             T rhs = T{ 0 };
             for ( int k = 1; k < d; ++k )
@@ -253,7 +310,7 @@ void seriesAtan2( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& y,
         }
     } else
     {
-        forEachRecurrenceRow< N, M >(
+        Scheme::forEachRecurrenceRow(
             [&]( std::size_t ai, int d, std::span< const RecurrenceEntry > row ) {
                 T rhs = T{ 0 };
                 // |beta| == d entries carry weight (d - db) == 0.
@@ -262,6 +319,14 @@ void seriesAtan2( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& y,
                 out[ai] = ( r[ai] - rhs / T( d ) ) * inv_h0;
             } );
     }
+}
+
+/// Two-argument arctangent series `out = atan2(y, x)`.
+template < typename T, int N, int M >
+void seriesAtan2( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& y,
+                  const Coeffs< T, N, M >& x ) noexcept
+{
+    seriesAtan2< T, tax::IsotropicScheme< N, M > >( out, y, x );
 }
 
 }  // namespace tax::detail::kernels
