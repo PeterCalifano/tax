@@ -56,8 +56,8 @@ template < typename Derived >
 // -----------------------------------------------------------------------------
 
 /// Evaluate a scalar `TaylorExpansion` at displacement `dx`.
-template < typename T, int N, int M, typename S, typename DxDerived >
-[[nodiscard]] T eval( const TaylorExpansion< T, N, M, S >& f,
+template < typename T, typename Scheme, typename S, typename DxDerived >
+[[nodiscard]] T eval( const TaylorExpansion< T, Scheme, S >& f,
                       const Eigen::MatrixBase< DxDerived >& dx ) noexcept
 {
     return f.eval( dx );
@@ -84,9 +84,9 @@ template < typename Derived, typename DxDerived >
 
 /// Evaluate a scalar univariate `TaylorExpansion` at a scalar displacement.
 template < typename T, int N, typename S >
-[[nodiscard]] T eval( const TaylorExpansion< T, N, 1, S >& f, T dx ) noexcept
+[[nodiscard]] T eval( const TaylorExpansion< T, IsotropicScheme< N, 1 >, S >& f, T dx ) noexcept
 {
-    typename TaylorExpansion< T, N, 1, S >::Input p{ dx };
+    typename TaylorExpansion< T, IsotropicScheme< N, 1 >, S >::Input p{ dx };
     return f.eval( p );
 }
 

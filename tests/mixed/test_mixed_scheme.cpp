@@ -1,12 +1,35 @@
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <set>
 #include <tax/core/index_scheme.hpp>
 #include <tax/core/mixed_scheme.hpp>
 #include <tax/core/multi_index.hpp>
+#include <tax/tax.hpp>
+#include <type_traits>
 
 using tax::Group;
 using tax::MixedScheme;
+
+// MixedTE<Groups...> is a first-class dense TaylorExpansion over a MixedScheme.
+TEST( MixedTE, InstantiatesAsTaylorExpansion )
+{
+    using ME = tax::MixedTE< Group< 1, 4 >, Group< 1, 3 > >;
+    static_assert( ME::nCoefficients == 20 );  // 5 * 4
+    static_assert( ME::vars_v == 2 );
+    static_assert( ME::order_v == 7 );
+    static_assert(
+        std::is_same_v<
+            ME, tax::TaylorExpansion< double, MixedScheme< Group< 1, 4 >, Group< 1, 3 > > > > );
+
+    // Full math + value surface works on the mixed type.
+    typename ME::Input p{ 0.5, -0.3 };
+    auto x = ME::variable< 0 >( p );
+    auto y = ME::variable< 1 >( p );
+    auto f = sin( x ) + x * y + exp( y );
+    EXPECT_NEAR( f.value(), std::sin( 0.5 ) + 0.5 * ( -0.3 ) + std::exp( -0.3 ), 1e-12 );
+    SUCCEED();
+}
 
 // Box count = product of per-group simplex sizes; differs from the joint simplex.
 TEST( MixedScheme, KeptCountIsBoxProduct )

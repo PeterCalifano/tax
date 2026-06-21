@@ -15,6 +15,7 @@
 #include <tax/core/multi_index.hpp>
 #include <tax/kernels/cauchy.hpp>
 #include <tax/kernels/recurrence_stencil.hpp>
+#include <type_traits>
 
 namespace tax
 {
@@ -36,8 +37,12 @@ struct IsotropicScheme
     static constexpr int vars = M;
     static constexpr bool isUnivariate = ( M == 1 );
 
+    /// Sentinel returned by flatOf for multi-indices outside the kept set (|alpha| > N).
+    static constexpr std::size_t kNotInBox = std::size_t( -1 );
+
     [[nodiscard]] static constexpr std::size_t flatOf( const MultiIndex< M >& a ) noexcept
     {
+        if ( totalDegree( a ) > N ) return kNotInBox;
         return flatIndex< M >( a );
     }
     [[nodiscard]] static constexpr MultiIndex< M > multiOf( std::size_t k ) noexcept
@@ -88,6 +93,18 @@ struct IsotropicScheme
         }
     }
 };
+
+/// Trait: true iff `S` is an `IsotropicScheme<N, M>` instantiation.
+template < typename S >
+struct is_isotropic_scheme : std::false_type
+{
+};
+template < int N, int M >
+struct is_isotropic_scheme< IsotropicScheme< N, M > > : std::true_type
+{
+};
+template < typename S >
+inline constexpr bool is_isotropic_scheme_v = is_isotropic_scheme< S >::value;
 
 // ---------------------------------------------------------------------------
 // Scheme-generic Cauchy product entry point (free function in tax namespace)

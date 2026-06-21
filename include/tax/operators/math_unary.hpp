@@ -21,23 +21,24 @@ namespace tax
 //   acosh: x0 > 1   atanh/asin/acos: |x0| < 1
 // ===========================================================================
 
-#define TAX_UNARY_OP_CE( NAME, KERNEL )                                           \
-    template < typename T, int N, int M >                                         \
-    [[nodiscard]] constexpr TaylorExpansion< T, N, M > NAME(                      \
-        const TaylorExpansion< T, N, M >& x ) noexcept                            \
-    {                                                                             \
-        TaylorExpansion< T, N, M > r;                                             \
-        detail::kernels::KERNEL< T, N, M >( r.coefficients(), x.coefficients() ); \
-        return r;                                                                 \
+#define TAX_UNARY_OP_CE( NAME, KERNEL )                                             \
+    template < typename T, IndexScheme Scheme >                                     \
+    [[nodiscard]] constexpr TaylorExpansion< T, Scheme > NAME(                      \
+        const TaylorExpansion< T, Scheme >& x ) noexcept                            \
+    {                                                                               \
+        TaylorExpansion< T, Scheme > r;                                             \
+        detail::kernels::KERNEL< T, Scheme >( r.coefficients(), x.coefficients() ); \
+        return r;                                                                   \
     }
 
-#define TAX_UNARY_OP( NAME, KERNEL )                                                              \
-    template < typename T, int N, int M >                                                         \
-    [[nodiscard]] TaylorExpansion< T, N, M > NAME( const TaylorExpansion< T, N, M >& x ) noexcept \
-    {                                                                                             \
-        TaylorExpansion< T, N, M > r;                                                             \
-        detail::kernels::KERNEL< T, N, M >( r.coefficients(), x.coefficients() );                 \
-        return r;                                                                                 \
+#define TAX_UNARY_OP( NAME, KERNEL )                                                \
+    template < typename T, IndexScheme Scheme >                                     \
+    [[nodiscard]] TaylorExpansion< T, Scheme > NAME(                                \
+        const TaylorExpansion< T, Scheme >& x ) noexcept                            \
+    {                                                                               \
+        TaylorExpansion< T, Scheme > r;                                             \
+        detail::kernels::KERNEL< T, Scheme >( r.coefficients(), x.coefficients() ); \
+        return r;                                                                   \
     }
 
 // Pure-polynomial recurrences (constexpr).
@@ -81,20 +82,20 @@ TAX_UNARY_OP( atan, seriesAtan )
 
 /// Sparse `sqrt(f)` via support-set forward substitution.
 template < typename T, int N, int M >
-[[nodiscard]] TaylorExpansion< T, N, M, storage::Sparse > sqrt(
-    const TaylorExpansion< T, N, M, storage::Sparse >& x )
+[[nodiscard]] TaylorExpansion< T, IsotropicScheme< N, M >, storage::Sparse > sqrt(
+    const TaylorExpansion< T, IsotropicScheme< N, M >, storage::Sparse >& x )
 {
-    TaylorExpansion< T, N, M, storage::Sparse > r;
+    TaylorExpansion< T, IsotropicScheme< N, M >, storage::Sparse > r;
     detail::kernels::seriesSqrtSparse< T, N, M >( r.container(), x.container() );
     return r;
 }
 
 /// Sparse `1/f` via support-set forward substitution.
 template < typename T, int N, int M >
-[[nodiscard]] TaylorExpansion< T, N, M, storage::Sparse > reciprocal(
-    const TaylorExpansion< T, N, M, storage::Sparse >& x )
+[[nodiscard]] TaylorExpansion< T, IsotropicScheme< N, M >, storage::Sparse > reciprocal(
+    const TaylorExpansion< T, IsotropicScheme< N, M >, storage::Sparse >& x )
 {
-    TaylorExpansion< T, N, M, storage::Sparse > r;
+    TaylorExpansion< T, IsotropicScheme< N, M >, storage::Sparse > r;
     detail::kernels::seriesReciprocalSparse< T, N, M >( r.container(), x.container() );
     return r;
 }
