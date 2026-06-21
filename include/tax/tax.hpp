@@ -14,4 +14,5 @@
 #include <tax/operators/math_unary.hpp>
 #include <tax/operators/math_binary.hpp>
 #include <tax/la.hpp>
+#include <tax/la/mixed_named.hpp>
 #include <tax/io/series.hpp>
