@@ -20,6 +20,11 @@
 namespace tax::named
 {
 
+// Forward declaration so detail::RebindMixed can name the mixed type.
+template < typename T, typename... Axes >
+    requires Scalar< T >
+class MixedTaylorExpansion;
+
 // ---------------------------------------------------------------------------
 // OrderedAxis — a named axis with its own per-axis truncation order
 // ---------------------------------------------------------------------------
@@ -53,6 +58,76 @@ struct AxesToMixedScheme
 
 template < typename... Axes >
 using AxesToMixedScheme_t = typename AxesToMixedScheme< Axes... >::type;
+
+// --- Merge two name-sorted ordered-axis lists into one sorted, unique list ---
+// Mirrors named::detail::Merge / MergeChoose, but the same-name case takes the
+// MAX of the two per-axis orders (a shared axis must accommodate both operands).
+
+template < int Cmp, typename A, typename B >
+struct MergeOrderedChoose;
+
+template < typename A, typename B >
+struct MergeOrdered;
+
+template < typename... Bs >
+struct MergeOrdered< TypeList<>, TypeList< Bs... > >
+{
+    using type = TypeList< Bs... >;
+};
+
+template < typename A0, typename... As >
+struct MergeOrdered< TypeList< A0, As... >, TypeList<> >
+{
+    using type = TypeList< A0, As... >;
+};
+
+template < typename A0, typename... As, typename B0, typename... Bs >
+struct MergeOrdered< TypeList< A0, As... >, TypeList< B0, Bs... > >
+    : MergeOrderedChoose< axisSign< A0, B0 >, TypeList< A0, As... >, TypeList< B0, Bs... > >
+{
+};
+
+// A0 < B0 : take A0
+template < typename A0, typename... As, typename B0, typename... Bs >
+struct MergeOrderedChoose< -1, TypeList< A0, As... >, TypeList< B0, Bs... > >
+{
+    using type = typename Prepend<
+        A0, typename MergeOrdered< TypeList< As... >, TypeList< B0, Bs... > >::type >::type;
+};
+
+// A0 > B0 : take B0
+template < typename A0, typename... As, typename B0, typename... Bs >
+struct MergeOrderedChoose< 1, TypeList< A0, As... >, TypeList< B0, Bs... > >
+{
+    using type = typename Prepend<
+        B0, typename MergeOrdered< TypeList< A0, As... >, TypeList< Bs... > >::type >::type;
+};
+
+// A0 == B0 (same name) : require identical dimension, take max(order), advance both
+template < typename A0, typename... As, typename B0, typename... Bs >
+struct MergeOrderedChoose< 0, TypeList< A0, As... >, TypeList< B0, Bs... > >
+{
+    static_assert( A0::dim == B0::dim,
+                   "named axis used with inconsistent dimension across operands" );
+    using Promoted =
+        OrderedAxis< A0::name, A0::dim, ( A0::order > B0::order ? A0::order : B0::order ) >;
+    using type = typename Prepend<
+        Promoted, typename MergeOrdered< TypeList< As... >, TypeList< Bs... > >::type >::type;
+};
+
+/// Rebind a `TypeList` of ordered axes into a `MixedTaylorExpansion< T, Axes... >`.
+template < typename T, typename List >
+struct RebindMixed;
+template < typename T, typename... Axes >
+struct RebindMixed< T, TypeList< Axes... > >
+{
+    using type = MixedTaylorExpansion< T, Axes... >;
+};
+
+/// The mixed type over the merged (union, max-order) axis set of two operands.
+template < typename T, typename ListA, typename ListB >
+using MergedMixedTaylorExpansion =
+    typename RebindMixed< T, typename MergeOrdered< ListA, ListB >::type >::type;
 
 }  // namespace detail
 
@@ -131,9 +206,142 @@ class MixedTaylorExpansion
         return inner_.derivative( alpha );
     }
 
+    // ------------------------------------------------------------------
+    // Embedding
+    // ------------------------------------------------------------------
+
+    /// Embed into the target mixed type `R`, whose axes are a superset of this
+    /// expansion's axes and whose per-axis orders are >= this expansion's
+    /// (i.e. this expansion is a sub-box of R). Reindexes box -> box through the
+    /// MixedScheme (multiOf/flatOf), remapping the per-axis variable blocks.
+    template < typename R >
+    [[nodiscard]] constexpr R embed() const noexcept
+    {
+        constexpr auto map =
+            detail::buildAxisMap< axis_list, typename R::axis_list, /*allowDrop=*/false >();
+        typename R::Inner::Data out{};
+        for ( std::size_t k = 0; k < Inner::nCoefficients; ++k )
+        {
+            const T c = inner_[k];
+            if ( c == T{} ) continue;
+            const auto a_src = Inner::scheme::multiOf( k );
+            MultiIndex< R::vars_v > a_dst{};
+            for ( int j = 0; j < vars_v; ++j )
+                a_dst[std::size_t( map[std::size_t( j )] )] = a_src[std::size_t( j )];
+            const std::size_t dst = R::Inner::scheme::flatOf( a_dst );
+            // R's axes superset this one's and R's per-axis orders are >= these,
+            // so every source monomial stays in R's box.
+            out[dst] = c;
+        }
+        return R{ typename R::Inner{ out } };
+    }
+
    private:
     Inner inner_{};
 };
+
+// ---------------------------------------------------------------------------
+// Composition operators (union axis set, max order per shared axis)
+// ---------------------------------------------------------------------------
+
+// Each binary op embeds both operands into the merged mixed type, then delegates
+// to the UNIFIED TaylorExpansion operator on the (now box-compatible) inners.
+#define TAX_MIXED_BINARY_OP( OP )                                                                 \
+    template < typename T, typename... A, typename... B >                                         \
+    [[nodiscard]] constexpr auto operator OP( const MixedTaylorExpansion< T, A... >& a,           \
+                                              const MixedTaylorExpansion< T, B... >& b ) noexcept \
+    {                                                                                             \
+        using R = detail::MergedMixedTaylorExpansion< T, detail::TypeList< A... >,                \
+                                                      detail::TypeList< B... > >;                 \
+        return R{ a.template embed< R >().inner() OP b.template embed< R >().inner() };           \
+    }
+
+TAX_MIXED_BINARY_OP( +)
+TAX_MIXED_BINARY_OP( -)
+TAX_MIXED_BINARY_OP( * )
+TAX_MIXED_BINARY_OP( / )
+
+#undef TAX_MIXED_BINARY_OP
+
+// --- Scalar combinations (axis set unchanged) ------------------------------
+
+#define TAX_MIXED_SCALAR_OP( OP )                                                        \
+    template < typename T, typename... A >                                               \
+    [[nodiscard]] constexpr MixedTaylorExpansion< T, A... > operator OP(                 \
+        const MixedTaylorExpansion< T, A... >& a, std::type_identity_t< T > s ) noexcept \
+    {                                                                                    \
+        return MixedTaylorExpansion< T, A... >{ a.inner() OP s };                        \
+    }
+
+TAX_MIXED_SCALAR_OP( +)
+TAX_MIXED_SCALAR_OP( -)
+TAX_MIXED_SCALAR_OP( * )
+TAX_MIXED_SCALAR_OP( / )
+
+#undef TAX_MIXED_SCALAR_OP
+
+template < typename T, typename... A >
+[[nodiscard]] constexpr MixedTaylorExpansion< T, A... > operator+(
+    std::type_identity_t< T > s, const MixedTaylorExpansion< T, A... >& a ) noexcept
+{
+    return a + s;
+}
+
+template < typename T, typename... A >
+[[nodiscard]] constexpr MixedTaylorExpansion< T, A... > operator*(
+    std::type_identity_t< T > s, const MixedTaylorExpansion< T, A... >& a ) noexcept
+{
+    return a * s;
+}
+
+template < typename T, typename... A >
+[[nodiscard]] constexpr MixedTaylorExpansion< T, A... > operator-(
+    std::type_identity_t< T > s, const MixedTaylorExpansion< T, A... >& a ) noexcept
+{
+    return MixedTaylorExpansion< T, A... >{ s - a.inner() };
+}
+
+template < typename T, typename... A >
+[[nodiscard]] constexpr MixedTaylorExpansion< T, A... > operator-(
+    const MixedTaylorExpansion< T, A... >& a ) noexcept
+{
+    return MixedTaylorExpansion< T, A... >{ -a.inner() };
+}
+
+// ---------------------------------------------------------------------------
+// Unary math functions (forwarded to the inner expansion, axis set preserved)
+// ---------------------------------------------------------------------------
+
+#define TAX_MIXED_UNARY_FN( FN )                                        \
+    template < typename T, typename... A >                              \
+    [[nodiscard]] MixedTaylorExpansion< T, A... > FN(                   \
+        const MixedTaylorExpansion< T, A... >& a ) noexcept             \
+    {                                                                   \
+        return MixedTaylorExpansion< T, A... >{ tax::FN( a.inner() ) }; \
+    }
+
+TAX_MIXED_UNARY_FN( square )
+TAX_MIXED_UNARY_FN( cube )
+TAX_MIXED_UNARY_FN( sqrt )
+TAX_MIXED_UNARY_FN( cbrt )
+TAX_MIXED_UNARY_FN( reciprocal )
+TAX_MIXED_UNARY_FN( exp )
+TAX_MIXED_UNARY_FN( log )
+TAX_MIXED_UNARY_FN( sin )
+TAX_MIXED_UNARY_FN( cos )
+TAX_MIXED_UNARY_FN( tan )
+TAX_MIXED_UNARY_FN( asin )
+TAX_MIXED_UNARY_FN( acos )
+TAX_MIXED_UNARY_FN( atan )
+TAX_MIXED_UNARY_FN( sinh )
+TAX_MIXED_UNARY_FN( cosh )
+TAX_MIXED_UNARY_FN( tanh )
+TAX_MIXED_UNARY_FN( asinh )
+TAX_MIXED_UNARY_FN( acosh )
+TAX_MIXED_UNARY_FN( atanh )
+TAX_MIXED_UNARY_FN( erf )
+
+#undef TAX_MIXED_UNARY_FN
 
 }  // namespace tax::named
 
