@@ -10,17 +10,17 @@
 // loop kernel, but the value MUST be identical in every translation unit
 // linked together — differing values change inline definitions (ODR).
 #ifndef TAX_USE_UNROLL
-#define TAX_USE_UNROLL 1
+#    define TAX_USE_UNROLL 1
 #endif
 #ifndef TAX_USE_STENCIL
-#define TAX_USE_STENCIL 1
+#    define TAX_USE_STENCIL 1
 #endif
 
 #if TAX_USE_UNROLL
-#include <tax/kernels/cauchy_unroll.hpp>
+#    include <tax/kernels/cauchy_unroll.hpp>
 #endif
 #if TAX_USE_STENCIL
-#include <tax/kernels/cauchy_stencil.hpp>
+#    include <tax/kernels/cauchy_stencil.hpp>
 #endif
 
 namespace tax::detail::kernels
@@ -28,23 +28,25 @@ namespace tax::detail::kernels
 
 /// Loop-based Cauchy (convolution) product over graded-lex monomials.
 template < typename T, int N, int M >
-constexpr void cauchyProductLoop( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a,
+constexpr void cauchyProductLoop( Coeffs< T, N, M >& out,
+                                  const Coeffs< T, N, M >& a,
                                   const Coeffs< T, N, M >& b ) noexcept
 {
     out = {};
     tax::forEachMonomial< M, N >( [&]( const MultiIndex< M >& alpha ) {
         const std::size_t i = flatIndex< M >( alpha );
-        tax::forEachSubIndex< M >( alpha,
-                                   [&]( const MultiIndex< M >& k, const MultiIndex< M >& s ) {
-                                       out[i] += a[flatIndex< M >( k )] * b[flatIndex< M >( s )];
-                                   } );
+        tax::forEachSubIndex< M >( alpha, [&]( const MultiIndex< M >& k,
+                                               const MultiIndex< M >& s ) {
+            out[i] += a[flatIndex< M >( k )] * b[flatIndex< M >( s )];
+        } );
     } );
 }
 
 /// Public dispatch entry for the Cauchy product.
 template < typename T, int N, int M >
-constexpr void cauchyProduct( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a,
-                              const Coeffs< T, N, M >& b ) noexcept
+constexpr void cauchyProduct( Coeffs< T, N, M >& out,
+                               const Coeffs< T, N, M >& a,
+                               const Coeffs< T, N, M >& b ) noexcept
 {
 #if TAX_USE_UNROLL
     if constexpr ( M == 1 )
