@@ -1,114 +1,111 @@
-# Mixed-order (anisotropic) named expansions — design
+# Mixed-order (anisotropic) expansions — design
 
 **Date:** 2026-06-21
-**Status:** Approved for planning
-**Topic:** A new, separate named-expansion family whose axes carry **independent truncation orders**, stored on a genuinely **anisotropic** (per-axis-capped "box") monomial set — no dense blow-up — exposed through the full production math surface and `tax::la`.
+**Status:** Approved for planning (revised for the unified-type design — Option B)
+**Topic:** Per-variable-group **independent truncation orders** on a genuinely **anisotropic** (per-axis-capped "box") monomial set — no dense blow-up — delivered by **unifying the existing `TaylorExpansion` over an index scheme** (so the mixed type *is* a `TaylorExpansion` with the full math + `tax::la` surface), plus a named per-axis-order layer on top.
 
 ## Motivation
 
-For an ODE flow map (and similar) one wants the expansion in some variables (e.g. time `t`) to a much higher order than in others (e.g. state `x`): `x@4, t@20`. Today's `NamedTaylorExpansion<T, N, Axes...>` carries a **single global order N** (a joint total-degree simplex over all variables), so representing `x@4, t@20` would require `N = 24` and store every `x⁵…x²⁴` term as forced zeros. Across several axes this explodes (e.g. `x@4` over 3 vars + `t@20` → a box of ~20,000 coefficients vs ~735 actually wanted). Masking a dense box cannot avoid this — it makes it worse. The representation must be **anisotropic from the start**.
+For an ODE flow map (and similar) one wants the expansion in some variables (e.g. time `t`) to a much higher order than in others (e.g. state `x`): `x@4, t@20`. Today's joint-simplex expansions carry a **single global order N**, so representing `x@4, t@20` would require `N = 24` and store every `x⁵…x²⁴` term as forced zeros. Across several axes this explodes (e.g. `x@4` over 3 vars + `t@20` → a box of ~20,000 coefficients vs ~735 actually wanted). Masking a dense box cannot avoid this — it makes it worse. The representation must be **anisotropic from the start**.
 
-The companion prototype (`prototypes/mixed/` on `origin/claude/taylor-expansion-prototypes-hxq111`) demonstrated the structural payoff of a single flat anisotropic expansion (`MixedExpansion<T,Nt,Ns,Ms,Nj>`): at equal coefficient counts ~1.3–1.6× over a nested representation, and **4–6×** once a joint total-degree cap `Nj` drops the high mixed terms a nested/box form is forced to carry. This design productionizes and generalizes that prototype from 2 groups to N named axes, and wires it through the named API and the full kernel surface.
+The companion prototype (`prototypes/mixed/` on `origin/claude/taylor-expansion-prototypes-hxq111`) demonstrated the structural payoff of a single flat anisotropic expansion (`MixedExpansion<T,Nt,Ns,Ms,Nj>`): ~1.3–1.6× over a nested representation at equal coefficient counts, and **4–6×** once a joint total-degree cap `Nj` drops the high mixed terms. This design productionizes and generalizes that prototype from 2 groups to N groups/axes, threading it through the existing `TaylorExpansion` type and its full kernel/`la` surface.
 
-## Scope & decisions (all approved during brainstorming)
+## Scope & decisions (approved during brainstorming; revised per Option B)
 
-1. **Anisotropic storage from the start** — the kept set is the **box**: monomial kept iff for every axis (group) *g*, the partial degree in *g*'s variables `≤ order_g`. No masking-on-a-dense-box.
-2. **A separate type** — today's joint-simplex `NamedTaylorExpansion<T, N, Axes...>`, `Axis<Name,Dim>`, `NE`, `tax::variable<"x",N>`, `tax::jacobian<"x">` are **left entirely unchanged**. The mixed-order family is parallel and additive. No existing semantics change.
-3. **Order on the axis** — `OrderedAxis<Name, Dim, Order>`; the expansion is `MixedTaylorExpansion<T, Axes...>` with no global `N`. Canonical type (axes sorted-by-name, unique) via the existing `FixedString`/`axisSign`/`Merge` machinery, so `x*p == p*x` as types.
-4. **Full production math surface in one spec** — arithmetic + every transcendental/algebraic op + `tax::la`, not a minimal subset.
-5. **Optional joint cap** lives in the core scheme, defaulting to `Σ orders` (full box). Reachable via an explicit form for the perf win; the named type defaults to the box.
-6. **Promotion = union of axes + max order per shared axis** (the direct generalization of today's automatic axis-set union).
+1. **Anisotropic storage from the start** — the kept set is the **box**: monomial kept iff for every group *g*, the partial degree in *g*'s variables `≤ order_g`. No masking-on-a-dense-box.
+2. **Unify, don't duplicate (Option B).** Rather than a separate parallel `MixedExpansion`, the existing **`TaylorExpansion` is re-parameterized over an `IndexScheme`** — `TaylorExpansion<T, Scheme, Storage>`. The classic type is `TaylorExpansion<T, IsotropicScheme<N,M>>` (kept user-spelling `TE<N,M>`); the mixed type is `TaylorExpansion<T, MixedScheme<Groups…>>` (`MixedTE<Groups…>`). The mixed type therefore **is a `TaylorExpansion`** — it satisfies the `TaylorPolynomial`/`DensePolynomial` concepts and works with `tax::la` and `io` with no duplicated surface.
+3. **Existing joint-simplex *named* layer is untouched.** `NamedTaylorExpansion<T, N, Axes…>`, `Axis<Name,Dim>`, `NE`, `tax::variable<"x",N>`, `tax::jacobian<"x">` keep their joint-simplex semantics. The new per-axis-order **named** layer (decision 4) is parallel and additive.
+4. **Order on the axis** (named layer) — `OrderedAxis<Name, Dim, Order>`; the named expansion `MixedTaylorExpansion<T, Axes…>` wraps a `TaylorExpansion<T, MixedScheme<groups-from-axes>>`, no global `N`. Canonical type (axes sorted-by-name, unique) via the existing `FixedString`/`axisSign`/`Merge` machinery, so `x*p == p*x` as types.
+5. **Optional joint cap** lives in the core `MixedScheme`, defaulting to `Σ orders` (full box); reachable via an explicit form for the perf win.
+6. **Promotion = union of axes + max order per shared axis** (named layer; the direct generalization of today's automatic axis-set union).
 
 ## Architecture
 
-### The index-scheme abstraction (the central move)
+### The index-scheme abstraction (the central move) — *done in M1/M2*
 
-Every recurrence kernel today is templated `<T, N, M>`, operates on `Coeffs<T,N,M> = std::array<T, numMonomials(N,M)>`, and calls `forEachRecurrenceRow<N,M>` / a `CauchyStencil<N,M>`. All shared structure is "walk output monomials in graded (ascending total-degree) order; `out[ai] = f(rows, inputs, d, db)`." We introduce an **index scheme** that supplies exactly what the kernels need:
+Every recurrence kernel was templated `<T, N, M>`, operated on `Coeffs<T,N,M> = std::array<T, numMonomials(N,M)>`, and called `forEachRecurrenceRow<N,M>` / a `CauchyStencil<N,M>`. All shared structure is "walk output monomials in graded (ascending total-degree) order; `out[ai] = f(rows, inputs, d, db)`." An **index scheme** supplies exactly what the kernels need: `nCoeff`; `flatOf`/`multiOf`; `order`/`vars`/`isUnivariate`; `forEachRecurrenceRow(fn)`; `cauchyProduct<T>`/`cauchySelfProduct<T>`.
 
-- `static constexpr std::size_t nCoeff` — storage size.
-- `forEachRecurrenceRow(fn)` → `fn(ai, d, std::span<const RecurrenceEntry>)`, where each `RecurrenceEntry{b_idx, g_idx, db}` means `β+γ = α(ai)`, `|β| = db ≥ 1`, `b_idx = flat(β)`, `g_idx = flat(γ)`. **Same callback signature as today.**
-- The Cauchy product stencil — the `(out_idx, a_idx, b_idx)` triple list.
-- `flat ↔ multi-index` maps (the `pos` map) for the bespoke ops.
+- **`IsotropicScheme<N, M>`** (M1) — the classic single-order graded-lex layout; delegates to today's `numMonomials`/`forEachRecurrenceRow`/`CauchyStencil`, bit-identical.
+- **`MixedScheme<Groups…>`** (M2) — each `Group` is `(dim, order)` (+ optional joint cap, default `Σ order_g` = full box). Kept set = box, graded by total degree (causal recurrences), with `flatOf`/`multiOf` and box-filtered stencils.
 
-Two schemes implement this concept:
+The scheme-generic kernels (M1/M2) already run on both schemes: all 20 recurrence kernels (`exp/log/sin/cos/tan/sqrt/cbrt/pow/erf/asin/acos/atan/atan2/sinh/cosh/tanh/asinh/acosh/atanh/reciprocal/divide`) plus the Cauchy product.
 
-- **`IsotropicScheme<N, M>`** — wraps exactly today's `numMonomials` / `forEachRecurrenceRow<N,M>` / `CauchyStencil<N,M>`. The existing `TaylorExpansion<T,N,M,Dense>` hot path is rewired onto it and must produce **bit-identical** tables and codegen, including the `M==1` unrolled Cauchy product and the `M≥2` stencil specialization. Zero behavioral or performance change is a hard requirement, gated by the full existing test suite.
-- **`MixedScheme<Groups...>`** — each `Group` is `(dim, order)`; an optional joint total-degree cap `Nj` (default `Σ order_g` = full box). Kept set = box (∩ optional joint cap). Ordering **graded by total degree** with per-group sub-structure within each degree (the prototype's layout), which keeps the forward-substitution recurrences causal. `pos` map `(per-group multi-index) → flat`, built once at first use (runtime-static) with a `constexpr`-evaluation fallback that enumerates on the fly (mirrors the existing `if !consteval` pattern, so the type stays usable in constant expressions).
+### Unify `TaylorExpansion` over the scheme (Option B) — *the core of M3*
 
-**Pay-off:** once a kernel is scheme-generic, all 20 recurrence kernels work on `MixedScheme` with **no per-kernel math change** — `seriesExp/Log/Sin/Cos/Tan/Sqrt/Cbrt/Pow/Erf/Asin/Acos/Atan/Atan2/Sinh/Cosh/Tanh/Asinh/Acosh/Atanh/Reciprocal/Divide`. Arithmetic `+`/`-` is elementwise on the shared layout; `*` uses the box-filtered Cauchy stencil.
+Re-parameterize the dense expansion type by its scheme:
 
-### Bespoke (non-stencil) ops, made scheme-aware
+```cpp
+template < typename T, typename Scheme, typename Storage = storage::Dense >
+    requires IndexScheme< Scheme >
+class TaylorExpansion;            // dense specialization is generic over Scheme
+```
 
-These thread `flatIndex`/`unflatIndex`/degree arithmetic directly and get scheme-aware reimplementations:
+- **Aliases (user-facing spellings preserved):** `template<int N,int M=1> using TE = TaylorExpansion<double, IsotropicScheme<N,M>>;`  `template<typename... Groups> using MixedTE = TaylorExpansion<double, MixedScheme<Groups...>>;`  `template<int N,int M=1> using STE = TaylorExpansion<double, IsotropicScheme<N,M>, storage::Sparse>;`
+- **One dense surface, written once over `Scheme`:** `value`/`coeff` (compile-time/runtime/`MultiIndex`)/`operator[]`/`variable`/`derivative`/`eval`/`deriv`/`integ` use `Scheme::flatOf/multiOf/nCoeff/order/vars/isUnivariate`. The bespoke index ops become scheme-generic:
+  - **`eval`** — power-table accumulation over `Scheme::multiOf`.
+  - **`deriv`/`integ`** — scatter through `flatOf`/`multiOf`; `integ`'s `totalDegree ≥ N` guard becomes "is the incremented monomial still in the box?" (`flatOf != kNotInBox`).
+- **Operators + math + `la` migrate from `<T,N,M>` to `<T,Scheme>`** (`operators/arithmetic.hpp`, `math_unary.hpp`, `math_binary.hpp`; `la/num_traits.hpp`, `la/values.hpp`, `la/derivatives.hpp`). Because they call the already-scheme-generic kernels and use `derivative(MultiIndex<vars>)`, the **mixed type gets the full math surface, `NumTraits`, `gradient`/`jacobian`/`hessian`, `value`/`eval`, and `io` for free** — no duplicate `MixedExpansion`, `mixed_ops`, or `la::mixed`.
+- **Isotropic behavior is bit-identical** — `TE<N,M>` resolves to `TaylorExpansion<double, IsotropicScheme<N,M>>` and every result/`constexpr`-ness is unchanged; the full existing suite is the gate. The `M==1` fast paths survive via `Scheme::isUnivariate`.
+- **Sparse stays isotropic-only:** the Sparse specialization pairs only with `IsotropicScheme` (`static_assert`); mixed is dense-only.
 
-- **`eval`** — degree-graded Horner / power-table accumulation over the scheme's monomials.
-- **`deriv` / `integ`** — scatter through the `pos` map; `integ`'s `totalDegree ≥ N` guard becomes "is the incremented monomial still in the kept box?".
-- **`truncate`** — the graded-prefix-copy assumption no longer holds; per-axis order-lowering via the `pos` map (`truncate<"name", N2>()`).
-- **named `embed` / `slice`** — the `unflatIndex → axis-remap → flatIndex` round-trip is replaced by a map through the source and target `pos` tables (`embedMixed<Source, Target>`).
+### The named per-axis-order layer — *M4*
 
-Sparse kernels are **out of scope** — the mixed family is dense-only (consistent with named, which is dense-only).
-
-### The named layer
+A parallel, additive named family (the existing joint-simplex `NamedTaylorExpansion` is untouched):
 
 - **`OrderedAxis<Name, Dim, Order>`** — reuses `FixedString`/`axisSign`/`Merge`; canonical sorted-unique axis lists.
-- **`MixedTaylorExpansion<T, Axes...>`** — wraps `Inner = ` the core anisotropic expansion over `MixedScheme<groups-from-axes>`; `vars_v = Σ dim`.
-- **Factories** in namespace `tax::mixed` (to avoid colliding with `tax::variable<"x",N>`):
-  ```cpp
-  auto x = tax::mixed::variable<"x", 4>(1.0);      // axis "x" at order 4
-  auto p = tax::mixed::variables<"p", 20>(arr3);   // 3-D axis "p" at order 20
-  auto f = sin(x) + x * p[0];                      // "x"@4, "p"@20 — no x^5… stored
-  ```
-- **Promotion.** Binary ops embed both operands into the **union shape** (union of axes, **max order per shared axis**) via `embedMixed<Source, Target>` (source must be a sub-box of target: axis set ⊆ and every shared order ≤), then the scheme kernel runs and truncates to the union box.
-- **Operation surface** (all scheme-aware): `value`, `coeff`/`derivative` (compile-time, runtime, `MultiIndex` forms), `eval`, full arithmetic + math surface, `slice<Names...>` (drop axes, keep monomials with zero degree in dropped axes, preserving kept orders), `deriv<"name",Local>` / `integ<"name",Local>` (axes/orders preserved, matching named's behavior), `truncate<"name", N2>()`.
-- **Joint cap placement.** The cap lives in the core `MixedScheme` (default `Σ orders`). The named type defaults to the box; the capped form is reached via an explicit form (a leading cap parameter or a `*_capped` alias — finalized in the plan). In this spec, **cross-operand promotion is defined for box operands and equal-cap operands; mixing different explicit caps is a `static_assert` error** (documented). The single-fixed-cap perf path is fully usable.
+- **`MixedTaylorExpansion<T, Axes…>`** — wraps `Inner = TaylorExpansion<T, MixedScheme<groups-from-axes>>`; `vars_v = Σ dim`.
+- **Factories** in `tax::mixed` (avoid colliding with `tax::variable<"x",N>`): `tax::mixed::variable<"x",4>(x0)`, `tax::mixed::variables<"p",20>(arr)`.
+- **Promotion.** Binary ops embed both operands into the **union shape** (union of axes, **max order per shared axis**) via `embedMixed<Source,Target>` (source a sub-box of target), then the unified `TaylorExpansion`/kernel surface runs and truncates to the union box.
+- **Operation surface:** `value`/`coeff`/`derivative`/`eval`, full arithmetic + math (delegated to the wrapped `TaylorExpansion`), `slice<Names…>`, `deriv<"name",Local>`/`integ<"name",Local>`, `truncate<"name",N2>()` (per-axis order-lowering via `embedMixed` onto a smaller box).
+- **Joint cap placement.** In the core `MixedScheme` (default `Σ orders`); the named type defaults to the box; the capped form via an explicit alias. Cross-operand promotion is defined for box/equal-cap operands; mixing different explicit caps is a `static_assert` error (documented).
+- **Named `la` helpers** are thin name-addressed wrappers (`gradient<"name">`/`hessian<"name">`/`jacobian<"name">`) over the now-free generic `tax::la` — analogous to `la/named.hpp`.
 
-### `tax::la::mixed`
-
-`Eigen::NumTraits<MixedTaylorExpansion<...>>` (so Eigen matrices can hold the type), plus name-addressed `gradient<"name">` / `hessian<"name">` / `jacobian<"name">`, analogous to `la/named.hpp`: build a `MultiIndex<vars_v>` and call `inner().derivative(alpha)` — works once the mixed `Inner` supports `derivative(MultiIndex)` through the `pos` map.
-
-## File structure (all additive)
+## File structure
 
 ```
-include/tax/core/index_scheme.hpp     # IndexScheme concept; IsotropicScheme<N,M>; MixedScheme<Groups...>
-include/tax/kernels/mixed_stencils.hpp# box-filtered Cauchy stencil + forEachRecurrenceRow for MixedScheme
-include/tax/core/mixed_expansion.hpp  # core names-free anisotropic dense expansion over a scheme
-include/tax/core/mixed_named.hpp      # OrderedAxis, MixedTaylorExpansion, factories, embed/slice/compose/deriv/integ/truncate, promotion
-include/tax/la/mixed.hpp              # NumTraits + name-addressed gradient/hessian/jacobian
-include/tax/tax.hpp                   # umbrella: add the new includes
-tests/mixed/…                         # scheme tables, mixed cauchy, core math surface, named, la
-docs/guide/mixed.md  (+ mkdocs nav)
+include/tax/core/index_scheme.hpp     # [M1] IndexScheme concept; IsotropicScheme<N,M>
+include/tax/core/mixed_scheme.hpp     # [M2] Group, MixedScheme<Groups...> (box index core)
+include/tax/kernels/mixed_stencils.hpp# [M2] box-filtered Cauchy + recurrence stencils
+include/tax/core/taylor_expansion.hpp # [M3] re-parameterized over Scheme; TE/MixedTE/STE aliases
+include/tax/operators/*.hpp           # [M3] arithmetic/math_unary/math_binary -> <T,Scheme>
+include/tax/la/*.hpp                   # [M3] num_traits/values/derivatives -> <T,Scheme>
+include/tax/core/named.hpp            # [M3] existing joint-simplex named: rewire to TaylorExpansion<T,IsotropicScheme<N,vars>>
+include/tax/io/series.hpp             # [M3] -> <T,Scheme>
+include/tax/core/mixed_named.hpp      # [M4] OrderedAxis, MixedTaylorExpansion, factories, promotion/embed/slice/deriv/integ/truncate
+include/tax/la/mixed_named.hpp        # [M4] name-addressed gradient/hessian/jacobian for the named mixed type
+docs/guide/mixed.md  (+ mkdocs nav)   # [M5]
+tests/mixed/…, tests/core/…           # per milestone
 ```
 
-The existing kernels (`algebra.hpp`, `transcendental.hpp`, `trigonometric.hpp`, `cauchy*.hpp`, `recurrence_stencil.hpp`) are refactored to be scheme-generic; `taylor_expansion.hpp` is rewired onto `IsotropicScheme` with no semantic change.
+No separate `mixed_expansion.hpp` / `mixed_ops.hpp` / `la/mixed.hpp` — the unified `TaylorExpansion` subsumes them.
 
-## Implementation milestones (the plan sequences these as tasks)
+## Implementation milestones
 
-1. **`IndexScheme` + `IsotropicScheme` refactor.** Introduce the concept; rewire existing kernels and `TaylorExpansion` onto `IsotropicScheme<N,M>`. **Full existing suite green, bit-for-bit** — the one hot-path touch and the safety gate. No new user-facing behavior.
-2. **`MixedScheme` + mixed stencils.** Shape machinery (groups, optional joint cap), graded ordering, `pos` map, `constexpr` fallback; box-filtered Cauchy stencil + recurrence rows. Unit-test the tables directly (counts, ordering graded, round-trip `flat↔multi`, stencil correctness vs brute force).
-3. **Core `MixedExpansion`.** Storage (`std::array<T, keptCount>`), factories, `value`/`coeff`/`eval`/`deriv`/`integ`/`truncate`, arithmetic + full math surface via the scheme-generic kernels. Validate against the isotropic oracle (below).
-4. **Named layer.** `OrderedAxis`, `MixedTaylorExpansion`, `tax::mixed` factories, promotion/`embedMixed`/`slice`/`deriv`/`integ`/`truncate`.
-5. **`la::mixed` + docs.** `NumTraits`, name-addressed gradient/hessian/jacobian; `docs/guide/mixed.md`.
+1. **[done] `IndexScheme` + `IsotropicScheme`** — kernels scheme-generic; isotropic bit-identical.
+2. **[done] `MixedScheme` + mixed stencils** — box index core (`flatOf`/`multiOf`, graded), box-filtered Cauchy + recurrence stencils; finished scheme-generic Cauchy-based kernels (dropped `Scheme::vars`).
+3. **Unify `TaylorExpansion` over `IndexScheme` (Option B).** Re-parameterize the dense type; migrate accessors/`eval`/`deriv`/`integ`, operators, `la`, `named` (existing), and `io` from `<T,N,M>` to `<T,Scheme>`; keep `TE<N,M>` and add `MixedTE<Groups…>`. **Isotropic behavior bit-identical (existing suite is the gate).** Result: `MixedTE` works through the full math + `la` surface, validated by the isotropic-superset oracle.
+4. **Named per-axis-order layer.** `OrderedAxis`, `MixedTaylorExpansion` wrapping `TaylorExpansion<T, MixedScheme<…>>`, `tax::mixed` factories, max-per-axis promotion/`embedMixed`/`slice`/`deriv`/`integ`/`truncate<"name",N2>`; thin named-`la` helpers.
+5. **Docs.** `docs/guide/mixed.md` + nav; any remaining polish.
 
 ## Testing strategy
 
-- **Isotropic regression gate (M1):** the entire existing test suite must stay green and unchanged after the `IsotropicScheme` refactor — the proof that the hot-path rewire is behavior-preserving.
-- **Primary correctness oracle for the full math surface (M3):** every box monomial `α` of a mixed result equals the same coefficient of an **isotropic `TaylorExpansion<T, Σorders, vars>`** evaluating the same expression. Rationale: the box is a subset of the order-`Σorders` simplex, and monomial degrees add under multiplication, so no out-of-box intermediate factor (e.g. `x⁵` when `x@4`) can contribute to an in-box output. Therefore `mixed.coeff(α) == isotropic.coeff(α)` for all kept `α`. This validates the entire surface (arithmetic + every transcendental) by reusing the existing, trusted isotropic library — no new reference implementation.
-- **Joint-cap form:** checked against a nested/prototype baseline (the cap drops high mixed terms the box keeps).
-- **Named layer:** promotion (max-per-axis, axis-set union), `slice`, `deriv`/`integ`, `truncate<"name",N2>`, canonical-type equality (`x*p` and `p*x` same type), and per-axis correctness.
-- **`la`:** `gradient`/`hessian`/`jacobian` by axis name vs analytic values; Eigen-matrix interop.
+- **Isotropic regression gate (M3):** the entire existing suite stays green and bit-identical after the unification — the proof the re-parameterization is behavior-preserving. (M1/M2 already pass it.)
+- **Primary correctness oracle (M3):** every box coefficient `α` of a `MixedTE` result equals the same coefficient of an isotropic `TaylorExpansion<T, Σorders, vars>` evaluating the same expression. Rationale: the box ⊆ the order-`Σorders` simplex and monomial degrees add, so no out-of-box factor can reach an in-box output. Validates the entire surface (arithmetic + every transcendental + `eval`/`deriv`/`integ` + `la`) by reusing the trusted isotropic library. (M2 already proved this at the raw-array level; M3 re-checks it through the `TaylorExpansion`/`la` surface.)
+- **`la` on the mixed type:** `gradient`/`jacobian`/`hessian`/`NumTraits` on a `MixedTE` vs analytic values and vs the isotropic superset; Eigen-matrix interop.
+- **Named layer (M4):** promotion (max-per-axis, axis-set union), `slice`, `deriv`/`integ`, `truncate<"name",N2>`, canonical-type equality (`x*p == p*x`), per-axis correctness.
 
 ## Invariants & edge cases
 
-- **No per-operation heap** in the dense core: mixed storage is `std::array`. Scheme tables are compile-time-sized where the count is tractable; otherwise a **one-time runtime-static cache** built at first use (a shared stencil cache, not per-expansion heap) — the exact representation (fixed `std::array` vs built-once flat buffer) is finalized in M2.
-- **`static_assert` guards** on `keptCount` blow-up (a too-large shape fails to compile with a clear message).
-- **Graded ordering is mandatory** for the mixed layout (causal recurrences) — analogous to the sacredness of graded-lex isotropically.
-- Degenerate cases: a single axis (≈ univariate, routed through the general scheme rather than the `M==1` unroll), `order = 0` axes, `dim ≥ 1` per axis (`dim = 0` invalid).
-- `constexpr`: the mixed type keeps a constant-evaluation path (like the isotropic stencil fallback), so it is usable in constant expressions where the scalar `T` allows.
+- **No per-operation heap** in the dense core: storage is `std::array`; scheme stencil tables are built-once runtime statics (fixed `std::array`), not per-op allocations.
+- **`static_assert` guards** on `keptCount`/table blow-up.
+- **Graded ordering is mandatory** for the mixed layout (causal recurrences) — analogous to graded-lex's sacredness.
+- **`constexpr`:** the unified dense type keeps the constant-evaluation path (scheme stencils have an `if !consteval` fallback) wherever the isotropic type had it.
+- Degenerate cases: a single group/axis (≈ univariate, via the general scheme), `order = 0` groups, `dim ≥ 1` (`dim = 0` invalid). `MixedScheme::multiOf` has a documented `k ∈ [0,nCoeff)` precondition (add a debug `assert` for parity with `IsotropicScheme`).
 
 ## Out of scope (YAGNI / follow-ups)
 
-- Changing or deprecating the existing joint-simplex `NamedTaylorExpansion` — it stays as-is.
-- Sparse-storage mixed expansions.
-- Cross-operand promotion between **different** explicit joint caps (this spec: box/equal-cap only; mismatch is a compile error).
-- Batched (`tax::Batch`) coefficients on the mixed type — the scheme-generic kernels should not preclude it, but it is not a deliverable here.
-- The `tax-flow` ODE/ADS consumers that would use mixed-order flow maps (separate repo).
+- Changing or deprecating the existing joint-simplex `NamedTaylorExpansion` — it stays as-is (rewired only to spell its backing type via `IsotropicScheme`, no semantic change).
+- Sparse-storage mixed expansions (sparse is isotropic-only).
+- Cross-operand promotion between **different** explicit joint caps (box/equal-cap only; mismatch is a compile error).
+- Batched (`tax::Batch`) coefficients on the mixed type — the scheme-generic surface should not preclude it, but it is not a deliverable here.
+- The `tax-flow` ODE/ADS consumers of mixed-order flow maps (separate repo).
