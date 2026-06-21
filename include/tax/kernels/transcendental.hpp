@@ -210,7 +210,7 @@ void seriesAsinh( std::array< T, Scheme::nCoeff >& out,
 
     // h = sqrt(1 + a^2)
     std::array< T, S > asq{}, opf{}, h{};
-    cauchySelfProduct< T, Scheme::order, Scheme::vars >( asq, a );
+    tax::cauchySelfProduct< T, Scheme >( asq, a );
     opf = {};
     opf[0] = T{ 1 };
     for ( std::size_t i = 0; i < S; ++i ) opf[i] += asq[i];
@@ -259,7 +259,7 @@ void seriesAcosh( std::array< T, Scheme::nCoeff >& out,
 
     // h = sqrt(a^2 - 1)
     std::array< T, S > asq{}, amf{}, h{};
-    cauchySelfProduct< T, Scheme::order, Scheme::vars >( asq, a );
+    tax::cauchySelfProduct< T, Scheme >( asq, a );
     amf = asq;
     amf[0] -= T{ 1 };
     seriesSqrt< T, Scheme >( h, amf );
@@ -307,7 +307,7 @@ void seriesAtanh( std::array< T, Scheme::nCoeff >& out,
 
     // h = 1 - a^2
     std::array< T, S > h{};
-    cauchySelfProduct< T, Scheme::order, Scheme::vars >( h, a );
+    tax::cauchySelfProduct< T, Scheme >( h, a );
     for ( std::size_t i = 0; i < S; ++i ) h[i] = -h[i];
     h[0] += T{ 1 };
 
@@ -358,7 +358,7 @@ void seriesErf( std::array< T, Scheme::nCoeff >& out,
 
     // h = (2/sqrt(pi)) * exp(-a^2)
     std::array< T, S > asq{}, neg_asq{}, e{}, h{};
-    cauchySelfProduct< T, Scheme::order, Scheme::vars >( asq, a );
+    tax::cauchySelfProduct< T, Scheme >( asq, a );
     neg_asq = asq;
     for ( std::size_t i = 0; i < S; ++i ) neg_asq[i] = -neg_asq[i];
     seriesExp< T, Scheme >( e, neg_asq );

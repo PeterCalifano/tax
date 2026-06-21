@@ -142,7 +142,7 @@ void seriesAsin( std::array< T, Scheme::nCoeff >& out,
 
     // h = sqrt(1 - a^2)
     std::array< T, S > asq{}, omf{}, h{};
-    cauchySelfProduct< T, Scheme::order, Scheme::vars >( asq, a );
+    tax::cauchySelfProduct< T, Scheme >( asq, a );
     omf = {};
     omf[0] = T{ 1 };
     for ( std::size_t i = 0; i < S; ++i ) omf[i] -= asq[i];
@@ -191,7 +191,7 @@ void seriesAcos( std::array< T, Scheme::nCoeff >& out,
 
     // h = sqrt(1 - a^2)
     std::array< T, S > asq{}, omf{}, h{};
-    cauchySelfProduct< T, Scheme::order, Scheme::vars >( asq, a );
+    tax::cauchySelfProduct< T, Scheme >( asq, a );
     omf = {};
     omf[0] = T{ 1 };
     for ( std::size_t i = 0; i < S; ++i ) omf[i] -= asq[i];
@@ -240,7 +240,7 @@ void seriesAtan( std::array< T, Scheme::nCoeff >& out,
 
     // h = 1 + a^2
     std::array< T, S > asq{}, h{};
-    cauchySelfProduct< T, Scheme::order, Scheme::vars >( asq, a );
+    tax::cauchySelfProduct< T, Scheme >( asq, a );
     h = asq;
     h[0] += T{ 1 };
 
@@ -291,7 +291,7 @@ void seriesAtan2( std::array< T, Scheme::nCoeff >& out, const std::array< T, Sch
 
     // h = 1 + r^2
     std::array< T, S > rsq{}, h{};
-    cauchySelfProduct< T, Scheme::order, Scheme::vars >( rsq, r );
+    tax::cauchySelfProduct< T, Scheme >( rsq, r );
     h = rsq;
     h[0] += T{ 1 };
 

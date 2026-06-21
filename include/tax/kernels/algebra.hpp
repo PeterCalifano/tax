@@ -10,14 +10,17 @@
 namespace tax::detail::kernels
 {
 
-/// Self-product `out = f * f` (M == 1 exploits pair symmetry; M >= 2 forwards to cauchyProduct).
-template < typename T, int N, int M >
-constexpr void cauchySelfProduct( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& f ) noexcept
+/// Self-product `out = f * f` (scheme-generic; M == 1 exploits pair symmetry; M >= 2 uses
+/// cauchyProduct). The M == 1 loop mirrors IsotropicScheme::cauchySelfProduct
+/// (index_scheme.hpp); keep the two bodies in sync.
+template < typename T, tax::IndexScheme Scheme >
+constexpr void cauchySelfProduct( std::array< T, Scheme::nCoeff >& out,
+                                  const std::array< T, Scheme::nCoeff >& f ) noexcept
 {
-    if constexpr ( M == 1 )
+    if constexpr ( Scheme::isUnivariate )
     {
         out = {};
-        for ( int d = 0; d <= N; ++d )
+        for ( int d = 0; d <= Scheme::order; ++d )
         {
             for ( int k = 0; k + k < d; ++k )
                 out[std::size_t( d )] += T{ 2 } * f[std::size_t( k )] * f[std::size_t( d - k )];
@@ -26,25 +29,48 @@ constexpr void cauchySelfProduct( Coeffs< T, N, M >& out, const Coeffs< T, N, M 
         }
     } else
     {
-        cauchyProduct< T, N, M >( out, f, f );
+        tax::cauchyProduct< T, Scheme >( out, f, f );
     }
+}
+
+/// Self-product `out = f * f` (M == 1 exploits pair symmetry; M >= 2 forwards to cauchyProduct).
+template < typename T, int N, int M >
+constexpr void cauchySelfProduct( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& f ) noexcept
+{
+    tax::detail::kernels::cauchySelfProduct< T, tax::IsotropicScheme< N, M > >( out, f );
+}
+
+/// Square series `out = a^2` via the symmetric self-product (scheme-generic).
+template < typename T, tax::IndexScheme Scheme >
+constexpr void seriesSquare( std::array< T, Scheme::nCoeff >& out,
+                             const std::array< T, Scheme::nCoeff >& a ) noexcept
+{
+    tax::detail::kernels::cauchySelfProduct< T, Scheme >( out, a );
 }
 
 /// Square series `out = a^2` via the symmetric self-product.
 template < typename T, int N, int M >
 constexpr void seriesSquare( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
 {
-    cauchySelfProduct< T, N, M >( out, a );
+    seriesSquare< T, tax::IsotropicScheme< N, M > >( out, a );
+}
+
+/// Cube series `out = a^3` via two Cauchy products (scheme-generic).
+template < typename T, tax::IndexScheme Scheme >
+constexpr void seriesCube( std::array< T, Scheme::nCoeff >& out,
+                           const std::array< T, Scheme::nCoeff >& a ) noexcept
+{
+    constexpr std::size_t S = Scheme::nCoeff;
+    std::array< T, S > tmp{};
+    tax::detail::kernels::cauchySelfProduct< T, Scheme >( tmp, a );
+    tax::cauchyProduct< T, Scheme >( out, tmp, a );
 }
 
 /// Cube series `out = a^3` via two Cauchy products.
 template < typename T, int N, int M >
 constexpr void seriesCube( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
 {
-    constexpr auto S = numMonomials( N, M );
-    std::array< T, S > tmp{};
-    cauchySelfProduct< T, N, M >( tmp, a );
-    cauchyProduct< T, N, M >( out, tmp, a );
+    seriesCube< T, tax::IsotropicScheme< N, M > >( out, a );
 }
 
 /// Reciprocal series `a * out = 1` by forward substitution (scheme-generic). Requires `a[0] != 0`.
@@ -260,11 +286,13 @@ void seriesPow( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a, T c ) noexce
     seriesPow< T, tax::IsotropicScheme< N, M > >( out, a, c );
 }
 
-/// Integer-exponent power series `out = a^n` via binary exponentiation (negative n via reciprocal).
-template < typename T, int N, int M >
-constexpr void seriesPowInt( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a, int n ) noexcept
+/// Integer-exponent power series `out = a^n` via binary exponentiation (scheme-generic; negative n
+/// via reciprocal).
+template < typename T, tax::IndexScheme Scheme >
+constexpr void seriesPowInt( std::array< T, Scheme::nCoeff >& out,
+                             const std::array< T, Scheme::nCoeff >& a, int n ) noexcept
 {
-    constexpr auto S = numMonomials( N, M );
+    constexpr std::size_t S = Scheme::nCoeff;
 
     if ( n == 0 )
     {
@@ -279,14 +307,14 @@ constexpr void seriesPowInt( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a,
     }
     if ( n == -1 )
     {
-        seriesReciprocal< T, N, M >( out, a );
+        seriesReciprocal< T, Scheme >( out, a );
         return;
     }
     if ( n < 0 )
     {
         std::array< T, S > rec{};
-        seriesReciprocal< T, N, M >( rec, a );
-        seriesPowInt< T, N, M >( out, rec, n );
+        seriesReciprocal< T, Scheme >( rec, a );
+        seriesPowInt< T, Scheme >( out, rec, n );
         return;
     }
     // n >= 2: binary exponentiation (square-and-multiply). Squarings go
@@ -298,7 +326,7 @@ constexpr void seriesPowInt( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a,
     while ( !( e & 1 ) )
     {
         std::array< T, S > tmp{};
-        cauchySelfProduct< T, N, M >( tmp, base );
+        tax::detail::kernels::cauchySelfProduct< T, Scheme >( tmp, base );
         base = tmp;
         e >>= 1;
     }
@@ -307,16 +335,23 @@ constexpr void seriesPowInt( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a,
     while ( e > 0 )
     {
         std::array< T, S > sq{};
-        cauchySelfProduct< T, N, M >( sq, base );
+        tax::detail::kernels::cauchySelfProduct< T, Scheme >( sq, base );
         base = sq;
         if ( e & 1 )
         {
             std::array< T, S > tmp{};
-            cauchyProduct< T, N, M >( tmp, out, base );
+            tax::cauchyProduct< T, Scheme >( tmp, out, base );
             out = tmp;
         }
         e >>= 1;
     }
+}
+
+/// Integer-exponent power series `out = a^n` via binary exponentiation (negative n via reciprocal).
+template < typename T, int N, int M >
+constexpr void seriesPowInt( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a, int n ) noexcept
+{
+    seriesPowInt< T, tax::IsotropicScheme< N, M > >( out, a, n );
 }
 
 }  // namespace tax::detail::kernels
