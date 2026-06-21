@@ -311,3 +311,25 @@ TEST( MixedNamed, IsotropicSupersetOracle )
         EXPECT_NEAR( f.inner()[k], iso[tax::flatIndex< 2 >( alpha )], 1e-12 );
     }
 }
+
+// embed<R>() into a target with a LOWER per-axis order must DROP out-of-box
+// monomials, not write out of bounds (an unguarded out[flatOf == kNotInBox] is a
+// stack OOB write at runtime and ill-formed in constant evaluation). Run in a
+// constexpr context so a regression fails to COMPILE here.
+TEST( MixedNamed, EmbedToLowerOrderDropsOutOfBox )
+{
+    using Src = tax::MixedTaylorExpansion< double, tax::OrderedAxis< "x", 1, 4 > >;
+    using Tgt = tax::MixedTaylorExpansion< double, tax::OrderedAxis< "x", 1, 1 > >;  // lower order
+
+    constexpr Tgt t = []() constexpr {
+        Src s{};
+        s[Src::Inner::scheme::flatOf( tax::MultiIndex< 1 >{ 0 } )] = 4.0;  // constant
+        s[Src::Inner::scheme::flatOf( tax::MultiIndex< 1 >{ 1 } )] = 4.0;  // x^1
+        s[Src::Inner::scheme::flatOf( tax::MultiIndex< 1 >{ 2 } )] = 1.0;  // x^2: out of Tgt box
+        return s.template embed< Tgt >();
+    }();
+
+    static_assert( Tgt::nCoefficients == 2 );
+    EXPECT_DOUBLE_EQ( t[0], 4.0 );  // constant kept
+    EXPECT_DOUBLE_EQ( t[1], 4.0 );  // x^1 kept; x^2 (out of box) dropped, not OOB-written
+}

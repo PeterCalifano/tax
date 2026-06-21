@@ -247,9 +247,11 @@ class MixedTaylorExpansion
             for ( int j = 0; j < vars_v; ++j )
                 a_dst[std::size_t( map[std::size_t( j )] )] = a_src[std::size_t( j )];
             const std::size_t dst = R::Inner::scheme::flatOf( a_dst );
-            // R's axes superset this one's and R's per-axis orders are >= these,
-            // so every source monomial stays in R's box.
-            out[dst] = c;
+            // R's axes superset this one's; with R's per-axis orders >= these
+            // (the intended use) every monomial stays in R's box. Guard the write
+            // so a target with a lower per-axis order drops the out-of-box term
+            // instead of writing out of bounds (size_t(-1)).
+            if ( dst != R::Inner::scheme::kNotInBox ) out[dst] = c;
         }
         return R{ typename R::Inner{ out } };
     }
