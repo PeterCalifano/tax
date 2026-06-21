@@ -9,9 +9,11 @@
 // IsotropicScheme<N,M> wraps exactly today's tables; a later MixedScheme<...>
 // provides an anisotropic (per-axis-capped) monomial set behind the same API.
 
+#include <array>
 #include <cstddef>
 #include <span>
 #include <tax/core/multi_index.hpp>
+#include <tax/kernels/cauchy.hpp>
 #include <tax/kernels/recurrence_stencil.hpp>
 
 namespace tax
@@ -50,6 +52,29 @@ struct IsotropicScheme
     {
         detail::kernels::forEachRecurrenceRow< N, M >( static_cast< RowFn&& >( fn ) );
     }
+
+    /// Scheme-owned Cauchy product: delegates to the legacy dispatch (unroll/stencil/loop).
+    template < typename T >
+    static void cauchyProduct( std::array< T, nCoeff >& out, const std::array< T, nCoeff >& a,
+                               const std::array< T, nCoeff >& b ) noexcept
+    {
+        detail::kernels::cauchyProduct< T, N, M >( out, a, b );
+    }
 };
+
+// ---------------------------------------------------------------------------
+// Scheme-generic Cauchy product entry point (free function in tax namespace)
+// ---------------------------------------------------------------------------
+// Selected when the second template argument satisfies IndexScheme (a type).
+// For IsotropicScheme<N,M> this forwards to detail::kernels::cauchyProduct<T,N,M>,
+// preserving the unroll/stencil/loop dispatch.
+
+/// Scheme-generic Cauchy product: delegates to Scheme::cauchyProduct<T>.
+template < typename T, IndexScheme Scheme >
+void cauchyProduct( std::array< T, Scheme::nCoeff >& out, const std::array< T, Scheme::nCoeff >& a,
+                    const std::array< T, Scheme::nCoeff >& b ) noexcept
+{
+    Scheme::template cauchyProduct< T >( out, a, b );
+}
 
 }  // namespace tax
