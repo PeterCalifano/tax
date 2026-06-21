@@ -252,6 +252,8 @@ struct NumTraits< tax::Batch< T, K > > : NumTraits< T >
     static Self dummy_precision() { return Self( NumTraits< T >::dummy_precision() ); }
     static Self highest() { return Self( NumTraits< T >::highest() ); }
     static Self lowest() { return Self( NumTraits< T >::lowest() ); }
+    static Self infinity() { return Self( NumTraits< T >::infinity() ); }
+    static Self quiet_NaN() { return Self( NumTraits< T >::quiet_NaN() ); }
     static int digits10() { return NumTraits< T >::digits10(); }
 };
 

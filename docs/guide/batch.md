@@ -67,7 +67,14 @@ Eigen scalars: `tax::la::value`, `gradient`, `jacobian`, and
 - **Real-exponent `pow`.** `pow(x, 2.5)` selects the real-exponent kernel and
   `pow(x, 3)` the integer one, exactly as for scalar coefficients.
 - **`Batch` is a runtime SIMD type** (Eigen-backed), so a batched expansion is
-  not usable in `constexpr` evaluation, unlike a scalar one.
+  not usable in `constexpr` evaluation, unlike a scalar one. The compile-time
+  accessors that fold in a `k!` factor — `derivative<Alpha...>()`, `coeff<...>()`
+  evaluated in a constant context — are therefore the scalar-only surface; use
+  the **runtime** `derivative(MultiIndex)` / `coeff(...)` overloads with a batched
+  expansion (they work per lane).
+- **Not streamable.** `operator<<` / `tax::series` are not defined for batched
+  expansions (a `Batch` has no single textual value). Read individual lanes via
+  `f.value()[k]`, `f.coeff(...)[k]`, or `f[i][k]`.
 - The two enabling core hooks are the `is_tax_scalar` / `real_scalar` traits in
   `core/concepts.hpp`; any user type that presents the same element-wise math
   surface can opt in the same way.
