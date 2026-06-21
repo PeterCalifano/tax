@@ -166,11 +166,12 @@ The default layout for `MixedScheme` and `MixedTaylorExpansion` is the **full
 box**: a monomial is kept iff every group's block degree is within that group's
 per-axis order. There is no joint total-degree constraint across groups.
 
-The `MixedScheme` design supports an optional joint total-degree cap (a
-`JointCap` parameter, off by default) for cases where the product-of-simplices
-box is still larger than needed. When enabled it drops monomials whose summed
-total degree exceeds the cap, recovering a sub-box. This is an advanced option
-and the box default is correct for the vast majority of use cases.
+A joint total-degree cap — dropping monomials whose *summed* degree across
+groups exceeds a bound, to shave the high mixed terms the product box still
+carries — is a **planned follow-up**, not yet part of the API. `MixedScheme`
+is currently `MixedScheme<Group<Dim,Order>…>` with no joint-cap parameter; the
+full box is the only mode today, and it is the right default for the vast
+majority of use cases.
 
 For the classical joint-simplex named layer (same order on all axes) see
 [Named Expansions](named.md).
