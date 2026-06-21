@@ -236,5 +236,11 @@ TEST( Batch, MultivariateGradientAndEigenInterop )
             EXPECT_NEAR( gb( i )[k], gs( i ), 1e-12 );
             EXPECT_NEAR( Jb( 0, i )[k], gs( i ), 1e-12 );
         }
+
+        // Second map component Fb(1) = x - y: its value and its constant
+        // Jacobian row (dx-y/dx = 1, d(x-y)/dy = -1) must also hold per lane.
+        EXPECT_NEAR( valb( 1 )[k], xs.value() - ys.value(), 1e-12 );
+        EXPECT_NEAR( Jb( 1, 0 )[k], 1.0, 1e-12 );
+        EXPECT_NEAR( Jb( 1, 1 )[k], -1.0, 1e-12 );
     }
 }
