@@ -54,13 +54,6 @@ void seriesSinCos( std::array< T, Scheme::nCoeff >& s, std::array< T, Scheme::nC
     }
 }
 
-/// Coupled trigonometric series: jointly compute `sin(a)` and `cos(a)`.
-template < typename T, int N, int M >
-void seriesSinCos( Coeffs< T, N, M >& s, Coeffs< T, N, M >& c, const Coeffs< T, N, M >& a ) noexcept
-{
-    seriesSinCos< T, tax::IsotropicScheme< N, M > >( s, c, a );
-}
-
 /// Sine series `out = sin(a)` (scheme-generic).
 template < typename T, tax::IndexScheme Scheme >
 void seriesSin( std::array< T, Scheme::nCoeff >& out,
@@ -70,13 +63,6 @@ void seriesSin( std::array< T, Scheme::nCoeff >& out,
     seriesSinCos< T, Scheme >( out, c, a );
 }
 
-/// Sine series `out = sin(a)`.
-template < typename T, int N, int M >
-void seriesSin( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
-{
-    seriesSin< T, tax::IsotropicScheme< N, M > >( out, a );
-}
-
 /// Cosine series `out = cos(a)` (scheme-generic).
 template < typename T, tax::IndexScheme Scheme >
 void seriesCos( std::array< T, Scheme::nCoeff >& out,
@@ -84,13 +70,6 @@ void seriesCos( std::array< T, Scheme::nCoeff >& out,
 {
     std::array< T, Scheme::nCoeff > s{};
     seriesSinCos< T, Scheme >( s, out, a );
-}
-
-/// Cosine series `out = cos(a)`.
-template < typename T, int N, int M >
-void seriesCos( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
-{
-    seriesCos< T, tax::IsotropicScheme< N, M > >( out, a );
 }
 
 /// Tangent series `out = tan(a)` (scheme-generic).
@@ -123,13 +102,6 @@ void seriesTan( std::array< T, Scheme::nCoeff >& out,
                 out[ai] = rhs * inv_c0;
             } );
     }
-}
-
-/// Tangent series `out = tan(a)`.
-template < typename T, int N, int M >
-void seriesTan( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
-{
-    seriesTan< T, tax::IsotropicScheme< N, M > >( out, a );
 }
 
 /// Inverse sine series `out = asin(a)` (scheme-generic).
@@ -174,13 +146,6 @@ void seriesAsin( std::array< T, Scheme::nCoeff >& out,
     }
 }
 
-/// Inverse sine series `out = asin(a)`.
-template < typename T, int N, int M >
-void seriesAsin( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
-{
-    seriesAsin< T, tax::IsotropicScheme< N, M > >( out, a );
-}
-
 /// Inverse cosine series `out = acos(a)` (scheme-generic).
 template < typename T, tax::IndexScheme Scheme >
 void seriesAcos( std::array< T, Scheme::nCoeff >& out,
@@ -223,13 +188,6 @@ void seriesAcos( std::array< T, Scheme::nCoeff >& out,
     }
 }
 
-/// Inverse cosine series `out = acos(a)`.
-template < typename T, int N, int M >
-void seriesAcos( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
-{
-    seriesAcos< T, tax::IsotropicScheme< N, M > >( out, a );
-}
-
 /// Inverse tangent series `out = atan(a)` (scheme-generic).
 template < typename T, tax::IndexScheme Scheme >
 void seriesAtan( std::array< T, Scheme::nCoeff >& out,
@@ -268,13 +226,6 @@ void seriesAtan( std::array< T, Scheme::nCoeff >& out,
                 out[ai] = ( a[ai] - rhs / T( d ) ) * inv_h0;
             } );
     }
-}
-
-/// Inverse tangent series `out = atan(a)`.
-template < typename T, int N, int M >
-void seriesAtan( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
-{
-    seriesAtan< T, tax::IsotropicScheme< N, M > >( out, a );
 }
 
 /// Two-argument arctangent series `out = atan2(y, x)` (scheme-generic).
@@ -319,14 +270,6 @@ void seriesAtan2( std::array< T, Scheme::nCoeff >& out, const std::array< T, Sch
                 out[ai] = ( r[ai] - rhs / T( d ) ) * inv_h0;
             } );
     }
-}
-
-/// Two-argument arctangent series `out = atan2(y, x)`.
-template < typename T, int N, int M >
-void seriesAtan2( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& y,
-                  const Coeffs< T, N, M >& x ) noexcept
-{
-    seriesAtan2< T, tax::IsotropicScheme< N, M > >( out, y, x );
 }
 
 }  // namespace tax::detail::kernels

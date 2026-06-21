@@ -12,7 +12,7 @@ namespace tax::detail::kernels
 
 /// Self-product `out = f * f` (scheme-generic; M == 1 exploits pair symmetry; M >= 2 uses
 /// cauchyProduct). The M == 1 loop mirrors IsotropicScheme::cauchySelfProduct
-/// (index_scheme.hpp); keep the two bodies in sync.
+/// (core/scheme/isotropic.hpp); keep the two bodies in sync.
 template < typename T, tax::IndexScheme Scheme >
 constexpr void cauchySelfProduct( std::array< T, Scheme::nCoeff >& out,
                                   const std::array< T, Scheme::nCoeff >& f ) noexcept

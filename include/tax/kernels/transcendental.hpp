@@ -39,13 +39,6 @@ void seriesExp( std::array< T, Scheme::nCoeff >& out,
     }
 }
 
-/// Natural exponential series `out = exp(a)`.
-template < typename T, int N, int M >
-void seriesExp( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
-{
-    seriesExp< T, tax::IsotropicScheme< N, M > >( out, a );
-}
-
 /// Natural logarithm series `out = log(a)` (scheme-generic). Requires `a[0] > 0`.
 template < typename T, tax::IndexScheme Scheme >
 void seriesLog( std::array< T, Scheme::nCoeff >& out,
@@ -78,13 +71,6 @@ void seriesLog( std::array< T, Scheme::nCoeff >& out,
     }
 }
 
-/// Natural logarithm series `out = log(a)`. Requires `a[0] > 0`.
-template < typename T, int N, int M >
-void seriesLog( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
-{
-    seriesLog< T, tax::IsotropicScheme< N, M > >( out, a );
-}
-
 /// Hyperbolic sine series `out = sinh(a)` (scheme-generic).
 template < typename T, tax::IndexScheme Scheme >
 void seriesSinh( std::array< T, Scheme::nCoeff >& out,
@@ -105,13 +91,6 @@ void seriesSinh( std::array< T, Scheme::nCoeff >& out,
     for ( std::size_t i = 1; i < S; ++i ) out[i] = ( ep[i] - em[i] ) * T{ 0.5 };
 }
 
-/// Hyperbolic sine series `out = sinh(a)`.
-template < typename T, int N, int M >
-void seriesSinh( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
-{
-    seriesSinh< T, tax::IsotropicScheme< N, M > >( out, a );
-}
-
 /// Hyperbolic cosine series `out = cosh(a)` (scheme-generic).
 template < typename T, tax::IndexScheme Scheme >
 void seriesCosh( std::array< T, Scheme::nCoeff >& out,
@@ -130,13 +109,6 @@ void seriesCosh( std::array< T, Scheme::nCoeff >& out,
     out = {};
     out[0] = cosh( a[0] );
     for ( std::size_t i = 1; i < S; ++i ) out[i] = ( ep[i] + em[i] ) * T{ 0.5 };
-}
-
-/// Hyperbolic cosine series `out = cosh(a)`.
-template < typename T, int N, int M >
-void seriesCosh( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
-{
-    seriesCosh< T, tax::IsotropicScheme< N, M > >( out, a );
 }
 
 /// Hyperbolic tangent series `out = tanh(a)` (scheme-generic).
@@ -193,13 +165,6 @@ void seriesTanh( std::array< T, Scheme::nCoeff >& out,
     }
 }
 
-/// Hyperbolic tangent series `out = tanh(a)`.
-template < typename T, int N, int M >
-void seriesTanh( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
-{
-    seriesTanh< T, tax::IsotropicScheme< N, M > >( out, a );
-}
-
 /// Inverse hyperbolic sine series `out = asinh(a)` (scheme-generic).
 template < typename T, tax::IndexScheme Scheme >
 void seriesAsinh( std::array< T, Scheme::nCoeff >& out,
@@ -240,13 +205,6 @@ void seriesAsinh( std::array< T, Scheme::nCoeff >& out,
                 out[ai] = ( a[ai] - rhs / T( d ) ) * inv_h0;
             } );
     }
-}
-
-/// Inverse hyperbolic sine series `out = asinh(a)`.
-template < typename T, int N, int M >
-void seriesAsinh( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
-{
-    seriesAsinh< T, tax::IsotropicScheme< N, M > >( out, a );
 }
 
 /// Inverse hyperbolic cosine series `out = acosh(a)` (scheme-generic). Requires `a[0] > 1`.
@@ -290,13 +248,6 @@ void seriesAcosh( std::array< T, Scheme::nCoeff >& out,
     }
 }
 
-/// Inverse hyperbolic cosine series `out = acosh(a)`. Requires `a[0] > 1`.
-template < typename T, int N, int M >
-void seriesAcosh( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
-{
-    seriesAcosh< T, tax::IsotropicScheme< N, M > >( out, a );
-}
-
 /// Inverse hyperbolic tangent series `out = atanh(a)` (scheme-generic). Requires `|a[0]| < 1`.
 template < typename T, tax::IndexScheme Scheme >
 void seriesAtanh( std::array< T, Scheme::nCoeff >& out,
@@ -335,13 +286,6 @@ void seriesAtanh( std::array< T, Scheme::nCoeff >& out,
                 out[ai] = ( a[ai] - rhs / T( d ) ) * inv_h0;
             } );
     }
-}
-
-/// Inverse hyperbolic tangent series `out = atanh(a)`. Requires `|a[0]| < 1`.
-template < typename T, int N, int M >
-void seriesAtanh( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
-{
-    seriesAtanh< T, tax::IsotropicScheme< N, M > >( out, a );
 }
 
 /// Error function series `out = erf(a)` (scheme-generic).
@@ -386,13 +330,6 @@ void seriesErf( std::array< T, Scheme::nCoeff >& out,
                 out[ai] = rhs / T( d );
             } );
     }
-}
-
-/// Error function series `out = erf(a)`.
-template < typename T, int N, int M >
-void seriesErf( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& a ) noexcept
-{
-    seriesErf< T, tax::IsotropicScheme< N, M > >( out, a );
 }
 
 }  // namespace tax::detail::kernels
