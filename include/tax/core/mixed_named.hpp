@@ -129,6 +129,58 @@ template < typename T, typename ListA, typename ListB >
 using MergedMixedTaylorExpansion =
     typename RebindMixed< T, typename MergeOrdered< ListA, ListB >::type >::type;
 
+// ---------------------------------------------------------------------------
+// Metafunctions for axis-name ops (Task 3)
+// ---------------------------------------------------------------------------
+
+/// Order of the axis named `Name` within a list, or -1 if absent.
+template < typename List, FixedString Name >
+struct OrderOfName;
+template < FixedString Name >
+struct OrderOfName< TypeList<>, Name >
+{
+    static constexpr int value = -1;
+};
+template < typename H, typename... Ts, FixedString Name >
+struct OrderOfName< TypeList< H, Ts... >, Name >
+{
+    static constexpr int value = ( fixedCompare< H::name, Name > == 0 )
+                                     ? H::order
+                                     : OrderOfName< TypeList< Ts... >, Name >::value;
+};
+
+/// Replace the per-axis order of the axis named `Name` in list `L` with `N2`.
+/// Leaves all other axes unchanged. Asserts that `Name` is present.
+template < typename L, FixedString Name, int N2 >
+struct ReplaceAxisOrder;
+template < FixedString Name, int N2 >
+struct ReplaceAxisOrder< TypeList<>, Name, N2 >
+{
+    // Name not found — the static_assert in axisVar will catch this earlier.
+    using type = TypeList<>;
+};
+template < typename H, typename... Ts, FixedString Name, int N2 >
+struct ReplaceAxisOrder< TypeList< H, Ts... >, Name, N2 >
+{
+    using type = typename std::conditional_t<
+        fixedCompare< H::name, Name > == 0,
+        Prepend< OrderedAxis< Name, H::dim, N2 >, TypeList< Ts... > >,
+        Prepend< H, typename ReplaceAxisOrder< TypeList< Ts... >, Name, N2 >::type > >::type;
+};
+
+/// Left-fold `MergeOrdered` over a pack of (singleton) axis lists (for slice()).
+template < typename Acc, typename... Rest >
+struct MergeFoldOrdered
+{
+    using type = Acc;
+};
+template < typename Acc, typename First, typename... Rest >
+struct MergeFoldOrdered< Acc, First, Rest... >
+{
+    using type =
+        typename MergeFoldOrdered< typename MergeOrdered< Acc, First >::type, Rest... >::type;
+};
+
 }  // namespace detail
 
 // ---------------------------------------------------------------------------
@@ -232,6 +284,119 @@ class MixedTaylorExpansion
             // R's axes superset this one's and R's per-axis orders are >= these,
             // so every source monomial stays in R's box.
             out[dst] = c;
+        }
+        return R{ typename R::Inner{ out } };
+    }
+
+    // ------------------------------------------------------------------
+    // Per-axis differentiation and integration (axis set preserved)
+    // ------------------------------------------------------------------
+
+    /// Global variable index of local coordinate `Local` of axis `Name`.
+    template < FixedString Name, int Local = 0 >
+    static constexpr int axisVar() noexcept
+    {
+        constexpr int dim = detail::DimOfName< axis_list, Name >::value;
+        static_assert( dim >= 1, "axis name not present in this expansion" );
+        static_assert( Local >= 0 && Local < dim, "local axis index out of range" );
+        using Ax = OrderedAxis< Name, dim, detail::OrderOfName< axis_list, Name >::value >;
+        return detail::OffsetOf< axis_list, Ax >::value + Local;
+    }
+
+    /// Partial derivative with respect to one coordinate of a named axis.
+    template < FixedString Name, int Local = 0 >
+    [[nodiscard]] constexpr MixedTaylorExpansion deriv() const noexcept
+    {
+        return MixedTaylorExpansion{ inner_.template deriv< axisVar< Name, Local >() >() };
+    }
+
+    /// Indefinite integral with respect to one coordinate of a named axis.
+    template < FixedString Name, int Local = 0 >
+    [[nodiscard]] constexpr MixedTaylorExpansion integ() const noexcept
+    {
+        return MixedTaylorExpansion{ inner_.template integ< axisVar< Name, Local >() >() };
+    }
+
+    // ------------------------------------------------------------------
+    // Slice: project onto a named subset of axes
+    // ------------------------------------------------------------------
+
+    /// Project onto the subset of axes named by `Names...`.
+    /// Source monomials with nonzero degree in any dropped axis are discarded.
+    template < FixedString... Names >
+    [[nodiscard]] constexpr auto slice() const noexcept
+    {
+        static_assert( sizeof...( Names ) >= 1, "slice() needs at least one axis name" );
+        static_assert( ( ( detail::DimOfName< axis_list, Names >::value >= 1 ) && ... ),
+                       "slice(): every requested axis name must exist in this expansion" );
+        // Build target axis list (sorted, unique): each named axis with its current dim+order.
+        using Tgt = typename detail::MergeFoldOrdered<
+            detail::TypeList<>,
+            detail::TypeList< OrderedAxis< Names, detail::DimOfName< axis_list, Names >::value,
+                                           detail::OrderOfName< axis_list, Names >::value > >... >::
+            type;
+        using R = typename detail::RebindMixed< T, Tgt >::type;
+
+        // Variable remap: source var j -> target var map[j] (or -1 if dropped).
+        constexpr auto map = detail::buildAxisMap< axis_list, Tgt, /*allowDrop=*/true >();
+        typename R::Inner::Data out{};
+        for ( std::size_t k = 0; k < Inner::nCoefficients; ++k )
+        {
+            const T c = inner_[k];
+            if ( c == T{} ) continue;
+            const auto a_src = Inner::scheme::multiOf( k );
+            MultiIndex< R::vars_v > a_dst{};
+            bool keep = true;
+            for ( int j = 0; j < vars_v; ++j )
+            {
+                const int to = map[std::size_t( j )];
+                if ( to < 0 )
+                {
+                    if ( a_src[std::size_t( j )] != 0 )
+                    {
+                        keep = false;
+                        break;
+                    }
+                } else
+                {
+                    a_dst[std::size_t( to )] = a_src[std::size_t( j )];
+                }
+            }
+            if ( keep )
+            {
+                const std::size_t dst = R::Inner::scheme::flatOf( a_dst );
+                out[dst] += c;
+            }
+        }
+        return R{ typename R::Inner{ out } };
+    }
+
+    // ------------------------------------------------------------------
+    // Per-axis order truncation (drops monomials exceeding N2 on axis Name)
+    // ------------------------------------------------------------------
+
+    /// Lower axis `Name`'s per-axis order to `N2`.  Monomials whose `Name`-axis
+    /// block degree exceeds `N2` are silently dropped (they fall outside the
+    /// smaller box).  The variable layout is unchanged; only the scheme changes.
+    template < FixedString Name, int N2 >
+    [[nodiscard]] constexpr auto truncate() const noexcept
+    {
+        constexpr int cur_order = detail::OrderOfName< axis_list, Name >::value;
+        static_assert( cur_order >= 0, "axis name not present in this expansion" );
+        static_assert( N2 >= 0 && N2 <= cur_order,
+                       "truncateAxis<Name,N2>: N2 must be in [0, current order of Name]" );
+        using TgtList = typename detail::ReplaceAxisOrder< axis_list, Name, N2 >::type;
+        using R = typename detail::RebindMixed< T, TgtList >::type;
+
+        typename R::Inner::Data out{};
+        for ( std::size_t k = 0; k < Inner::nCoefficients; ++k )
+        {
+            const T c = inner_[k];
+            if ( c == T{} ) continue;
+            const auto a_src = Inner::scheme::multiOf( k );
+            // Re-flat through the target (smaller) scheme — same variable layout.
+            const std::size_t dst = R::Inner::scheme::flatOf( a_src );
+            if ( dst != R::Inner::scheme::kNotInBox ) out[dst] = c;
         }
         return R{ typename R::Inner{ out } };
     }
