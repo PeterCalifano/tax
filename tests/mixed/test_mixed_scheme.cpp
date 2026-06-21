@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <set>
+#include <tax/core/index_scheme.hpp>
 #include <tax/core/mixed_scheme.hpp>
 #include <tax/core/multi_index.hpp>
 
@@ -49,4 +50,31 @@ TEST( MixedScheme, OutOfBoxRejected )
     using S = MixedScheme< Group< 1, 2 >, Group< 1, 2 > >;
     tax::MultiIndex< 2 > over{ 3, 0 };  // x^3, x order is 2
     EXPECT_EQ( S::flatOf( over ), S::kNotInBox );
+}
+
+TEST( MixedScheme, CauchyProductMatchesBruteForce )
+{
+    using S = MixedScheme< Group< 1, 2 >, Group< 2, 3 > >;
+    std::array< double, S::nCoeff > a{}, b{}, out{};
+    for ( std::size_t k = 0; k < S::nCoeff; ++k )
+    {
+        a[k] = 0.1 + 0.03 * double( k );
+        b[k] = -0.2 + 0.05 * double( k );
+    }
+    tax::cauchyProduct< double, S >( out, a, b );
+
+    // Brute force: for every pair of in-box monomials whose product is in-box, accumulate.
+    std::array< double, S::nCoeff > ref{};
+    for ( std::size_t i = 0; i < S::nCoeff; ++i )
+        for ( std::size_t j = 0; j < S::nCoeff; ++j )
+        {
+            auto ai = S::multiOf( i );
+            auto aj = S::multiOf( j );
+            tax::MultiIndex< S::vars > sum{};
+            for ( int v = 0; v < S::vars; ++v )
+                sum[std::size_t( v )] = ai[std::size_t( v )] + aj[std::size_t( v )];
+            std::size_t o = S::flatOf( sum );
+            if ( o != S::kNotInBox ) ref[o] += a[i] * b[j];
+        }
+    for ( std::size_t k = 0; k < S::nCoeff; ++k ) EXPECT_DOUBLE_EQ( out[k], ref[k] );
 }

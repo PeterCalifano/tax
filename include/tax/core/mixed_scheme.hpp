@@ -23,7 +23,9 @@
 
 #include <array>
 #include <cstddef>
+#include <span>
 #include <tax/core/multi_index.hpp>
+#include <tax/kernels/mixed_stencils.hpp>
 
 namespace tax
 {
@@ -188,6 +190,111 @@ struct MixedScheme
             writeSubBlock( a, gd, gflat );
         }
         return a;
+    }
+
+    // -----------------------------------------------------------------------
+    // IndexScheme member surface — required by the scheme-generic kernels.
+    // -----------------------------------------------------------------------
+
+    /// Box-filtered Cauchy product using the precomputed stencil (runtime) or
+    /// an on-the-fly sub-index enumeration (constant evaluation).
+    template < typename T >
+    static constexpr void cauchyProduct( std::array< T, nCoeff >& out,
+                                         const std::array< T, nCoeff >& a,
+                                         const std::array< T, nCoeff >& b ) noexcept
+    {
+#if TAX_USE_STENCIL
+        if !consteval
+        {
+            const auto& st = detail::kernels::mixedBoxCauchyStencil< Groups... >();
+            out = {};
+            for ( const detail::kernels::StencilEntry& e : st.entries )
+                out[e.out_idx] += a[e.a_idx] * b[e.b_idx];
+            return;
+        }
+#endif
+        // Constexpr fallback: enumerate sub-indices on the fly.
+        out = {};
+        for ( std::size_t ai = 0; ai < nCoeff; ++ai )
+        {
+            const MultiIndex< vars > alpha = multiOf( ai );
+            enumerateSubIndicesCE(
+                alpha, MultiIndex< vars >{}, 0, [&]( const MultiIndex< vars >& beta ) {
+                    MultiIndex< vars > gamma{};
+                    for ( int v = 0; v < vars; ++v )
+                        gamma[std::size_t( v )] = alpha[std::size_t( v )] - beta[std::size_t( v )];
+                    out[ai] += a[flatOf( beta )] * b[flatOf( gamma )];
+                } );
+        }
+    }
+
+    /// Box-filtered self-product: delegates to cauchyProduct(f, f).
+    /// (MixedScheme::isUnivariate is always false — no univariate special case needed.)
+    template < typename T >
+    static constexpr void cauchySelfProduct( std::array< T, nCoeff >& out,
+                                             const std::array< T, nCoeff >& f ) noexcept
+    {
+        cauchyProduct< T >( out, f, f );
+    }
+
+    /// Graded recurrence-row walker: fn(ai, degree, span<RecurrenceEntry>).
+    /// Uses the precomputed stencil at runtime; enumerates on the fly in constant evaluation.
+    template < class RowFn >
+    static constexpr void forEachRecurrenceRow( RowFn&& fn ) noexcept
+    {
+#if TAX_USE_STENCIL
+        if !consteval
+        {
+            const auto& st = detail::kernels::mixedBoxRecurrenceStencil< Groups... >();
+            for ( std::size_t ai = 1; ai < nCoeff; ++ai )
+            {
+                fn( ai, int( st.degree[ai] ),
+                    std::span< const detail::kernels::RecurrenceEntry >(
+                        st.entries.data() + st.row[ai], st.entries.data() + st.row[ai + 1] ) );
+            }
+            return;
+        }
+#endif
+        // Constexpr fallback: build each row on the fly (same entries, no precomputed table).
+        std::array< detail::kernels::RecurrenceEntry, nCoeff > buf{};
+        for ( std::size_t ai = 1; ai < nCoeff; ++ai )
+        {
+            const MultiIndex< vars > alpha = multiOf( ai );
+            const int deg = totalDegree( alpha );
+            std::size_t n = 0;
+            enumerateSubIndicesCE(
+                alpha, MultiIndex< vars >{}, 0, [&]( const MultiIndex< vars >& beta ) {
+                    int db = 0;
+                    for ( int v = 0; v < vars; ++v ) db += beta[std::size_t( v )];
+                    if ( db == 0 ) return;
+                    MultiIndex< vars > gamma{};
+                    for ( int v = 0; v < vars; ++v )
+                        gamma[std::size_t( v )] = alpha[std::size_t( v )] - beta[std::size_t( v )];
+                    buf[n++] = detail::kernels::RecurrenceEntry{
+                        static_cast< std::uint32_t >( flatOf( beta ) ),
+                        static_cast< std::uint32_t >( flatOf( gamma ) ),
+                        static_cast< std::uint32_t >( db ) };
+                } );
+            fn( ai, deg, std::span< const detail::kernels::RecurrenceEntry >( buf.data(), n ) );
+        }
+    }
+
+   private:
+    /// Constexpr sub-index enumerator (used by the on-the-fly fallback paths above).
+    template < class Fn >
+    static constexpr void enumerateSubIndicesCE( const MultiIndex< vars >& alpha,
+                                                 MultiIndex< vars > beta, int v, Fn&& fn ) noexcept
+    {
+        if ( v == vars )
+        {
+            fn( beta );
+            return;
+        }
+        for ( int b = 0; b <= alpha[std::size_t( v )]; ++b )
+        {
+            beta[std::size_t( v )] = b;
+            enumerateSubIndicesCE( alpha, beta, v + 1, fn );
+        }
     }
 
    private:
