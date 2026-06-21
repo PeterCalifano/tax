@@ -59,7 +59,10 @@ struct MixedBoxCauchyStencil
     {
         std::size_t n = 0;
         // Outputs in graded order; within each output α, β iterates by ascending
-        // flat index so the accumulation order matches the (i,j) double loop exactly.
+        // flat index (a brute-force (i,j) double-loop walk). The constexpr fallback
+        // in MixedScheme::cauchyProduct uses a forEachSubIndex walk instead, so the
+        // two paths sum in different orders and agree only to round-off — the same
+        // loop-vs-stencil contract documented for the isotropic kernels.
         for ( std::size_t ai = 0; ai < kNCoeff; ++ai )
         {
             const MultiIndex< V > alpha = Scheme::multiOf( ai );
