@@ -43,3 +43,20 @@ TEST( IndexScheme, IsotropicRecurrenceRowsMatchLegacy )
 
     EXPECT_EQ( legacy, viaScheme );
 }
+
+TEST( IndexScheme, SchemeGenericKernelMatchesPublicSurface )
+{
+    constexpr int N = 6, M = 2;
+    using S = tax::IsotropicScheme< N, M >;
+    using TE = tax::TE< N, M >;
+
+    typename TE::Input p{ 0.3, -0.2 };
+    auto x = TE::template variable< 0 >( p );
+    auto fx = exp( x );  // public surface
+
+    std::array< double, S::nCoeff > a = x.coefficients();
+    std::array< double, S::nCoeff > out{};
+    tax::detail::kernels::seriesExp< double, S >( out, a );  // scheme-generic kernel
+
+    for ( std::size_t k = 0; k < S::nCoeff; ++k ) EXPECT_DOUBLE_EQ( out[k], fx[k] );
+}
