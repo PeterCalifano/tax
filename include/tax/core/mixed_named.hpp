@@ -135,25 +135,6 @@ class MixedTaylorExpansion
     Inner inner_{};
 };
 
-// ---------------------------------------------------------------------------
-// MixedVariablesArray — returned by tax::mixed::variables()
-// ---------------------------------------------------------------------------
-// std::array::operator[] returns a reference, which makes
-// `decltype(v[0])::vars_v` ill-formed (reference types have no members).
-// This thin wrapper stores the same data but exposes an operator[] that
-// returns by value so that `decltype(v[0])` is the element type itself.
-
-template < typename E, std::size_t D >
-struct MixedVariablesArray
-{
-    std::array< E, D > data{};
-
-    /// Returns by value so `decltype(v[i])` is `E` (not `E&`), enabling
-    /// `decltype(v[i])::vars_v` in static_assert contexts.
-    [[nodiscard]] constexpr E operator[]( std::size_t i ) const noexcept { return data[i]; }
-    [[nodiscard]] constexpr E operator[]( std::size_t i ) noexcept { return data[i]; }
-};
-
 }  // namespace tax::named
 
 // ---------------------------------------------------------------------------
@@ -185,17 +166,16 @@ template < tax::named::FixedString Name, int Order >
 }
 
 /// Build the `D` coordinate variables of a `D`-dimensional ordered axis `Name`
-/// at `x0`, each truncated to per-axis order `Order`.
-/// Returns a `MixedVariablesArray<E, D>` so that `decltype(result[i])` is
-/// the element type (not a reference), enabling `decltype(result[i])::vars_v`.
+/// at `x0`, each truncated to per-axis order `Order`. Returns a plain
+/// `std::array` (as `tax::named::variables` does).
 template < tax::named::FixedString Name, int Order, std::size_t D >
 [[nodiscard]] constexpr auto variables( const std::array< double, D >& x0 ) noexcept
 {
     using Ax = tax::named::OrderedAxis< Name, int( D ), Order >;
     using E = tax::named::MixedTaylorExpansion< double, Ax >;
-    tax::named::MixedVariablesArray< E, D > out{};
+    std::array< E, D > out{};
     [&]< std::size_t... I >( std::index_sequence< I... > ) {
-        ( ( out.data[I] = E{ E::Inner::template variable< int( I ) >( x0 ) } ), ... );
+        ( ( out[I] = E{ E::Inner::template variable< int( I ) >( x0 ) } ), ... );
     }( std::make_index_sequence< D >{} );
     return out;
 }

@@ -15,7 +15,9 @@ TEST( MixedNamed, VariablesArrayAndAxisDim )
 {
     std::array< double, 3 > p{ 0.1, 0.2, 0.3 };
     auto v = tax::mixed::variables< "p", 6, 3 >( p );  // 3-D axis "p" order 6
-    static_assert( decltype( v[0] )::vars_v == 3 );
+    // v is std::array; v[0] is a reference, so decay before member access.
+    static_assert( std::decay_t< decltype( v[0] ) >::vars_v == 3 );
+    static_assert( std::tuple_size_v< decltype( v ) > == 3 );
     EXPECT_DOUBLE_EQ( v[0].value(), 0.1 );
     EXPECT_DOUBLE_EQ( v[2].value(), 0.3 );
 }
