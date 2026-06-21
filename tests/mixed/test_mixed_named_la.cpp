@@ -198,3 +198,31 @@ TEST( MixedNamedLa, VecNTDotProductViaNumTraits )
     EXPECT_NEAR( g( 0 ), 2.0, 1e-12 );
     EXPECT_NEAR( g( 1 ), 4.0, 1e-12 );
 }
+
+// ---------------------------------------------------------------------------
+// TEST: the public `tax::` spelling resolves for MixedTaylorExpansion.
+// `tax::gradient<"name">`/`jacobian<"name">` must find the mixed overloads via
+// the re-export in la/mixed_named.hpp (the la/named.hpp using-block predates
+// them and would not pick them up).
+// ---------------------------------------------------------------------------
+
+TEST( MixedNamedLa, PublicTaxSpellingResolves )
+{
+    auto x = tax::mixed::variables< "x", 4, 2 >( std::array< double, 2 >{ 3.0, 5.0 } );
+    auto p = tax::mixed::variable< "p", 3 >( 2.0 );
+    auto f = x[0] * x[0] * p + 2.0 * x[1];  // df/dx0=12, df/dx1=2
+
+    // Qualified public spelling (NOT tax::named::) — exercises the re-export.
+    auto gx = tax::gradient< "x" >( f );
+    ASSERT_EQ( gx.rows(), 2 );
+    EXPECT_DOUBLE_EQ( gx( 0 ), 12.0 );
+    EXPECT_DOUBLE_EQ( gx( 1 ), 2.0 );
+
+    tax::la::VecNT< 1, decltype( f ) > F;
+    F( 0 ) = f;
+    auto J = tax::jacobian< "x" >( F );  // 1x2 Jacobian = [12, 2]
+    ASSERT_EQ( J.rows(), 1 );
+    ASSERT_EQ( J.cols(), 2 );
+    EXPECT_DOUBLE_EQ( J( 0, 0 ), 12.0 );
+    EXPECT_DOUBLE_EQ( J( 0, 1 ), 2.0 );
+}

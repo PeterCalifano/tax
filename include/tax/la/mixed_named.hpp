@@ -172,8 +172,16 @@ template < FixedString Name, typename Derived >
 
 }  // namespace tax::named
 
-// The per-axis differential helpers are reachable directly under `tax` too.
-// Note: gradient, hessian, jacobian are already introduced by `la/named.hpp`
-// (via `using named::...`), so we do not repeat `using` declarations here to
-// avoid redefinition errors.  The MixedTaylorExpansion overloads are reachable
-// from `tax` via ADL and through the overload sets already opened by la/named.hpp.
+// Re-export the per-axis differential helpers under `tax`. A using-declaration
+// only captures the overloads visible at its point, so the `using named::...`
+// block in la/named.hpp does NOT pick up the MixedTaylorExpansion overloads
+// added above; re-issuing the using-declarations here extends the `tax` overload
+// set with them (repeating a using-declaration for the same name is allowed and
+// merely augments the set). This makes the qualified `tax::gradient<"name">(f)`
+// spelling resolve for MixedTaylorExpansion, not just `tax::named::gradient`.
+namespace tax
+{
+using named::gradient;
+using named::hessian;
+using named::jacobian;
+}  // namespace tax
