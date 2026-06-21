@@ -1,25 +1,14 @@
 #pragma once
 
-// ---------------------------------------------------------------------------
-// Box-filtered Cauchy + recurrence stencils for MixedScheme.
-// ---------------------------------------------------------------------------
-// Provides MixedBoxCauchyStencil<Groups...> and MixedBoxRecurrenceStencil<Groups...>:
-// precomputed (out, a, b) / (b, g, db) tables for the box product of a MixedScheme.
+// Box-filtered Cauchy + recurrence stencils for MixedScheme: precomputed
+// (out, a, b) / (b, g, db) tables for the box product. Tables are compile-time
+// std::array (no heap), built in graded (ascending total degree) output order.
 //
-// Sizing (compile-time std::array — no heap):
-//   kCauchyEntries = Π_g numMonomials(order_g, 2*dim_g)
-//                  = |{(β,γ): |β_g|+|γ_g| ≤ order_g ∀g}|
-//   kRecEntries    = kCauchyEntries - nCoeff
-//                  (drops the single |β|==0 row per output, as RecurrenceStencil does)
-//
-// Both tables are built in graded (ascending total degree) output order by iterating
-// outputs 0..nCoeff-1 (MixedScheme::multiOf visits in graded order — verified by
-// the FlatRoundTripDenseAndGraded test in tests/mixed/test_mixed_scheme.cpp).
-//
-// NOTE: This header does NOT include mixed_scheme.hpp. Instead, mixed_scheme.hpp
-// includes this header (after its own class definition), avoiding a circular dependency.
-// The stencil structs reference MixedScheme<Groups...> only inside template bodies
-// that are instantiated later (when the static const stencil is first accessed).
+// This header does NOT include mixed_scheme.hpp; mixed_scheme.hpp includes this
+// header after its own class definition, avoiding a circular dependency. The
+// stencil structs reference MixedScheme<Groups...> only inside template bodies
+// instantiated later (when the static const stencil is first accessed), by which
+// point MixedScheme<Groups...> is complete.
 
 #include <array>
 #include <cstddef>
@@ -32,20 +21,13 @@
 
 namespace tax
 {
-// Forward declaration — MixedScheme is fully defined in mixed_scheme.hpp, which
-// includes this header after the class body. The template bodies below are only
-// instantiated when the stencil static is first accessed (at runtime), at which
-// point MixedScheme<Groups...> is complete.
+/// Forward declaration; MixedScheme is fully defined in mixed_scheme.hpp.
 template < typename... Groups >
 struct MixedScheme;
 }  // namespace tax
 
 namespace tax::detail::kernels
 {
-
-// ---------------------------------------------------------------------------
-// Compile-time sizing helpers
-// ---------------------------------------------------------------------------
 
 /// Cauchy entry count for MixedScheme<Groups...>: Π_g numMonomials(order_g, 2*dim_g).
 template < typename... Groups >
@@ -57,12 +39,8 @@ template < typename... Groups >
 inline constexpr std::size_t mixedRecurrenceEntries =
     mixedCauchyEntries< Groups... > - tax::MixedScheme< Groups... >::nCoeff;
 
-// ---------------------------------------------------------------------------
-// MixedBoxCauchyStencil<Groups...>
-// ---------------------------------------------------------------------------
-
-/// Precomputed (out, a, b) table for the box Cauchy product of MixedScheme<Groups...>.
-/// Entries are stored in graded output order (output ai = 0 … nCoeff-1).
+/// Precomputed (out, a, b) table for the box Cauchy product of MixedScheme<Groups...>, in graded
+/// output order (ai = 0 … nCoeff-1).
 template < typename... Groups >
 struct MixedBoxCauchyStencil
 {
@@ -79,9 +57,8 @@ struct MixedBoxCauchyStencil
     constexpr MixedBoxCauchyStencil() noexcept
     {
         std::size_t n = 0;
-        // Outputs in graded order: multiOf(0), multiOf(1), … multiOf(nCoeff-1).
-        // Within each output α, iterate β by ascending flat index (bi = 0…nCoeff-1)
-        // so the accumulation order matches the (i,j) brute-force double loop exactly.
+        // Outputs in graded order; within each output α, β iterates by ascending
+        // flat index so the accumulation order matches the (i,j) double loop exactly.
         for ( std::size_t ai = 0; ai < kNCoeff; ++ai )
         {
             const MultiIndex< V > alpha = Scheme::multiOf( ai );
@@ -109,13 +86,8 @@ struct MixedBoxCauchyStencil
     }
 };
 
-// ---------------------------------------------------------------------------
-// MixedBoxRecurrenceStencil<Groups...>
-// ---------------------------------------------------------------------------
-
-/// Decomposition table for the degree-by-degree recurrence over MixedScheme<Groups...>.
-/// Shape mirrors RecurrenceStencil: entries[], row[] bounds, degree[] per output.
-/// Built in graded output order. Drops the |β|==0 row per output (db >= 1 always).
+/// Decomposition table for the degree-by-degree recurrence over MixedScheme<Groups...>, in graded
+/// output order; drops the |β|==0 row per output (db >= 1 always).
 template < typename... Groups >
 struct MixedBoxRecurrenceStencil
 {
@@ -158,10 +130,7 @@ struct MixedBoxRecurrenceStencil
     }
 };
 
-// ---------------------------------------------------------------------------
-// Shared per-MixedScheme stencil accessors (runtime static — one per type).
-// ---------------------------------------------------------------------------
-
+/// Shared per-MixedScheme stencil accessor (runtime static — one instance per type).
 template < typename... Groups >
 [[nodiscard]] inline const MixedBoxCauchyStencil< Groups... >& mixedBoxCauchyStencil() noexcept
 {
@@ -169,6 +138,7 @@ template < typename... Groups >
     return s;
 }
 
+/// Shared per-MixedScheme stencil accessor (runtime static — one instance per type).
 template < typename... Groups >
 [[nodiscard]] inline const MixedBoxRecurrenceStencil< Groups... >&
 mixedBoxRecurrenceStencil() noexcept

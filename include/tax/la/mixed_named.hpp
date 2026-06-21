@@ -170,13 +170,11 @@ template < FixedString Name, typename Derived >
 
 }  // namespace tax::named
 
-// Re-export the per-axis differential helpers under `tax`. A using-declaration
-// only captures the overloads visible at its point, so the `using named::...`
-// block in la/named.hpp does NOT pick up the MixedTaylorExpansion overloads
-// added above; re-issuing the using-declarations here extends the `tax` overload
-// set with them (repeating a using-declaration for the same name is allowed and
-// merely augments the set). This makes the qualified `tax::gradient<"name">(f)`
-// spelling resolve for MixedTaylorExpansion, not just `tax::named::gradient`.
+// Re-export the per-axis differential helpers under `tax`. Re-issuing the
+// using-declarations here augments the `tax` overload set with the
+// MixedTaylorExpansion overloads (a using-declaration only captures the
+// overloads visible at its point, so the block in la/named.hpp does not pick
+// them up).
 namespace tax
 {
 using named::gradient;

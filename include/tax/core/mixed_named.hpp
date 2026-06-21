@@ -1,13 +1,9 @@
 #pragma once
 
-// Named, per-axis-order Taylor expansions: MixedTaylorExpansion
-// wraps a dense TaylorExpansion<T, MixedScheme<Group<Dim,Order>...>>
-// and attaches a canonical (sorted, unique) list of named ordered axes
-// (OrderedAxis<Name, Dim, Order>).
-//
-// This is additive to (and does not alter) the existing NamedTaylorExpansion
-// which remains the joint-simplex named layer. Embed / compose / slice / deriv
-// are later tasks; this file delivers only the type + factories + accessors.
+// Named, per-axis-order Taylor expansions: MixedTaylorExpansion wraps a dense
+// TaylorExpansion<T, MixedScheme<Group<Dim,Order>...>> and attaches a canonical
+// (sorted, unique) list of named ordered axes (OrderedAxis<Name, Dim, Order>).
+// Complements the joint-simplex NamedTaylorExpansion with per-axis truncation.
 
 #include <array>
 #include <cstddef>
@@ -25,12 +21,7 @@ template < typename T, typename... Axes >
     requires Scalar< T >
 class MixedTaylorExpansion;
 
-// ---------------------------------------------------------------------------
-// OrderedAxis — a named axis with its own per-axis truncation order
-// ---------------------------------------------------------------------------
-
-/// A named axis: the compile-time string `Name` labels a block of `Dim`
-/// consecutive variables truncated at order `Order`.
+/// Named axis: `Name` labels a block of `Dim` consecutive variables truncated at `Order`.
 template < FixedString Name, int Dim, int Order >
 struct OrderedAxis
 {
@@ -41,15 +32,10 @@ struct OrderedAxis
     static_assert( Order >= 0, "OrderedAxis order must be non-negative" );
 };
 
-// ---------------------------------------------------------------------------
-// Axis-list metafunction: OrderedAxis pack -> MixedScheme<Group<Dim,Order>...>
-// ---------------------------------------------------------------------------
-
 namespace detail
 {
 
-/// Map a pack of OrderedAxis types to MixedScheme<Group<Dim,Order>...>.
-/// Axis order == group order in the scheme (group 0 = first axis, etc.).
+/// Map a pack of OrderedAxis types to MixedScheme<Group<Dim,Order>...> (axis i -> group i).
 template < typename... Axes >
 struct AxesToMixedScheme
 {
@@ -59,9 +45,9 @@ struct AxesToMixedScheme
 template < typename... Axes >
 using AxesToMixedScheme_t = typename AxesToMixedScheme< Axes... >::type;
 
-// --- Merge two name-sorted ordered-axis lists into one sorted, unique list ---
-// Mirrors named::detail::Merge / MergeChoose, but the same-name case takes the
-// MAX of the two per-axis orders (a shared axis must accommodate both operands).
+// Merge two name-sorted ordered-axis lists into one sorted, unique list. The
+// same-name case takes the MAX of the two per-axis orders (a shared axis must
+// accommodate both operands).
 
 template < int Cmp, typename A, typename B >
 struct MergeOrderedChoose;
@@ -129,10 +115,6 @@ template < typename T, typename ListA, typename ListB >
 using MergedMixedTaylorExpansion =
     typename RebindMixed< T, typename MergeOrdered< ListA, ListB >::type >::type;
 
-// ---------------------------------------------------------------------------
-// Metafunctions for axis-name ops (Task 3)
-// ---------------------------------------------------------------------------
-
 /// Order of the axis named `Name` within a list, or -1 if absent.
 template < typename List, FixedString Name >
 struct OrderOfName;
@@ -149,14 +131,14 @@ struct OrderOfName< TypeList< H, Ts... >, Name >
                                      : OrderOfName< TypeList< Ts... >, Name >::value;
 };
 
-/// Replace the per-axis order of the axis named `Name` in list `L` with `N2`.
-/// Leaves all other axes unchanged. Asserts that `Name` is present.
+/// Replace the per-axis order of the axis named `Name` in list `L` with `N2`,
+/// leaving all other axes unchanged. `Name` must be present.
 template < typename L, FixedString Name, int N2 >
 struct ReplaceAxisOrder;
 template < FixedString Name, int N2 >
 struct ReplaceAxisOrder< TypeList<>, Name, N2 >
 {
-    // Name not found — the static_assert in axisVar will catch this earlier.
+    // Name not found — the static_assert in axisVar catches this earlier.
     using type = TypeList<>;
 };
 template < typename H, typename... Ts, FixedString Name, int N2 >
@@ -183,10 +165,7 @@ struct MergeFoldOrdered< Acc, First, Rest... >
 
 }  // namespace detail
 
-// ---------------------------------------------------------------------------
-// MixedTaylorExpansion — the named per-axis-order type
-// ---------------------------------------------------------------------------
-
+/// Named per-axis-order Taylor expansion over a canonical (sorted, unique) axis set.
 template < typename T, typename... Axes >
     requires Scalar< T >
 class MixedTaylorExpansion
@@ -210,10 +189,6 @@ class MixedTaylorExpansion
     using container_t = typename Inner::container_t;
     static constexpr std::size_t nCoefficients = Inner::nCoefficients;
 
-    // ------------------------------------------------------------------
-    // Constructors
-    // ------------------------------------------------------------------
-
     constexpr MixedTaylorExpansion() noexcept = default;
 
     /// Constant expansion (value, all higher-order coefficients zero).
@@ -221,10 +196,6 @@ class MixedTaylorExpansion
 
     /// Wrap an existing anonymous expansion carrying these axes.
     explicit constexpr MixedTaylorExpansion( const Inner& inner ) noexcept : inner_{ inner } {}
-
-    // ------------------------------------------------------------------
-    // Access
-    // ------------------------------------------------------------------
 
     /// Constant (zeroth) coefficient.
     [[nodiscard]] constexpr T value() const noexcept { return inner_.value(); }
@@ -258,14 +229,9 @@ class MixedTaylorExpansion
         return inner_.derivative( alpha );
     }
 
-    // ------------------------------------------------------------------
-    // Embedding
-    // ------------------------------------------------------------------
-
     /// Embed into the target mixed type `R`, whose axes are a superset of this
-    /// expansion's axes and whose per-axis orders are >= this expansion's
-    /// (i.e. this expansion is a sub-box of R). Reindexes box -> box through the
-    /// MixedScheme (multiOf/flatOf), remapping the per-axis variable blocks.
+    /// expansion's and whose per-axis orders are >= these (this is a sub-box of
+    /// R). Reindexes box -> box via the MixedScheme, remapping per-axis blocks.
     template < typename R >
     [[nodiscard]] constexpr R embed() const noexcept
     {
@@ -288,9 +254,7 @@ class MixedTaylorExpansion
         return R{ typename R::Inner{ out } };
     }
 
-    // ------------------------------------------------------------------
-    // Per-axis differentiation and integration (axis set preserved)
-    // ------------------------------------------------------------------
+    // Per-axis differentiation and integration (axis set preserved).
 
     /// Global variable index of local coordinate `Local` of axis `Name`.
     template < FixedString Name, int Local = 0 >
@@ -317,12 +281,8 @@ class MixedTaylorExpansion
         return MixedTaylorExpansion{ inner_.template integ< axisVar< Name, Local >() >() };
     }
 
-    // ------------------------------------------------------------------
-    // Slice: project onto a named subset of axes
-    // ------------------------------------------------------------------
-
-    /// Project onto the subset of axes named by `Names...`.
-    /// Source monomials with nonzero degree in any dropped axis are discarded.
+    /// Project onto the subset of axes named by `Names...`; source monomials
+    /// with nonzero degree in any dropped axis are discarded.
     template < FixedString... Names >
     [[nodiscard]] constexpr auto slice() const noexcept
     {
@@ -371,13 +331,9 @@ class MixedTaylorExpansion
         return R{ typename R::Inner{ out } };
     }
 
-    // ------------------------------------------------------------------
-    // Per-axis order truncation (drops monomials exceeding N2 on axis Name)
-    // ------------------------------------------------------------------
-
-    /// Lower axis `Name`'s per-axis order to `N2`.  Monomials whose `Name`-axis
+    /// Lower axis `Name`'s per-axis order to `N2`. Monomials whose `Name`-axis
     /// block degree exceeds `N2` are silently dropped (they fall outside the
-    /// smaller box).  The variable layout is unchanged; only the scheme changes.
+    /// smaller box). The variable layout is unchanged; only the scheme changes.
     template < FixedString Name, int N2 >
     [[nodiscard]] constexpr auto truncate() const noexcept
     {
@@ -405,12 +361,9 @@ class MixedTaylorExpansion
     Inner inner_{};
 };
 
-// ---------------------------------------------------------------------------
-// Composition operators (union axis set, max order per shared axis)
-// ---------------------------------------------------------------------------
-
-// Each binary op embeds both operands into the merged mixed type, then delegates
-// to the UNIFIED TaylorExpansion operator on the (now box-compatible) inners.
+// Composition operators (union axis set, max order per shared axis). Each binary
+// op embeds both operands into the merged mixed type, then delegates to the
+// underlying TaylorExpansion operator on the (now box-compatible) inners.
 #define TAX_MIXED_BINARY_OP( OP )                                                                 \
     template < typename T, typename... A, typename... B >                                         \
     [[nodiscard]] constexpr auto operator OP( const MixedTaylorExpansion< T, A... >& a,           \
@@ -428,7 +381,7 @@ TAX_MIXED_BINARY_OP( / )
 
 #undef TAX_MIXED_BINARY_OP
 
-// --- Scalar combinations (axis set unchanged) ------------------------------
+// Scalar combinations (axis set unchanged).
 
 #define TAX_MIXED_SCALAR_OP( OP )                                                        \
     template < typename T, typename... A >                                               \
@@ -473,9 +426,7 @@ template < typename T, typename... A >
     return MixedTaylorExpansion< T, A... >{ -a.inner() };
 }
 
-// ---------------------------------------------------------------------------
-// Unary math functions (forwarded to the inner expansion, axis set preserved)
-// ---------------------------------------------------------------------------
+// Unary math functions (forwarded to the inner expansion, axis set preserved).
 
 #define TAX_MIXED_UNARY_FN( FN )                                        \
     template < typename T, typename... A >                              \
@@ -510,25 +461,18 @@ TAX_MIXED_UNARY_FN( erf )
 
 }  // namespace tax::named
 
-// ---------------------------------------------------------------------------
-// Public re-exports: OrderedAxis and MixedTaylorExpansion under `tax`
-// ---------------------------------------------------------------------------
-
+// Public re-exports: OrderedAxis and MixedTaylorExpansion under `tax`.
 namespace tax
 {
 using named::MixedTaylorExpansion;
 using named::OrderedAxis;
 }  // namespace tax
 
-// ---------------------------------------------------------------------------
-// Factories: `tax::mixed::variable` / `tax::mixed::variables`
-// ---------------------------------------------------------------------------
-
+// Factories: `tax::mixed::variable` / `tax::mixed::variables`.
 namespace tax::mixed
 {
 
-/// Build the single coordinate variable of a 1-D ordered axis `Name` at `x0`,
-/// truncated to per-axis order `Order`.
+/// Single coordinate variable of a 1-D ordered axis `Name` at `x0`, truncated to `Order`.
 template < tax::named::FixedString Name, int Order >
 [[nodiscard]] constexpr auto variable( double x0 ) noexcept
 {
@@ -538,9 +482,8 @@ template < tax::named::FixedString Name, int Order >
     return E{ E::Inner::template variable< 0 >( p ) };
 }
 
-/// Build the `D` coordinate variables of a `D`-dimensional ordered axis `Name`
-/// at `x0`, each truncated to per-axis order `Order`. Returns a plain
-/// `std::array` (as `tax::named::variables` does).
+/// The `D` coordinate variables of a `D`-dimensional ordered axis `Name` at
+/// `x0`, each truncated to `Order`; returned as a plain `std::array`.
 template < tax::named::FixedString Name, int Order, std::size_t D >
 [[nodiscard]] constexpr auto variables( const std::array< double, D >& x0 ) noexcept
 {

@@ -1,25 +1,20 @@
 #pragma once
 
-// ---------------------------------------------------------------------------
 // MixedScheme: an anisotropic ("box") IndexScheme.
-// ---------------------------------------------------------------------------
+//
 // Each variable group g has its own truncation order order_g over its own
 // dim_g variables. A monomial is kept iff the total degree of every per-group
 // block is within that group's order — i.e. the kept set is the *product* of
 // per-group simplices (a box), not a single joint simplex. There is no joint
-// total-degree cap in M2 (order == Σ order_g); a joint cap is a later additive
-// parameter (MixedScheme<…, JointCap>) and is recorded as a follow-up.
+// total-degree cap (order == Σ order_g).
 //
-// Layout (graded mixed-radix, generalising the 2-group prototype):
-//   iterate total degree d = 0 … Σ order_g; within d iterate the per-group
-//   degree tuples (d_0,…,d_{G-1}) with Σ d_g = d and d_g ≤ order_g in
-//   lexicographic order (group 0 most significant); within a tuple iterate the
-//   per-group degree-d_g monomials in graded-lex as a mixed-radix product
-//   (group 0 outermost). Flat indices 0,1,2,… follow that visitation order.
-//
-// flatOf / multiOf are the inverse maps and everything is constexpr (pure
-// index math — no runtime statics in this task; the product/recurrence
-// stencils land in Task 3).
+// Layout (graded mixed-radix): iterate total degree d = 0 … Σ order_g; within
+// d iterate the per-group degree tuples (d_0,…,d_{G-1}) with Σ d_g = d and
+// d_g ≤ order_g in lexicographic order (group 0 most significant); within a
+// tuple iterate the per-group degree-d_g monomials in graded-lex as a
+// mixed-radix product (group 0 outermost). Flat indices 0,1,2,… follow that
+// visitation order. flatOf / multiOf are the inverse maps; everything is
+// constexpr pure index math (no runtime statics).
 
 #include <array>
 #include <cstddef>
@@ -192,12 +187,10 @@ struct MixedScheme
         return a;
     }
 
-    // -----------------------------------------------------------------------
     // IndexScheme member surface — required by the scheme-generic kernels.
-    // -----------------------------------------------------------------------
 
-    /// Box-filtered Cauchy product using the precomputed stencil (runtime) or
-    /// an on-the-fly sub-index enumeration (constant evaluation).
+    /// Box-filtered Cauchy product (precomputed stencil at runtime; on-the-fly sub-index
+    /// enumeration in constant evaluation).
     template < typename T >
     static constexpr void cauchyProduct( std::array< T, nCoeff >& out,
                                          const std::array< T, nCoeff >& a,
@@ -226,7 +219,6 @@ struct MixedScheme
     }
 
     /// Box-filtered self-product: delegates to cauchyProduct(f, f).
-    /// (MixedScheme::isUnivariate is always false — no univariate special case needed.)
     template < typename T >
     static constexpr void cauchySelfProduct( std::array< T, nCoeff >& out,
                                              const std::array< T, nCoeff >& f ) noexcept
@@ -234,8 +226,8 @@ struct MixedScheme
         cauchyProduct< T >( out, f, f );
     }
 
-    /// Graded recurrence-row walker: fn(ai, degree, span<RecurrenceEntry>).
-    /// Uses the precomputed stencil at runtime; enumerates on the fly in constant evaluation.
+    /// Graded recurrence-row walker fn(ai, degree, span<RecurrenceEntry>): stencil at
+    /// runtime, on-the-fly in constant evaluation.
     template < class RowFn >
     static constexpr void forEachRecurrenceRow( RowFn&& fn ) noexcept
     {
@@ -303,8 +295,8 @@ struct MixedScheme
         writeSubBlockImpl< Groups::dim... >( a, gd, gflat, 0 );
     }
 
-    // Compile-time dispatch over each group's dim so flatIndex<Dim>/unflatIndex<Dim>
-    // get their constant template argument while the descriptor selects the runtime block.
+    // Compile-time dispatch over each group's dim so flatIndex<Dim>/unflatIndex<Dim> get
+    // their constant template argument while the descriptor selects the runtime block.
     template < int D0, int... Rest >
     static constexpr std::size_t flatBlockImpl( const MultiIndex< vars >& a,
                                                 const detail::MixedGroupDesc& gd, int g ) noexcept
@@ -351,9 +343,8 @@ struct MixedScheme
         return b;
     }
 
-    /// Visit every valid degree tuple summing to `target` in lexicographic order
-    /// (group 0 most significant). `fn(tuple, block)` returns true to stop early;
-    /// returns whether it stopped early.
+    /// Visit valid degree tuples summing to `target` in lex order (group 0 most significant);
+    /// `fn(tuple, block)` returns true to stop early; returns whether it stopped early.
     template < class Fn >
     static constexpr bool forEachTuple( int target, Fn&& fn ) noexcept
     {
@@ -393,8 +384,7 @@ struct MixedScheme
         return total;
     }
 
-    /// Sum of tuple block sizes for valid tuples at degree `target` lexicographically
-    /// before `deg`.
+    /// Sum of tuple block sizes for valid degree-`target` tuples lexicographically before `deg`.
     static constexpr std::size_t precedingTupleCount(
         const std::array< int, std::size_t( groupCount ) >& deg, int target ) noexcept
     {

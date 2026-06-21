@@ -33,7 +33,7 @@ struct IsotropicScheme
         return unflatIndex< M >( k );
     }
 
-    /// Graded recurrence-row walker (M >= 2). Delegates to the legacy table/loop.
+    /// Graded recurrence-row walker (M >= 2).
     template < class RowFn >
     static constexpr void forEachRecurrenceRow( RowFn&& fn ) noexcept
         requires( M >= 2 )
@@ -41,7 +41,7 @@ struct IsotropicScheme
         detail::kernels::forEachRecurrenceRow< N, M >( static_cast< RowFn&& >( fn ) );
     }
 
-    /// Scheme-owned Cauchy product: delegates to the legacy dispatch (unroll/stencil/loop).
+    /// Scheme-owned Cauchy product (unroll/stencil/loop dispatch).
     template < typename T >
     static constexpr void cauchyProduct( std::array< T, nCoeff >& out,
                                          const std::array< T, nCoeff >& a,
@@ -50,9 +50,7 @@ struct IsotropicScheme
         detail::kernels::cauchyProduct< T, N, M >( out, a, b );
     }
 
-    /// Scheme-owned self-product (M == 1: bespoke symmetric loop; M >= 2: cauchyProduct(f,f)).
-    /// Sole owner of the M == 1 symmetric loop; the free
-    /// detail::kernels::cauchySelfProduct<T,Scheme> delegates here.
+    /// Scheme-owned self-product (M == 1: symmetric loop; M >= 2: cauchyProduct(f,f)).
     template < typename T >
     static constexpr void cauchySelfProduct( std::array< T, nCoeff >& out,
                                              const std::array< T, nCoeff >& f ) noexcept
@@ -69,8 +67,8 @@ struct IsotropicScheme
             }
         } else
         {
-            // Route through this scheme's own product so a future Scheme that
-            // overrides cauchyProduct is honoured (not the legacy kernel directly).
+            // Route through this scheme's own product so a Scheme that
+            // overrides cauchyProduct is honoured.
             cauchyProduct< T >( out, f, f );
         }
     }

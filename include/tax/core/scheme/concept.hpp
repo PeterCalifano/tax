@@ -1,13 +1,8 @@
 #pragma once
 
-// ---------------------------------------------------------------------------
 // IndexScheme: the monomial-set abstraction the dense kernels are generic over.
-// ---------------------------------------------------------------------------
-// A scheme bundles what every recurrence kernel needs: the storage size, a
-// graded recurrence-row walker (fn(ai, d, span<RecurrenceEntry>) in ascending
-// total degree so forward substitution is causal), and the flat<->multi maps.
-// IsotropicScheme<N,M> wraps exactly today's tables; a later MixedScheme<...>
-// provides an anisotropic (per-axis-capped) monomial set behind the same API.
+// A scheme bundles the storage size, a graded recurrence-row walker (ascending
+// total degree, so forward substitution is causal), and the flat<->multi maps.
 
 #include <array>
 #include <cstddef>
@@ -22,13 +17,6 @@ concept IndexScheme = requires( const S& ) {
     { S::order } -> std::convertible_to< int >;
     { S::isUnivariate } -> std::convertible_to< bool >;
 };
-
-// ---------------------------------------------------------------------------
-// Scheme-generic Cauchy product entry point (free function in tax namespace)
-// ---------------------------------------------------------------------------
-// Selected when the second template argument satisfies IndexScheme (a type).
-// For IsotropicScheme<N,M> this forwards to detail::kernels::cauchyProduct<T,N,M>,
-// preserving the unroll/stencil/loop dispatch.
 
 /// Scheme-generic Cauchy product: delegates to Scheme::cauchyProduct<T>.
 template < typename T, IndexScheme Scheme >
