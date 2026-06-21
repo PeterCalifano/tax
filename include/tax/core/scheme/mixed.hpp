@@ -13,8 +13,10 @@
 // d_g ≤ order_g in lexicographic order (group 0 most significant); within a
 // tuple iterate the per-group degree-d_g monomials in graded-lex as a
 // mixed-radix product (group 0 outermost). Flat indices 0,1,2,… follow that
-// visitation order. flatOf / multiOf are the inverse maps; everything is
-// constexpr pure index math (no runtime statics).
+// visitation order. flatOf / multiOf are the inverse maps — pure constexpr
+// index math. The cauchyProduct / forEachRecurrenceRow members use the
+// runtime-static box stencils (TAX_USE_STENCIL) with a constexpr on-the-fly
+// fallback for constant evaluation.
 
 #include <array>
 #include <cstddef>
@@ -152,18 +154,17 @@ struct MixedScheme
 
         // (2) walk valid degree tuples (lex order) until `within` lands in one.
         std::array< int, std::size_t( groupCount ) > deg{};
-        const bool found = forEachTuple( total,
-                                         [&]( const std::array< int, std::size_t( groupCount ) >& t,
-                                              std::size_t block ) -> bool {
-                                             if ( within < block )
-                                             {
-                                                 deg = t;
-                                                 return true;  // stop
-                                             }
-                                             within -= block;
-                                             return false;
-                                         } );
-        (void)found;
+        forEachTuple( total,
+                      [&]( const std::array< int, std::size_t( groupCount ) >& t,
+                           std::size_t block ) -> bool {
+                          if ( within < block )
+                          {
+                              deg = t;
+                              return true;  // stop
+                          }
+                          within -= block;
+                          return false;
+                      } );
 
         // (3) decode the mixed-radix offset (group 0 outermost) into per-group ranks.
         std::array< std::size_t, std::size_t( groupCount ) > rank{};
@@ -253,8 +254,7 @@ struct MixedScheme
             std::size_t n = 0;
             forEachSubIndex< vars >(
                 alpha, [&]( const MultiIndex< vars >& beta, const MultiIndex< vars >& gamma ) {
-                    int db = 0;
-                    for ( int v = 0; v < vars; ++v ) db += beta[std::size_t( v )];
+                    const int db = totalDegree( beta );
                     if ( db == 0 ) return;
                     buf[n++] = detail::kernels::RecurrenceEntry{
                         static_cast< std::uint32_t >( flatOf( beta ) ),

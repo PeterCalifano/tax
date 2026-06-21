@@ -10,20 +10,11 @@
 namespace tax::detail::kernels
 {
 
-/// Self-product `out = f * f` (scheme-generic): delegates to the scheme's own
-/// cauchySelfProduct (M == 1 exploits pair symmetry; M >= 2 uses cauchyProduct).
-template < typename T, tax::IndexScheme Scheme >
-constexpr void cauchySelfProduct( std::array< T, Scheme::nCoeff >& out,
-                                  const std::array< T, Scheme::nCoeff >& f ) noexcept
-{
-    Scheme::template cauchySelfProduct< T >( out, f );
-}
-
 /// Self-product `out = f * f` (M == 1 exploits pair symmetry; M >= 2 forwards to cauchyProduct).
 template < typename T, int N, int M >
 constexpr void cauchySelfProduct( Coeffs< T, N, M >& out, const Coeffs< T, N, M >& f ) noexcept
 {
-    tax::detail::kernels::cauchySelfProduct< T, tax::IsotropicScheme< N, M > >( out, f );
+    tax::cauchySelfProduct< T, tax::IsotropicScheme< N, M > >( out, f );
 }
 
 /// Square series `out = a^2` via the symmetric self-product (scheme-generic).
@@ -31,7 +22,7 @@ template < typename T, tax::IndexScheme Scheme >
 constexpr void seriesSquare( std::array< T, Scheme::nCoeff >& out,
                              const std::array< T, Scheme::nCoeff >& a ) noexcept
 {
-    tax::detail::kernels::cauchySelfProduct< T, Scheme >( out, a );
+    tax::cauchySelfProduct< T, Scheme >( out, a );
 }
 
 /// Cube series `out = a^3` via two Cauchy products (scheme-generic).
@@ -41,7 +32,7 @@ constexpr void seriesCube( std::array< T, Scheme::nCoeff >& out,
 {
     constexpr std::size_t S = Scheme::nCoeff;
     std::array< T, S > tmp{};
-    tax::detail::kernels::cauchySelfProduct< T, Scheme >( tmp, a );
+    tax::cauchySelfProduct< T, Scheme >( tmp, a );
     tax::cauchyProduct< T, Scheme >( out, tmp, a );
 }
 
@@ -268,7 +259,7 @@ constexpr void seriesPowInt( std::array< T, Scheme::nCoeff >& out,
     while ( !( e & 1 ) )
     {
         std::array< T, S > tmp{};
-        tax::detail::kernels::cauchySelfProduct< T, Scheme >( tmp, base );
+        tax::cauchySelfProduct< T, Scheme >( tmp, base );
         base = tmp;
         e >>= 1;
     }
@@ -277,7 +268,7 @@ constexpr void seriesPowInt( std::array< T, Scheme::nCoeff >& out,
     while ( e > 0 )
     {
         std::array< T, S > sq{};
-        tax::detail::kernels::cauchySelfProduct< T, Scheme >( sq, base );
+        tax::cauchySelfProduct< T, Scheme >( sq, base );
         base = sq;
         if ( e & 1 )
         {

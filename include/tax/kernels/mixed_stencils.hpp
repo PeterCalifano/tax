@@ -4,11 +4,12 @@
 // (out, a, b) / (b, g, db) tables for the box product. Tables are compile-time
 // std::array (no heap), built in graded (ascending total degree) output order.
 //
-// This header does NOT include mixed_scheme.hpp; mixed_scheme.hpp includes this
-// header after its own class definition, avoiding a circular dependency. The
-// stencil structs reference MixedScheme<Groups...> only inside template bodies
-// instantiated later (when the static const stencil is first accessed), by which
-// point MixedScheme<Groups...> is complete.
+// This header does NOT include tax/core/scheme/mixed.hpp; that header includes
+// this one up front (before defining MixedScheme) and relies on the forward
+// declaration below to break the cycle. The stencil structs reference
+// MixedScheme<Groups...> only inside template bodies instantiated later (when
+// the static const stencil is first accessed), by which point the class is
+// complete.
 
 #include <array>
 #include <cstddef>
@@ -21,7 +22,7 @@
 
 namespace tax
 {
-/// Forward declaration; MixedScheme is fully defined in mixed_scheme.hpp.
+/// Forward declaration; MixedScheme is fully defined in tax/core/scheme/mixed.hpp.
 template < typename... Groups >
 struct MixedScheme;
 }  // namespace tax
@@ -117,8 +118,7 @@ struct MixedBoxRecurrenceStencil
             // Enumerate β ≤ α, skip |β|==0.
             forEachSubIndex< V >(
                 alpha, [&]( const MultiIndex< V >& beta, const MultiIndex< V >& gamma ) {
-                    int db = 0;
-                    for ( int v = 0; v < V; ++v ) db += beta[std::size_t( v )];
+                    const int db = totalDegree( beta );
                     if ( db == 0 ) return;
                     entries[n++] =
                         RecurrenceEntry{ static_cast< std::uint32_t >( Scheme::flatOf( beta ) ),

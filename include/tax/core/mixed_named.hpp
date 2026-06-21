@@ -12,6 +12,7 @@
 #include <tax/core/named.hpp>
 #include <tax/core/scheme/mixed.hpp>
 #include <tax/core/taylor_expansion.hpp>
+#include <utility>
 
 namespace tax::named
 {
@@ -265,7 +266,8 @@ class MixedTaylorExpansion
         constexpr int dim = detail::DimOfName< axis_list, Name >::value;
         static_assert( dim >= 1, "axis name not present in this expansion" );
         static_assert( Local >= 0 && Local < dim, "local axis index out of range" );
-        using Ax = OrderedAxis< Name, dim, detail::OrderOfName< axis_list, Name >::value >;
+        // OffsetOf matches by name only, so the order slot is irrelevant here.
+        using Ax = OrderedAxis< Name, dim, 0 >;
         return detail::OffsetOf< axis_list, Ax >::value + Local;
     }
 
