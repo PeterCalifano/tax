@@ -206,6 +206,88 @@ TEST( MixedNamed, TruncateByAxisName )
     static_assert( FT::Inner::nCoefficients < F::Inner::nCoefficients );
 }
 
+// ---------------------------------------------------------------------------
+// Task 5 coverage tests
+// ---------------------------------------------------------------------------
+
+// Dim>=2 shared axis through promotion/embed: two MixedTaylorExpansions that
+// share a 2-D axis "q" (at different per-axis orders), each also carrying a
+// distinct 1-D axis, are multiplied.  The result type must be
+//   { "p"@3, "q"@max(2,3)=3, "r"@2 }  (sorted by name)
+// and every box coefficient must match the isotropic TE<8,4> oracle evaluated
+// at the same expansion point.  This exercises embedMixed / MergeOrdered for
+// dim>1 shared axes (only dim==1 shared axes had prior coverage).
+TEST( MixedNamed, Dim2SharedAxisPromoteEmbed )
+{
+    // A: "p"(dim=1,ord=3)  x  "q"(dim=2,ord=2)
+    // B: "q"(dim=2,ord=3)  x  "r"(dim=1,ord=2)
+    // Canonical axis order in result: "p"(var0), "q"(var1,var2), "r"(var3)
+    // Expansion points: p=0.5, q0=0.3, q1=0.7, r=1.1
+    std::array< double, 2 > q_pts{ 0.3, 0.7 };
+    auto pa = tax::mixed::variable< "p", 3 >( 0.5 );
+    auto qa = tax::mixed::variables< "q", 2, 2 >( q_pts );  // A carries q@2
+    auto qb = tax::mixed::variables< "q", 3, 2 >( q_pts );  // B carries q@3
+    auto rb = tax::mixed::variable< "r", 2 >( 1.1 );
+
+    // Build A = pa * qa[0] + qa[1]   (uses "p" and "q")
+    auto fa = pa * qa[0] + qa[1];
+    // Build B = qb[0] * rb + qb[1]   (uses "q" and "r")
+    auto fb = qb[0] * rb + qb[1];
+    // Compose: merged axis set {"p"@3, "q"@3, "r"@2}
+    auto f = fa * fb;
+    using F = decltype( f );
+
+    // Type check: 4 variables total (1+2+1), box =
+    // numMonomials(3,1)*numMonomials(3,2)*numMonomials(2,1) = 4 * 10 * 3 = 120
+    static_assert( F::vars_v == 4 );
+    static_assert( F::Inner::nCoefficients == 120 );
+
+    // Isotropic oracle: TE<8,4> with vars p(var0), q0(var1), q1(var2), r(var3)
+    // at expansion points p=0.5, q0=0.3, q1=0.7, r=1.1
+    typename tax::TE< 8, 4 >::Input pt{ 0.5, 0.3, 0.7, 1.1 };
+    auto ip = tax::TE< 8, 4 >::variable< 0 >( pt );
+    auto iq0 = tax::TE< 8, 4 >::variable< 1 >( pt );
+    auto iq1 = tax::TE< 8, 4 >::variable< 2 >( pt );
+    auto ir = tax::TE< 8, 4 >::variable< 3 >( pt );
+    auto iso_a = ip * iq0 + iq1;
+    auto iso_b = iq0 * ir + iq1;
+    auto iso = iso_a * iso_b;
+
+    // Every mixed box coefficient must match the isotropic oracle at the same multi-index.
+    for ( std::size_t k = 0; k < F::Inner::nCoefficients; ++k )
+    {
+        const auto alpha = F::Inner::scheme::multiOf( k );
+        // alpha has 4 entries: [p, q0, q1, r] matching the isotropic variable layout.
+        EXPECT_NEAR( f.inner()[k], iso[tax::flatIndex< 4 >( alpha )], 1e-12 )
+            << "coeff " << k << " alpha=(" << alpha[0] << "," << alpha[1] << "," << alpha[2] << ","
+            << alpha[3] << ")";
+    }
+}
+
+// Slice with ALL axes named (degenerate case: no axes are dropped).
+// slice<"a","b">() of an {a@3, b@2} expansion must return an equivalent
+// expansion of the same type, with every coefficient preserved.
+TEST( MixedNamed, SliceAllAxesNoDrop )
+{
+    auto a = tax::mixed::variable< "a", 3 >( 0.4 );
+    auto b = tax::mixed::variable< "b", 2 >( 0.9 );
+    auto f = sin( a ) * exp( b ) + a * b;
+    using F = decltype( f );
+
+    // Sorted canonical order: "a"(var0,ord=3), "b"(var1,ord=2)
+    auto s = f.template slice< "a", "b" >();
+    using S = decltype( s );
+
+    // The slice result must be the same type as f (no axes dropped, same orders).
+    static_assert( std::is_same_v< S, F > );
+
+    // Every coefficient must be identical.
+    for ( std::size_t k = 0; k < F::Inner::nCoefficients; ++k )
+    {
+        EXPECT_DOUBLE_EQ( s.inner()[k], f.inner()[k] ) << "coeff " << k;
+    }
+}
+
 // isotropic-superset oracle: every box coefficient of a composed mixed expansion
 // must equal the same coefficient of the full isotropic TE<Σorder, vars>.
 TEST( MixedNamed, IsotropicSupersetOracle )
