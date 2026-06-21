@@ -14,31 +14,48 @@ All names live in `namespace tax` unless noted; storage tags live in
 namespace tax {
 
 template <typename T,
-          int N,
-          int M = 1,
+          typename Scheme,
           typename Storage = storage::Dense>
+    requires IndexScheme<Scheme>
 class TaylorExpansion;
 
 }  // namespace tax
 ```
+
+`TaylorExpansion` is parameterized by an `IndexScheme` that encodes the kept
+monomial set. Two schemes ship today:
+
+- **`IsotropicScheme<N, M>`** — classic total-degree-$\le N$ graded-lex layout
+  over $M$ variables. This is the `TE<N,M>` / `STE<N,M>` form.
+- **`MixedScheme<Group<Dim,Order>...>`** — anisotropic per-axis order caps
+  (a product of per-group simplices). This is the `MixedTE<Group<Dim,Order>...>`
+  form. See [Mixed-order expansions](../guide/mixed.md).
+
+Per-operator signatures listed below use the `<T, N, M>` shorthand for the
+isotropic form; they apply equally to any scheme via template deduction.
 
 ### Template parameters
 
 | Parameter | Description |
 |---|---|
 | `T`       | Scalar coefficient type — must satisfy `tax::Scalar` (`std::floating_point`) |
-| `N`       | Maximum total polynomial order, $N \ge 0$ |
-| `M`       | Number of independent variables, $M \ge 1$ (default `1`) |
+| `Scheme`  | Index scheme — must satisfy `IndexScheme`; typically `IsotropicScheme<N,M>` or `MixedScheme<...>` |
 | `Storage` | Storage policy: `tax::storage::Dense` (default) or `tax::storage::Sparse` |
 
 ### Convenience aliases
 
 ```cpp
 template <int N, int M = 1>
-using TE  = TaylorExpansion<double, N, M, storage::Dense>;
+using TE  = TaylorExpansion<double, IsotropicScheme<N,M>, storage::Dense>;
+
+template <int N, int M>
+using TEn = TaylorExpansion<double, IsotropicScheme<N,M>, storage::Dense>;
 
 template <int N, int M = 1>
-using STE = TaylorExpansion<double, N, M, storage::Sparse>;
+using STE = TaylorExpansion<double, IsotropicScheme<N,M>, storage::Sparse>;
+
+template <typename... Groups>   // each Group = Group<Dim, Order>
+using MixedTE = TaylorExpansion<double, MixedScheme<Groups...>, storage::Dense>;
 ```
 
 ### Compile-time members
