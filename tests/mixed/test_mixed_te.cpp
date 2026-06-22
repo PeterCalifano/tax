@@ -228,3 +228,105 @@ TEST( MixedTE, Atan2 )
     auto iso_b = makeIsoY() + 2.0;
     checkOracle( tax::atan2( me_a, me_b ), tax::atan2( iso_a, iso_b ), "atan2(x+1, y+2)" );
 }
+
+// ---------------------------------------------------------------------------
+// Free-function factories: tax::mixed::variable / tax::mixed::variables must
+// match the static-member factories used by makeMeX()/makeMeY().
+// ---------------------------------------------------------------------------
+
+TEST( MixedTE, FreeFunctionVariable )
+{
+    typename ME::Input p{ kX0, kY0 };
+    auto x = tax::mixed::variable< 0, tax::Group< 1, 4 >, tax::Group< 1, 3 > >( p );
+    auto y = tax::mixed::variable< 1, tax::Group< 1, 4 >, tax::Group< 1, 3 > >( p );
+    static_assert( std::is_same_v< decltype( x ), ME > );
+    const ME mx = makeMeX();
+    const ME my = makeMeY();
+    for ( std::size_t k = 0; k < ME::nCoefficients; ++k )
+    {
+        EXPECT_EQ( x[k], mx[k] ) << "x mismatch at " << k;
+        EXPECT_EQ( y[k], my[k] ) << "y mismatch at " << k;
+    }
+}
+
+TEST( MixedTE, FreeFunctionVariables )
+{
+    typename ME::Input p{ kX0, kY0 };
+    auto v = tax::mixed::variables< tax::Group< 1, 4 >, tax::Group< 1, 3 > >( p );
+    static_assert( std::is_same_v< decltype( v ), std::array< ME, 2 > > );
+    const ME mx = makeMeX();
+    const ME my = makeMeY();
+    for ( std::size_t k = 0; k < ME::nCoefficients; ++k )
+    {
+        EXPECT_EQ( v[0][k], mx[k] ) << "v[0] mismatch at " << k;
+        EXPECT_EQ( v[1][k], my[k] ) << "v[1] mismatch at " << k;
+    }
+}
+
+TEST( MixedTE, FreeFunctionVariablesConstexpr )
+{
+    constexpr typename ME::Input p{ kX0, kY0 };
+    constexpr auto v = tax::mixed::variables< tax::Group< 1, 4 >, tax::Group< 1, 3 > >( p );
+    static_assert( std::is_same_v< std::remove_const_t< decltype( v ) >, std::array< ME, 2 > > );
+    static_assert( v[0].value() == kX0 );
+    static_assert( v[1].value() == kY0 );
+    SUCCEED();
+}
+
+// Multi-dimensional group (Group<2,2>): variable<I> flattens a dim>1 block.
+// Pin absolute coefficients, independent of the static-member factory.
+TEST( MixedTE, FreeFunctionVariableMultiDim )
+{
+    using M22 = tax::MixedTE< tax::Group< 2, 2 > >;
+    std::array< double, 2 > p{ 0.5, 1.0 };
+    auto v0 = tax::mixed::variable< 0, tax::Group< 2, 2 > >( p );
+    auto v1 = tax::mixed::variable< 1, tax::Group< 2, 2 > >( p );
+    static_assert( std::is_same_v< decltype( v0 ), M22 > );
+    EXPECT_EQ( v0.value(), 0.5 );
+    EXPECT_EQ( v0.coeff( tax::MultiIndex< 2 >{ 1, 0 } ), 1.0 );
+    EXPECT_EQ( v0.coeff( tax::MultiIndex< 2 >{ 0, 1 } ), 0.0 );
+    EXPECT_EQ( v1.value(), 1.0 );
+    EXPECT_EQ( v1.coeff( tax::MultiIndex< 2 >{ 1, 0 } ), 0.0 );
+    EXPECT_EQ( v1.coeff( tax::MultiIndex< 2 >{ 0, 1 } ), 1.0 );
+}
+
+// Three groups: exercises the N-ary group iteration; pin coord 0 and coord 2.
+TEST( MixedTE, FreeFunctionVariable3Groups )
+{
+    using ME3 = tax::MixedTE< tax::Group< 1, 2 >, tax::Group< 1, 3 >, tax::Group< 1, 1 > >;
+    typename ME3::Input p{ 0.1, 0.2, 0.3 };
+    auto x =
+        tax::mixed::variable< 0, tax::Group< 1, 2 >, tax::Group< 1, 3 >, tax::Group< 1, 1 > >( p );
+    auto z =
+        tax::mixed::variable< 2, tax::Group< 1, 2 >, tax::Group< 1, 3 >, tax::Group< 1, 1 > >( p );
+    static_assert( std::is_same_v< decltype( x ), ME3 > );
+    EXPECT_EQ( x.value(), 0.1 );
+    EXPECT_EQ( x.coeff( tax::MultiIndex< 3 >{ 1, 0, 0 } ), 1.0 );
+    EXPECT_EQ( x.coeff( tax::MultiIndex< 3 >{ 0, 0, 1 } ), 0.0 );
+    EXPECT_EQ( z.value(), 0.3 );
+    EXPECT_EQ( z.coeff( tax::MultiIndex< 3 >{ 0, 0, 1 } ), 1.0 );
+    EXPECT_EQ( z.coeff( tax::MultiIndex< 3 >{ 1, 0, 0 } ), 0.0 );
+}
+
+// Single-group mixed scheme: the plural factory returns a 1-element array.
+TEST( MixedTE, FreeFunctionVariablesSingleGroup )
+{
+    using ME1 = tax::MixedTE< tax::Group< 1, 4 > >;
+    typename ME1::Input p{ 0.7 };
+    auto v = tax::mixed::variables< tax::Group< 1, 4 > >( p );
+    static_assert( std::is_same_v< decltype( v ), std::array< ME1, 1 > > );
+    EXPECT_EQ( v[0].value(), 0.7 );
+    EXPECT_EQ( v[0].coeff( tax::MultiIndex< 1 >{ 1 } ), 1.0 );
+}
+
+// Non-default scalar deduces through the mixed factory.
+TEST( MixedTE, FreeFunctionVariableFloat )
+{
+    std::array< float, 2 > p{ 0.7F, 1.3F };
+    auto x = tax::mixed::variable< 0, tax::Group< 1, 4 >, tax::Group< 1, 3 > >( p );
+    static_assert(
+        std::is_same_v< decltype( x ),
+                        tax::TaylorExpansion<
+                            float, tax::MixedScheme< tax::Group< 1, 4 >, tax::Group< 1, 3 > > > > );
+    EXPECT_FLOAT_EQ( x.value(), 0.7F );
+}

@@ -11,6 +11,7 @@
 #include <tax/core/storage/sparse.hpp>
 #include <tax/la/types.hpp>
 #include <type_traits>
+#include <utility>
 
 namespace tax
 {
@@ -688,6 +689,36 @@ using STE = TaylorExpansion< double, IsotropicScheme< N, M >, storage::Sparse >;
 /// `MixedTE<Groups...>` — an anisotropic (per-group order) dense `double` expansion.
 template < typename... Groups >
 using MixedTE = TaylorExpansion< double, MixedScheme< Groups... >, storage::Dense >;
+
+// ---------------------------------------------------------------------------
+// Free-function variable factories (unnamed, integer-indexed)
+// ---------------------------------------------------------------------------
+
+/// Univariate variable `x = x0 + 1*dx` of an order-`N` dense expansion.
+template < int N, Scalar T = double >
+[[nodiscard]] constexpr auto variable( T x0 ) noexcept
+{
+    return TaylorExpansion< T, IsotropicScheme< N, 1 > >::variable( x0 );
+}
+
+/// The `I`-th coordinate variable of an order-`N`, `M`-variate dense expansion at point `p`.
+template < int I, int N, int M, Scalar T = double >
+[[nodiscard]] constexpr auto variable( const std::array< T, std::size_t( M ) >& p ) noexcept
+{
+    return TaylorExpansion< T, IsotropicScheme< N, M > >::template variable< I >( p );
+}
+
+/// All `M` coordinate variables of an order-`N`, `M`-variate dense expansion at point `p`.
+template < int N, int M, Scalar T = double >
+[[nodiscard]] constexpr auto variables( const std::array< T, std::size_t( M ) >& p ) noexcept
+{
+    using E = TaylorExpansion< T, IsotropicScheme< N, M > >;
+    std::array< E, std::size_t( M ) > out{};
+    [&]< std::size_t... I >( std::index_sequence< I... > ) {
+        ( ( out[I] = E::template variable< int( I ) >( p ) ), ... );
+    }( std::make_index_sequence< std::size_t( M ) >{} );
+    return out;
+}
 
 // ---------------------------------------------------------------------------
 // Conversion helper: dense -> sparse
