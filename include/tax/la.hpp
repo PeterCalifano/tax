@@ -3,6 +3,7 @@
 // Linear-algebra umbrella header. Pulls in:
 //
 //   types       — Vec, Mat, VecNT<N,T>, MatNT<N,T>, MatNMT<N,M,T>.
+//   expansion_vectors — TEVec<D,N,M>, NEVec<D,N,Axes...>, MTEVec<D,Axes...>.
 //   num_traits  — Eigen::NumTraits<TaylorExpansion> + internal traits.
 //   values      — variables, value, eval.
 //   derivatives — derivative, gradient, hessian, jacobian.
@@ -13,6 +14,7 @@
 #pragma once
 
 #include <tax/la/derivatives.hpp>
+#include <tax/la/expansion_vectors.hpp>
 #include <tax/la/invert.hpp>
 #include <tax/la/named.hpp>
 #include <tax/la/num_traits.hpp>

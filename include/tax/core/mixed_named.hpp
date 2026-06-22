@@ -466,12 +466,21 @@ TAX_MIXED_UNARY_FN( erf )
 
 #undef TAX_MIXED_UNARY_FN
 
+// ---------------------------------------------------------------------------
+// Convenience alias (double-valued)
+// ---------------------------------------------------------------------------
+
+/// `MTE< Axes... >` — double-valued mixed-order named expansion.
+template < typename... Axes >
+using MTE = MixedTaylorExpansion< double, Axes... >;
+
 }  // namespace tax::named
 
-// Public re-exports: OrderedAxis and MixedTaylorExpansion under `tax`.
+// Public re-exports: OrderedAxis, MixedTaylorExpansion and MTE under `tax`.
 namespace tax
 {
 using named::MixedTaylorExpansion;
+using named::MTE;
 using named::OrderedAxis;
 }  // namespace tax
 
