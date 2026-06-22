@@ -503,4 +503,29 @@ template < tax::named::FixedString Name, int Order, std::size_t D >
     return out;
 }
 
+// Unnamed counterparts: the I-th / all coordinate variables of a bare
+// `MixedScheme<Groups...>` dense expansion, indexed by integer rather than name.
+
+/// The `I`-th coordinate variable of an unnamed mixed-order dense expansion at point `p`.
+template < int I, typename... Groups, tax::Scalar T = double >
+[[nodiscard]] constexpr auto variable(
+    const std::array< T, std::size_t( tax::MixedScheme< Groups... >::vars ) >& p ) noexcept
+{
+    return tax::TaylorExpansion< T, tax::MixedScheme< Groups... > >::template variable< I >( p );
+}
+
+/// All coordinate variables of an unnamed mixed-order dense expansion at point `p`.
+template < typename... Groups, tax::Scalar T = double >
+[[nodiscard]] constexpr auto variables(
+    const std::array< T, std::size_t( tax::MixedScheme< Groups... >::vars ) >& p ) noexcept
+{
+    using E = tax::TaylorExpansion< T, tax::MixedScheme< Groups... > >;
+    constexpr std::size_t V = std::size_t( tax::MixedScheme< Groups... >::vars );
+    std::array< E, V > out{};
+    [&]< std::size_t... I >( std::index_sequence< I... > ) {
+        ( ( out[I] = E::template variable< int( I ) >( p ) ), ... );
+    }( std::make_index_sequence< V >{} );
+    return out;
+}
+
 }  // namespace tax::mixed
