@@ -334,6 +334,21 @@ TEST( NamedCore, DivisionMatchesAnonymous )
         EXPECT_DOUBLE_EQ( f.inner()[k], ref[k] ) << "coeff " << k;
 }
 
+TEST( NamedCore, ScalarDividedByNamed )
+{
+    auto x = variables< "x", N >( std::array< double, 2 >{ 0.2, 0.0 } );
+
+    auto f = 3.0 / ( 2.0 + x[0] );  // scalar / named
+    static_assert( std::is_same_v< decltype( f ), NamedTaylorExpansion< double, N, XAxis > > );
+
+    // Matches `s / a = s * (1 / a)` on the anonymous inner expansion.
+    using TE = tax::TE< N, 2 >;
+    typename TE::Input pt{ 0.2, 0.0 };
+    auto ref = 3.0 / ( 2.0 + TE::variable< 0 >( pt ) );
+    for ( std::size_t k = 0; k < TE::nCoefficients; ++k )
+        EXPECT_DOUBLE_EQ( f.inner()[k], ref[k] ) << "coeff " << k;
+}
+
 TEST( NamedCore, SubtractionAndUnaryMinus )
 {
     auto x = variables< "x", N >( std::array< double, 2 >{ 0.0, 0.0 } );

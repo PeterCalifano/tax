@@ -22,7 +22,9 @@ kernels         │ degree-by-degree recurrences            │  computational c
                 └────────────────┬────────────────────────┘
                                  │
                 ┌────────────────▼────────────────────────┐
-core            │ TaylorExpansion<T,N,M,Storage>          │  data type
+core            │ TaylorExpansion<T,Scheme,Storage>       │  data type
+                │ IndexScheme: IsotropicScheme<N,M>       │
+                │           / MixedScheme<Groups...>      │
                 │ MultiIndex, enumeration, concepts       │
                 │ storage::Dense, storage::Sparse         │
                 └─────────────────────────────────────────┘
@@ -32,8 +34,12 @@ core            │ TaylorExpansion<T,N,M,Storage>          │  data type
 
 ## Core data type
 
-`tax::TaylorExpansion<T, N, M, Storage>` is partial-specialised on the storage
-tag:
+`tax::TaylorExpansion<T, Scheme, Storage>` is parameterized by an `IndexScheme`
+(constrained via `requires IndexScheme<Scheme>`) and partial-specialised on the
+storage tag. The scheme encodes the monomial index set: `IsotropicScheme<N,M>`
+gives the classic total-degree-$\le N$ graded-lex layout (exposed as `TE<N,M>`),
+while `MixedScheme<Groups...>` supports anisotropic per-axis order caps
+(exposed as `MixedTE<Group<Dim,Order>...>`). The kernels are scheme-generic.
 
 - `storage::Dense` keeps a `std::array<T, C(N+M, M)>` — stack-resident, no heap,
   `constexpr`-friendly accessors.
@@ -80,11 +86,11 @@ for cross-validation in `tests/kernels/`.
 returning a fresh `TaylorExpansion`:
 
 ```cpp
-template <typename T, int N, int M>
+template <typename T, IndexScheme Scheme>
 [[nodiscard]] constexpr
-TaylorExpansion<T, N, M> square(const TaylorExpansion<T, N, M>& x) noexcept {
-    TaylorExpansion<T, N, M> r;
-    detail::kernels::seriesSquare<T, N, M>(r.coefficients(), x.coefficients());
+TaylorExpansion<T, Scheme> square(const TaylorExpansion<T, Scheme>& x) noexcept {
+    TaylorExpansion<T, Scheme> r;
+    detail::kernels::seriesSquare<T, Scheme>(r.coefficients(), x.coefficients());
     return r;
 }
 ```

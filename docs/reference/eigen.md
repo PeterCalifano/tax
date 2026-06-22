@@ -1,7 +1,11 @@
 # Eigen API Reference
 
 All helpers live in `namespace tax` (header `tax/eigen.hpp`, transitively
-included by `tax/tax.hpp`). `TE` denotes any `TaylorExpansion<T, N, M, S>`.
+included by `tax/tax.hpp`). These helpers are templated over the `IndexScheme`
+parameter; where signatures below write `TaylorExpansion<T, N, M, S>` or use
+`<T, N, M, S>` shorthands, they denote the isotropic `TE<N,M>` form
+(`TaylorExpansion<T, IsotropicScheme<N,M>, S>`). The same helpers work unchanged
+for `MixedTE` — the scheme is deduced from the type.
 
 ---
 
@@ -9,9 +13,9 @@ included by `tax/tax.hpp`). `TE` denotes any `TaylorExpansion<T, N, M, S>`.
 
 ```cpp
 namespace Eigen {
-    template <typename T, int N, int M, typename Storage>
-    struct NumTraits<tax::TaylorExpansion<T, N, M, Storage>> : NumTraits<T> {
-        using Self = tax::TaylorExpansion<T, N, M, Storage>;
+    template <typename T, typename Scheme, typename Storage>
+    struct NumTraits<tax::TaylorExpansion<T, Scheme, Storage>> : NumTraits<T> {
+        using Self = tax::TaylorExpansion<T, Scheme, Storage>;
         using Real = Self;
         using NonInteger = Self;
         using Nested = Self;
@@ -20,9 +24,9 @@ namespace Eigen {
             IsInteger             = 0,
             IsSigned              = 1,
             RequireInitialization = 1,
-            ReadCost              = numMonomials(N, M),
-            AddCost               = numMonomials(N, M),
-            MulCost               = numMonomials(N, M) * numMonomials(N, M),
+            ReadCost              = int(Scheme::nCoeff),
+            AddCost               = int(Scheme::nCoeff),
+            MulCost               = int(Scheme::nCoeff) * int(Scheme::nCoeff),
         };
     };
 }

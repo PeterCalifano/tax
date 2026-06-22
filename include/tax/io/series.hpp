@@ -132,11 +132,13 @@ template < typename... Axes >
 }
 
 /// Core writer shared by every expansion kind. `coeffAt(k)` reads the coefficient
-/// at flat index `k`; `nameOf(v)` names variable `v`.
-template < int M, int N, typename T, typename CoeffAt, typename NameOf >
+/// at flat index `k`; `nameOf(v)` names variable `v`. The monomial set and
+/// flat<->multi maps come from `Scheme`.
+template < typename Scheme, typename T, typename CoeffAt, typename NameOf >
 void writeSeries( std::ostream& os, CoeffAt&& coeffAt, NameOf&& nameOf, const SeriesOptions& opts )
 {
-    const std::size_t n = numMonomials( N, M );
+    constexpr int M = Scheme::vars;
+    const std::size_t n = Scheme::nCoeff;
     const T thr = T( opts.threshold );
 
     if ( opts.style == SeriesStyle::Tabular )
@@ -149,7 +151,7 @@ void writeSeries( std::ostream& os, CoeffAt&& coeffAt, NameOf&& nameOf, const Se
             if ( c == T{ 0 } ) continue;
             const T mag = c < T{ 0 } ? -c : c;
             if ( mag <= thr ) continue;
-            const auto alpha = unflatIndex< M >( k );
+            const auto alpha = Scheme::multiOf( k );
             std::ostringstream num;
             num << std::scientific << std::setprecision( 15 ) << c;
             os << std::setw( 4 ) << row++ << "  " << num.str() << "    " << std::setw( 2 )
@@ -169,7 +171,7 @@ void writeSeries( std::ostream& os, CoeffAt&& coeffAt, NameOf&& nameOf, const Se
         const bool neg = c < T{ 0 };
         const T mag = neg ? -c : c;
         if ( mag <= thr ) continue;
-        const auto alpha = unflatIndex< M >( k );
+        const auto alpha = Scheme::multiOf( k );
         const bool is_const = totalDegree( alpha ) == 0;
 
         if ( !any )
@@ -198,17 +200,17 @@ void writeSeries( std::ostream& os, CoeffAt&& coeffAt, NameOf&& nameOf, const Se
 
 // --- Per-kind streaming (dispatches coefficient access + naming) ------------
 
-template < typename T, int N, int M >
-void streamScalar( std::ostream& os, const TaylorExpansion< T, N, M, storage::Dense >& f,
+template < typename T, typename Scheme >
+void streamScalar( std::ostream& os, const TaylorExpansion< T, Scheme, storage::Dense >& f,
                    const SeriesOptions& opts )
 {
-    writeSeries< M, N, T >(
+    writeSeries< Scheme, T >(
         os, [&]( std::size_t k ) { return f[k]; },
         [&]( int v ) { return defaultVarName( v, opts ); }, opts );
 }
 
-template < typename T, int N, int M >
-void streamScalar( std::ostream& os, const TaylorExpansion< T, N, M, storage::Sparse >& f,
+template < typename T, typename Scheme >
+void streamScalar( std::ostream& os, const TaylorExpansion< T, Scheme, storage::Sparse >& f,
                    const SeriesOptions& opts )
 {
     streamScalar( os, f.dense(), opts );
@@ -219,7 +221,7 @@ void streamScalar( std::ostream& os, const named::NamedTaylorExpansion< T, N, Ax
                    const SeriesOptions& opts )
 {
     constexpr int M = named::NamedTaylorExpansion< T, N, Axes... >::vars_v;
-    writeSeries< M, N, T >(
+    writeSeries< IsotropicScheme< N, M >, T >(
         os, [&]( std::size_t k ) { return f.inner()[k]; },
         [&]( int v ) { return namedVarName< Axes... >( v, opts ); }, opts );
 }
@@ -273,8 +275,8 @@ std::ostream& operator<<( std::ostream& os, const MatrixSeriesProxy< Derived >& 
 
 // --- Public operator<< (zero-config polynomial series) ----------------------
 
-template < typename T, int N, int M, typename S >
-std::ostream& operator<<( std::ostream& os, const TaylorExpansion< T, N, M, S >& f )
+template < typename T, typename Scheme, typename S >
+std::ostream& operator<<( std::ostream& os, const TaylorExpansion< T, Scheme, S >& f )
 {
     detail::streamScalar( os, f, SeriesOptions{} );
     return os;

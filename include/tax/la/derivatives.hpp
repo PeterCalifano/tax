@@ -34,8 +34,9 @@ template < int... Alpha, typename Derived >
 // -----------------------------------------------------------------------------
 
 /// Compute the gradient of a scalar `TaylorExpansion` at its expansion point.
-template < typename T, int N, int M, typename S >
-[[nodiscard]] Eigen::Matrix< T, M, 1 > gradient( const TaylorExpansion< T, N, M, S >& f ) noexcept
+template < typename T, typename Scheme, typename S >
+[[nodiscard]] Eigen::Matrix< T, Scheme::vars, 1 > gradient(
+    const TaylorExpansion< T, Scheme, S >& f ) noexcept
 {
     return f.gradient();
 }
@@ -45,8 +46,9 @@ template < typename T, int N, int M, typename S >
 // -----------------------------------------------------------------------------
 
 /// Compute the Hessian matrix of a scalar `TaylorExpansion` at its expansion point.
-template < typename T, int N, int M, typename S >
-[[nodiscard]] Eigen::Matrix< T, M, M > hessian( const TaylorExpansion< T, N, M, S >& f ) noexcept
+template < typename T, typename Scheme, typename S >
+[[nodiscard]] Eigen::Matrix< T, Scheme::vars, Scheme::vars > hessian(
+    const TaylorExpansion< T, Scheme, S >& f ) noexcept
 {
     return f.hessian();
 }

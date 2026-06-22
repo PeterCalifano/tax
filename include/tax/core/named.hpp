@@ -9,9 +9,6 @@
 #include <tax/core/concepts.hpp>
 #include <tax/core/multi_index.hpp>
 #include <tax/core/taylor_expansion.hpp>
-#include <tax/operators/arithmetic.hpp>
-#include <tax/operators/math_binary.hpp>
-#include <tax/operators/math_unary.hpp>
 #include <utility>
 
 namespace tax::named
@@ -315,7 +312,7 @@ class NamedTaylorExpansion
     static constexpr int order_v = N;
 
     /// Underlying anonymous dense expansion type.
-    using Inner = TaylorExpansion< T, N, vars_v, storage::Dense >;
+    using Inner = TaylorExpansion< T, IsotropicScheme< N, vars_v >, storage::Dense >;
     using Input = typename Inner::Input;
 
     // Mirror the underlying storage traits so NamedTaylorExpansion satisfies the
@@ -489,141 +486,6 @@ class NamedTaylorExpansion
 };
 
 // ---------------------------------------------------------------------------
-// Composition operators
-// ---------------------------------------------------------------------------
-
-#define TAX_NAMED_BINARY_OP( OP )                                                       \
-    template < typename T, int N, typename... A, typename... B >                        \
-    [[nodiscard]] constexpr auto operator OP(                                           \
-        const NamedTaylorExpansion< T, N, A... >& a,                                    \
-        const NamedTaylorExpansion< T, N, B... >& b ) noexcept                          \
-    {                                                                                   \
-        using R = detail::MergedNamedTaylorExpansion< T, N, detail::TypeList< A... >,   \
-                                                      detail::TypeList< B... > >;       \
-        return R{ a.template embed< R >().inner() OP b.template embed< R >().inner() }; \
-    }
-
-TAX_NAMED_BINARY_OP( +)
-TAX_NAMED_BINARY_OP( -)
-TAX_NAMED_BINARY_OP( * )
-TAX_NAMED_BINARY_OP( / )
-
-#undef TAX_NAMED_BINARY_OP
-
-// --- Scalar combinations (axis set unchanged) ------------------------------
-
-#define TAX_NAMED_SCALAR_OP( OP )                                                           \
-    template < typename T, int N, typename... A >                                           \
-    [[nodiscard]] constexpr NamedTaylorExpansion< T, N, A... > operator OP(                 \
-        const NamedTaylorExpansion< T, N, A... >& a, std::type_identity_t< T > s ) noexcept \
-    {                                                                                       \
-        return NamedTaylorExpansion< T, N, A... >{ a.inner() OP s };                        \
-    }
-
-TAX_NAMED_SCALAR_OP( +)
-TAX_NAMED_SCALAR_OP( -)
-TAX_NAMED_SCALAR_OP( * )
-TAX_NAMED_SCALAR_OP( / )
-
-#undef TAX_NAMED_SCALAR_OP
-
-template < typename T, int N, typename... A >
-[[nodiscard]] constexpr NamedTaylorExpansion< T, N, A... > operator+(
-    std::type_identity_t< T > s, const NamedTaylorExpansion< T, N, A... >& a ) noexcept
-{
-    return a + s;
-}
-
-template < typename T, int N, typename... A >
-[[nodiscard]] constexpr NamedTaylorExpansion< T, N, A... > operator*(
-    std::type_identity_t< T > s, const NamedTaylorExpansion< T, N, A... >& a ) noexcept
-{
-    return a * s;
-}
-
-template < typename T, int N, typename... A >
-[[nodiscard]] constexpr NamedTaylorExpansion< T, N, A... > operator-(
-    std::type_identity_t< T > s, const NamedTaylorExpansion< T, N, A... >& a ) noexcept
-{
-    return NamedTaylorExpansion< T, N, A... >{ s - a.inner() };
-}
-
-template < typename T, int N, typename... A >
-[[nodiscard]] constexpr NamedTaylorExpansion< T, N, A... > operator-(
-    const NamedTaylorExpansion< T, N, A... >& a ) noexcept
-{
-    return NamedTaylorExpansion< T, N, A... >{ -a.inner() };
-}
-
-// ---------------------------------------------------------------------------
-// Unary math functions (forwarded to the inner expansion, axis set preserved)
-// ---------------------------------------------------------------------------
-
-// Each wrapper applies the corresponding `tax::` series function to the inner
-// anonymous expansion and rewraps the result with the same axis list, so
-// transcendental functions of named expansions keep their named structure.
-#define TAX_NAMED_UNARY_FN( FN )                                           \
-    template < typename T, int N, typename... A >                          \
-    [[nodiscard]] NamedTaylorExpansion< T, N, A... > FN(                   \
-        const NamedTaylorExpansion< T, N, A... >& a ) noexcept             \
-    {                                                                      \
-        return NamedTaylorExpansion< T, N, A... >{ tax::FN( a.inner() ) }; \
-    }
-
-TAX_NAMED_UNARY_FN( square )
-TAX_NAMED_UNARY_FN( cube )
-TAX_NAMED_UNARY_FN( sqrt )
-TAX_NAMED_UNARY_FN( cbrt )
-TAX_NAMED_UNARY_FN( reciprocal )
-TAX_NAMED_UNARY_FN( exp )
-TAX_NAMED_UNARY_FN( log )
-TAX_NAMED_UNARY_FN( sin )
-TAX_NAMED_UNARY_FN( cos )
-TAX_NAMED_UNARY_FN( tan )
-TAX_NAMED_UNARY_FN( asin )
-TAX_NAMED_UNARY_FN( acos )
-TAX_NAMED_UNARY_FN( atan )
-TAX_NAMED_UNARY_FN( sinh )
-TAX_NAMED_UNARY_FN( cosh )
-TAX_NAMED_UNARY_FN( tanh )
-TAX_NAMED_UNARY_FN( asinh )
-TAX_NAMED_UNARY_FN( acosh )
-TAX_NAMED_UNARY_FN( atanh )
-TAX_NAMED_UNARY_FN( erf )
-
-#undef TAX_NAMED_UNARY_FN
-
-// ---------------------------------------------------------------------------
-// Binary math functions
-// ---------------------------------------------------------------------------
-
-/// `x^n` for an integer exponent (axis set preserved).
-template < typename T, int N, typename... A >
-[[nodiscard]] NamedTaylorExpansion< T, N, A... > pow( const NamedTaylorExpansion< T, N, A... >& x,
-                                                      int n ) noexcept
-{
-    return NamedTaylorExpansion< T, N, A... >{ tax::pow( x.inner(), n ) };
-}
-
-/// `x^p` for a real exponent (axis set preserved; requires x.value() != 0).
-template < typename T, int N, typename... A >
-[[nodiscard]] NamedTaylorExpansion< T, N, A... > pow( const NamedTaylorExpansion< T, N, A... >& x,
-                                                      std::type_identity_t< T > p ) noexcept
-{
-    return NamedTaylorExpansion< T, N, A... >{ tax::pow( x.inner(), p ) };
-}
-
-/// `atan2(y, x)` over the union of the two operands' axis sets.
-template < typename T, int N, typename... A, typename... B >
-[[nodiscard]] auto atan2( const NamedTaylorExpansion< T, N, A... >& y,
-                          const NamedTaylorExpansion< T, N, B... >& x ) noexcept
-{
-    using R = detail::MergedNamedTaylorExpansion< T, N, detail::TypeList< A... >,
-                                                  detail::TypeList< B... > >;
-    return R{ tax::atan2( y.template embed< R >().inner(), x.template embed< R >().inner() ) };
-}
-
-// ---------------------------------------------------------------------------
 // Coordinate-variable factory for a single named axis
 // ---------------------------------------------------------------------------
 
@@ -661,7 +523,9 @@ using NE = NamedTaylorExpansion< double, N, Axes... >;
 }  // namespace tax::named
 
 // ---------------------------------------------------------------------------
-// Public re-exports: the named API is reachable directly under `tax`
+// Public re-exports: the named type API is reachable directly under `tax`. The
+// free-function operator / math surface (and its `tax::` re-exports) lives in
+// operators/named_arithmetic.hpp, named_math_unary.hpp, named_math_binary.hpp.
 // ---------------------------------------------------------------------------
 
 namespace tax

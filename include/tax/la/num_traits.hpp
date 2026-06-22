@@ -14,15 +14,15 @@
 namespace Eigen
 {
 
-template < typename T, int N, int M, typename Storage >
-struct NumTraits< tax::TaylorExpansion< T, N, M, Storage > > : NumTraits< T >
+template < typename T, typename Scheme, typename Storage >
+struct NumTraits< tax::TaylorExpansion< T, Scheme, Storage > > : NumTraits< T >
 {
-    using Self = tax::TaylorExpansion< T, N, M, Storage >;
+    using Self = tax::TaylorExpansion< T, Scheme, Storage >;
     using Real = Self;
     using NonInteger = Self;
     using Nested = Self;
 
-    static constexpr int kNc = int( tax::numMonomials( N, M ) );
+    static constexpr int kNc = int( Scheme::nCoeff );
 
     enum
     {
@@ -61,12 +61,13 @@ namespace tax::la::detail
 template < typename >
 struct te_traits;
 
-template < typename T, int N, int M, typename S >
-struct te_traits< TaylorExpansion< T, N, M, S > >
+template < typename T, typename Scheme, typename S >
+struct te_traits< TaylorExpansion< T, Scheme, S > >
 {
     using scalar_type = T;
-    static constexpr int order_v = N;
-    static constexpr int vars_v = M;
+    static constexpr int order_v = Scheme::order;
+    static constexpr int vars_v = Scheme::vars;
+    using scheme_t = Scheme;
     using storage_t = S;
 };
 
@@ -75,8 +76,8 @@ struct is_te : std::false_type
 {
 };
 
-template < typename T, int N, int M, typename S >
-struct is_te< TaylorExpansion< T, N, M, S > > : std::true_type
+template < typename T, typename Scheme, typename S >
+struct is_te< TaylorExpansion< T, Scheme, S > > : std::true_type
 {
 };
 

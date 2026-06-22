@@ -115,6 +115,7 @@ nav:
       - Named Expansions: guide/named.md
       - Eigen Integration: guide/eigen.md
       - Batch (SIMD) Coefficients: guide/batch.md
+      - Mixed-Order Expansions: guide/mixed.md
   - Reference:
       - reference/index.md
       - TaylorExpansion API: reference/core.md

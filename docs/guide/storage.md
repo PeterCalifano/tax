@@ -1,7 +1,9 @@
 # Dense vs Sparse Storage
 
-`TaylorExpansion<T, N, M, Storage>` selects its coefficient layout via the
-`Storage` policy. Two policies ship today:
+`TaylorExpansion<T, Scheme, Storage>` selects its coefficient layout via the
+`Storage` policy. The `Scheme` parameter encodes the monomial index set (see
+below); `TE<N, M>` is the shorthand for the isotropic case
+`TaylorExpansion<double, IsotropicScheme<N,M>>`. Two storage policies ship today:
 
 | Tag | Container | API alias | When it shines |
 |---|---|---|---|
@@ -43,8 +45,8 @@ low.
 ## Dense
 
 ```cpp
-template <typename T, int N, int M>
-class TaylorExpansion<T, N, M, storage::Dense>;
+template <typename T, typename Scheme>   // Scheme = IsotropicScheme<N,M> for TE<N,M>
+class TaylorExpansion<T, Scheme, storage::Dense>;
 ```
 
 - Storage: `std::array<T, C(N+M, M)>` — contiguous, stack-resident, no heap
@@ -67,9 +69,14 @@ Use Dense when:
 ## Sparse
 
 ```cpp
-template <typename T, int N, int M>
-class TaylorExpansion<T, N, M, storage::Sparse>;
+template <typename T, typename Scheme>   // Scheme = IsotropicScheme<N,M> for STE<N,M>
+class TaylorExpansion<T, Scheme, storage::Sparse>;
 ```
+
+!!! note "Sparse is isotropic-only"
+    The sparse specialisation is constrained to isotropic schemes
+    (`IsotropicScheme<N,M>`). The anisotropic `MixedTE` (see
+    [Mixed-order expansions](mixed.md)) is dense-only.
 
 - Storage: two parallel `std::vector<uint32_t> idx_` and `std::vector<T> val_`
   kept strictly sorted by flat index.
@@ -82,8 +89,8 @@ class TaylorExpansion<T, N, M, storage::Sparse>;
 - A conversion helper is provided:
 
 ```cpp
-tax::TaylorExpansion<T, N, M, storage::Sparse> s = /* ... */;
-auto d = s.dense();   // → TaylorExpansion<T, N, M, storage::Dense>
+tax::STE<5, 2> s = /* ... */;   // TaylorExpansion<double, IsotropicScheme<5,2>, Sparse>
+auto d = s.dense();              // → TaylorExpansion<double, IsotropicScheme<5,2>, Dense>
 ```
 
 Use Sparse when:

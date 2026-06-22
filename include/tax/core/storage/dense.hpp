@@ -13,13 +13,13 @@ struct Dense
 {
 };
 
-/// Dense coefficient container for a TaylorExpansion.
-template < typename T, int N, int M >
+/// Dense coefficient container for a TaylorExpansion, sized by `Size` slots.
+template < typename T, std::size_t Size >
 struct DenseContainer
 {
     using value_type = T;
-    using coeffs_type = Coeffs< T, N, M >;
-    static constexpr std::size_t nCoefficients = numMonomials( N, M );
+    using coeffs_type = std::array< T, Size >;
+    static constexpr std::size_t nCoefficients = Size;
 
     coeffs_type data{};
 
