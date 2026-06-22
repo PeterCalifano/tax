@@ -9,6 +9,9 @@
 #include <tax/core/taylor_expansion.hpp>
 #include <tax/core/batch.hpp>
 #include <tax/core/named.hpp>
+#include <tax/operators/named_arithmetic.hpp>
+#include <tax/operators/named_math_unary.hpp>
+#include <tax/operators/named_math_binary.hpp>
 #include <tax/core/mixed_named.hpp>
 #include <tax/operators/arithmetic.hpp>
 #include <tax/operators/math_unary.hpp>
