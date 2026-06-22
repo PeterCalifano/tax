@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**tax** is a header-only C++23 library for **Truncated Algebraic eXpansions (TAX)** — truncated multivariate Taylor polynomials that propagate complete Taylor series through arbitrary expressions. In a single evaluation pass, it yields function values and all partial derivatives up to order N. It provides dense and sparse storage, *named* expansions (type-level variable axes), and Eigen integration (`tax::la`).
+**tax** is a header-only C++23 library for **Truncated Algebraic eXpansions (TAX)** — truncated multivariate Taylor polynomials that propagate complete Taylor series through arbitrary expressions. In a single evaluation pass, it yields function values and all partial derivatives up to order N. It provides dense and sparse storage, *named* expansions (type-level variable axes) including *mixed-order* axes, optional *batch* (SIMD-style) coefficients, and Eigen integration (`tax::la`).
 
 > **Note:** adaptive ODE integration (`tax::ode`) and Automatic Domain Splitting (`tax::ads`) are no longer part of this repository — they were split out, unchanged, into a separate companion plugin built on top of `tax` (see the README). Do not look for `include/tax/ode` or `include/tax/ads` here.
 
@@ -22,49 +22,58 @@ tax/
 │   ├── la.hpp                # Facade: linear-algebra / Eigen helpers (tax::la)
 │   ├── core/                 # The TaylorExpansion type and its foundations
 │   │   ├── concepts.hpp      #   Scalar, TaylorPolynomial, DensePolynomial concepts
-│   │   ├── multi_index.hpp   #   MultiIndex<M>, flatIndex/unflatIndex, numMonomials,
-│   │   │                     #   DegreeOf<N,M> lookup table
+│   │   ├── multi_index.hpp   #   MultiIndex<M>, flatIndex/unflatIndex, numMonomials
 │   │   ├── enumeration.hpp   #   forEachMonomial / forEachSubIndex
-│   │   ├── named.hpp         #   NamedTaylorExpansion<T,N,Axes...>: named, type-level axes
-│   │   ├── storage/          #   Dense (std::array) and Sparse (sorted idx/val
-│   │   │                     #   vectors) storage policies
-│   │   └── taylor_expansion.hpp  # TaylorExpansion<T, N, M, Storage>:
-│   │                             #   Dense + Sparse specialisations
+│   │   ├── scheme.hpp        #   index-scheme facade; scheme/{concept,isotropic,mixed}.hpp
+│   │   │                     #   IsotropicScheme<N,M> (single order) + MixedScheme (per-axis)
+│   │   ├── taylor_expansion.hpp  # TaylorExpansion<T, Scheme, Storage>: Dense + Sparse
+│   │   ├── batch.hpp         #   Batch<T,K>: K expansions evaluated in lock-step (TE<N,M,K>)
+│   │   ├── named.hpp         #   NamedTaylorExpansion<T,N,Axes...>: single-order named axes
+│   │   ├── mixed_named.hpp   #   MixedTaylorExpansion<T,Axes...>: per-axis-order named axes
+│   │   ├── promote.hpp       #   promote_t<Ts...>: common (union-of-axes) expansion type
+│   │   └── storage/          #   Dense (std::array) and Sparse (sorted idx/val) policies
 │   ├── kernels/              # Series recurrence kernels (tax::detail::kernels)
 │   │   ├── cauchy.hpp        #   cauchyProduct dispatch (+ in-header config macros)
 │   │   ├── cauchy_unroll.hpp #   fully unrolled univariate (M == 1) product
 │   │   ├── cauchy_stencil.hpp#   precomputed stencil table product (M >= 2)
-│   │   ├── algebra.hpp       #   self-product, square/cube, reciprocal, sqrt,
-│   │   │                     #   cbrt, pow (real + integer)
+│   │   ├── recurrence_stencil.hpp # shared decomposition table for M>=2 recurrences
+│   │   ├── mixed_stencils.hpp#   Cauchy / recurrence stencils for MixedScheme
+│   │   ├── algebra.hpp       #   self-product, square/cube, reciprocal, sqrt, cbrt, pow
 │   │   ├── trigonometric.hpp #   sin, cos, tan, asin, acos, atan
 │   │   ├── transcendental.hpp#   exp, log, sinh, cosh, tanh + inverses, erf
 │   │   ├── sparse_cauchy.hpp #   sparse Cauchy product / self-product
 │   │   └── sparse_subs.hpp   #   sparse substitution helpers
 │   ├── operators/            # Free-function operator surface over the kernels
-│   │   ├── arithmetic.hpp    #   +, -, *, /, compound assignment (dense + sparse)
-│   │   ├── math_unary.hpp    #   sin, exp, sqrt, square, …
-│   │   └── math_binary.hpp   #   pow, atan2, …
-│   ├── la/                   # Eigen integration (namespace tax::la)
+│   │   ├── arithmetic.hpp        #   +, -, *, /, compound assignment (dense + sparse)
+│   │   ├── math_unary.hpp        #   sin, exp, sqrt, square, …
+│   │   ├── math_binary.hpp       #   pow, atan2, …
+│   │   └── named_{arithmetic,math_unary,math_binary}.hpp  # same surface for named/mixed
+│   ├── la/                   # Eigen integration (namespace tax::la; some re-exported as tax::)
 │   │   ├── types.hpp         #   Vec, Mat, VecNT<N,T>, MatNT, MatNMT
+│   │   ├── expansion_vectors.hpp #   TEVec<D,N,M>, NEVec<D,N,Axes...>, MTEVec<D,Axes...>
 │   │   ├── num_traits.hpp    #   Eigen::NumTraits<TaylorExpansion>
 │   │   ├── values.hpp        #   variables(x0), value(), eval()
+│   │   ├── truncate.hpp      #   free tax::truncate<N2>(scalar | Eigen vector/matrix)
 │   │   ├── derivatives.hpp   #   derivative, gradient, hessian, jacobian
 │   │   ├── named.hpp         #   NumTraits + gradient/hessian/jacobian by axis name
+│   │   ├── mixed_named.hpp   #   the same for mixed-order named expansions
 │   │   └── invert.hpp        #   formal polynomial-map inversion (Picard)
+│   └── io/series.hpp         # human-readable streaming: operator<<, series(), to_string()
 ├── tests/                    # Google Test suite
 │   ├── core/                 #   ctor/accessors, multi-index, enumeration, deriv/integ, named
 │   ├── kernels/              #   dense/unroll/stencil/sparse Cauchy verification
 │   ├── operators/            #   one file per math-function family
 │   ├── sparse/               #   sparse ctor/arith/conversion/substitution
+│   ├── mixed/                #   MixedScheme + mixed-order named expansions
 │   ├── eigen/                #   tax::la helpers (gradient, jacobian, invert, named, …)
+│   ├── io/                   #   series / streaming
 │   ├── regression/           #   DACE comparison suite (opt-in, TAX_BUILD_REGRESSIONS)
 │   └── testUtils.hpp         #   shared helpers/macros
 ├── docs/                     # MkDocs docs: guide/, reference/, concepts/, internals/
 ├── cmake/                    # CMake package config template
 ├── .github/workflows/        # CI: tests.yml, sanitizers.yml, regressions.yml, docs.yml
 ├── .clang-format             # Code style configuration
-├── pyproject.toml            # scikit-build-core wheel config (Python bindings are
-│                             #   planned; no python/ sources are in the tree yet)
+├── pyproject.toml            # scikit-build-core wheel config (Python bindings planned)
 ├── CMakeLists.txt            # Root CMake configuration
 └── README.md
 ```
@@ -110,18 +119,20 @@ pre-define either macro to `0`, but the value must be identical project-wide.
 ### The Main Type
 
 ```cpp
-tax::TaylorExpansion<T, N, M = 1, Storage = tax::storage::Dense>
-// T       = scalar type (double, float)
-// N       = truncation order (compile-time integer)
-// M       = number of variables
+tax::TaylorExpansion<T, Scheme, Storage = tax::storage::Dense>
+// T       = coefficient type (double, float, or Batch<double,K> for K lock-step expansions)
+// Scheme  = index scheme: IsotropicScheme<N,M> (one order N over M vars)
+//           or MixedScheme<...> (per-axis orders); fixes the monomial layout
 // Storage = storage::Dense (std::array) or storage::Sparse (sorted idx/val vectors)
 ```
 
-Convenient aliases (all `double`-valued):
+Most code uses the aliases rather than naming a `Scheme` directly (all `double`-valued unless noted):
 ```cpp
-tax::TE<N, M = 1>   // dense
-tax::TEn<N, M>      // dense, explicit multivariate spelling
-tax::STE<N, M = 1>  // sparse
+tax::TE<N, M = 1, K = 1>  // dense; K>1 → Batch<double,K> coefficients
+tax::TEn<N, M>            // dense, explicit multivariate spelling
+tax::STE<N, M = 1>        // sparse
+tax::NE<N, Axes...>       // named (single order)          — see Named Expansions
+tax::MTE<Axes...>         // mixed-order named             — see Named Expansions
 ```
 
 - **Dense:** `std::array<T, numMonomials(N, M)>` coefficients in graded-lex
@@ -262,6 +273,30 @@ Key files: `core/named.hpp` (the type + `variable`/`variables` factories,
 embed/slice/compose) and `la/named.hpp` (Eigen `NumTraits` + name-addressed
 gradient/hessian/jacobian).
 
+### Mixed-order named expansions (`tax::MTE`)
+
+`tax::MixedTaylorExpansion<T, Axes...>` (alias `MTE<Axes...>`) is the same idea
+but each axis carries its **own** truncation order via `OrderedAxis<Name, Dim,
+Order>` and a `MixedScheme` layout. Factories live in `tax::mixed`
+(`tax::mixed::variable<"x", Order>(...)`, `tax::mixed::variables<...>`). Axis
+lists are sorted/unique (canonical type) and operands embed into the union just
+like `NE`. Key files: `core/mixed_named.hpp`, `kernels/mixed_stencils.hpp`,
+`la/mixed_named.hpp`.
+
+### Cross-cutting utilities
+
+- `tax::promote_t<Ts...>` (`core/promote.hpp`) — the common type operands
+  promote into (union of axes; scalars promote into the expansion). Handy for
+  declaring a homogeneous container that must hold a mix of axis sets.
+- `tax::truncate<N2>(x)` (`la/truncate.hpp`) — free order-reducing truncation
+  for a scalar expansion **or** an Eigen vector/matrix (element-wise).
+- `tax::la::TEVec<D,N,M>` / `NEVec<D,N,Axes...>` / `MTEVec<D,Axes...>`
+  (`la/expansion_vectors.hpp`) — `VecNT<D, …>` shorthands for Eigen vectors of
+  expansions.
+- Printing (`io/series.hpp`): `std::cout << f` (polynomial series),
+  `tax::series(f, opts)` (tabular / per-element for Eigen vectors),
+  `tax::to_string(f)`.
+
 ---
 
 ## Code Conventions
@@ -299,7 +334,7 @@ Enforced by `.clang-format` (Google style, customized):
 - Indent: **4 spaces** (no tabs)
 - Column limit: **100 characters**
 - Brace wrapping: new line after class/struct/function/namespace/control statements
-- Spaces inside parentheses and angle brackets: `TaylorExpansion< T, N, M >`
+- Spaces inside parentheses and angle brackets: `TaylorExpansion< T, Scheme >`
 
 ```bash
 clang-format -i $(git ls-files 'include/**/*.hpp')
@@ -366,7 +401,7 @@ with `-DTAX_BUILD_REGRESSIONS=ON`.
   kernels and operators that append directly (`rawIndices()/rawValues()`)
   must emit in ascending flat-index order with no zeros
 - **M = 0 is invalid:** always assert or `static_assert` M >= 1
-- **Include the umbrella header:** `<tax/tax.hpp>` (core + named + la) — not
-  individual sub-headers
+- **Include the umbrella header:** `<tax/tax.hpp>` (core + named + mixed + la) —
+  not individual sub-headers
 - **`pyproject.toml` is forward-looking:** there are no Python binding sources
   in the tree yet

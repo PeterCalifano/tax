@@ -20,11 +20,12 @@ up to order \(N\) in a single evaluation pass.
 
 ## Features
 
-- **Compile-time fixed shape** — `TaylorExpansion<T, N, M, Storage>` with `N`
-  and `M` as compile-time integers and `Storage` as `Dense` (stack
-  `std::array`) or `Sparse` (sorted-index map); both share the kernel layer
-  and agree numerically.
-- **Convenience aliases** — `TE<N, M=1>` for dense, `STE<N, M=1>` for sparse.
+- **Compile-time fixed shape** — `TaylorExpansion<T, Scheme, Storage>`; the
+  `Scheme` fixes the truncation order(s) and variable count at compile time, and
+  `Storage` is `Dense` (stack `std::array`) or `Sparse` (sorted-index map). Both
+  storages share the kernel layer and agree numerically.
+- **Convenience aliases** — `TE<N, M=1>` / `TEn<N, M>` (dense), `STE<N, M=1>`
+  (sparse), `NE<N, Axes...>` (named), `MTE<Axes...>` (mixed-order named).
 - **Comprehensive math** — arithmetic, trigonometric, hyperbolic,
   transcendental, square/cubic root, reciprocal, integer & real powers,
   `atan2`, `erf`.
@@ -36,7 +37,13 @@ up to order \(N\) in a single evaluation pass.
 - **Named expansions** — `NamedTaylorExpansion<T, N, Axes...>` attaches
   compile-time *named axes* to an expansion; values over different axis sets
   compose in their union, and `slice`/`deriv`/`integ` are addressed by name.
-  The whole API is re-exported under `tax` (`tax::NE`, `tax::variable(s)`).
+  `MixedTaylorExpansion<T, Axes...>` gives each axis its own truncation order.
+  The whole API is re-exported under `tax` (`tax::NE`, `tax::MTE`,
+  `tax::variable(s)`).
+- **Batch coefficients** — `TE<N, M, K>` makes each coefficient a `Batch<double,
+  K>`, evaluating `K` independent expansions in lock-step.
+- **Human-readable output** — `std::cout << f` prints the polynomial series;
+  `tax::series(...)` adds tabular / per-element (Eigen) rendering.
 
 > :electric_plug: **Plugin:** adaptive ODE integration and Automatic Domain
 > Splitting are available as the optional
@@ -133,7 +140,8 @@ int main() {
 
 ```cpp
 auto x = tax::STE<5>::variable(1.0);     // same API, sparse storage
-tax::STE<5> f = tax::exp(x);             // 6 nonzeros, sorted by flat index
+tax::STE<5> f = x * x + 2.0 * x - 1.0;   // arithmetic merges sorted nonzeros
+auto g = tax::exp(x.dense());            // transcendental math runs on the dense form
 ```
 
 ### Eigen integration
@@ -144,9 +152,23 @@ auto x = TE2::variable<0>({1.0, 2.0});
 auto y = TE2::variable<1>({1.0, 2.0});
 Eigen::Vector2<TE2> F = { tax::sin(x), tax::cos(y) };
 
-auto vals = tax::value(F);              // Eigen::Vector2d of constant terms
-auto J    = tax::jacobian(F);           // 2×2 Jacobian at expansion point
+auto vals = tax::la::value(F);          // Eigen::Vector2d of constant terms
+auto J    = tax::la::jacobian(F);       // 2×2 Jacobian at expansion point
 ```
+
+### Named axes
+
+```cpp
+auto x = tax::variable<"x", 4>(1.0);    // order-4 axis "x"
+auto p = tax::variable<"p", 4>(2.0);    // order-4 axis "p"
+auto f = tax::sin(x) + x * p;           // composes in the union of axes {p, x}
+
+auto dfdx = f.deriv<"x">();             // partial derivative by axis name
+auto fx   = f.slice<"x">();             // project onto a single axis
+```
+
+`tax::jacobian<"x">(F)` likewise takes the Jacobian of an Eigen vector of named
+expansions with respect to a named axis.
 
 ---
 

@@ -49,6 +49,21 @@ static_assert( std::same_as< tax::promote_t< tax::TE< 4, 2 >, double >, tax::TE<
 static_assert( std::same_as< tax::promote_t< tax::NE< 2, XAxis > >, tax::NE< 2, XAxis > > );
 
 // -----------------------------------------------------------------------------
+// Free tax::truncate< N2 > — order-reducing, scalar and Eigen overloads.
+// -----------------------------------------------------------------------------
+
+// Scalar: result is the lower-order type (dense and named).
+static_assert( std::same_as< decltype( tax::truncate< 3 >( std::declval< tax::TE< 5, 2 > >() ) ),
+                             tax::TE< 3, 2 > > );
+static_assert(
+    std::same_as< decltype( tax::truncate< 2 >( std::declval< tax::NE< 4, XAxis > >() ) ),
+                  tax::NE< 2, XAxis > > );
+// Eigen vector: same shape, lower-order element type.
+static_assert( std::same_as< decltype( tax::truncate< 2 >(
+                                 std::declval< tax::la::TEVec< 2, 5, 2 > >() ) )::Scalar,
+                             tax::TE< 2, 2 > > );
+
+// -----------------------------------------------------------------------------
 // Runtime: the aliases are usable as ordinary Eigen vectors of expansions.
 // -----------------------------------------------------------------------------
 
@@ -80,4 +95,21 @@ TEST( ExpansionVectors, MTEVecHoldsMixedVariables )
     v( 1 ) = p[1];
     EXPECT_NEAR( v( 0 ).value(), 5.0, 1e-15 );
     EXPECT_NEAR( v( 1 ).value(), 6.0, 1e-15 );
+}
+
+TEST( ExpansionVectors, TruncateDropsHighOrderTerms )
+{
+    // f(x) = (1 + x)^2 truncated to order 1 keeps only 1 + 2x; the x^2 term goes.
+    auto x = tax::TE< 3 >::variable( 0.0 );
+    auto f = ( 1.0 + x ) * ( 1.0 + x );
+    auto g = tax::truncate< 1 >( f );
+    EXPECT_NEAR( g.value(), 1.0, 1e-15 );
+    EXPECT_NEAR( g.template coeff< 1 >(), 2.0, 1e-15 );
+
+    // Eigen overload truncates each element.
+    Eigen::Vector2d x0{ 1.0, 2.0 };
+    auto v = tax::la::variables< tax::TE< 4, 2 > >( x0 );
+    auto vt = tax::truncate< 1 >( v );
+    EXPECT_NEAR( vt( 0 ).value(), 1.0, 1e-15 );
+    EXPECT_NEAR( ( vt( 0 ).template coeff< 1, 0 >() ), 1.0, 1e-15 );
 }
