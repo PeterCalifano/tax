@@ -52,23 +52,6 @@ template < typename Derived >
     return out;
 }
 
-/// Constant term (value at the expansion point) of a scalar `TaylorExpansion`.
-template < typename TE >
-    requires( detail::is_te_v< TE > )
-[[nodiscard]] auto value( const TE& f ) noexcept
-{
-    return f.value();
-}
-
-/// Value of a plain arithmetic scalar — identity. Lets generic code call
-/// `value(x)` uniformly whether `x` is a `double` or a `TaylorExpansion`.
-template < typename T >
-    requires std::is_arithmetic_v< T >
-[[nodiscard]] constexpr T value( T x ) noexcept
-{
-    return x;
-}
-
 // -----------------------------------------------------------------------------
 // eval — evaluate scalar TE or Eigen matrix of TEs at a displacement
 // -----------------------------------------------------------------------------
@@ -127,3 +110,33 @@ template < typename Derived >
 }
 
 }  // namespace tax::la
+
+// -----------------------------------------------------------------------------
+// value — surfaced under tax:: : the scalar accessors below plus the matrix
+// overload (via the using-declaration), so callers write tax::value uniformly.
+// tax::la::value remains valid for the matrix form.
+// -----------------------------------------------------------------------------
+
+namespace tax
+{
+
+using tax::la::value;
+
+/// Constant term (value at the expansion point) of a scalar `TaylorExpansion`.
+template < typename TE >
+    requires( la::detail::is_te_v< TE > )
+[[nodiscard]] auto value( const TE& f ) noexcept
+{
+    return f.value();
+}
+
+/// Value of a plain arithmetic scalar — identity. Lets generic code call
+/// `value(x)` uniformly whether `x` is a `double` or a `TaylorExpansion`.
+template < typename T >
+    requires std::is_arithmetic_v< T >
+[[nodiscard]] constexpr T value( T x ) noexcept
+{
+    return x;
+}
+
+}  // namespace tax
