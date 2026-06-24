@@ -4,6 +4,7 @@
 #pragma once
 
 #include <Eigen/Core>
+#include <type_traits>
 #include <utility>
 
 #include <tax/la/num_traits.hpp>
@@ -49,6 +50,23 @@ template < typename Derived >
         out( F.rows(), F.cols() );
     for ( Eigen::Index i = 0; i < F.size(); ++i ) out( i ) = F.derived().coeff( i ).value();
     return out;
+}
+
+/// Constant term (value at the expansion point) of a scalar `TaylorExpansion`.
+template < typename TE >
+    requires( detail::is_te_v< TE > )
+[[nodiscard]] auto value( const TE& f ) noexcept
+{
+    return f.value();
+}
+
+/// Value of a plain arithmetic scalar — identity. Lets generic code call
+/// `value(x)` uniformly whether `x` is a `double` or a `TaylorExpansion`.
+template < typename T >
+    requires std::is_arithmetic_v< T >
+[[nodiscard]] constexpr T value( T x ) noexcept
+{
+    return x;
 }
 
 // -----------------------------------------------------------------------------
