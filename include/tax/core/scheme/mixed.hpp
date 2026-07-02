@@ -201,9 +201,15 @@ struct MixedScheme
         if !consteval
         {
             const auto& st = detail::kernels::mixedBoxCauchyStencil< Groups... >();
-            out = {};
-            for ( const detail::kernels::StencilEntry& e : st.entries )
-                out[e.out_idx] += a[e.a_idx] * b[e.b_idx];
+            const detail::kernels::StencilPair* const pairs = st.pairs.data();
+            for ( std::size_t ai = 0; ai < nCoeff; ++ai )
+            {
+                T acc{};
+                const std::size_t end = st.offsets[ai + 1];
+                for ( std::size_t j = st.offsets[ai]; j < end; ++j )
+                    acc += a[pairs[j].a_idx] * b[pairs[j].b_idx];
+                out[ai] = acc;
+            }
             return;
         }
 #endif
