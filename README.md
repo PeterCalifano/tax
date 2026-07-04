@@ -29,6 +29,14 @@ up to order \(N\) in a single evaluation pass.
 - **Comprehensive math** — arithmetic, trigonometric, hyperbolic,
   transcendental, square/cubic root, reciprocal, integer & real powers,
   `atan2`, `erf`.
+- **Fused kernels** — `sinCos`, `sinhCosh`, `sqrtInvSqrt`, `expSin`, `expCos`,
+  `expSinCos` compute coupled pairs in a single recurrence pass:
+  `expCos(v, u)` is ~2x faster than `exp(v) * cos(u)`, and the pair-returning
+  forms give both results for the price of one.
+- **Fully constexpr** — the entire dense math surface (including the
+  transcendental functions, which seed their recurrences through a built-in
+  constexpr math layer) can run in constant evaluation: whole expansions,
+  gradients and Taylor models can be computed at compile time.
 - **Direct derivative access** — coefficients, partial derivatives at the
   expansion point, full gradient / Hessian / Jacobian.
 - **Eigen integration** — `NumTraits` specialisation plus helpers for

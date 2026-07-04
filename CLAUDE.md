@@ -22,6 +22,8 @@ tax/
 │   ├── la.hpp                # Facade: linear-algebra / Eigen helpers (tax::la)
 │   ├── core/                 # The TaylorExpansion type and its foundations
 │   │   ├── concepts.hpp      #   Scalar, TaylorPolynomial, DensePolynomial concepts
+│   │   ├── cmath.hpp         #   constexpr scalar math (tax::detail::cmath) — constant-term
+│   │   │                     #   seeds in constant evaluation; runtime forwards to std/ADL
 │   │   ├── multi_index.hpp   #   MultiIndex<M>, flatIndex/unflatIndex, numMonomials
 │   │   ├── enumeration.hpp   #   forEachMonomial / forEachSubIndex
 │   │   ├── scheme.hpp        #   index-scheme facade; scheme/{concept,isotropic,mixed}.hpp
@@ -38,15 +40,20 @@ tax/
 │   │   ├── cauchy_stencil.hpp#   precomputed stencil table product (M >= 2)
 │   │   ├── recurrence_stencil.hpp # shared decomposition table for M>=2 recurrences
 │   │   ├── mixed_stencils.hpp#   Cauchy / recurrence stencils for MixedScheme
-│   │   ├── algebra.hpp       #   self-product, square/cube, reciprocal, sqrt, cbrt, pow
+│   │   ├── algebra.hpp       #   shared recurrence drivers (seriesDerivQuotient /
+│   │   │                     #   seriesDerivProduct), square/cube, reciprocal, sqrt, cbrt, pow
 │   │   ├── trigonometric.hpp #   sin, cos, tan, asin, acos, atan
-│   │   ├── transcendental.hpp#   exp, log, sinh, cosh, tanh + inverses, erf
+│   │   ├── transcendental.hpp#   exp, log, sinh/cosh/tanh (+ fused sinhCosh) + inverses, erf
+│   │   ├── fused.hpp         #   pair-fused kernels: expSinCos (exp·trig), sqrtInvSqrt
 │   │   ├── sparse_cauchy.hpp #   sparse Cauchy product / self-product
 │   │   └── sparse_subs.hpp   #   sparse substitution helpers
 │   ├── operators/            # Free-function operator surface over the kernels
 │   │   ├── arithmetic.hpp        #   +, -, *, /, compound assignment (dense + sparse)
 │   │   ├── math_unary.hpp        #   sin, exp, sqrt, square, …
 │   │   ├── math_binary.hpp       #   pow, atan2, …
+│   │   ├── math_fused.hpp        #   sinCos, sinhCosh, sqrtInvSqrt, expSin/expCos/expSinCos
+│   │   │                         #   (dense + named + mixed, pair-returning forms)
+│   │   ├── mixed_math.hpp        #   pow/atan2 for MixedTaylorExpansion + tax:: re-exports
 │   │   └── named_{arithmetic,math_unary,math_binary}.hpp  # same surface for named/mixed
 │   ├── la/                   # Eigen integration (namespace tax::la; some re-exported as tax::)
 │   │   ├── types.hpp         #   Vec, Mat, VecNT<N,T>, MatNT, MatNMT
@@ -180,6 +187,12 @@ auto   F   = f.integ<0>();        // symbolic integral
 `coeff` / `derivative` / `deriv` / `integ` all exist in compile-time
 (`<...>`), `MultiIndex<M>`, and runtime-`int` forms.
 
+The entire dense surface — including every transcendental function — is
+`constexpr`: whole expansion pipelines can run in constant evaluation
+(`constexpr auto f = tax::exp(tax::sin(tax::TE<8>::variable(0.5)));`). See
+`tests/core/test_constexpr.cpp` and the accuracy contract in
+`include/tax/core/cmath.hpp`.
+
 ### Coefficient Storage
 
 - Graded-lexicographic ordering: all degree-0 first, then degree-1, etc.
@@ -195,7 +208,26 @@ auto   F   = f.integ<0>();        // symbolic integral
 
 All math operations are degree-by-degree recurrence relations in
 `include/tax/kernels/` (`tax::detail::kernels`), operating directly on the
-coefficient arrays. The Cauchy product has three dense variants behind one
+coefficient arrays. Two shared drivers in `algebra.hpp` implement the common
+recurrence shapes once (univariate + multivariate walks):
+`seriesDerivQuotient` solves `h·out' = ±src'` (log, asin/acos/atan/atan2,
+asinh/acosh/atanh) and `seriesDerivProduct` solves `out' = src'·h` (exp, erf).
+Most kernels reduce to "compute h, seed the constant term, call the driver".
+
+**Everything is constexpr.** The transcendental kernels seed their constant
+term through `tax::detail::cmath` (`core/cmath.hpp`): at runtime this forwards
+to `std::`/ADL exactly as before (so `Batch` works unchanged); in constant
+evaluation it switches to constexpr implementations computed in `long double`
+(accurate to ~1 ulp of double, but NOT bit-identical to libm). When adding a
+kernel, keep it constexpr: use `cmath::ctExp`-style seeds, never bare
+`std::exp`.
+
+Pair-fused kernels live in `fused.hpp` (`seriesExpSinCos`, `seriesSqrtInvSqrt`)
+and are exposed via `operators/math_fused.hpp` (`expSin`, `expCos`,
+`expSinCos`, `sinCos`, `sinhCosh`, `sqrtInvSqrt`); the fused exp·trig pass is
+~2x faster than composing `exp(v) * cos(u)`. These were ported from the
+expression-template prototype branch — the ET layer itself benchmarked at
+parity and was deliberately not ported. The Cauchy product has three dense variants behind one
 dispatch (`cauchyProduct`):
 
 - `cauchyProductLoop` — generic, `constexpr`-safe (used in constant evaluation)
