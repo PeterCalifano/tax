@@ -16,6 +16,7 @@
 #include <tax/la/mixed_named.hpp>
 #include <tax/operators/arithmetic.hpp>
 #include <tax/operators/math_binary.hpp>
+#include <tax/operators/math_fused.hpp>
 #include <tax/operators/math_unary.hpp>
 #include <tax/operators/mixed_math.hpp>
 #include <tax/operators/named_arithmetic.hpp>
