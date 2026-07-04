@@ -3,12 +3,94 @@
 #include <array>
 #include <cmath>
 #include <span>
+#include <tax/core/cmath.hpp>
 #include <tax/core/scheme/isotropic.hpp>
 #include <tax/kernels/cauchy.hpp>
 #include <tax/kernels/recurrence_stencil.hpp>
 
 namespace tax::detail::kernels
 {
+
+// ---------------------------------------------------------------------------
+// Shared recurrence drivers
+//
+// Nearly every series kernel is one of two degree-by-degree recurrences over
+// the same (beta, gamma) decomposition rows; the drivers below implement the
+// univariate and multivariate walks once, and the kernels reduce to "compute
+// h, seed the constant term, call the driver".
+// ---------------------------------------------------------------------------
+
+/// Forward recurrence `h * out' = Sign * src'` with seed `out[0] = out0`
+/// (scheme-generic). Degree by degree:
+///   d * h[0] * out_alpha = d * Sign * src_alpha - sum (d - |beta|) h_beta out_gamma.
+/// Requires `h[0] != 0`; `src`/`h` must not alias `out`. Covers the whole
+/// integral-of-a-quotient family: log, asin/acos/atan/atan2, asinh/acosh/atanh.
+template < int Sign = 1, typename T, tax::IndexScheme Scheme >
+constexpr void seriesDerivQuotient( std::array< T, Scheme::nCoeff >& out, T out0,
+                                    const std::array< T, Scheme::nCoeff >& src,
+                                    const std::array< T, Scheme::nCoeff >& h ) noexcept
+{
+    static_assert( Sign == 1 || Sign == -1 );
+    out = {};
+    out[0] = out0;
+    const T inv_h0 = T{ 1 } / h[0];
+
+    if constexpr ( Scheme::isUnivariate )
+    {
+        for ( int d = 1; d <= Scheme::order; ++d )
+        {
+            T rhs = T{ 0 };
+            for ( int k = 1; k < d; ++k )
+                rhs += T( k ) * h[std::size_t( d - k )] * out[std::size_t( k )];
+            const T s = Sign > 0 ? src[std::size_t( d )] : -src[std::size_t( d )];
+            out[std::size_t( d )] = ( s - rhs / T( d ) ) * inv_h0;
+        }
+    } else
+    {
+        Scheme::forEachRecurrenceRow(
+            [&]( std::size_t ai, int d, std::span< const RecurrenceEntry > row ) {
+                T rhs = T{ 0 };
+                // |beta| == d entries carry weight (d - db) == 0.
+                for ( const RecurrenceEntry& e : row )
+                    rhs += T( d - int( e.db ) ) * h[e.b_idx] * out[e.g_idx];
+                const T s = Sign > 0 ? src[ai] : -src[ai];
+                out[ai] = ( s - rhs / T( d ) ) * inv_h0;
+            } );
+    }
+}
+
+/// Forward recurrence `out' = src' * h` with seed `out[0] = out0`
+/// (scheme-generic): out_alpha = (1/d) * sum |beta| src_beta h_gamma.
+/// `h` may alias `out` (exp is `out' = a' * out`): rows read `h` only at
+/// strictly lower total degree, which is already final. `src` must not
+/// alias `out`.
+template < typename T, tax::IndexScheme Scheme >
+constexpr void seriesDerivProduct( std::array< T, Scheme::nCoeff >& out, T out0,
+                                   const std::array< T, Scheme::nCoeff >& src,
+                                   const std::array< T, Scheme::nCoeff >& h ) noexcept
+{
+    out = {};
+    out[0] = out0;
+
+    if constexpr ( Scheme::isUnivariate )
+    {
+        for ( int d = 1; d <= Scheme::order; ++d )
+        {
+            T rhs = T{ 0 };
+            for ( int k = 0; k < d; ++k )
+                rhs += T( d - k ) * src[std::size_t( d - k )] * h[std::size_t( k )];
+            out[std::size_t( d )] = rhs / T( d );
+        }
+    } else
+    {
+        Scheme::forEachRecurrenceRow(
+            [&]( std::size_t ai, int d, std::span< const RecurrenceEntry > row ) {
+                T rhs = T{ 0 };
+                for ( const RecurrenceEntry& e : row ) rhs += T( e.db ) * src[e.b_idx] * h[e.g_idx];
+                out[ai] = rhs / T( d );
+            } );
+    }
+}
 
 /// Self-product `out = f * f` (M == 1 exploits pair symmetry; M >= 2 forwards to cauchyProduct).
 template < typename T, int N, int M >
@@ -103,12 +185,11 @@ constexpr void seriesDivide( std::array< T, Scheme::nCoeff >& out,
 
 /// Square-root series `out * out = a` (principal branch, scheme-generic). Requires `a[0] > 0`.
 template < typename T, tax::IndexScheme Scheme >
-void seriesSqrt( std::array< T, Scheme::nCoeff >& out,
-                 const std::array< T, Scheme::nCoeff >& a ) noexcept
+constexpr void seriesSqrt( std::array< T, Scheme::nCoeff >& out,
+                           const std::array< T, Scheme::nCoeff >& a ) noexcept
 {
-    using std::sqrt;
     out = {};
-    out[0] = sqrt( a[0] );
+    out[0] = cmath::ctSqrt( a[0] );
     const T inv2g0 = T{ 1 } / ( T{ 2 } * out[0] );
 
     if constexpr ( Scheme::isUnivariate )
@@ -136,14 +217,13 @@ void seriesSqrt( std::array< T, Scheme::nCoeff >& out,
 
 /// Cubic-root series `out^3 = a` (real branch, scheme-generic). Requires `a[0] != 0`.
 template < typename T, tax::IndexScheme Scheme >
-void seriesCbrt( std::array< T, Scheme::nCoeff >& out,
-                 const std::array< T, Scheme::nCoeff >& a ) noexcept
+constexpr void seriesCbrt( std::array< T, Scheme::nCoeff >& out,
+                           const std::array< T, Scheme::nCoeff >& a ) noexcept
 {
-    using std::cbrt;
     constexpr std::size_t S = Scheme::nCoeff;
 
     out = {};
-    out[0] = cbrt( a[0] );
+    out[0] = cmath::ctCbrt( a[0] );
     const T inv3g0sq = T{ 1 } / ( T{ 3 } * out[0] * out[0] );
 
     if constexpr ( Scheme::isUnivariate )
@@ -187,14 +267,13 @@ void seriesCbrt( std::array< T, Scheme::nCoeff >& out,
     }
 }
 
-/// Real-exponent power series `out = a^c` (scheme-generic). Requires `a[0] != 0`; not constexpr.
+/// Real-exponent power series `out = a^c` (scheme-generic). Requires `a[0] != 0`.
 template < typename T, tax::IndexScheme Scheme >
-void seriesPow( std::array< T, Scheme::nCoeff >& out, const std::array< T, Scheme::nCoeff >& a,
-                T c ) noexcept
+constexpr void seriesPow( std::array< T, Scheme::nCoeff >& out,
+                          const std::array< T, Scheme::nCoeff >& a, T c ) noexcept
 {
-    using std::pow;
     out = {};
-    out[0] = pow( a[0], c );
+    out[0] = cmath::ctPow( a[0], c );
     const T inv_a0 = T{ 1 } / a[0];
 
     if constexpr ( Scheme::isUnivariate )

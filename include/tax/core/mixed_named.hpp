@@ -437,7 +437,7 @@ template < typename T, typename... A >
 
 #define TAX_MIXED_UNARY_FN( FN )                                        \
     template < typename T, typename... A >                              \
-    [[nodiscard]] MixedTaylorExpansion< T, A... > FN(                   \
+    [[nodiscard]] constexpr MixedTaylorExpansion< T, A... > FN(         \
         const MixedTaylorExpansion< T, A... >& a ) noexcept             \
     {                                                                   \
         return MixedTaylorExpansion< T, A... >{ tax::FN( a.inner() ) }; \

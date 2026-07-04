@@ -14,24 +14,24 @@ namespace tax::named
 
 /// `x^n` for an integer exponent (axis set preserved).
 template < typename T, int N, typename... A >
-[[nodiscard]] NamedTaylorExpansion< T, N, A... > pow( const NamedTaylorExpansion< T, N, A... >& x,
-                                                      int n ) noexcept
+[[nodiscard]] constexpr NamedTaylorExpansion< T, N, A... > pow(
+    const NamedTaylorExpansion< T, N, A... >& x, int n ) noexcept
 {
     return NamedTaylorExpansion< T, N, A... >{ tax::pow( x.inner(), n ) };
 }
 
 /// `x^p` for a real exponent (axis set preserved; requires x.value() != 0).
 template < typename T, int N, typename... A >
-[[nodiscard]] NamedTaylorExpansion< T, N, A... > pow( const NamedTaylorExpansion< T, N, A... >& x,
-                                                      std::type_identity_t< T > p ) noexcept
+[[nodiscard]] constexpr NamedTaylorExpansion< T, N, A... > pow(
+    const NamedTaylorExpansion< T, N, A... >& x, std::type_identity_t< T > p ) noexcept
 {
     return NamedTaylorExpansion< T, N, A... >{ tax::pow( x.inner(), p ) };
 }
 
 /// `atan2(y, x)` over the union of the two operands' axis sets.
 template < typename T, int N, typename... A, typename... B >
-[[nodiscard]] auto atan2( const NamedTaylorExpansion< T, N, A... >& y,
-                          const NamedTaylorExpansion< T, N, B... >& x ) noexcept
+[[nodiscard]] constexpr auto atan2( const NamedTaylorExpansion< T, N, A... >& y,
+                                    const NamedTaylorExpansion< T, N, B... >& x ) noexcept
 {
     using R = detail::MergedNamedTaylorExpansion< T, N, detail::TypeList< A... >,
                                                   detail::TypeList< B... > >;
