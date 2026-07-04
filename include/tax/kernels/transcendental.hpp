@@ -61,22 +61,35 @@ constexpr void seriesSinhCosh( std::array< T, Scheme::nCoeff >& s,
     }
 }
 
-/// Hyperbolic sine series `out = sinh(a)` (scheme-generic).
+/// Hyperbolic sine series `out = sinh(a)` (scheme-generic). Single-output on
+/// purpose — writing the discarded cosh companion measurably costs at small N;
+/// callers that want both should use seriesSinhCosh.
 template < typename T, tax::IndexScheme Scheme >
 constexpr void seriesSinh( std::array< T, Scheme::nCoeff >& out,
                            const std::array< T, Scheme::nCoeff >& a ) noexcept
 {
-    std::array< T, Scheme::nCoeff > c{};
-    seriesSinhCosh< T, Scheme >( out, c, a );
+    constexpr std::size_t S = Scheme::nCoeff;
+    std::array< T, S > ep{}, em{};
+    seriesExpPair< T, Scheme >( ep, em, a );
+
+    out = {};
+    out[0] = cmath::ctSinh( a[0] );
+    for ( std::size_t i = 1; i < S; ++i ) out[i] = ( ep[i] - em[i] ) * T{ 0.5 };
 }
 
-/// Hyperbolic cosine series `out = cosh(a)` (scheme-generic).
+/// Hyperbolic cosine series `out = cosh(a)` (scheme-generic; single-output,
+/// see seriesSinh).
 template < typename T, tax::IndexScheme Scheme >
 constexpr void seriesCosh( std::array< T, Scheme::nCoeff >& out,
                            const std::array< T, Scheme::nCoeff >& a ) noexcept
 {
-    std::array< T, Scheme::nCoeff > s{};
-    seriesSinhCosh< T, Scheme >( s, out, a );
+    constexpr std::size_t S = Scheme::nCoeff;
+    std::array< T, S > ep{}, em{};
+    seriesExpPair< T, Scheme >( ep, em, a );
+
+    out = {};
+    out[0] = cmath::ctCosh( a[0] );
+    for ( std::size_t i = 1; i < S; ++i ) out[i] = ( ep[i] + em[i] ) * T{ 0.5 };
 }
 
 /// Hyperbolic tangent series `out = tanh(a)` (scheme-generic): sinh/cosh in one

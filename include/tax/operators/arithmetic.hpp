@@ -1,6 +1,5 @@
 #pragma once
 
-#include <ranges>
 #include <tax/core/scheme/isotropic.hpp>
 #include <tax/core/taylor_expansion.hpp>
 #include <tax/kernels/algebra.hpp>
@@ -21,9 +20,7 @@ template < typename T, IndexScheme Scheme >
     const TaylorExpansion< T, Scheme >& a, const TaylorExpansion< T, Scheme >& b ) noexcept
 {
     TaylorExpansion< T, Scheme > r;
-    for ( auto [rk, ak, bk] :
-          std::views::zip( r.coefficients(), a.coefficients(), b.coefficients() ) )
-        rk = ak + bk;
+    for ( std::size_t k = 0; k < a.nCoefficients; ++k ) r[k] = a[k] + b[k];
     return r;
 }
 
@@ -52,9 +49,7 @@ template < typename T, IndexScheme Scheme >
     const TaylorExpansion< T, Scheme >& a, const TaylorExpansion< T, Scheme >& b ) noexcept
 {
     TaylorExpansion< T, Scheme > r;
-    for ( auto [rk, ak, bk] :
-          std::views::zip( r.coefficients(), a.coefficients(), b.coefficients() ) )
-        rk = ak - bk;
+    for ( std::size_t k = 0; k < a.nCoefficients; ++k ) r[k] = a[k] - b[k];
     return r;
 }
 
@@ -85,7 +80,7 @@ template < typename T, IndexScheme Scheme >
     const TaylorExpansion< T, Scheme >& a ) noexcept
 {
     TaylorExpansion< T, Scheme > r;
-    for ( auto [rk, ak] : std::views::zip( r.coefficients(), a.coefficients() ) ) rk = -ak;
+    for ( std::size_t k = 0; k < a.nCoefficients; ++k ) r[k] = -a[k];
     return r;
 }
 
@@ -98,7 +93,7 @@ template < typename T, IndexScheme Scheme >
     const TaylorExpansion< T, Scheme >& a, std::type_identity_t< T > s ) noexcept
 {
     TaylorExpansion< T, Scheme > r;
-    for ( auto [rk, ak] : std::views::zip( r.coefficients(), a.coefficients() ) ) rk = ak * s;
+    for ( std::size_t k = 0; k < a.nCoefficients; ++k ) r[k] = a[k] * s;
     return r;
 }
 
@@ -161,7 +156,7 @@ template < typename T, IndexScheme Scheme >
 constexpr TaylorExpansion< T, Scheme >& operator+=( TaylorExpansion< T, Scheme >& a,
                                                     const TaylorExpansion< T, Scheme >& b ) noexcept
 {
-    for ( auto [ak, bk] : std::views::zip( a.coefficients(), b.coefficients() ) ) ak += bk;
+    for ( std::size_t k = 0; k < a.nCoefficients; ++k ) a[k] += b[k];
     return a;
 }
 
@@ -169,7 +164,7 @@ template < typename T, IndexScheme Scheme >
 constexpr TaylorExpansion< T, Scheme >& operator-=( TaylorExpansion< T, Scheme >& a,
                                                     const TaylorExpansion< T, Scheme >& b ) noexcept
 {
-    for ( auto [ak, bk] : std::views::zip( a.coefficients(), b.coefficients() ) ) ak -= bk;
+    for ( std::size_t k = 0; k < a.nCoefficients; ++k ) a[k] -= b[k];
     return a;
 }
 
