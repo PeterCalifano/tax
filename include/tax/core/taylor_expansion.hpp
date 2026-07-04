@@ -1,12 +1,13 @@
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <span>
 #include <stdexcept>
 #include <tax/core/concepts.hpp>
-#include <tax/core/scheme.hpp>
 #include <tax/core/multi_index.hpp>
+#include <tax/core/scheme.hpp>
 #include <tax/core/storage/dense.hpp>
 #include <tax/core/storage/sparse.hpp>
 #include <tax/la/types.hpp>
@@ -278,36 +279,16 @@ class TaylorExpansion< T, Scheme, storage::Dense >
     [[nodiscard]] constexpr TaylorExpansion deriv() const noexcept
         requires( I >= 0 && I < Scheme::vars )
     {
-        Data out{};
-        for ( std::size_t i = 0; i < nCoefficients; ++i )
-        {
-            if ( c_[i] == T{} ) continue;
-            auto alpha = Scheme::multiOf( i );
-            const int exp = alpha[std::size_t( I )];
-            if ( exp == 0 ) continue;
-            alpha[std::size_t( I )] = exp - 1;
-            out[Scheme::flatOf( alpha )] += c_[i] * T( exp );
-        }
-        return TaylorExpansion{ out };
+        return derivImpl( I );
     }
 
     /// Partial derivative polynomial with respect to variable `var`. Throws std::out_of_range if
     /// `var` is outside [0, M).
-    [[nodiscard]] TaylorExpansion deriv( int var ) const
+    [[nodiscard]] constexpr TaylorExpansion deriv( int var ) const
     {
         if ( var < 0 || var >= Scheme::vars )
             throw std::out_of_range( "tax::TaylorExpansion::deriv(var): var must be in [0, M)" );
-        Data out{};
-        for ( std::size_t i = 0; i < nCoefficients; ++i )
-        {
-            if ( c_[i] == T{} ) continue;
-            auto alpha = Scheme::multiOf( i );
-            const int exp = alpha[std::size_t( var )];
-            if ( exp == 0 ) continue;
-            alpha[std::size_t( var )] = exp - 1;
-            out[Scheme::flatOf( alpha )] += c_[i] * T( exp );
-        }
-        return TaylorExpansion{ out };
+        return derivImpl( var );
     }
 
     /// Indefinite integral polynomial with respect to variable `I`.
@@ -315,38 +296,16 @@ class TaylorExpansion< T, Scheme, storage::Dense >
     [[nodiscard]] constexpr TaylorExpansion integ() const noexcept
         requires( I >= 0 && I < Scheme::vars )
     {
-        Data out{};
-        for ( std::size_t i = 0; i < nCoefficients; ++i )
-        {
-            if ( c_[i] == T{} ) continue;
-            auto alpha = Scheme::multiOf( i );
-            const int exp = alpha[std::size_t( I )];
-            alpha[std::size_t( I )] = exp + 1;
-            const std::size_t k = Scheme::flatOf( alpha );
-            if ( k == Scheme::kNotInBox ) continue;  // would exceed the kept set
-            out[k] = c_[i] / T( exp + 1 );
-        }
-        return TaylorExpansion{ out };
+        return integImpl( I );
     }
 
     /// Indefinite integral polynomial with respect to variable `var`. Throws std::out_of_range if
     /// `var` is outside [0, M).
-    [[nodiscard]] TaylorExpansion integ( int var ) const
+    [[nodiscard]] constexpr TaylorExpansion integ( int var ) const
     {
         if ( var < 0 || var >= Scheme::vars )
             throw std::out_of_range( "tax::TaylorExpansion::integ(var): var must be in [0, M)" );
-        Data out{};
-        for ( std::size_t i = 0; i < nCoefficients; ++i )
-        {
-            if ( c_[i] == T{} ) continue;
-            auto alpha = Scheme::multiOf( i );
-            const int exp = alpha[std::size_t( var )];
-            alpha[std::size_t( var )] = exp + 1;
-            const std::size_t k = Scheme::flatOf( alpha );
-            if ( k == Scheme::kNotInBox ) continue;  // would exceed the kept set
-            out[k] = c_[i] / T( exp + 1 );
-        }
-        return TaylorExpansion{ out };
+        return integImpl( var );
     }
 
     // ------------------------------------------------------------------
@@ -427,6 +386,39 @@ class TaylorExpansion< T, Scheme, storage::Dense >
     [[nodiscard]] constexpr Data& coefficients() noexcept { return c_.data; }
 
    private:
+    /// Shared body of the compile-time-index and runtime-index deriv overloads.
+    [[nodiscard]] constexpr TaylorExpansion derivImpl( int var ) const noexcept
+    {
+        Data out{};
+        for ( std::size_t i = 0; i < nCoefficients; ++i )
+        {
+            if ( c_[i] == T{} ) continue;
+            auto alpha = Scheme::multiOf( i );
+            const int exp = alpha[std::size_t( var )];
+            if ( exp == 0 ) continue;
+            alpha[std::size_t( var )] = exp - 1;
+            out[Scheme::flatOf( alpha )] += c_[i] * T( exp );
+        }
+        return TaylorExpansion{ out };
+    }
+
+    /// Shared body of the compile-time-index and runtime-index integ overloads.
+    [[nodiscard]] constexpr TaylorExpansion integImpl( int var ) const noexcept
+    {
+        Data out{};
+        for ( std::size_t i = 0; i < nCoefficients; ++i )
+        {
+            if ( c_[i] == T{} ) continue;
+            auto alpha = Scheme::multiOf( i );
+            const int exp = alpha[std::size_t( var )];
+            alpha[std::size_t( var )] = exp + 1;
+            const std::size_t k = Scheme::flatOf( alpha );
+            if ( k == Scheme::kNotInBox ) continue;  // would exceed the kept set
+            out[k] = c_[i] / T( exp + 1 );
+        }
+        return TaylorExpansion{ out };
+    }
+
     container_t c_{};
 };
 
@@ -660,17 +652,13 @@ class TaylorExpansion< T, Scheme, storage::Sparse >
     [[nodiscard]] Result truncatedBelow( std::size_t limit ) const noexcept
     {
         Result r;
-        const auto cap = storage::flat_index_t( limit );
-        auto& oi = r.container().rawIndices();
-        auto& ov = r.container().rawValues();
         const auto sup = support();
         const auto vals = values();
-        for ( std::size_t i = 0; i < sup.size(); ++i )
-        {
-            if ( sup[i] >= cap ) break;  // support is sorted ascending
-            oi.push_back( sup[i] );
-            ov.push_back( vals[i] );
-        }
+        // Support is sorted ascending: the kept slots are the prefix below `limit`.
+        const auto n = std::size_t(
+            std::ranges::lower_bound( sup, storage::flat_index_t( limit ) ) - sup.begin() );
+        r.container().rawIndices().assign( sup.begin(), sup.begin() + std::ptrdiff_t( n ) );
+        r.container().rawValues().assign( vals.begin(), vals.begin() + std::ptrdiff_t( n ) );
         return r;
     }
 
