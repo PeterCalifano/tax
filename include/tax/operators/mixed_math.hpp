@@ -34,6 +34,22 @@ template < typename T, typename... A >
     return MixedTaylorExpansion< T, A... >{ tax::pow( x.inner(), p ) };
 }
 
+/// `x^(K/2)` for a compile-time integer K (axis set preserved).
+template < int K, typename T, typename... A >
+[[nodiscard]] constexpr MixedTaylorExpansion< T, A... > halfPow(
+    const MixedTaylorExpansion< T, A... >& x ) noexcept
+{
+    return MixedTaylorExpansion< T, A... >{ tax::halfPow< K >( x.inner() ) };
+}
+
+/// `x^(-K/2)` for a compile-time integer K >= 1 (axis set preserved).
+template < int K, typename T, typename... A >
+[[nodiscard]] constexpr MixedTaylorExpansion< T, A... > invSqrtPow(
+    const MixedTaylorExpansion< T, A... >& x ) noexcept
+{
+    return MixedTaylorExpansion< T, A... >{ tax::invSqrtPow< K >( x.inner() ) };
+}
+
 /// `atan2(y, x)` over the union of the two operands' (ordered) axis sets.
 template < typename T, typename... A, typename... B >
 [[nodiscard]] constexpr auto atan2( const MixedTaylorExpansion< T, A... >& y,
@@ -72,6 +88,8 @@ TAX_MIXED_REEXPORT( acosh )
 TAX_MIXED_REEXPORT( atanh )
 TAX_MIXED_REEXPORT( erf )
 TAX_MIXED_REEXPORT( pow )
+TAX_MIXED_REEXPORT( halfPow )
+TAX_MIXED_REEXPORT( invSqrtPow )
 TAX_MIXED_REEXPORT( atan2 )
 
 #undef TAX_MIXED_REEXPORT

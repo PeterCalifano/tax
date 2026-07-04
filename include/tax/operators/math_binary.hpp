@@ -32,6 +32,42 @@ template < typename T, IndexScheme Scheme, std::floating_point P >
     return r;
 }
 
+/// Compile-time half-integer power `out = x^(K/2)`.
+///
+/// Even `K` dispatches to the integer-power chain (requires `x.value() != 0`
+/// for negative K); odd `K` runs the single real-exponent recurrence
+/// (requires `x.value() > 0`). Per the expression-template prototype's own
+/// benchmarks this is the fastest spelling — one seriesPow pass beats the
+/// fused sqrt/invsqrt pair + power chain whenever only one output is
+/// consumed (a caller needing sqrt(x) alongside x^(-K/2) should combine
+/// sqrtInvSqrt with pow instead).
+template < int K, typename T, IndexScheme Scheme >
+[[nodiscard]] constexpr TaylorExpansion< T, Scheme > halfPow(
+    const TaylorExpansion< T, Scheme >& x ) noexcept
+{
+    if constexpr ( K % 2 == 0 )
+    {
+        return pow( x, K / 2 );
+    } else
+    {
+        TaylorExpansion< T, Scheme > r;
+        detail::kernels::seriesPow< T, Scheme >( r.coefficients(), x.coefficients(),
+                                                 T( K ) / T( 2 ) );
+        return r;
+    }
+}
+
+/// Compile-time inverse square-root power `out = x^(-K/2) = 1/sqrt(x)^K`
+/// (K >= 1). `invSqrtPow<3>(r2)` is the classic 1/r^3 of a squared radius.
+/// Requires `x.value() > 0`.
+template < int K, typename T, IndexScheme Scheme >
+[[nodiscard]] constexpr TaylorExpansion< T, Scheme > invSqrtPow(
+    const TaylorExpansion< T, Scheme >& x ) noexcept
+{
+    static_assert( K >= 1, "invSqrtPow<K>: K must be >= 1 (computes x^(-K/2))" );
+    return halfPow< -K >( x );
+}
+
 /// Taylor-valued exponent `out = a^b = exp(b*log(a))`. Requires `a.value() > 0`.
 template < typename T, IndexScheme Scheme >
 [[nodiscard]] constexpr TaylorExpansion< T, Scheme > pow(

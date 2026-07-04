@@ -28,6 +28,22 @@ template < typename T, int N, typename... A >
     return NamedTaylorExpansion< T, N, A... >{ tax::pow( x.inner(), p ) };
 }
 
+/// `x^(K/2)` for a compile-time integer K (axis set preserved).
+template < int K, typename T, int N, typename... A >
+[[nodiscard]] constexpr NamedTaylorExpansion< T, N, A... > halfPow(
+    const NamedTaylorExpansion< T, N, A... >& x ) noexcept
+{
+    return NamedTaylorExpansion< T, N, A... >{ tax::halfPow< K >( x.inner() ) };
+}
+
+/// `x^(-K/2)` for a compile-time integer K >= 1 (axis set preserved).
+template < int K, typename T, int N, typename... A >
+[[nodiscard]] constexpr NamedTaylorExpansion< T, N, A... > invSqrtPow(
+    const NamedTaylorExpansion< T, N, A... >& x ) noexcept
+{
+    return NamedTaylorExpansion< T, N, A... >{ tax::invSqrtPow< K >( x.inner() ) };
+}
+
 /// `atan2(y, x)` over the union of the two operands' axis sets.
 template < typename T, int N, typename... A, typename... B >
 [[nodiscard]] constexpr auto atan2( const NamedTaylorExpansion< T, N, A... >& y,
@@ -48,6 +64,8 @@ template < typename T, int N, typename... A, typename... B >
 namespace tax
 {
 using named::atan2;
+using named::halfPow;
+using named::invSqrtPow;
 using named::pow;
 using std::atan2;
 using std::pow;

@@ -28,7 +28,9 @@ up to order \(N\) in a single evaluation pass.
   (sparse), `NE<N, Axes...>` (named), `MTE<Axes...>` (mixed-order named).
 - **Comprehensive math** — arithmetic, trigonometric, hyperbolic,
   transcendental, square/cubic root, reciprocal, integer & real powers,
-  `atan2`, `erf`.
+  half-integer powers (`halfPow<K>` for x^(K/2), `invSqrtPow<K>` for
+  x^(-K/2) — the 1/r^3 gravity kernel is `invSqrtPow<3>(r2)`), `atan2`,
+  `erf`.
 - **Fused kernels** — `sinCos`, `sinhCosh`, `sqrtInvSqrt`, `expSin`, `expCos`,
   `expSinCos` compute coupled pairs in a single recurrence pass:
   `expCos(v, u)` is ~2x faster than `exp(v) * cos(u)`, and the pair-returning
