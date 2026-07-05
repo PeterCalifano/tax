@@ -68,7 +68,8 @@ namespace tax::named
 // variables — Eigen-vector overload of the single-axis coordinate factory
 // -----------------------------------------------------------------------------
 
-/// Build the coordinate variables of a single named axis `Name` from an Eigen vector expansion point.
+/// Build the coordinate variables of a single named axis `Name` from an Eigen vector expansion
+/// point.
 template < FixedString Name, int N, typename Derived >
 [[nodiscard]] auto variables( const Eigen::MatrixBase< Derived >& x0 )
 {
@@ -95,21 +96,82 @@ template < FixedString Name, int N, typename Derived >
 namespace detail
 {
 
-/// Dimension of axis `Name` within an expansion type `E`, or -1.
+/// Dimension of axis `Name` within an expansion type `E`, or -1. Shared by the
+/// NamedTaylorExpansion helpers below and the MixedTaylorExpansion helpers in
+/// la/mixed_named.hpp.
 template < typename E, FixedString Name >
 inline constexpr int axisDim = DimOfName< typename E::axis_list, Name >::value;
 
-/// Variable offset of axis `Name` within an expansion type `E`, or -1.
-///
-/// The dimension passed to `Axis` is clamped to >= 1 so that, when the axis is
-/// absent (axisDim == -1), this does not instantiate `Axis< Name, -1 >` and trip
-/// its own "dimension must be at least 1" assert — the callers' friendly
-/// "axis name not present" static_assert should be the diagnostic the user sees.
-/// `OffsetOf` still returns -1 for an absent name.
+/// Variable offset of axis `Name` within an expansion type `E` (the global
+/// index of its first coordinate), or -1 when the name is absent — the
+/// callers' friendly "axis name not present" static_assert fires first, so
+/// this must not instantiate axisVar for an absent name.
 template < typename E, FixedString Name >
-inline constexpr int axisOffset =
-    OffsetOf< typename E::axis_list,
-              Axis< Name, ( axisDim< E, Name > >= 1 ? axisDim< E, Name > : 1 ) > >::value;
+inline constexpr int axisOffset = []() constexpr -> int {
+    if constexpr ( axisDim< E, Name > < 1 )
+        return -1;
+    else
+        return E::template axisVar< Name, 0 >();
+}();
+
+// Shared bodies for the per-axis differential helpers: k!-scaled derivatives
+// of the wrapped expansion along the `Dim` consecutive variables starting at
+// `Off`. Used by both the NamedTaylorExpansion overloads below and the
+// MixedTaylorExpansion overloads in la/mixed_named.hpp.
+
+template < int Dim, int Off, typename E >
+[[nodiscard]] auto axisGradient( const E& f ) noexcept
+{
+    using T = typename E::scalar_type;
+    Eigen::Matrix< T, Dim, 1 > g;
+    MultiIndex< E::vars_v > alpha{};
+    for ( int i = 0; i < Dim; ++i )
+    {
+        alpha[std::size_t( Off + i )] = 1;
+        g( i ) = f.inner().derivative( alpha );
+        alpha[std::size_t( Off + i )] = 0;
+    }
+    return g;
+}
+
+template < int Dim, int Off, typename E >
+[[nodiscard]] auto axisHessian( const E& f ) noexcept
+{
+    using T = typename E::scalar_type;
+    Eigen::Matrix< T, Dim, Dim > H;
+    for ( int i = 0; i < Dim; ++i )
+    {
+        for ( int j = 0; j < Dim; ++j )
+        {
+            MultiIndex< E::vars_v > alpha{};
+            alpha[std::size_t( Off + i )] += 1;
+            alpha[std::size_t( Off + j )] += 1;
+            H( i, j ) = f.inner().derivative( alpha );
+        }
+    }
+    return H;
+}
+
+template < int Dim, int Off, typename Derived >
+[[nodiscard]] auto axisJacobian( const Eigen::MatrixBase< Derived >& F )
+{
+    using E = typename Derived::Scalar;
+    using T = typename E::scalar_type;
+    constexpr int K = Derived::SizeAtCompileTime;
+
+    Eigen::Matrix< T, K, Dim > out( F.size(), Dim );
+    for ( Eigen::Index r = 0; r < F.size(); ++r )
+    {
+        MultiIndex< E::vars_v > alpha{};
+        for ( int j = 0; j < Dim; ++j )
+        {
+            alpha[std::size_t( Off + j )] = 1;
+            out( r, j ) = F.derived().coeff( r ).inner().derivative( alpha );
+            alpha[std::size_t( Off + j )] = 0;
+        }
+    }
+    return out;
+}
 
 }  // namespace detail
 
@@ -118,19 +180,9 @@ template < FixedString Name, typename T, int N, typename... Axes >
 [[nodiscard]] auto gradient( const NamedTaylorExpansion< T, N, Axes... >& f ) noexcept
 {
     using E = NamedTaylorExpansion< T, N, Axes... >;
-    constexpr int dim = detail::axisDim< E, Name >;
-    static_assert( dim >= 1, "gradient<Name>(): axis name not present in this expansion" );
-    constexpr int off = detail::axisOffset< E, Name >;
-
-    Eigen::Matrix< T, dim, 1 > g;
-    MultiIndex< E::vars_v > alpha{};
-    for ( int i = 0; i < dim; ++i )
-    {
-        alpha[std::size_t( off + i )] = 1;
-        g( i ) = f.inner().derivative( alpha );
-        alpha[std::size_t( off + i )] = 0;
-    }
-    return g;
+    static_assert( detail::axisDim< E, Name > >= 1,
+                   "gradient<Name>(): axis name not present in this expansion" );
+    return detail::axisGradient< detail::axisDim< E, Name >, detail::axisOffset< E, Name > >( f );
 }
 
 /// Hessian of a named scalar expansion restricted to one named axis.
@@ -138,22 +190,9 @@ template < FixedString Name, typename T, int N, typename... Axes >
 [[nodiscard]] auto hessian( const NamedTaylorExpansion< T, N, Axes... >& f ) noexcept
 {
     using E = NamedTaylorExpansion< T, N, Axes... >;
-    constexpr int dim = detail::axisDim< E, Name >;
-    static_assert( dim >= 1, "hessian<Name>(): axis name not present in this expansion" );
-    constexpr int off = detail::axisOffset< E, Name >;
-
-    Eigen::Matrix< T, dim, dim > H;
-    for ( int i = 0; i < dim; ++i )
-    {
-        for ( int j = 0; j < dim; ++j )
-        {
-            MultiIndex< E::vars_v > alpha{};
-            alpha[std::size_t( off + i )] += 1;
-            alpha[std::size_t( off + j )] += 1;
-            H( i, j ) = f.inner().derivative( alpha );
-        }
-    }
-    return H;
+    static_assert( detail::axisDim< E, Name > >= 1,
+                   "hessian<Name>(): axis name not present in this expansion" );
+    return detail::axisHessian< detail::axisDim< E, Name >, detail::axisOffset< E, Name > >( f );
 }
 
 /// Jacobian of a vector of named expansions w.r.t. one named axis.
@@ -161,24 +200,9 @@ template < FixedString Name, typename Derived >
 [[nodiscard]] auto jacobian( const Eigen::MatrixBase< Derived >& F )
 {
     using E = typename Derived::Scalar;
-    using T = typename E::scalar_type;
-    constexpr int dim = detail::axisDim< E, Name >;
-    static_assert( dim >= 1, "jacobian<Name>(): axis name not present in the expansion" );
-    constexpr int off = detail::axisOffset< E, Name >;
-    constexpr int K = Derived::SizeAtCompileTime;
-
-    Eigen::Matrix< T, K, dim > out( F.size(), dim );
-    for ( Eigen::Index r = 0; r < F.size(); ++r )
-    {
-        MultiIndex< E::vars_v > alpha{};
-        for ( int j = 0; j < dim; ++j )
-        {
-            alpha[std::size_t( off + j )] = 1;
-            out( r, j ) = F.derived().coeff( r ).inner().derivative( alpha );
-            alpha[std::size_t( off + j )] = 0;
-        }
-    }
-    return out;
+    static_assert( detail::axisDim< E, Name > >= 1,
+                   "jacobian<Name>(): axis name not present in the expansion" );
+    return detail::axisJacobian< detail::axisDim< E, Name >, detail::axisOffset< E, Name > >( F );
 }
 
 // -----------------------------------------------------------------------------

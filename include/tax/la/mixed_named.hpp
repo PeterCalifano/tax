@@ -22,6 +22,7 @@
 #include <tax/core/mixed_named.hpp>
 #include <tax/core/multi_index.hpp>
 #include <tax/core/named.hpp>
+#include <tax/la/named.hpp>
 
 // -----------------------------------------------------------------------------
 // NumTraits specialization — namespace Eigen
@@ -70,33 +71,13 @@ struct is_mixed< MixedTaylorExpansion< T, Axes... > > : std::true_type
 template < typename T >
 inline constexpr bool is_mixed_v = is_mixed< T >::value;
 
-// -----------------------------------------------------------------------------
-// Axis-offset helpers for MixedTaylorExpansion
-// -----------------------------------------------------------------------------
-
-/// Dimension of axis `Name` within a MixedTaylorExpansion type `E`, or -1.
-template < typename E, FixedString Name >
-inline constexpr int mixedAxisDim = DimOfName< typename E::axis_list, Name >::value;
-
-/// Variable offset of axis `Name` within a MixedTaylorExpansion type `E`, or -1.
-///
-/// The dimension is clamped to >= 1 to avoid instantiating an OrderedAxis with
-/// dimension -1 when the name is absent (the caller's static_assert fires first).
-template < typename E, FixedString Name >
-inline constexpr int mixedAxisOffset = []() constexpr -> int {
-    constexpr int dim = mixedAxisDim< E, Name >;
-    if constexpr ( dim < 1 )
-        return -1;
-    else
-        // The global variable index of the axis' first coordinate is exactly
-        // its block offset (MixedTaylorExpansion::axisVar<Name, 0>()).
-        return E::template axisVar< Name, 0 >();
-}();
-
 }  // namespace detail
 
 // -----------------------------------------------------------------------------
 // Per-axis differential helpers
+//
+// Thin wrappers over the shared bodies in la/named.hpp (detail::axisGradient /
+// axisHessian / axisJacobian); the axisDim / axisOffset lookups are shared too.
 // -----------------------------------------------------------------------------
 
 /// Gradient of a mixed named scalar expansion with respect to one named axis.
@@ -104,19 +85,9 @@ template < FixedString Name, typename T, typename... Axes >
 [[nodiscard]] auto gradient( const MixedTaylorExpansion< T, Axes... >& f ) noexcept
 {
     using E = MixedTaylorExpansion< T, Axes... >;
-    constexpr int dim = detail::mixedAxisDim< E, Name >;
-    static_assert( dim >= 1, "gradient<Name>(): axis name not present in this expansion" );
-    constexpr int off = detail::mixedAxisOffset< E, Name >;
-
-    Eigen::Matrix< T, dim, 1 > g;
-    MultiIndex< E::vars_v > alpha{};
-    for ( int i = 0; i < dim; ++i )
-    {
-        alpha[std::size_t( off + i )] = 1;
-        g( i ) = f.inner().derivative( alpha );
-        alpha[std::size_t( off + i )] = 0;
-    }
-    return g;
+    static_assert( detail::axisDim< E, Name > >= 1,
+                   "gradient<Name>(): axis name not present in this expansion" );
+    return detail::axisGradient< detail::axisDim< E, Name >, detail::axisOffset< E, Name > >( f );
 }
 
 /// Hessian of a mixed named scalar expansion restricted to one named axis.
@@ -124,22 +95,9 @@ template < FixedString Name, typename T, typename... Axes >
 [[nodiscard]] auto hessian( const MixedTaylorExpansion< T, Axes... >& f ) noexcept
 {
     using E = MixedTaylorExpansion< T, Axes... >;
-    constexpr int dim = detail::mixedAxisDim< E, Name >;
-    static_assert( dim >= 1, "hessian<Name>(): axis name not present in this expansion" );
-    constexpr int off = detail::mixedAxisOffset< E, Name >;
-
-    Eigen::Matrix< T, dim, dim > H;
-    for ( int i = 0; i < dim; ++i )
-    {
-        for ( int j = 0; j < dim; ++j )
-        {
-            MultiIndex< E::vars_v > alpha{};
-            alpha[std::size_t( off + i )] += 1;
-            alpha[std::size_t( off + j )] += 1;
-            H( i, j ) = f.inner().derivative( alpha );
-        }
-    }
-    return H;
+    static_assert( detail::axisDim< E, Name > >= 1,
+                   "hessian<Name>(): axis name not present in this expansion" );
+    return detail::axisHessian< detail::axisDim< E, Name >, detail::axisOffset< E, Name > >( f );
 }
 
 /// Jacobian of a vector of mixed named expansions w.r.t. one named axis.
@@ -148,24 +106,9 @@ template < FixedString Name, typename Derived >
 [[nodiscard]] auto jacobian( const Eigen::MatrixBase< Derived >& F )
 {
     using E = typename Derived::Scalar;
-    using T = typename E::scalar_type;
-    constexpr int dim = detail::mixedAxisDim< E, Name >;
-    static_assert( dim >= 1, "jacobian<Name>(): axis name not present in the expansion" );
-    constexpr int off = detail::mixedAxisOffset< E, Name >;
-    constexpr int K = Derived::SizeAtCompileTime;
-
-    Eigen::Matrix< T, K, dim > out( F.size(), dim );
-    for ( Eigen::Index r = 0; r < F.size(); ++r )
-    {
-        MultiIndex< E::vars_v > alpha{};
-        for ( int j = 0; j < dim; ++j )
-        {
-            alpha[std::size_t( off + j )] = 1;
-            out( r, j ) = F.derived().coeff( r ).inner().derivative( alpha );
-            alpha[std::size_t( off + j )] = 0;
-        }
-    }
-    return out;
+    static_assert( detail::axisDim< E, Name > >= 1,
+                   "jacobian<Name>(): axis name not present in the expansion" );
+    return detail::axisJacobian< detail::axisDim< E, Name >, detail::axisOffset< E, Name > >( F );
 }
 
 }  // namespace tax::named

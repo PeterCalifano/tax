@@ -104,6 +104,17 @@ struct Prepend< Head, TypeList< Ts... > >
 
 // --- Merge two name-sorted axis lists into one sorted, unique list ----------
 
+/// Same-name combination policy: how two axes with equal names merge into the
+/// union list. The primary template covers plain `Axis` (must be identical);
+/// `OrderedAxis` (core/mixed_named.hpp) specialises it to take max(order).
+template < typename A, typename B >
+struct CombineAxes
+{
+    static_assert( A::dim == B::dim,
+                   "named axis used with inconsistent dimension across operands" );
+    using type = A;
+};
+
 template < int Cmp, typename A, typename B >
 struct MergeChoose;
 
@@ -146,14 +157,13 @@ struct MergeChoose< 1, TypeList< A0, As... >, TypeList< B0, Bs... > >
                           typename Merge< TypeList< A0, As... >, TypeList< Bs... > >::type >::type;
 };
 
-// A0 == B0 (same name) : require identical dimension, take one, advance both
+// A0 == B0 (same name) : combine per the axis kind's policy, advance both
 template < typename A0, typename... As, typename B0, typename... Bs >
 struct MergeChoose< 0, TypeList< A0, As... >, TypeList< B0, Bs... > >
 {
-    static_assert( A0::dim == B0::dim,
-                   "named axis used with inconsistent dimension across operands" );
     using type =
-        typename Prepend< A0, typename Merge< TypeList< As... >, TypeList< Bs... > >::type >::type;
+        typename Prepend< typename CombineAxes< A0, B0 >::type,
+                          typename Merge< TypeList< As... >, TypeList< Bs... > >::type >::type;
 };
 
 /// Left-fold `Merge` over a pack of (singleton) axis lists.
@@ -265,6 +275,51 @@ template < typename Src, typename Tgt, bool allowDrop >
     return buildAxisMapImpl< Tgt, allowDrop >( Src{} );
 }
 
+/// Reindex the coefficients of a named-family expansion `src` into the target
+/// expansion type `R` along the source->target variable map. One body serves
+/// embed (AllowDrop = false: the map is total and injective), slice
+/// (AllowDrop = true: monomials with nonzero degree in a dropped variable are
+/// discarded) and per-axis order truncation (identity map, smaller target
+/// box). Writes go through the target scheme's flatOf, so monomials outside
+/// the target's kept set are dropped rather than written out of bounds.
+template < typename R, bool AllowDrop, typename SrcExp >
+[[nodiscard]] constexpr R reindexAxes( const SrcExp& src ) noexcept
+{
+    using T = typename SrcExp::scalar_type;
+    using SrcInner = typename SrcExp::Inner;
+    constexpr auto map =
+        buildAxisMap< typename SrcExp::axis_list, typename R::axis_list, AllowDrop >();
+
+    typename R::Inner::Data out{};
+    for ( std::size_t k = 0; k < SrcInner::nCoefficients; ++k )
+    {
+        const T c = src.inner()[k];
+        if ( c == T{} ) continue;
+        const auto a_src = SrcInner::scheme::multiOf( k );
+        MultiIndex< R::vars_v > a_dst{};
+        bool keep = true;
+        for ( int j = 0; j < SrcExp::vars_v; ++j )
+        {
+            const int to = map[std::size_t( j )];
+            if ( to < 0 )
+            {
+                if ( a_src[std::size_t( j )] != 0 )
+                {
+                    keep = false;
+                    break;
+                }
+            } else
+            {
+                a_dst[std::size_t( to )] = a_src[std::size_t( j )];
+            }
+        }
+        if ( !keep ) continue;
+        const std::size_t dst = R::Inner::scheme::flatOf( a_dst );
+        if ( dst != R::Inner::scheme::kNotInBox ) out[dst] += c;
+    }
+    return R{ typename R::Inner{ out } };
+}
+
 }  // namespace detail
 
 // Forward declaration so `detail::Rebind` can name the named type.
@@ -374,20 +429,7 @@ class NamedTaylorExpansion
     template < typename R >
     [[nodiscard]] constexpr R embed() const noexcept
     {
-        constexpr auto map =
-            detail::buildAxisMap< axis_list, typename R::axis_list, /*allowDrop=*/false >();
-        typename R::Inner out{};
-        for ( std::size_t k = 0; k < Inner::nCoefficients; ++k )
-        {
-            const T c = inner_[k];
-            if ( c == T{} ) continue;
-            const auto a_src = unflatIndex< vars_v >( k );
-            MultiIndex< R::vars_v > a_dst{};
-            for ( int j = 0; j < vars_v; ++j )
-                a_dst[std::size_t( map[std::size_t( j )] )] = a_src[std::size_t( j )];
-            out[flatIndex< R::vars_v >( a_dst )] = c;
-        }
-        return R{ out };
+        return detail::reindexAxes< R, /*AllowDrop=*/false >( *this );
     }
 
     /// Project onto the subset of axes named by `Names...`.
@@ -405,34 +447,7 @@ class NamedTaylorExpansion
             detail::TypeList< Axis< Names, detail::DimOfName< axis_list, Names >::value > >... >::
             type;
         using R = typename detail::Rebind< T, N, Tgt >::type;
-
-        constexpr auto map = detail::buildAxisMap< axis_list, Tgt, /*allowDrop=*/true >();
-        typename R::Inner out{};
-        for ( std::size_t k = 0; k < Inner::nCoefficients; ++k )
-        {
-            const T c = inner_[k];
-            if ( c == T{} ) continue;
-            const auto a_src = unflatIndex< vars_v >( k );
-            MultiIndex< R::vars_v > a_dst{};
-            bool keep = true;
-            for ( int j = 0; j < vars_v; ++j )
-            {
-                const int to = map[std::size_t( j )];
-                if ( to < 0 )
-                {
-                    if ( a_src[std::size_t( j )] != 0 )
-                    {
-                        keep = false;
-                        break;
-                    }
-                } else
-                {
-                    a_dst[std::size_t( to )] = a_src[std::size_t( j )];
-                }
-            }
-            if ( keep ) out[flatIndex< R::vars_v >( a_dst )] += c;
-        }
-        return R{ out };
+        return detail::reindexAxes< R, /*AllowDrop=*/true >( *this );
     }
 
     // ------------------------------------------------------------------
