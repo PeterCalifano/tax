@@ -26,9 +26,18 @@ The headline ideas:
    buffer, with no temporary `TaylorExpansion` objects between the user
    expression and the final answer.
 
-4. **Kernels are recurrences.** Every transcendental and algebraic function is
-   computed by a degree-by-degree recurrence relation derived from the
-   classical chain or product rules. Univariate and multivariate share the
-   same algorithm via `forEachSubIndex<M>(alpha, lo, hi, callback)`; the
-   univariate path is special-cased through `if constexpr (M == 1)` for tight
-   scalar loops.
+4. **Kernels are recurrences — mostly two of them.** Every transcendental and
+   algebraic function is computed by a degree-by-degree recurrence relation
+   derived from the classical chain or product rules; nearly all of them are
+   instances of the two shared drivers `seriesDerivProduct` /
+   `seriesDerivQuotient` in `tax/kernels/algebra.hpp`. Pair shapes that share
+   their recurrence work (`sinCos`, `sinhCosh`, `sqrtInvSqrt`, `expSinCos`)
+   are fused into single coupled passes. The univariate path is special-cased
+   for tight scalar loops; multivariate recurrences walk one shared
+   decomposition table.
+
+5. **Everything is `constexpr`.** The dense surface — transcendentals
+   included — runs in constant evaluation: constant-term seeds route through
+   `tax::detail::cmath` instead of libm, accurate to a few ulp of `double`
+   (not bit-identical; see the
+   [accuracy contract](kernels.md#constexpr-constant-term-seeding)).

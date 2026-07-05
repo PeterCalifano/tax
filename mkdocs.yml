@@ -110,6 +110,7 @@ nav:
   - Guide:
       - guide/index.md
       - Variables & Expressions: guide/expressions.md
+      - Fused Operations: guide/fused.md
       - Extracting Results: guide/results.md
       - Dense vs Sparse Storage: guide/storage.md
       - Named Expansions: guide/named.md
