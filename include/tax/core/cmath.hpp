@@ -7,9 +7,10 @@
 // Every series kernel evaluates exactly one transcendental at the constant
 // term (out[0] = exp(a[0]), ...). <cmath> is not constexpr in C++23, so this
 // header supplies the constant-evaluation path: each ct* dispatcher is an
-// ordinary runtime forwarder to std:: / ADL (float, double and Batch
-// coefficients behave exactly as before), but inside `if consteval` it
-// switches to a constexpr implementation computed in `long double`.
+// ordinary runtime forwarder to std:: / ADL (float, double and custom
+// scalar-like coefficient types behave exactly as before), but inside
+// `if consteval` it switches to a constexpr implementation computed in
+// `long double`.
 //
 // Accuracy: the wide intermediate precision absorbs the truncation error of
 // the internal series, so compile-time results agree with the runtime libm
@@ -375,9 +376,10 @@ struct SinCos
 }  // namespace impl
 
 // ---------------------------------------------------------------------------
-// Dispatchers: runtime -> std:: / ADL (Batch), constant evaluation -> impl.
-// The `if consteval` path exists only for floating-point coefficient types;
-// non-arithmetic coefficients (e.g. Batch) always take the runtime call.
+// Dispatchers: runtime -> std:: / ADL, constant evaluation -> impl. The
+// `if consteval` path exists only for floating-point coefficient types;
+// non-arithmetic scalar-like coefficient types (found via ADL) always take
+// the runtime call.
 // ---------------------------------------------------------------------------
 
 #define TAX_CT_UNARY( CT_NAME, STD_NAME )                                   \
