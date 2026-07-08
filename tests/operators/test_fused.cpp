@@ -174,31 +174,3 @@ TEST( MixedBinaryMath, PowAndAtan2 )
     for ( std::size_t k = 0; k < decltype( a )::nCoefficients; ++k )
         EXPECT_NEAR( a.inner()[k], ac.inner()[k], 1e-12 );
 }
-
-// ---------------------------------------------------------------------------
-// Fused kernels in constant evaluation
-// ---------------------------------------------------------------------------
-
-namespace
-{
-
-constexpr bool ceCoeffsNear( const tax::TE< 8 >& a, const tax::TE< 8 >& b, double tol )
-{
-    for ( std::size_t k = 0; k < tax::TE< 8 >::nCoefficients; ++k )
-    {
-        const double m = a[k] < 0 ? -a[k] : a[k];
-        const double d = a[k] > b[k] ? a[k] - b[k] : b[k] - a[k];
-        if ( d > tol * ( 1.0 + m ) ) return false;
-    }
-    return true;
-}
-
-constexpr auto kCx = tax::TE< 8 >::variable( 0.5 );
-static_assert( ceCoeffsNear( tax::expSin( kCx, kCx ), tax::exp( kCx ) * tax::sin( kCx ), 1e-12 ) );
-static_assert( ceCoeffsNear( tax::expCos( kCx, kCx ), tax::exp( kCx ) * tax::cos( kCx ), 1e-12 ) );
-static_assert( ceCoeffsNear( tax::sqrtInvSqrt( kCx + 1.0 ).first, tax::sqrt( kCx + 1.0 ),
-                             1e-14 ) );
-static_assert( ceCoeffsNear( tax::sqrtInvSqrt( kCx + 1.0 ).second,
-                             tax::reciprocal( tax::sqrt( kCx + 1.0 ) ), 1e-13 ) );
-
-}  // namespace

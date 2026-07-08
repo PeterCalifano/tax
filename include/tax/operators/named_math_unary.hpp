@@ -14,7 +14,7 @@ namespace tax::named
 
 #define TAX_NAMED_UNARY_FN( FN )                                           \
     template < typename T, int N, typename... A >                          \
-    [[nodiscard]] constexpr NamedTaylorExpansion< T, N, A... > FN(         \
+    [[nodiscard]] NamedTaylorExpansion< T, N, A... > FN(                   \
         const NamedTaylorExpansion< T, N, A... >& a ) noexcept             \
     {                                                                      \
         return NamedTaylorExpansion< T, N, A... >{ tax::FN( a.inner() ) }; \

@@ -3,7 +3,6 @@
 #include <array>
 #include <cmath>
 #include <span>
-#include <tax/core/cmath.hpp>
 #include <tax/core/scheme/isotropic.hpp>
 #include <tax/kernels/cauchy.hpp>
 #include <tax/kernels/recurrence_stencil.hpp>
@@ -185,11 +184,12 @@ constexpr void seriesDivide( std::array< T, Scheme::nCoeff >& out,
 
 /// Square-root series `out * out = a` (principal branch, scheme-generic). Requires `a[0] > 0`.
 template < typename T, tax::IndexScheme Scheme >
-constexpr void seriesSqrt( std::array< T, Scheme::nCoeff >& out,
-                           const std::array< T, Scheme::nCoeff >& a ) noexcept
+void seriesSqrt( std::array< T, Scheme::nCoeff >& out,
+                 const std::array< T, Scheme::nCoeff >& a ) noexcept
 {
+    using std::sqrt;
     out = {};
-    out[0] = cmath::ctSqrt( a[0] );
+    out[0] = sqrt( a[0] );
     const T inv2g0 = T{ 1 } / ( T{ 2 } * out[0] );
 
     if constexpr ( Scheme::isUnivariate )
@@ -217,13 +217,14 @@ constexpr void seriesSqrt( std::array< T, Scheme::nCoeff >& out,
 
 /// Cubic-root series `out^3 = a` (real branch, scheme-generic). Requires `a[0] != 0`.
 template < typename T, tax::IndexScheme Scheme >
-constexpr void seriesCbrt( std::array< T, Scheme::nCoeff >& out,
-                           const std::array< T, Scheme::nCoeff >& a ) noexcept
+void seriesCbrt( std::array< T, Scheme::nCoeff >& out,
+                 const std::array< T, Scheme::nCoeff >& a ) noexcept
 {
+    using std::cbrt;
     constexpr std::size_t S = Scheme::nCoeff;
 
     out = {};
-    out[0] = cmath::ctCbrt( a[0] );
+    out[0] = cbrt( a[0] );
     const T inv3g0sq = T{ 1 } / ( T{ 3 } * out[0] * out[0] );
 
     if constexpr ( Scheme::isUnivariate )
@@ -267,13 +268,14 @@ constexpr void seriesCbrt( std::array< T, Scheme::nCoeff >& out,
     }
 }
 
-/// Real-exponent power series `out = a^c` (scheme-generic). Requires `a[0] != 0`.
+/// Real-exponent power series `out = a^c` (scheme-generic). Requires `a[0] != 0`; not constexpr.
 template < typename T, tax::IndexScheme Scheme >
-constexpr void seriesPow( std::array< T, Scheme::nCoeff >& out,
-                          const std::array< T, Scheme::nCoeff >& a, T c ) noexcept
+void seriesPow( std::array< T, Scheme::nCoeff >& out, const std::array< T, Scheme::nCoeff >& a,
+                T c ) noexcept
 {
+    using std::pow;
     out = {};
-    out[0] = cmath::ctPow( a[0], c );
+    out[0] = pow( a[0], c );
     const T inv_a0 = T{ 1 } / a[0];
 
     if constexpr ( Scheme::isUnivariate )
@@ -324,9 +326,12 @@ constexpr void seriesPowInt( std::array< T, Scheme::nCoeff >& out,
     }
     if ( n < 0 )
     {
+        // a^n = (1/a)^|n|: reciprocate, then raise to the POSITIVE exponent.
+        // (Passing n here instead of -n recurses forever — negative-n stack
+        // overflow, fixed.)
         std::array< T, S > rec{};
         seriesReciprocal< T, Scheme >( rec, a );
-        seriesPowInt< T, Scheme >( out, rec, n );
+        seriesPowInt< T, Scheme >( out, rec, -n );
         return;
     }
     // n >= 2: binary exponentiation (square-and-multiply). Squarings go

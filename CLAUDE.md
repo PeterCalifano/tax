@@ -22,8 +22,6 @@ tax/
 │   ├── la.hpp                # Facade: linear-algebra / Eigen helpers (tax::la)
 │   ├── core/                 # The TaylorExpansion type and its foundations
 │   │   ├── concepts.hpp      #   Scalar, TaylorPolynomial, DensePolynomial concepts
-│   │   ├── cmath.hpp         #   constexpr scalar math (tax::detail::cmath) — constant-term
-│   │   │                     #   seeds in constant evaluation; runtime forwards to std/ADL
 │   │   ├── multi_index.hpp   #   MultiIndex<M>, flatIndex/unflatIndex, numMonomials
 │   │   ├── enumeration.hpp   #   forEachMonomial / forEachSubIndex
 │   │   ├── scheme.hpp        #   index-scheme facade; scheme/{concept,isotropic,mixed}.hpp
@@ -186,11 +184,12 @@ auto   F   = f.integ<0>();        // symbolic integral
 `coeff` / `derivative` / `deriv` / `integ` all exist in compile-time
 (`<...>`), `MultiIndex<M>`, and runtime-`int` forms.
 
-The entire dense surface — including every transcendental function — is
-`constexpr`: whole expansion pipelines can run in constant evaluation
-(`constexpr auto f = tax::exp(tax::sin(tax::TE<8>::variable(0.5)));`). See
-`tests/core/test_constexpr.cpp` and the accuracy contract in
-`include/tax/core/cmath.hpp`.
+The pure-polynomial surface is `constexpr` and runs in constant evaluation:
+arithmetic, `square`/`cube`/`reciprocal`, integer `pow`, division, and the
+`deriv`/`integ`/`eval`/`truncate` accessors (see
+`tests/core/test_constexpr.cpp`). The transcendental functions seed their
+recurrence with a libm call (`std::exp`, `std::sin`, ...), so they are
+runtime-only.
 
 ### Coefficient Storage
 
@@ -213,13 +212,11 @@ recurrence shapes once (univariate + multivariate walks):
 asinh/acosh/atanh) and `seriesDerivProduct` solves `out' = src'·h` (exp, erf).
 Most kernels reduce to "compute h, seed the constant term, call the driver".
 
-**Everything is constexpr.** The transcendental kernels seed their constant
-term through `tax::detail::cmath` (`core/cmath.hpp`): at runtime this forwards
-to `std::`/ADL exactly as before; in constant
-evaluation it switches to constexpr implementations computed in `long double`
-(accurate to ~1 ulp of double, but NOT bit-identical to libm). When adding a
-kernel, keep it constexpr: use `cmath::ctExp`-style seeds, never bare
-`std::exp`.
+The pure-polynomial kernels (`seriesSquare`/`seriesCube`/`seriesReciprocal`/
+`seriesDivide`/`seriesPowInt` and the two drivers) are `constexpr`. The
+transcendental kernels evaluate one libm seed on the constant term
+(`out[0] = std::exp(a[0])`, etc.) and are therefore runtime-only; when adding
+one, follow the existing pattern (`using std::exp; out[0] = exp(a[0]);`).
 
 Pair-fused kernels live in `fused.hpp` (`seriesExpSinCos`, `seriesSqrtInvSqrt`)
 and are exposed via `operators/math_fused.hpp` (`expSin`, `expCos`,

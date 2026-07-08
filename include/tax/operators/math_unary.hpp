@@ -12,18 +12,16 @@ namespace tax
 // ===========================================================================
 // Dense unary math wrappers
 //
-// Generated from one macro. Every function is constexpr: the pure-polynomial
-// recurrences always were, and the transcendental kernels seed the constant
-// term through tax::detail::cmath, which switches to a constexpr
-// implementation in constant evaluation (see <tax/core/cmath.hpp> for the
-// accuracy contract).
+// Generated from two macros: TAX_UNARY_OP_CE is constexpr (pure recurrence);
+// TAX_UNARY_OP is runtime-only (the kernel evaluates std::exp/sin/... at the
+// constant term).
 //
 // Domain preconditions on x.value() (violations yield inf/nan; no throw):
 //   sqrt: x0 > 0   reciprocal/cbrt: x0 != 0   log: x0 > 0
 //   acosh: x0 > 1   atanh/asin/acos: |x0| < 1
 // ===========================================================================
 
-#define TAX_UNARY_OP( NAME, KERNEL )                                                \
+#define TAX_UNARY_OP_CE( NAME, KERNEL )                                             \
     template < typename T, IndexScheme Scheme >                                     \
     [[nodiscard]] constexpr TaylorExpansion< T, Scheme > NAME(                      \
         const TaylorExpansion< T, Scheme >& x ) noexcept                            \
@@ -33,10 +31,20 @@ namespace tax
         return r;                                                                   \
     }
 
-// Pure-polynomial recurrences.
-TAX_UNARY_OP( square, seriesSquare )
-TAX_UNARY_OP( cube, seriesCube )
-TAX_UNARY_OP( reciprocal, seriesReciprocal )
+#define TAX_UNARY_OP( NAME, KERNEL )                                                \
+    template < typename T, IndexScheme Scheme >                                     \
+    [[nodiscard]] TaylorExpansion< T, Scheme > NAME(                                \
+        const TaylorExpansion< T, Scheme >& x ) noexcept                            \
+    {                                                                               \
+        TaylorExpansion< T, Scheme > r;                                             \
+        detail::kernels::KERNEL< T, Scheme >( r.coefficients(), x.coefficients() ); \
+        return r;                                                                   \
+    }
+
+// Pure-polynomial recurrences (constexpr).
+TAX_UNARY_OP_CE( square, seriesSquare )
+TAX_UNARY_OP_CE( cube, seriesCube )
+TAX_UNARY_OP_CE( reciprocal, seriesReciprocal )
 
 // Roots.
 TAX_UNARY_OP( sqrt, seriesSqrt )
@@ -66,6 +74,7 @@ TAX_UNARY_OP( acos, seriesAcos )
 TAX_UNARY_OP( atan, seriesAtan )
 
 #undef TAX_UNARY_OP
+#undef TAX_UNARY_OP_CE
 
 // ===========================================================================
 // Sparse overloads: sqrt, reciprocal

@@ -28,15 +28,15 @@ template < typename T, typename... A >
 
 /// `x^p` for a real exponent (axis set preserved; requires x.value() != 0).
 template < typename T, typename... A >
-[[nodiscard]] constexpr MixedTaylorExpansion< T, A... > pow(
-    const MixedTaylorExpansion< T, A... >& x, std::type_identity_t< T > p ) noexcept
+[[nodiscard]] MixedTaylorExpansion< T, A... > pow( const MixedTaylorExpansion< T, A... >& x,
+                                                   std::type_identity_t< T > p ) noexcept
 {
     return MixedTaylorExpansion< T, A... >{ tax::pow( x.inner(), p ) };
 }
 
 /// `x^(K/2)` for a compile-time integer K (axis set preserved).
 template < int K, typename T, typename... A >
-[[nodiscard]] constexpr MixedTaylorExpansion< T, A... > halfPow(
+[[nodiscard]] MixedTaylorExpansion< T, A... > halfPow(
     const MixedTaylorExpansion< T, A... >& x ) noexcept
 {
     return MixedTaylorExpansion< T, A... >{ tax::halfPow< K >( x.inner() ) };
@@ -44,7 +44,7 @@ template < int K, typename T, typename... A >
 
 /// `x^(-K/2)` for a compile-time integer K >= 1 (axis set preserved).
 template < int K, typename T, typename... A >
-[[nodiscard]] constexpr MixedTaylorExpansion< T, A... > invSqrtPow(
+[[nodiscard]] MixedTaylorExpansion< T, A... > invSqrtPow(
     const MixedTaylorExpansion< T, A... >& x ) noexcept
 {
     return MixedTaylorExpansion< T, A... >{ tax::invSqrtPow< K >( x.inner() ) };
@@ -52,8 +52,8 @@ template < int K, typename T, typename... A >
 
 /// `atan2(y, x)` over the union of the two operands' (ordered) axis sets.
 template < typename T, typename... A, typename... B >
-[[nodiscard]] constexpr auto atan2( const MixedTaylorExpansion< T, A... >& y,
-                                    const MixedTaylorExpansion< T, B... >& x ) noexcept
+[[nodiscard]] auto atan2( const MixedTaylorExpansion< T, A... >& y,
+                          const MixedTaylorExpansion< T, B... >& x ) noexcept
 {
     using R =
         detail::MergedMixedTaylorExpansion< T, detail::TypeList< A... >, detail::TypeList< B... > >;

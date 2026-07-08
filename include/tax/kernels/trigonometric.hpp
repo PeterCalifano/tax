@@ -2,7 +2,6 @@
 
 #include <cmath>
 #include <span>
-#include <tax/core/cmath.hpp>
 #include <tax/core/scheme/isotropic.hpp>
 #include <tax/kernels/algebra.hpp>
 
@@ -11,13 +10,15 @@ namespace tax::detail::kernels
 
 /// Coupled trigonometric series: jointly compute `sin(a)` and `cos(a)` (scheme-generic).
 template < typename T, tax::IndexScheme Scheme >
-constexpr void seriesSinCos( std::array< T, Scheme::nCoeff >& s, std::array< T, Scheme::nCoeff >& c,
-                             const std::array< T, Scheme::nCoeff >& a ) noexcept
+void seriesSinCos( std::array< T, Scheme::nCoeff >& s, std::array< T, Scheme::nCoeff >& c,
+                   const std::array< T, Scheme::nCoeff >& a ) noexcept
 {
+    using std::cos;
+    using std::sin;
     s = {};
     c = {};
-    s[0] = cmath::ctSin( a[0] );
-    c[0] = cmath::ctCos( a[0] );
+    s[0] = sin( a[0] );
+    c[0] = cos( a[0] );
 
     if constexpr ( Scheme::isUnivariate )
     {
@@ -55,8 +56,8 @@ constexpr void seriesSinCos( std::array< T, Scheme::nCoeff >& s, std::array< T, 
 
 /// Sine series `out = sin(a)` (scheme-generic).
 template < typename T, tax::IndexScheme Scheme >
-constexpr void seriesSin( std::array< T, Scheme::nCoeff >& out,
-                          const std::array< T, Scheme::nCoeff >& a ) noexcept
+void seriesSin( std::array< T, Scheme::nCoeff >& out,
+                const std::array< T, Scheme::nCoeff >& a ) noexcept
 {
     std::array< T, Scheme::nCoeff > c{};
     seriesSinCos< T, Scheme >( out, c, a );
@@ -64,8 +65,8 @@ constexpr void seriesSin( std::array< T, Scheme::nCoeff >& out,
 
 /// Cosine series `out = cos(a)` (scheme-generic).
 template < typename T, tax::IndexScheme Scheme >
-constexpr void seriesCos( std::array< T, Scheme::nCoeff >& out,
-                          const std::array< T, Scheme::nCoeff >& a ) noexcept
+void seriesCos( std::array< T, Scheme::nCoeff >& out,
+                const std::array< T, Scheme::nCoeff >& a ) noexcept
 {
     std::array< T, Scheme::nCoeff > s{};
     seriesSinCos< T, Scheme >( s, out, a );
@@ -73,8 +74,8 @@ constexpr void seriesCos( std::array< T, Scheme::nCoeff >& out,
 
 /// Tangent series `out = tan(a)` (scheme-generic): sin/cos in one substitution pass.
 template < typename T, tax::IndexScheme Scheme >
-constexpr void seriesTan( std::array< T, Scheme::nCoeff >& out,
-                          const std::array< T, Scheme::nCoeff >& a ) noexcept
+void seriesTan( std::array< T, Scheme::nCoeff >& out,
+                const std::array< T, Scheme::nCoeff >& a ) noexcept
 {
     constexpr std::size_t S = Scheme::nCoeff;
     std::array< T, S > s{}, c{};
@@ -84,9 +85,10 @@ constexpr void seriesTan( std::array< T, Scheme::nCoeff >& out,
 
 /// Inverse sine series `out = asin(a)` (scheme-generic): out' = a' / sqrt(1 - a^2).
 template < typename T, tax::IndexScheme Scheme >
-constexpr void seriesAsin( std::array< T, Scheme::nCoeff >& out,
-                           const std::array< T, Scheme::nCoeff >& a ) noexcept
+void seriesAsin( std::array< T, Scheme::nCoeff >& out,
+                 const std::array< T, Scheme::nCoeff >& a ) noexcept
 {
+    using std::asin;
     constexpr std::size_t S = Scheme::nCoeff;
 
     // h = sqrt(1 - a^2)
@@ -96,14 +98,15 @@ constexpr void seriesAsin( std::array< T, Scheme::nCoeff >& out,
     asq[0] += T{ 1 };
     seriesSqrt< T, Scheme >( h, asq );
 
-    seriesDerivQuotient< 1, T, Scheme >( out, cmath::ctAsin( a[0] ), a, h );
+    seriesDerivQuotient< 1, T, Scheme >( out, asin( a[0] ), a, h );
 }
 
 /// Inverse cosine series `out = acos(a)` (scheme-generic): out' = -a' / sqrt(1 - a^2).
 template < typename T, tax::IndexScheme Scheme >
-constexpr void seriesAcos( std::array< T, Scheme::nCoeff >& out,
-                           const std::array< T, Scheme::nCoeff >& a ) noexcept
+void seriesAcos( std::array< T, Scheme::nCoeff >& out,
+                 const std::array< T, Scheme::nCoeff >& a ) noexcept
 {
+    using std::acos;
     constexpr std::size_t S = Scheme::nCoeff;
 
     // h = sqrt(1 - a^2)
@@ -113,28 +116,29 @@ constexpr void seriesAcos( std::array< T, Scheme::nCoeff >& out,
     asq[0] += T{ 1 };
     seriesSqrt< T, Scheme >( h, asq );
 
-    seriesDerivQuotient< -1, T, Scheme >( out, cmath::ctAcos( a[0] ), a, h );
+    seriesDerivQuotient< -1, T, Scheme >( out, acos( a[0] ), a, h );
 }
 
 /// Inverse tangent series `out = atan(a)` (scheme-generic): out' = a' / (1 + a^2).
 template < typename T, tax::IndexScheme Scheme >
-constexpr void seriesAtan( std::array< T, Scheme::nCoeff >& out,
-                           const std::array< T, Scheme::nCoeff >& a ) noexcept
+void seriesAtan( std::array< T, Scheme::nCoeff >& out,
+                 const std::array< T, Scheme::nCoeff >& a ) noexcept
 {
+    using std::atan;
     // h = 1 + a^2
     std::array< T, Scheme::nCoeff > h{};
     tax::cauchySelfProduct< T, Scheme >( h, a );
     h[0] += T{ 1 };
 
-    seriesDerivQuotient< 1, T, Scheme >( out, cmath::ctAtan( a[0] ), a, h );
+    seriesDerivQuotient< 1, T, Scheme >( out, atan( a[0] ), a, h );
 }
 
 /// Two-argument arctangent series `out = atan2(y, x)` (scheme-generic).
 template < typename T, tax::IndexScheme Scheme >
-constexpr void seriesAtan2( std::array< T, Scheme::nCoeff >& out,
-                            const std::array< T, Scheme::nCoeff >& y,
-                            const std::array< T, Scheme::nCoeff >& x ) noexcept
+void seriesAtan2( std::array< T, Scheme::nCoeff >& out, const std::array< T, Scheme::nCoeff >& y,
+                  const std::array< T, Scheme::nCoeff >& x ) noexcept
 {
+    using std::atan2;
     constexpr std::size_t S = Scheme::nCoeff;
 
     // r = y / x in a single forward-substitution pass, then out' = r' / (1 + r^2).
@@ -143,7 +147,7 @@ constexpr void seriesAtan2( std::array< T, Scheme::nCoeff >& out,
     tax::cauchySelfProduct< T, Scheme >( h, r );
     h[0] += T{ 1 };
 
-    seriesDerivQuotient< 1, T, Scheme >( out, cmath::ctAtan2( y[0], x[0] ), r, h );
+    seriesDerivQuotient< 1, T, Scheme >( out, atan2( y[0], x[0] ), r, h );
 }
 
 }  // namespace tax::detail::kernels

@@ -22,15 +22,15 @@ template < typename T, int N, typename... A >
 
 /// `x^p` for a real exponent (axis set preserved; requires x.value() != 0).
 template < typename T, int N, typename... A >
-[[nodiscard]] constexpr NamedTaylorExpansion< T, N, A... > pow(
-    const NamedTaylorExpansion< T, N, A... >& x, std::type_identity_t< T > p ) noexcept
+[[nodiscard]] NamedTaylorExpansion< T, N, A... > pow( const NamedTaylorExpansion< T, N, A... >& x,
+                                                      std::type_identity_t< T > p ) noexcept
 {
     return NamedTaylorExpansion< T, N, A... >{ tax::pow( x.inner(), p ) };
 }
 
 /// `x^(K/2)` for a compile-time integer K (axis set preserved).
 template < int K, typename T, int N, typename... A >
-[[nodiscard]] constexpr NamedTaylorExpansion< T, N, A... > halfPow(
+[[nodiscard]] NamedTaylorExpansion< T, N, A... > halfPow(
     const NamedTaylorExpansion< T, N, A... >& x ) noexcept
 {
     return NamedTaylorExpansion< T, N, A... >{ tax::halfPow< K >( x.inner() ) };
@@ -38,7 +38,7 @@ template < int K, typename T, int N, typename... A >
 
 /// `x^(-K/2)` for a compile-time integer K >= 1 (axis set preserved).
 template < int K, typename T, int N, typename... A >
-[[nodiscard]] constexpr NamedTaylorExpansion< T, N, A... > invSqrtPow(
+[[nodiscard]] NamedTaylorExpansion< T, N, A... > invSqrtPow(
     const NamedTaylorExpansion< T, N, A... >& x ) noexcept
 {
     return NamedTaylorExpansion< T, N, A... >{ tax::invSqrtPow< K >( x.inner() ) };
@@ -46,8 +46,8 @@ template < int K, typename T, int N, typename... A >
 
 /// `atan2(y, x)` over the union of the two operands' axis sets.
 template < typename T, int N, typename... A, typename... B >
-[[nodiscard]] constexpr auto atan2( const NamedTaylorExpansion< T, N, A... >& y,
-                                    const NamedTaylorExpansion< T, N, B... >& x ) noexcept
+[[nodiscard]] auto atan2( const NamedTaylorExpansion< T, N, A... >& y,
+                          const NamedTaylorExpansion< T, N, B... >& x ) noexcept
 {
     using R = detail::MergedNamedTaylorExpansion< T, N, detail::TypeList< A... >,
                                                   detail::TypeList< B... > >;

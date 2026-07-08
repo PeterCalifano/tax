@@ -23,7 +23,6 @@
 #include <array>
 #include <cmath>
 #include <span>
-#include <tax/core/cmath.hpp>
 #include <tax/core/scheme/isotropic.hpp>
 #include <tax/kernels/algebra.hpp>
 
@@ -33,16 +32,18 @@ namespace tax::detail::kernels
 /// Coupled exp-trig series: jointly compute `q = exp(v)*sin(u)` and
 /// `h = exp(v)*cos(u)` in a single recurrence pass (scheme-generic).
 template < typename T, tax::IndexScheme Scheme >
-constexpr void seriesExpSinCos( std::array< T, Scheme::nCoeff >& q,
-                                std::array< T, Scheme::nCoeff >& h,
-                                const std::array< T, Scheme::nCoeff >& v,
-                                const std::array< T, Scheme::nCoeff >& u ) noexcept
+void seriesExpSinCos( std::array< T, Scheme::nCoeff >& q, std::array< T, Scheme::nCoeff >& h,
+                      const std::array< T, Scheme::nCoeff >& v,
+                      const std::array< T, Scheme::nCoeff >& u ) noexcept
 {
+    using std::cos;
+    using std::exp;
+    using std::sin;
     q = {};
     h = {};
-    const T e0 = cmath::ctExp( v[0] );
-    q[0] = e0 * cmath::ctSin( u[0] );
-    h[0] = e0 * cmath::ctCos( u[0] );
+    const T e0 = exp( v[0] );
+    q[0] = e0 * sin( u[0] );
+    h[0] = e0 * cos( u[0] );
 
     if constexpr ( Scheme::isUnivariate )
     {
@@ -81,9 +82,8 @@ constexpr void seriesExpSinCos( std::array< T, Scheme::nCoeff >& q,
 
 /// Fused `out = exp(v) * sin(u)` (the cos companion stays kernel-internal).
 template < typename T, tax::IndexScheme Scheme >
-constexpr void seriesExpSin( std::array< T, Scheme::nCoeff >& out,
-                             const std::array< T, Scheme::nCoeff >& v,
-                             const std::array< T, Scheme::nCoeff >& u ) noexcept
+void seriesExpSin( std::array< T, Scheme::nCoeff >& out, const std::array< T, Scheme::nCoeff >& v,
+                   const std::array< T, Scheme::nCoeff >& u ) noexcept
 {
     std::array< T, Scheme::nCoeff > h{};
     seriesExpSinCos< T, Scheme >( out, h, v, u );
@@ -91,9 +91,8 @@ constexpr void seriesExpSin( std::array< T, Scheme::nCoeff >& out,
 
 /// Fused `out = exp(v) * cos(u)` (the sin companion stays kernel-internal).
 template < typename T, tax::IndexScheme Scheme >
-constexpr void seriesExpCos( std::array< T, Scheme::nCoeff >& out,
-                             const std::array< T, Scheme::nCoeff >& v,
-                             const std::array< T, Scheme::nCoeff >& u ) noexcept
+void seriesExpCos( std::array< T, Scheme::nCoeff >& out, const std::array< T, Scheme::nCoeff >& v,
+                   const std::array< T, Scheme::nCoeff >& u ) noexcept
 {
     std::array< T, Scheme::nCoeff > q{};
     seriesExpSinCos< T, Scheme >( q, out, v, u );
@@ -104,13 +103,13 @@ constexpr void seriesExpCos( std::array< T, Scheme::nCoeff >& out,
 /// r*s = 1 with the explicit r0*s_alpha term (rows exclude beta = 0). Scalar
 /// divisions by s0 only. Requires `u[0] > 0` (scheme-generic).
 template < typename T, tax::IndexScheme Scheme >
-constexpr void seriesSqrtInvSqrt( std::array< T, Scheme::nCoeff >& s,
-                                  std::array< T, Scheme::nCoeff >& r,
-                                  const std::array< T, Scheme::nCoeff >& u ) noexcept
+void seriesSqrtInvSqrt( std::array< T, Scheme::nCoeff >& s, std::array< T, Scheme::nCoeff >& r,
+                        const std::array< T, Scheme::nCoeff >& u ) noexcept
 {
+    using std::sqrt;
     s = {};
     r = {};
-    s[0] = cmath::ctSqrt( u[0] );
+    s[0] = sqrt( u[0] );
     const T inv_s0 = T{ 1 } / s[0];
     const T inv_2s0 = T{ 1 } / ( T{ 2 } * s[0] );
     r[0] = inv_s0;

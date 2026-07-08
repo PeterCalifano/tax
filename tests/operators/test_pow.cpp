@@ -26,6 +26,17 @@ TEST( Pow, NegativeRealExponent )
     tax::test::ExpectCoeffsNear( a, b, 1e-12 );
 }
 
+// Regression: pow(x, n) for integer n <= -2 formerly recursed forever
+// (the reciprocal branch passed n, not -n) — a stack overflow at runtime.
+TEST( Pow, NegativeIntegerExponent )
+{
+    auto x = tax::TE< 6 >::variable( 2.0 );
+    tax::test::ExpectCoeffsNear( tax::pow( x, -2 ), tax::reciprocal( tax::square( x ) ), 1e-12 );
+    tax::test::ExpectCoeffsNear( tax::pow( x, -3 ), tax::reciprocal( tax::cube( x ) ), 1e-12 );
+    // (1/x)^|n| == x^n as a series identity.
+    tax::test::ExpectCoeffsNear( tax::pow( x, -4 ), tax::pow( tax::reciprocal( x ), 4 ), 1e-12 );
+}
+
 // A float exponent (with T == double) must bind the real-exponent overload by
 // exact match, without ambiguity against pow(., int).
 TEST( Pow, FloatExponentNotAmbiguous )
@@ -123,26 +134,3 @@ TEST( InvSqrtPow, NamedAndMixedPreserveAxes )
     static_assert( std::is_same_v< decltype( am ), decltype( xm ) > );
     EXPECT_NEAR( am.value(), std::pow( 3.0, -1.5 ), 1e-15 );
 }
-
-// Compile-time evaluation.
-namespace
-{
-
-constexpr bool hpCoeffsNear( const tax::TE< 6 >& a, const tax::TE< 6 >& b, double tol )
-{
-    for ( std::size_t k = 0; k < tax::TE< 6 >::nCoefficients; ++k )
-    {
-        const double m = a[k] < 0 ? -a[k] : a[k];
-        const double d = a[k] > b[k] ? a[k] - b[k] : b[k] - a[k];
-        if ( d > tol * ( 1.0 + m ) ) return false;
-    }
-    return true;
-}
-
-constexpr auto kHx = tax::TE< 6 >::variable( 2.0 );
-static_assert( hpCoeffsNear( tax::halfPow< 3 >( kHx ), tax::cube( tax::sqrt( kHx ) ), 1e-13 ) );
-static_assert( hpCoeffsNear( tax::invSqrtPow< 3 >( kHx ),
-                             tax::reciprocal( tax::cube( tax::sqrt( kHx ) ) ), 1e-13 ) );
-static_assert( hpCoeffsNear( tax::halfPow< 4 >( kHx ), tax::square( kHx ), 1e-14 ) );
-
-}  // namespace

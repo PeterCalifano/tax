@@ -36,7 +36,7 @@ namespace tax
 
 /// `{sin(x), cos(x)}` from the single coupled recurrence both already share.
 template < typename T, IndexScheme Scheme >
-[[nodiscard]] constexpr auto sinCos( const TaylorExpansion< T, Scheme >& x ) noexcept
+[[nodiscard]] auto sinCos( const TaylorExpansion< T, Scheme >& x ) noexcept
 {
     std::pair< TaylorExpansion< T, Scheme >, TaylorExpansion< T, Scheme > > r;
     detail::kernels::seriesSinCos< T, Scheme >( r.first.coefficients(), r.second.coefficients(),
@@ -46,7 +46,7 @@ template < typename T, IndexScheme Scheme >
 
 /// `{sinh(x), cosh(x)}` from one shared exp(x)/exp(-x) pair.
 template < typename T, IndexScheme Scheme >
-[[nodiscard]] constexpr auto sinhCosh( const TaylorExpansion< T, Scheme >& x ) noexcept
+[[nodiscard]] auto sinhCosh( const TaylorExpansion< T, Scheme >& x ) noexcept
 {
     std::pair< TaylorExpansion< T, Scheme >, TaylorExpansion< T, Scheme > > r;
     detail::kernels::seriesSinhCosh< T, Scheme >( r.first.coefficients(), r.second.coefficients(),
@@ -58,7 +58,7 @@ template < typename T, IndexScheme Scheme >
 /// Only worth calling when both results are consumed (e.g. r and 1/r^3):
 /// a single-output caller should use sqrt() or pow() instead.
 template < typename T, IndexScheme Scheme >
-[[nodiscard]] constexpr auto sqrtInvSqrt( const TaylorExpansion< T, Scheme >& x ) noexcept
+[[nodiscard]] auto sqrtInvSqrt( const TaylorExpansion< T, Scheme >& x ) noexcept
 {
     std::pair< TaylorExpansion< T, Scheme >, TaylorExpansion< T, Scheme > > r;
     detail::kernels::seriesSqrtInvSqrt< T, Scheme >( r.first.coefficients(),
@@ -69,8 +69,8 @@ template < typename T, IndexScheme Scheme >
 /// Fused `exp(v) * sin(u)` — one coupled recurrence instead of exp, sin/cos
 /// and a Cauchy product.
 template < typename T, IndexScheme Scheme >
-[[nodiscard]] constexpr TaylorExpansion< T, Scheme > expSin(
-    const TaylorExpansion< T, Scheme >& v, const TaylorExpansion< T, Scheme >& u ) noexcept
+[[nodiscard]] TaylorExpansion< T, Scheme > expSin( const TaylorExpansion< T, Scheme >& v,
+                                                   const TaylorExpansion< T, Scheme >& u ) noexcept
 {
     TaylorExpansion< T, Scheme > r;
     detail::kernels::seriesExpSin< T, Scheme >( r.coefficients(), v.coefficients(),
@@ -80,8 +80,8 @@ template < typename T, IndexScheme Scheme >
 
 /// Fused `exp(v) * cos(u)`.
 template < typename T, IndexScheme Scheme >
-[[nodiscard]] constexpr TaylorExpansion< T, Scheme > expCos(
-    const TaylorExpansion< T, Scheme >& v, const TaylorExpansion< T, Scheme >& u ) noexcept
+[[nodiscard]] TaylorExpansion< T, Scheme > expCos( const TaylorExpansion< T, Scheme >& v,
+                                                   const TaylorExpansion< T, Scheme >& u ) noexcept
 {
     TaylorExpansion< T, Scheme > r;
     detail::kernels::seriesExpCos< T, Scheme >( r.coefficients(), v.coefficients(),
@@ -91,8 +91,8 @@ template < typename T, IndexScheme Scheme >
 
 /// `{exp(v)*sin(u), exp(v)*cos(u)}` — the coupled pass computes both anyway.
 template < typename T, IndexScheme Scheme >
-[[nodiscard]] constexpr auto expSinCos( const TaylorExpansion< T, Scheme >& v,
-                                        const TaylorExpansion< T, Scheme >& u ) noexcept
+[[nodiscard]] auto expSinCos( const TaylorExpansion< T, Scheme >& v,
+                              const TaylorExpansion< T, Scheme >& u ) noexcept
 {
     std::pair< TaylorExpansion< T, Scheme >, TaylorExpansion< T, Scheme > > r;
     detail::kernels::seriesExpSinCos< T, Scheme >( r.first.coefficients(), r.second.coefficients(),
@@ -109,20 +109,20 @@ template < typename T, IndexScheme Scheme >
 namespace tax::named
 {
 
-#define TAX_NAMED_FUSED_PAIR( FN )                                                          \
-    template < typename T, int N, typename... A >                                           \
-    [[nodiscard]] constexpr auto FN( const NamedTaylorExpansion< T, N, A... >& a ) noexcept \
-    {                                                                                       \
-        using R = NamedTaylorExpansion< T, N, A... >;                                       \
-        auto p = tax::FN( a.inner() );                                                      \
-        return std::pair{ R{ p.first }, R{ p.second } };                                    \
-    }                                                                                       \
-    template < typename T, typename... A >                                                  \
-    [[nodiscard]] constexpr auto FN( const MixedTaylorExpansion< T, A... >& a ) noexcept    \
-    {                                                                                       \
-        using R = MixedTaylorExpansion< T, A... >;                                          \
-        auto p = tax::FN( a.inner() );                                                      \
-        return std::pair{ R{ p.first }, R{ p.second } };                                    \
+#define TAX_NAMED_FUSED_PAIR( FN )                                                \
+    template < typename T, int N, typename... A >                                 \
+    [[nodiscard]] auto FN( const NamedTaylorExpansion< T, N, A... >& a ) noexcept \
+    {                                                                             \
+        using R = NamedTaylorExpansion< T, N, A... >;                             \
+        auto p = tax::FN( a.inner() );                                            \
+        return std::pair{ R{ p.first }, R{ p.second } };                          \
+    }                                                                             \
+    template < typename T, typename... A >                                        \
+    [[nodiscard]] auto FN( const MixedTaylorExpansion< T, A... >& a ) noexcept    \
+    {                                                                             \
+        using R = MixedTaylorExpansion< T, A... >;                                \
+        auto p = tax::FN( a.inner() );                                            \
+        return std::pair{ R{ p.first }, R{ p.second } };                          \
     }
 
 TAX_NAMED_FUSED_PAIR( sinCos )
@@ -133,8 +133,8 @@ TAX_NAMED_FUSED_PAIR( sqrtInvSqrt )
 
 /// Fused `exp(v) * sin(u)` over the union of the two operands' axis sets.
 template < typename T, int N, typename... A, typename... B >
-[[nodiscard]] constexpr auto expSin( const NamedTaylorExpansion< T, N, A... >& v,
-                                     const NamedTaylorExpansion< T, N, B... >& u ) noexcept
+[[nodiscard]] auto expSin( const NamedTaylorExpansion< T, N, A... >& v,
+                           const NamedTaylorExpansion< T, N, B... >& u ) noexcept
 {
     using R = detail::MergedNamedTaylorExpansion< T, N, detail::TypeList< A... >,
                                                   detail::TypeList< B... > >;
@@ -143,8 +143,8 @@ template < typename T, int N, typename... A, typename... B >
 
 /// Fused `exp(v) * cos(u)` over the union of the two operands' axis sets.
 template < typename T, int N, typename... A, typename... B >
-[[nodiscard]] constexpr auto expCos( const NamedTaylorExpansion< T, N, A... >& v,
-                                     const NamedTaylorExpansion< T, N, B... >& u ) noexcept
+[[nodiscard]] auto expCos( const NamedTaylorExpansion< T, N, A... >& v,
+                           const NamedTaylorExpansion< T, N, B... >& u ) noexcept
 {
     using R = detail::MergedNamedTaylorExpansion< T, N, detail::TypeList< A... >,
                                                   detail::TypeList< B... > >;
@@ -153,8 +153,8 @@ template < typename T, int N, typename... A, typename... B >
 
 /// `{exp(v)*sin(u), exp(v)*cos(u)}` over the union of the two operands' axis sets.
 template < typename T, int N, typename... A, typename... B >
-[[nodiscard]] constexpr auto expSinCos( const NamedTaylorExpansion< T, N, A... >& v,
-                                        const NamedTaylorExpansion< T, N, B... >& u ) noexcept
+[[nodiscard]] auto expSinCos( const NamedTaylorExpansion< T, N, A... >& v,
+                              const NamedTaylorExpansion< T, N, B... >& u ) noexcept
 {
     using R = detail::MergedNamedTaylorExpansion< T, N, detail::TypeList< A... >,
                                                   detail::TypeList< B... > >;
@@ -164,8 +164,8 @@ template < typename T, int N, typename... A, typename... B >
 
 /// Fused `exp(v) * sin(u)` over the union of the two operands' (ordered) axis sets.
 template < typename T, typename... A, typename... B >
-[[nodiscard]] constexpr auto expSin( const MixedTaylorExpansion< T, A... >& v,
-                                     const MixedTaylorExpansion< T, B... >& u ) noexcept
+[[nodiscard]] auto expSin( const MixedTaylorExpansion< T, A... >& v,
+                           const MixedTaylorExpansion< T, B... >& u ) noexcept
 {
     using R =
         detail::MergedMixedTaylorExpansion< T, detail::TypeList< A... >, detail::TypeList< B... > >;
@@ -174,8 +174,8 @@ template < typename T, typename... A, typename... B >
 
 /// Fused `exp(v) * cos(u)` over the union of the two operands' (ordered) axis sets.
 template < typename T, typename... A, typename... B >
-[[nodiscard]] constexpr auto expCos( const MixedTaylorExpansion< T, A... >& v,
-                                     const MixedTaylorExpansion< T, B... >& u ) noexcept
+[[nodiscard]] auto expCos( const MixedTaylorExpansion< T, A... >& v,
+                           const MixedTaylorExpansion< T, B... >& u ) noexcept
 {
     using R =
         detail::MergedMixedTaylorExpansion< T, detail::TypeList< A... >, detail::TypeList< B... > >;
@@ -184,8 +184,8 @@ template < typename T, typename... A, typename... B >
 
 /// `{exp(v)*sin(u), exp(v)*cos(u)}` over the union of the two operands' (ordered) axis sets.
 template < typename T, typename... A, typename... B >
-[[nodiscard]] constexpr auto expSinCos( const MixedTaylorExpansion< T, A... >& v,
-                                        const MixedTaylorExpansion< T, B... >& u ) noexcept
+[[nodiscard]] auto expSinCos( const MixedTaylorExpansion< T, A... >& v,
+                              const MixedTaylorExpansion< T, B... >& u ) noexcept
 {
     using R =
         detail::MergedMixedTaylorExpansion< T, detail::TypeList< A... >, detail::TypeList< B... > >;

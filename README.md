@@ -35,10 +35,10 @@ up to order \(N\) in a single evaluation pass.
   `expSinCos` compute coupled pairs in a single recurrence pass:
   `expCos(v, u)` is ~2x faster than `exp(v) * cos(u)`, and the pair-returning
   forms give both results for the price of one.
-- **Fully constexpr** — the entire dense math surface (including the
-  transcendental functions, which seed their recurrences through a built-in
-  constexpr math layer) can run in constant evaluation: whole expansions,
-  gradients and Taylor models can be computed at compile time.
+- **constexpr polynomial surface** — arithmetic, `square`/`cube`/`reciprocal`,
+  integer powers, division, and the differential/evaluation accessors are
+  `constexpr` and run in constant evaluation. (Transcendentals seed their
+  recurrence with a libm call, so they are runtime-only.)
 - **Direct derivative access** — coefficients, partial derivatives at the
   expansion point, full gradient / Hessian / Jacobian.
 - **Eigen integration** — `NumTraits` specialisation plus helpers for
