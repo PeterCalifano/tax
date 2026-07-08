@@ -79,7 +79,7 @@ One evaluation pass yields the value **and** every derivative up to order 5.
 
 ## Next steps
 
-- [Guide / Variables & Expressions](guide/expressions.md) — create variables, build expressions, and run whole pipelines at compile time (`constexpr`).
+- [Guide / Variables & Expressions](guide/expressions.md) — create variables, build expressions, and run polynomial pipelines at compile time (`constexpr`).
 - [Guide / Fused Operations](guide/fused.md) — `sinCos`, `sqrtInvSqrt`, `expSinCos`, `invSqrtPow<K>`: coupled pairs in one recurrence pass.
 - [Guide / Extracting Results](guide/results.md) — coefficients, derivatives, evaluation.
 - [Concepts / Foundations & Ordering](concepts/foundations.md) — what a truncated Taylor expansion is.

@@ -150,33 +150,34 @@ TE2 f = tax::sin(x) * tax::cos(y);   // full bivariate Taylor series in one pass
 
 ## Compile-time evaluation
 
-The entire dense surface — including every transcendental function — is
-`constexpr`. Whole expansion pipelines can run in constant evaluation, so a
-fixed local Taylor model can be baked into the binary at compile time:
+The **polynomial surface** is `constexpr`, so a fixed local Taylor model built
+from it can be baked into the binary at compile time. This covers the
+arithmetic operators (`+`, `-`, `*`, `/`), `square`, `cube`, `reciprocal`,
+integer `pow(x, n)`, and the differential/evaluation accessors
+(`deriv`, `integ`, `eval`, `truncate`, `coeff`, `derivative`):
 
 ```cpp
-constexpr auto f = tax::exp(tax::sin(tax::TE<8>::variable(0.5)));
+constexpr auto x = tax::TE<8>::variable(0.5);
+constexpr auto g = tax::square(x) + 2.0 * x + 1.0;   // (x + 1)²
 
-static_assert(f.value() > 0.0);                  // evaluated by the compiler
-static_assert(f.coeff<1>() != 0.0);
-constexpr double d2 = f.derivative<2>();         // usable as a constant expression
+static_assert(g.value() == 2.25);                // evaluated by the compiler
+static_assert(g.coeff<1>() != 0.0);
+constexpr double d2 = g.derivative<2>();         // usable as a constant expression
+
+constexpr auto p = tax::pow(x, 3);               // integer power — constexpr
 ```
 
-Multivariate, named, and mixed-order pipelines work the same way (wrap the
-variable setup in an immediately-invoked `constexpr` lambda when it needs more
-than one statement). `tests/core/test_constexpr.cpp` exercises the full math
-surface this way, pinning compile-time identities such as
-`exp(log(x)) == x` with `static_assert`.
+Multivariate, named, and mixed-order polynomial pipelines work the same way
+(wrap the variable setup in an immediately-invoked `constexpr` lambda when it
+needs more than one statement).
 
-!!! note "Accuracy contract"
-    In constant evaluation the constant term of each series is seeded by
-    constexpr implementations computed in `long double`
-    (`tax::detail::cmath`), not by libm. Compile-time results agree with the
-    runtime ones to within a few ulp of `double` — usually the last ulp or
-    exactly — but are **not** guaranteed bit-identical. See
-    [Internals / Kernels & Recurrences](../internals/kernels.md#constexpr-constant-term-seeding)
-    for the full contract, including the argument-reduction caveat for
-    huge trigonometric arguments.
+!!! note "Transcendentals are runtime-only"
+    The transcendental, root, and real-exponent functions — `exp`, `log`,
+    `sin`, `cos`, `sqrt`, `cbrt`, `pow(x, p)` for real `p`, `atan2`, `erf`, the
+    hyperbolic and inverse families, and the fused pair operations — seed their
+    recurrence with a plain libm call (`std::exp`, `std::sin`, …) at the
+    constant term. They are therefore **not** `constexpr` and cannot run in
+    constant evaluation; call them at runtime.
 
 ---
 

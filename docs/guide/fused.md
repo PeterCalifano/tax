@@ -5,10 +5,11 @@ Several common expression shapes — `sin` next to `cos`, `exp(v) * cos(u)`,
 The fused surface computes such pairs in a **single coupled recurrence pass**
 instead of two (or three) separate kernel calls plus a Cauchy product.
 
-Every function on this page is `constexpr`, works for dense `TE`, named
-`NE`, and mixed-order `MTE` expansions alike, and lives in `namespace tax`
-(reachable from `<tax/tax.hpp>`). Pair-returning functions order the
-`std::pair` **as spelled in the name**: `sinCos → {sin, cos}`,
+Every function on this page works for dense `TE`, named `NE`, and mixed-order
+`MTE` expansions alike, and lives in `namespace tax` (reachable from
+`<tax/tax.hpp>`). They are **runtime-only** (each seeds its recurrence with a
+libm call at the constant term), not `constexpr`. Pair-returning functions
+order the `std::pair` **as spelled in the name**: `sinCos → {sin, cos}`,
 `sqrtInvSqrt → {sqrt, 1/sqrt}`, `expSinCos → {exp·sin, exp·cos}`.
 
 ---

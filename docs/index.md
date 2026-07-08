@@ -38,12 +38,12 @@ f.eval(0.3);        // sin(0.3) within machine precision
     Coefficient storage is `std::array<T, C(N+M, M)>` on the stack. Both `N` and
     `M` are compile-time integers, so the optimizer sees through every loop.
 
-- :material-lightning-bolt:{ .lg .middle } **Fused kernels, fully `constexpr`**
+- :material-lightning-bolt:{ .lg .middle } **Fused kernels**
 
     Coupled pairs — `sinCos`, `sinhCosh`, `sqrtInvSqrt`, `expSinCos`, the
     `invSqrtPow<3>` gravity kernel — run in a single recurrence pass. The
-    entire dense surface, transcendentals included, works in constant
-    evaluation.
+    pure-polynomial surface (arithmetic, `square`, `cube`, `reciprocal`,
+    integer `pow`) is `constexpr` and works in constant evaluation.
 
 - :material-tune-vertical:{ .lg .middle } **Dense or sparse storage**
 
@@ -76,7 +76,7 @@ f.eval(0.3);        // sin(0.3) within machine precision
 | `tax::variables<TE<N,M>>(x0)` | Eigen column vector of all $M$ coordinate variables |
 | `tax::sin(x) * tax::exp(y)` | full Taylor series of the product, one kernel pass per op |
 | `tax::expSinCos(v, u)` | `{exp(v)·sin(u), exp(v)·cos(u)}` fused in one coupled pass |
-| `constexpr auto f = tax::exp(tax::sin(x));` | whole pipeline evaluated at compile time |
+| `constexpr auto g = tax::square(x) + 2.0*x + 1.0;` | polynomial pipeline evaluated at compile time |
 | `f.derivative<2, 1>()` | $\partial^3 f / \partial x^2 \partial y$ at $x_0$ |
 | `f.eval(dx)` | Horner evaluation of the polynomial at $x_0 + \delta x$ |
 | `tax::jacobian(F, M)` | Eigen Jacobian of a vector function |

@@ -13,7 +13,6 @@ in `tax/operators/` is a thin wrapper that calls a kernel and returns a fresh
 
 | Header | Kernels | Operations |
 |---|---|---|
-| `tax/core/cmath.hpp` | `ctExp`, `ctSin`, `ctSqrt`, … (`tax::detail::cmath`) | constexpr constant-term seeds — see [below](#constexpr-constant-term-seeding) |
 | `tax/kernels/cauchy.hpp` | `cauchyProduct` dispatch (loop / unroll / stencil), `cauchySelfProduct` | multiplication, squares |
 | `tax/kernels/cauchy_unroll.hpp` | unrolled `M==1` Dense Cauchy | tight univariate hot path (`TAX_USE_UNROLL`) |
 | `tax/kernels/cauchy_stencil.hpp` | precomputed stencil-driven `M≥2` Dense Cauchy | multivariate hot path (`TAX_USE_STENCIL`) |
@@ -67,7 +66,7 @@ $$
 which the shared driver implements (in pseudocode) as
 
 ```cpp
-g[0] = cmath::ctExp(f[0]);      // constexpr-safe constant-term seed
+g[0] = std::exp(f[0]);          // libm constant-term seed (runtime-only)
 forEachRecurrenceRow<N, M>([&](std::size_t ai, int d,
                                std::span<const RecurrenceEntry> row) {
     T sum{};
@@ -130,32 +129,21 @@ The public pair-returning surface (`sinCos`, `sinhCosh`, `sqrtInvSqrt`,
 
 ---
 
-## Constexpr constant-term seeding
+## Constant-term seeding
 
 Every series kernel evaluates exactly one scalar transcendental — the
-constant-term seed (`out[0] = exp(a[0])`, …). `<cmath>` is not constexpr in
-C++23, so the seeds go through the `ct*` dispatchers of
-`tax::detail::cmath` (`tax/core/cmath.hpp`): at runtime each dispatcher
-forwards to `std::`/ADL exactly as before (custom scalar-like coefficient
-types behave unchanged), and inside `if consteval` it switches to a
-constexpr implementation computed in `long double`.
+constant-term seed (`out[0] = std::exp(a[0])`, …). These seeds are plain libm
+calls (`std::exp`, `std::sin`, `std::sqrt`, …), so the transcendental, root,
+and real-exponent kernels are **runtime-only**: they cannot run in constant
+evaluation.
 
-The accuracy contract, restated from the header:
-
-- The wide intermediate precision absorbs the truncation error of the
-  internal series, so **compile-time results agree with the runtime libm to
-  within a few ulp of `double`** — usually the last ulp or exactly.
-- They are **not guaranteed bit-identical**: an expansion built in a
-  constant expression may differ from the same expansion built at runtime
-  in the trailing ulp of each coefficient.
-- Trigonometric argument reduction is plain extended precision (no
-  Payne–Hanek): constant terms of huge magnitude ($|x| \gtrsim 10^{15}$)
-  lose accuracy, and $|x| \ge 2^{62}$ returns NaN.
-
-This is what makes the whole dense surface constexpr end-to-end
-(`tests/core/test_constexpr.cpp` runs entire transcendental pipelines in
-`static_assert`). When adding a kernel, keep it constexpr: seed through
-`cmath::ctExp`-style dispatchers, never a bare `std::exp`.
+The pure-polynomial kernels — `seriesSquare`, `seriesCube`,
+`seriesReciprocal`, `seriesDivide`, the Cauchy products, integer
+`seriesPowInt`, and the two shared drivers `seriesDerivQuotient` /
+`seriesDerivProduct` themselves — carry no transcendental seed and remain
+`constexpr`. It is only the runtime libm seed at the constant term that makes
+the end-user transcendentals non-`constexpr`; the recurrence machinery they
+drive is otherwise constant-evaluation-clean.
 
 ---
 

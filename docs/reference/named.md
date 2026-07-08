@@ -275,23 +275,23 @@ sin  cos  tan  asin  acos  atan  sinh  cosh  tanh  asinh  acosh  atanh  erf
 template <typename T, int N, typename... A>
 [[nodiscard]] constexpr NamedTaylorExpansion<T, N, A...> pow(const NamedTaylorExpansion<T, N, A...>& x, int n) noexcept;
 
-// x^p, real exponent (axis set preserved; requires x.value() != 0)
+// x^p, real exponent (axis set preserved; requires x.value() != 0). Runtime-only.
 template <typename T, int N, typename... A>
-[[nodiscard]] constexpr NamedTaylorExpansion<T, N, A...> pow(const NamedTaylorExpansion<T, N, A...>& x, T p) noexcept;
+[[nodiscard]] NamedTaylorExpansion<T, N, A...> pow(const NamedTaylorExpansion<T, N, A...>& x, T p) noexcept;
 
-// x^(K/2), compile-time half-integer power (axis set preserved).
+// x^(K/2), compile-time-K half-integer power (axis set preserved). Runtime-only.
 //   Even K: integer chain, valid for x.value() < 0; odd K requires x.value() > 0.
 template <int K, typename T, int N, typename... A>
-[[nodiscard]] constexpr NamedTaylorExpansion<T, N, A...> halfPow(const NamedTaylorExpansion<T, N, A...>& x) noexcept;
+[[nodiscard]] NamedTaylorExpansion<T, N, A...> halfPow(const NamedTaylorExpansion<T, N, A...>& x) noexcept;
 
-// x^(-K/2), K >= 1 (axis set preserved; requires x.value() > 0)
+// x^(-K/2), K >= 1 (axis set preserved; requires x.value() > 0). Runtime-only.
 template <int K, typename T, int N, typename... A>
-[[nodiscard]] constexpr NamedTaylorExpansion<T, N, A...> invSqrtPow(const NamedTaylorExpansion<T, N, A...>& x) noexcept;
+[[nodiscard]] NamedTaylorExpansion<T, N, A...> invSqrtPow(const NamedTaylorExpansion<T, N, A...>& x) noexcept;
 
-// atan2(y, x) over the union of the two operands' axis sets
+// atan2(y, x) over the union of the two operands' axis sets. Runtime-only.
 template <typename T, int N, typename... A, typename... B>
-[[nodiscard]] constexpr auto atan2(const NamedTaylorExpansion<T, N, A...>& y,
-                                   const NamedTaylorExpansion<T, N, B...>& x) noexcept;
+[[nodiscard]] auto atan2(const NamedTaylorExpansion<T, N, A...>& y,
+                         const NamedTaylorExpansion<T, N, B...>& x) noexcept;
 ```
 
 ### Fused pair functions
@@ -303,24 +303,24 @@ the two-operand exp·trig forms compose in the **union** of the operands'
 axis sets, exactly like `operator*` / `atan2`:
 
 ```cpp
-// {sin(x), cos(x)}, {sinh(x), cosh(x)}, {sqrt(x), 1/sqrt(x)} — axis set preserved
+// {sin(x), cos(x)}, {sinh(x), cosh(x)}, {sqrt(x), 1/sqrt(x)} — axis set preserved. Runtime-only.
 template <typename T, int N, typename... A>
-[[nodiscard]] constexpr auto sinCos(const NamedTaylorExpansion<T, N, A...>& x) noexcept;
+[[nodiscard]] auto sinCos(const NamedTaylorExpansion<T, N, A...>& x) noexcept;
 template <typename T, int N, typename... A>
-[[nodiscard]] constexpr auto sinhCosh(const NamedTaylorExpansion<T, N, A...>& x) noexcept;
+[[nodiscard]] auto sinhCosh(const NamedTaylorExpansion<T, N, A...>& x) noexcept;
 template <typename T, int N, typename... A>
-[[nodiscard]] constexpr auto sqrtInvSqrt(const NamedTaylorExpansion<T, N, A...>& x) noexcept;
+[[nodiscard]] auto sqrtInvSqrt(const NamedTaylorExpansion<T, N, A...>& x) noexcept;
 
-// exp(v)*sin(u), exp(v)*cos(u), and the pair — over the union of the axis sets
+// exp(v)*sin(u), exp(v)*cos(u), and the pair — over the union of the axis sets. Runtime-only.
 template <typename T, int N, typename... A, typename... B>
-[[nodiscard]] constexpr auto expSin(const NamedTaylorExpansion<T, N, A...>& v,
-                                    const NamedTaylorExpansion<T, N, B...>& u) noexcept;
+[[nodiscard]] auto expSin(const NamedTaylorExpansion<T, N, A...>& v,
+                          const NamedTaylorExpansion<T, N, B...>& u) noexcept;
 template <typename T, int N, typename... A, typename... B>
-[[nodiscard]] constexpr auto expCos(const NamedTaylorExpansion<T, N, A...>& v,
-                                    const NamedTaylorExpansion<T, N, B...>& u) noexcept;
+[[nodiscard]] auto expCos(const NamedTaylorExpansion<T, N, A...>& v,
+                          const NamedTaylorExpansion<T, N, B...>& u) noexcept;
 template <typename T, int N, typename... A, typename... B>
-[[nodiscard]] constexpr auto expSinCos(const NamedTaylorExpansion<T, N, A...>& v,
-                                       const NamedTaylorExpansion<T, N, B...>& u) noexcept;
+[[nodiscard]] auto expSinCos(const NamedTaylorExpansion<T, N, A...>& v,
+                             const NamedTaylorExpansion<T, N, B...>& u) noexcept;
 ```
 
 All of these exist with identical shapes for `MixedTaylorExpansion` (see
@@ -336,20 +336,20 @@ unary functions (`sqrt`, `exp`, `sin`, …) preserve the axis set; the binary
 and fused surface is:
 
 ```cpp
-// x^n / x^p / x^(K/2) / x^(-K/2) — axis set (and per-axis orders) preserved
+// x^n — constexpr; x^p / x^(K/2) / x^(-K/2) — runtime-only. Axis set (and per-axis orders) preserved.
 template <typename T, typename... A>
 [[nodiscard]] constexpr MixedTaylorExpansion<T, A...> pow(const MixedTaylorExpansion<T, A...>& x, int n) noexcept;
 template <typename T, typename... A>
-[[nodiscard]] constexpr MixedTaylorExpansion<T, A...> pow(const MixedTaylorExpansion<T, A...>& x, T p) noexcept;
+[[nodiscard]] MixedTaylorExpansion<T, A...> pow(const MixedTaylorExpansion<T, A...>& x, T p) noexcept;
 template <int K, typename T, typename... A>
-[[nodiscard]] constexpr MixedTaylorExpansion<T, A...> halfPow(const MixedTaylorExpansion<T, A...>& x) noexcept;
+[[nodiscard]] MixedTaylorExpansion<T, A...> halfPow(const MixedTaylorExpansion<T, A...>& x) noexcept;
 template <int K, typename T, typename... A>
-[[nodiscard]] constexpr MixedTaylorExpansion<T, A...> invSqrtPow(const MixedTaylorExpansion<T, A...>& x) noexcept;
+[[nodiscard]] MixedTaylorExpansion<T, A...> invSqrtPow(const MixedTaylorExpansion<T, A...>& x) noexcept;
 
-// atan2(y, x) over the union of the two operands' (ordered) axis sets
+// atan2(y, x) over the union of the two operands' (ordered) axis sets. Runtime-only.
 template <typename T, typename... A, typename... B>
-[[nodiscard]] constexpr auto atan2(const MixedTaylorExpansion<T, A...>& y,
-                                   const MixedTaylorExpansion<T, B...>& x) noexcept;
+[[nodiscard]] auto atan2(const MixedTaylorExpansion<T, A...>& y,
+                         const MixedTaylorExpansion<T, B...>& x) noexcept;
 
 // Fused: axis-set-preserving pairs and union-composing exp·trig forms
 sinCos(x)  sinhCosh(x)  sqrtInvSqrt(x)          // std::pair, axis set preserved

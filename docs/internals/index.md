@@ -36,8 +36,9 @@ The headline ideas:
    for tight scalar loops; multivariate recurrences walk one shared
    decomposition table.
 
-5. **Everything is `constexpr`.** The dense surface — transcendentals
-   included — runs in constant evaluation: constant-term seeds route through
-   `tax::detail::cmath` instead of libm, accurate to a few ulp of `double`
-   (not bit-identical; see the
-   [accuracy contract](kernels.md#constexpr-constant-term-seeding)).
+5. **The polynomial surface is `constexpr`.** Arithmetic, `square`, `cube`,
+   `reciprocal`, integer `pow`, and the differential/evaluation accessors run
+   in constant evaluation. The transcendental, root, and real-exponent
+   functions seed their constant term with a libm call (`std::exp`, …) and are
+   therefore runtime-only (see
+   [Constant-term seeding](kernels.md#constant-term-seeding)).

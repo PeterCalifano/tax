@@ -554,13 +554,13 @@ $$
 ## Constant-term seeding
 
 Every recurrence above evaluates exactly one scalar transcendental — the
-constant-term seed $g_0 = g(f_0)$. At runtime this goes through
-`std::`/ADL as usual; in constant evaluation it switches to the constexpr
-implementations in `tax::detail::cmath`, computed in `long double`. The
-results agree with libm to within a few ulp of `double` but are **not**
-guaranteed bit-identical — see
-[Kernels & Recurrences](kernels.md#constexpr-constant-term-seeding) for the
-full accuracy contract.
+constant-term seed $g_0 = g(f_0)$ — through a plain libm call
+(`std::`/ADL). Because that seed is a runtime call, the transcendental, root,
+and real-exponent functions are **runtime-only** and cannot run in constant
+evaluation; the pure-polynomial recurrences (arithmetic, `square`, `cube`,
+`reciprocal`, integer power) and the shared drivers themselves stay
+`constexpr`. See
+[Kernels & Recurrences](kernels.md#constant-term-seeding) for details.
 
 ---
 
