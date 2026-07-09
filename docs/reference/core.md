@@ -254,7 +254,7 @@ therefore **runtime-only**.
 | `cube(f)`    | none | yes | two Cauchy products |
 | `reciprocal(f)` | $f_0 \ne 0$ | yes | solve $f \cdot g = 1$ |
 | `sqrt(f)`    | $f_0 > 0$ | no | solve $g^2 = f$ |
-| `cbrt(f)`    | $f_0 \ne 0$ | no | solve $g^3 = f$ with incremental $g^2$ |
+| `cbrt(f)`    | $f_0 \ne 0$ | no | real-power recurrence at $1/3$, `cbrt` seed (handles $f_0 < 0$) |
 | `sin(f)`     | none | no | coupled sin/cos |
 | `cos(f)`     | none | no | coupled sin/cos |
 | `tan(f)`     | $\cos(f_0) \ne 0$ | no | solve $\cos\cdot t = \sin$ |

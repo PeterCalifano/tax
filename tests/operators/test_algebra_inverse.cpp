@@ -18,6 +18,16 @@ TEST( Cbrt, RoundTripWithCube )
     tax::test::ExpectCoeffsNear( r, x, 1e-12 );
 }
 
+// cbrt seeds the real-power recurrence with the real cube root, so it handles a
+// negative constant term (where x^(1/3) via a libm pow seed would return NaN).
+TEST( Cbrt, NegativeConstantTerm )
+{
+    auto x = tax::TE< 6 >::variable( -8.0 );
+    auto c = tax::cbrt( x );
+    EXPECT_NEAR( c.value(), -2.0, 1e-12 );
+    tax::test::ExpectCoeffsNear( c * c * c, x, 1e-11 );
+}
+
 TEST( Reciprocal, MultipliesToOne )
 {
     auto x = tax::TE< 5 >::variable( 2.0 );

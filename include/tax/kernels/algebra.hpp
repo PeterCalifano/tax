@@ -215,67 +215,16 @@ void seriesSqrt( std::array< T, Scheme::nCoeff >& out,
     }
 }
 
-/// Cubic-root series `out^3 = a` (real branch, scheme-generic). Requires `a[0] != 0`.
+/// Forward recurrence for `out = a^c` given a precomputed seed `out[0] = a[0]^c`
+/// (scheme-generic). It matches the real-power ODE `a·out' = c·a'·out` degree by
+/// degree: `out_alpha = (1/(d·a0)) sum (c·|beta| - (d - |beta|)) a_beta out_gamma`.
+/// Valid for any real `c` and any `a[0] != 0` — including `a[0] < 0`, provided
+/// the seed is the intended real branch (e.g. the real cube root). `out[0]` is
+/// left untouched; `out[1..]` are overwritten. `a` must not alias `out`.
 template < typename T, tax::IndexScheme Scheme >
-void seriesCbrt( std::array< T, Scheme::nCoeff >& out,
-                 const std::array< T, Scheme::nCoeff >& a ) noexcept
+constexpr void seriesPowFromSeed( std::array< T, Scheme::nCoeff >& out,
+                                  const std::array< T, Scheme::nCoeff >& a, T c ) noexcept
 {
-    using std::cbrt;
-    constexpr std::size_t S = Scheme::nCoeff;
-
-    out = {};
-    out[0] = cbrt( a[0] );
-    const T inv3g0sq = T{ 1 } / ( T{ 3 } * out[0] * out[0] );
-
-    if constexpr ( Scheme::isUnivariate )
-    {
-        std::array< T, S > sq{};
-        sq[0] = out[0] * out[0];
-        for ( int d = 1; d <= Scheme::order; ++d )
-        {
-            T sq_d_partial = T{ 0 };
-            for ( int k = 1; k + k < d; ++k )
-                sq_d_partial += T{ 2 } * out[std::size_t( k )] * out[std::size_t( d - k )];
-            if ( d % 2 == 0 ) sq_d_partial += out[std::size_t( d / 2 )] * out[std::size_t( d / 2 )];
-
-            T rhs = out[0] * sq_d_partial;
-            for ( int j = 1; j < d; ++j ) rhs += out[std::size_t( j )] * sq[std::size_t( d - j )];
-
-            out[std::size_t( d )] = ( a[std::size_t( d )] - rhs ) * inv3g0sq;
-            sq[std::size_t( d )] = T{ 2 } * out[0] * out[std::size_t( d )] + sq_d_partial;
-        }
-    } else
-    {
-        std::array< T, S > sq{};
-        sq[0] = out[0] * out[0];
-        Scheme::forEachRecurrenceRow(
-            [&]( std::size_t ai, int, std::span< const RecurrenceEntry > row ) {
-                T rhs = a[ai];
-                // |beta| == d entries read out[ai], which is still zero here,
-                // so the ordered walk needs no |beta| < d filter; sq is only
-                // read at |gamma| < d, already final from earlier rows.
-                for ( const RecurrenceEntry& e : row )
-                    rhs -= out[e.b_idx] * ( out[0] * out[e.g_idx] + sq[e.g_idx] );
-                out[ai] = rhs * inv3g0sq;
-
-                // Maintain sq = out^2 at alpha: the beta = 0 term plus all
-                // |beta| >= 1 decompositions (out[ai] is final now, so the
-                // beta = alpha entry contributes out[ai]*out[0] correctly).
-                T val = out[0] * out[ai];
-                for ( const RecurrenceEntry& e : row ) val += out[e.b_idx] * out[e.g_idx];
-                sq[ai] = val;
-            } );
-    }
-}
-
-/// Real-exponent power series `out = a^c` (scheme-generic). Requires `a[0] != 0`; not constexpr.
-template < typename T, tax::IndexScheme Scheme >
-void seriesPow( std::array< T, Scheme::nCoeff >& out, const std::array< T, Scheme::nCoeff >& a,
-                T c ) noexcept
-{
-    using std::pow;
-    out = {};
-    out[0] = pow( a[0], c );
     const T inv_a0 = T{ 1 } / a[0];
 
     if constexpr ( Scheme::isUnivariate )
@@ -298,6 +247,32 @@ void seriesPow( std::array< T, Scheme::nCoeff >& out, const std::array< T, Schem
                 out[ai] = rhs * inv_a0 / T( d );
             } );
     }
+}
+
+/// Cubic-root series `out^3 = a` (real branch, scheme-generic). Requires `a[0] != 0`.
+/// Runs the real-power recurrence at exponent 1/3, seeded with the real cube
+/// root of the constant term — so it handles `a[0] < 0` (unlike `a^(1/3)` via a
+/// libm `pow` seed), and is faster than a bespoke `out^3 = a` recurrence.
+template < typename T, tax::IndexScheme Scheme >
+void seriesCbrt( std::array< T, Scheme::nCoeff >& out,
+                 const std::array< T, Scheme::nCoeff >& a ) noexcept
+{
+    using std::cbrt;
+    out = {};
+    out[0] = cbrt( a[0] );
+    seriesPowFromSeed< T, Scheme >( out, a, T{ 1 } / T{ 3 } );
+}
+
+/// Real-exponent power series `out = a^c` (scheme-generic). Requires `a[0] != 0`
+/// (and `a[0] > 0` for a non-integer `c`); not constexpr.
+template < typename T, tax::IndexScheme Scheme >
+void seriesPow( std::array< T, Scheme::nCoeff >& out, const std::array< T, Scheme::nCoeff >& a,
+                T c ) noexcept
+{
+    using std::pow;
+    out = {};
+    out[0] = pow( a[0], c );
+    seriesPowFromSeed< T, Scheme >( out, a, c );
 }
 
 /// Integer-exponent power series `out = a^n` via binary exponentiation (scheme-generic; negative n
