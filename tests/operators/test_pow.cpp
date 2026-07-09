@@ -134,3 +134,61 @@ TEST( InvSqrtPow, NamedAndMixedPreserveAxes )
     static_assert( std::is_same_v< decltype( am ), decltype( xm ) > );
     EXPECT_NEAR( am.value(), std::pow( 3.0, -1.5 ), 1e-15 );
 }
+
+// ---------------------------------------------------------------------------
+// Compile-time integer power pow<N> and rational power pow<N, M> (= x^(N/M))
+// ---------------------------------------------------------------------------
+
+TEST( PowTemplate, IntegerMatchesRuntime )
+{
+    auto x = tax::TE< 6 >::variable( 1.7 );
+    // pow<N>(x) is bit-identical to pow(x, N) (same seriesPowInt call).
+    for ( std::size_t k = 0; k < decltype( x )::nCoefficients; ++k )
+    {
+        EXPECT_EQ( tax::pow< 5 >( x )[k], tax::pow( x, 5 )[k] );
+        EXPECT_EQ( tax::pow< -3 >( x )[k], tax::pow( x, -3 )[k] );
+        EXPECT_EQ( tax::pow< 0 >( x )[k], tax::pow( x, 0 )[k] );
+    }
+    // Constexpr.
+    static_assert( tax::pow< 2 >( tax::TE< 4 >::variable( 3.0 ) ).value() == 9.0 );
+}
+
+TEST( PowTemplate, RationalReducesToCheapestKernel )
+{
+    auto x = tax::TE< 8 >::variable( 2.0 );
+
+    // Den | Num  -> integer power (pow<6,3> == pow<2>): bit-identical.
+    for ( std::size_t k = 0; k < decltype( x )::nCoefficients; ++k )
+        EXPECT_EQ( ( tax::pow< 6, 3 >( x )[k] ), tax::pow< 2 >( x )[k] );
+
+    // Denominator 2 -> the sqrt / invsqrt chain (halfPow), bit-identical.
+    for ( std::size_t k = 0; k < decltype( x )::nCoefficients; ++k )
+    {
+        EXPECT_EQ( ( tax::pow< 3, 2 >( x )[k] ), tax::halfPow< 3 >( x )[k] );
+        EXPECT_EQ( ( tax::pow< -3, 2 >( x )[k] ), tax::invSqrtPow< 3 >( x )[k] );
+        // Reduction with a common factor: pow<4,8> == pow<1,2> == halfPow<1>.
+        EXPECT_EQ( ( tax::pow< 4, 8 >( x )[k] ), tax::halfPow< 1 >( x )[k] );
+    }
+    // halfPow<1> (= x^(1/2)) agrees with the dedicated sqrt kernel to rounding.
+    tax::test::ExpectCoeffsNear( tax::pow< 4, 8 >( x ), tax::sqrt( x ), 1e-14 );
+
+    // Genuine fraction -> real-exponent recurrence (x^(2/5)).
+    tax::test::ExpectCoeffsNear( tax::pow< 2, 5 >( x ), tax::pow( x, 0.4 ), 1e-12 );
+    // Negative denominator normalises the sign: x^(3/-2) == x^(-3/2).
+    for ( std::size_t k = 0; k < decltype( x )::nCoefficients; ++k )
+        EXPECT_EQ( ( tax::pow< 3, -2 >( x )[k] ), tax::invSqrtPow< 3 >( x )[k] );
+}
+
+TEST( PowTemplate, NamedAndMixedPreserveAxes )
+{
+    auto xn = tax::variable< "x", 5 >( 2.0 );
+    auto an = tax::pow< 3, 2 >( xn );  // x^(3/2)
+    static_assert( std::is_same_v< decltype( an ), decltype( xn ) > );
+    EXPECT_NEAR( an.value(), std::pow( 2.0, 1.5 ), 1e-13 );
+    static_assert( tax::pow< 3 >( tax::variable< "x", 4 >( 2.0 ) ).value() == 8.0 );
+
+    auto xm = tax::mixed::variable< "x", 4 >( 2.0 );
+    auto am = tax::pow< 2, 5 >( xm );  // x^(2/5)
+    static_assert( std::is_same_v< decltype( am ), decltype( xm ) > );
+    EXPECT_NEAR( am.value(), std::pow( 2.0, 0.4 ), 1e-13 );
+}

@@ -34,6 +34,22 @@ template < typename T, typename... A >
     return MixedTaylorExpansion< T, A... >{ tax::pow( x.inner(), p ) };
 }
 
+/// Compile-time integer power `x^K` (axis set preserved; constexpr).
+template < int K, typename T, typename... A >
+[[nodiscard]] constexpr MixedTaylorExpansion< T, A... > pow(
+    const MixedTaylorExpansion< T, A... >& x ) noexcept
+{
+    return MixedTaylorExpansion< T, A... >{ tax::pow< K >( x.inner() ) };
+}
+
+/// Compile-time rational power `x^(Num/Den)` (axis set preserved).
+template < int Num, int Den, typename T, typename... A >
+[[nodiscard]] constexpr MixedTaylorExpansion< T, A... > pow(
+    const MixedTaylorExpansion< T, A... >& x ) noexcept
+{
+    return MixedTaylorExpansion< T, A... >{ tax::pow< Num, Den >( x.inner() ) };
+}
+
 /// `x^(K/2)` for a compile-time integer K (axis set preserved).
 template < int K, typename T, typename... A >
 [[nodiscard]] MixedTaylorExpansion< T, A... > halfPow(

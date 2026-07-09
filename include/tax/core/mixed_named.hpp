@@ -272,6 +272,22 @@ TAX_MIXED_BINARY_OP( / )
 
 #undef TAX_MIXED_BINARY_OP
 
+// Compound assignment (same axis set: no axis-union widening).
+#define TAX_MIXED_COMPOUND_OP( OP )                                                             \
+    template < typename T, typename... A >                                                      \
+    constexpr MixedTaylorExpansion< T, A... >& operator OP(                                     \
+        MixedTaylorExpansion< T, A... >& a, const MixedTaylorExpansion< T, A... >& b ) noexcept \
+    {                                                                                           \
+        a.inner() OP b.inner();                                                                 \
+        return a;                                                                               \
+    }
+
+TAX_MIXED_COMPOUND_OP( += )
+TAX_MIXED_COMPOUND_OP( -= )
+TAX_MIXED_COMPOUND_OP( *= )
+
+#undef TAX_MIXED_COMPOUND_OP
+
 // Scalar combinations (axis set unchanged).
 
 #define TAX_MIXED_SCALAR_OP( OP )                                                        \
