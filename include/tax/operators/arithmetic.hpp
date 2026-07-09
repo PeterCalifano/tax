@@ -66,9 +66,8 @@ template < typename T, IndexScheme Scheme >
 [[nodiscard]] constexpr TaylorExpansion< T, Scheme > operator-(
     std::type_identity_t< T > s, const TaylorExpansion< T, Scheme >& a ) noexcept
 {
-    TaylorExpansion< T, Scheme > r;
-    r[0] = s - a[0];
-    for ( std::size_t k = 1; k < a.nCoefficients; ++k ) r[k] = -a[k];
+    TaylorExpansion< T, Scheme > r = -a;
+    r[0] += s;
     return r;
 }
 
@@ -189,7 +188,7 @@ template < typename T, IndexScheme Scheme >
 constexpr TaylorExpansion< T, Scheme >& operator*=( TaylorExpansion< T, Scheme >& a,
                                                     std::type_identity_t< T > s ) noexcept
 {
-    for ( std::size_t k = 0; k < a.nCoefficients; ++k ) a[k] *= s;
+    for ( T& ak : a.coefficients() ) ak *= s;
     return a;
 }
 

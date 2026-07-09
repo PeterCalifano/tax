@@ -34,6 +34,24 @@ TAX_NAMED_BINARY_OP( / )
 
 #undef TAX_NAMED_BINARY_OP
 
+// --- Compound assignment (same axis set: no axis-union widening) ------------
+
+#define TAX_NAMED_COMPOUND_OP( OP )                            \
+    template < typename T, int N, typename... A >              \
+    constexpr NamedTaylorExpansion< T, N, A... >& operator OP( \
+        NamedTaylorExpansion< T, N, A... >& a,                 \
+        const NamedTaylorExpansion< T, N, A... >& b ) noexcept \
+    {                                                          \
+        a.inner() OP b.inner();                                \
+        return a;                                              \
+    }
+
+TAX_NAMED_COMPOUND_OP( += )
+TAX_NAMED_COMPOUND_OP( -= )
+TAX_NAMED_COMPOUND_OP( *= )
+
+#undef TAX_NAMED_COMPOUND_OP
+
 // --- Scalar combinations (axis set unchanged) ------------------------------
 
 #define TAX_NAMED_SCALAR_OP( OP )                                                           \

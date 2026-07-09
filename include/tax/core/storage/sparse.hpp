@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <ranges>
 #include <span>
 #include <tax/core/multi_index.hpp>
 #include <utility>
@@ -54,7 +55,8 @@ class SparseContainer
         return { val_.data(), val_.size() };
     }
 
-    /// Coefficient at flat index `k`; returns `T{0}` if the slot is absent. O(log nnz) binary search — intended for tests and inspection, not hot loops.
+    /// Coefficient at flat index `k`; returns `T{0}` if the slot is absent. O(log nnz) binary
+    /// search — intended for tests and inspection, not hot loops.
     [[nodiscard]] T coeffAtFlat( std::size_t k ) const noexcept
     {
         auto it = std::lower_bound( idx_.begin(), idx_.end(), flat_index_t( k ) );
@@ -67,7 +69,8 @@ class SparseContainer
     // -----------------------------------------------------------------------
 
     /// Set the coefficient at flat index `k` to `v`, preserving sorted order.
-    void set( std::size_t k, T v ) noexcept
+    /// Not noexcept: inserting may allocate.
+    void set( std::size_t k, T v )
     {
         auto it = std::lower_bound( idx_.begin(), idx_.end(), flat_index_t( k ) );
         if ( it != idx_.end() && *it == flat_index_t( k ) )
@@ -91,8 +94,8 @@ class SparseContainer
         }
     }
 
-    /// Add `v` to the coefficient at flat index `k`.
-    void accumulate( std::size_t k, T v ) noexcept
+    /// Add `v` to the coefficient at flat index `k`. Not noexcept: inserting may allocate.
+    void accumulate( std::size_t k, T v )
     {
         if ( v == T{ 0 } ) return;
 
@@ -124,7 +127,7 @@ class SparseContainer
     void forEachNonzero( Fn&& fn ) const
         noexcept( noexcept( fn( std::size_t{ 0 }, std::declval< T >() ) ) )
     {
-        for ( std::size_t i = 0; i < idx_.size(); ++i ) fn( std::size_t( idx_[i] ), val_[i] );
+        for ( const auto& [k, v] : std::views::zip( idx_, val_ ) ) fn( std::size_t( k ), v );
     }
 
     /// Merged walk over the union of `support(*this)` and `support(other)`.

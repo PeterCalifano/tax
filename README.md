@@ -28,7 +28,26 @@ up to order \(N\) in a single evaluation pass.
   (sparse), `NE<N, Axes...>` (named), `MTE<Axes...>` (mixed-order named).
 - **Comprehensive math** — arithmetic, trigonometric, hyperbolic,
   transcendental, square/cubic root, reciprocal, integer & real powers,
-  `atan2`, `erf`.
+  half-integer powers (`halfPow<K>` for x^(K/2), `invSqrtPow<K>` for
+  x^(-K/2) — the 1/r^3 gravity kernel is `invSqrtPow<3>(r2)`), `atan2`,
+  `erf`.
+- **Fused kernels** — `sinCos`, `sinhCosh`, `sqrtInvSqrt`, `expSin`, `expCos`,
+  `expSinCos` compute coupled pairs in a single recurrence pass:
+  `expCos(v, u)` is ~2x faster than `exp(v) * cos(u)`, and the pair-returning
+  forms give both results for the price of one.
+- **Powers & vector norms** — compile-time `pow<N>` / rational `pow<N, M>`
+  (= `x^(N/M)`, reduced to the cheapest kernel), half-integer `halfPow<K>` /
+  `invSqrtPow<K>`, and `norm<P, Q>` of a vector of expansions (`norm<2,-3>` is
+  the `1/|r|³` gravity kernel, ~1.6x faster than taking the norm and
+  re-raising).
+- **Vector algebra** — `dot` (vector·vector and matrix·vector, the latter also
+  taking a constant real linear map), `cross`, `angle`, `unitvec`,
+  `unitcross`, `projvec`, `projplane` over Eigen vectors of expansions; results
+  are full Taylor series (so `gradient(angle(a, b))` is meaningful).
+- **constexpr polynomial surface** — arithmetic, `square`/`cube`/`reciprocal`,
+  integer powers, division, and the differential/evaluation accessors are
+  `constexpr` and run in constant evaluation. (Transcendentals seed their
+  recurrence with a libm call, so they are runtime-only.)
 - **Direct derivative access** — coefficients, partial derivatives at the
   expansion point, full gradient / Hessian / Jacobian.
 - **Eigen integration** — `NumTraits` specialisation plus helpers for
@@ -40,8 +59,6 @@ up to order \(N\) in a single evaluation pass.
   `MixedTaylorExpansion<T, Axes...>` gives each axis its own truncation order.
   The whole API is re-exported under `tax` (`tax::NE`, `tax::MTE`,
   `tax::variable(s)`).
-- **Batch coefficients** — `TE<N, M, K>` makes each coefficient a `Batch<double,
-  K>`, evaluating `K` independent expansions in lock-step.
 - **Human-readable output** — `std::cout << f` prints the polynomial series;
   `tax::series(...)` adds tabular / per-element (Eigen) rendering.
 

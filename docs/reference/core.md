@@ -205,16 +205,16 @@ For multivariate dense expansions, on-object convenience helpers are provided:
 ```
 
 Vector-valued counterparts (Jacobian of a vector function) live in
-`tax/eigen.hpp` — see [Eigen / API Reference](eigen.md).
+`tax/la.hpp` — see [Eigen / API Reference](eigen.md).
 
 ---
 
 ## Arithmetic operators
 
 All binary arithmetic operators are free functions defined for any combination
-of TE × TE and TE × scalar. They are eager for Dense/Sparse and operate on
-materialised polynomials (the lazy expression-template layer is invoked
-internally via the kernels).
+of TE × TE and TE × scalar. They are eager for both Dense and Sparse storage:
+each operator materialises a fresh `TaylorExpansion` by a single kernel pass
+(there is no lazy expression-template layer).
 
 ```cpp
 operator+(lhs, rhs);   // sum
@@ -242,48 +242,132 @@ through Eigen factorisations and control-flow predicates.
 
 All accept a `TaylorExpansion` and return a `TaylorExpansion` of the same
 shape, using degree-by-degree recurrences (see
-[Recurrence Relations](../internals/recurrences.md)).
+[Recurrence Relations](../internals/recurrences.md)). Only the pure-polynomial
+functions (`square`, `cube`, `reciprocal`) are `constexpr` and usable in
+constant evaluation. The transcendental and root functions seed their
+constant term with a plain libm call (`std::exp`, `std::sin`, …) and are
+therefore **runtime-only**.
 
-| Function     | Domain restriction | Recurrence helper |
-|---|---|---|
-| `square(f)`  | none | $f \cdot f$ via Cauchy self-product |
-| `cube(f)`    | none | two Cauchy products |
-| `reciprocal(f)` | $f_0 \ne 0$ | solve $f \cdot g = 1$ |
-| `sqrt(f)`    | $f_0 > 0$ | solve $g^2 = f$ |
-| `cbrt(f)`    | $f_0 \ne 0$ | solve $g^3 = f$ with incremental $g^2$ |
-| `sin(f)`     | none | coupled sin/cos |
-| `cos(f)`     | none | coupled sin/cos |
-| `tan(f)`     | $\cos(f_0) \ne 0$ | solve $\cos\cdot t = \sin$ |
-| `asin(f)`    | $|f_0| < 1$ | via $h = \sqrt{1-f^2}$ |
-| `acos(f)`    | $|f_0| < 1$ | $\pi/2 - \arcsin$ |
-| `atan(f)`    | none | via $h = 1 + f^2$ |
-| `sinh(f)`    | none | coupled sinh/cosh |
-| `cosh(f)`    | none | coupled sinh/cosh |
-| `tanh(f)`    | none | solve $\cosh\cdot t = \sinh$ |
-| `asinh(f)`   | none | via $h = \sqrt{1+f^2}$ |
-| `acosh(f)`   | $f_0 > 1$ | via $h = \sqrt{f^2-1}$ |
-| `atanh(f)`   | $|f_0| < 1$ | via $h = 1-f^2$ |
-| `exp(f)`     | none | derivative-driven |
-| `log(f)`     | $f_0 > 0$ | derivative-driven |
-| `erf(f)`     | none | via $h = \tfrac{2}{\sqrt\pi}\exp(-f^2)$ |
+| Function     | Domain restriction | `constexpr` | Recurrence helper |
+|---|---|:-:|---|
+| `square(f)`  | none | yes | $f \cdot f$ via Cauchy self-product |
+| `cube(f)`    | none | yes | two Cauchy products |
+| `reciprocal(f)` | $f_0 \ne 0$ | yes | solve $f \cdot g = 1$ |
+| `sqrt(f)`    | $f_0 > 0$ | no | solve $g^2 = f$ |
+| `cbrt(f)`    | $f_0 \ne 0$ | no | real-power recurrence at $1/3$, `cbrt` seed (handles $f_0 < 0$) |
+| `sin(f)`     | none | no | coupled sin/cos |
+| `cos(f)`     | none | no | coupled sin/cos |
+| `tan(f)`     | $\cos(f_0) \ne 0$ | no | solve $\cos\cdot t = \sin$ |
+| `asin(f)`    | $|f_0| < 1$ | no | `seriesDerivQuotient` with $h = \sqrt{1-f^2}$ |
+| `acos(f)`    | $|f_0| < 1$ | no | `seriesDerivQuotient` (negative sign) with $h = \sqrt{1-f^2}$ |
+| `atan(f)`    | none | no | `seriesDerivQuotient` with $h = 1 + f^2$ |
+| `sinh(f)`    | none | no | shared $e^{f}/e^{-f}$ pair |
+| `cosh(f)`    | none | no | shared $e^{f}/e^{-f}$ pair |
+| `tanh(f)`    | none | no | solve $\cosh\cdot t = \sinh$ |
+| `asinh(f)`   | none | no | `seriesDerivQuotient` with $h = \sqrt{1+f^2}$ |
+| `acosh(f)`   | $f_0 > 1$ | no | `seriesDerivQuotient` with $h = \sqrt{f^2-1}$ |
+| `atanh(f)`   | $|f_0| < 1$ | no | `seriesDerivQuotient` with $h = 1-f^2$ |
+| `exp(f)`     | none | no | `seriesDerivProduct` with $h = g$ itself |
+| `log(f)`     | $f_0 > 0$ | no | `seriesDerivQuotient` with $h = f$ |
+| `erf(f)`     | none | no | `seriesDerivProduct` with $h = \tfrac{2}{\sqrt\pi}\exp(-f^2)$ |
+
+`seriesDerivQuotient` / `seriesDerivProduct` are the two shared recurrence
+drivers in `tax/kernels/algebra.hpp` — they are still marked `constexpr`
+internally, but the transcendental kernels that use them seed their constant
+term with a runtime libm call, so the end-user functions above are runtime-only.
+See [Recurrence Relations](../internals/recurrences.md#shared-recurrence-drivers).
 
 ---
 
 ## Binary math functions
 
+Only integer `pow(f, int n)` is `constexpr` (both Dense and Sparse — the
+sparse overload is `constexpr`-inert but usable at runtime). The real-exponent
+`pow`, the Taylor-valued and scalar-base `pow`, `halfPow<K>`, `invSqrtPow<K>`,
+and `atan2` seed with a libm call and are **runtime-only**.
+
 ```cpp
-// Integer power via binary exponentiation
-[[nodiscard]] TaylorExpansion<T, N, M> pow(const TaylorExpansion<T, N, M>& f, int n);
+// Integer power via binary exponentiation (Dense and Sparse) — constexpr.
+//   Requires f_0 != 0 only when n < 0 (reciprocal path).
+[[nodiscard]] constexpr TaylorExpansion<T, N, M> pow(const TaylorExpansion<T, N, M>& f, int n);
 
-// Real-exponent power, requires f_0 > 0
-[[nodiscard]] TaylorExpansion<T, N, M> pow(const TaylorExpansion<T, N, M>& f, T c);
+// Compile-time integer power x^N — the exponent lives in the type. Forwards to
+// the same integer Cauchy chain as pow(f, N); constexpr, no libm. Prefer this
+// when the exponent is a constant.
+template <int N>
+[[nodiscard]] constexpr TaylorExpansion<T, N, M> pow(const TaylorExpansion<T, N, M>& f);
 
-// Two-argument arctangent
+// Compile-time rational power x^(Num/Den). The exponent is reduced by gcd at
+// compile time and bound to the cheapest kernel:
+//   Den | Num          -> the integer chain    (constexpr; pow<6,3> == pow<2>);
+//   reduced denom == 2 -> the sqrt/invsqrt chain (pow<3,2> == halfPow<3>,
+//                                                  pow<-3,2> == invSqrtPow<3>);
+//   otherwise          -> one real-exponent recurrence (pow<2,5> == x^(2/5)).
+// Requires x_0 > 0 unless the reduced exponent is a non-negative integer.
+template <int Num, int Den>
+[[nodiscard]] constexpr TaylorExpansion<T, N, M> pow(const TaylorExpansion<T, N, M>& f);
+
+// Real-exponent power. Requires f_0 != 0. Runtime-only.
+[[nodiscard]] TaylorExpansion<T, N, M> pow(const TaylorExpansion<T, N, M>& f, P p);
+                                          // P = any std::floating_point
+
+// Taylor-valued exponent, f^g = exp(g·log(f)). Requires f_0 > 0. Runtime-only.
+[[nodiscard]] TaylorExpansion<T, N, M> pow(const TaylorExpansion<T, N, M>& f,
+                                           const TaylorExpansion<T, N, M>& g);
+
+// Scalar base, Taylor exponent, s^g = exp(g·log(s)). Requires s > 0. Runtime-only.
+[[nodiscard]] TaylorExpansion<T, N, M> pow(T s, const TaylorExpansion<T, N, M>& g);
+
+// Compile-time-K half-integer power x^(K/2). Runtime-only.
+//   Even K: integer-power chain — valid for x_0 < 0; requires x_0 != 0 only for K < 0.
+//   Odd  K: one real-exponent recurrence — requires x_0 > 0.
+template <int K>
+[[nodiscard]] TaylorExpansion<T, N, M> halfPow(const TaylorExpansion<T, N, M>& x);
+
+// Compile-time-K inverse square-root power x^(-K/2) = 1/sqrt(x)^K, K >= 1. Runtime-only.
+//   Requires x_0 > 0. invSqrtPow<3>(r2) is the classic 1/r^3 of a squared radius.
+template <int K>
+[[nodiscard]] TaylorExpansion<T, N, M> invSqrtPow(const TaylorExpansion<T, N, M>& x);
+
+// Two-argument arctangent (via r = y/x). Requires x_0 != 0. Runtime-only.
 [[nodiscard]] TaylorExpansion<T, N, M> atan2(const TaylorExpansion<T, N, M>& y,
-                                              const TaylorExpansion<T, N, M>& x);
+                                             const TaylorExpansion<T, N, M>& x);
+// Constant-operand overloads promote the scalar to a flat expansion:
+[[nodiscard]] TaylorExpansion<T, N, M> atan2(const TaylorExpansion<T, N, M>& y, T x);
+[[nodiscard]] TaylorExpansion<T, N, M> atan2(T y, const TaylorExpansion<T, N, M>& x);
 ```
 
-Power overloads exist for both Dense and Sparse storage.
+`halfPow<K>` is `pow<K, 2>` and `invSqrtPow<K>` is `pow<-K, 2>`; the general
+`pow<Num, Den>` reduces to whichever of them (or the integer chain) fits. For a
+genuine fractional exponent the recurrence is a single-pass `seriesPow` — which
+is already optimal: it measures *faster* than a dedicated root (`cbrt`) or than
+`sqrt`-then-integer-power, because `xᶜ` obeys the same degree-by-degree ODE
+recurrence whatever `c` is, and only the scalar constant term needs a libm seed.
+See [Guide / Fused Operations](../guide/fused.md).
+
+---
+
+## Fused pair functions
+
+Coupled recurrences that produce two results in one pass (see
+[Guide / Fused Operations](../guide/fused.md)). All are **runtime-only** (each
+seeds its constant term with a libm call). Pair-returning functions order the
+`std::pair` **as spelled in the name**.
+
+| Function | Return type | Ordering / result | Domain restriction |
+|---|---|---|---|
+| `sinCos(x)`       | `std::pair<TE, TE>` | `{sin(x), cos(x)}` | none |
+| `sinhCosh(x)`     | `std::pair<TE, TE>` | `{sinh(x), cosh(x)}` | none |
+| `sqrtInvSqrt(x)`  | `std::pair<TE, TE>` | `{sqrt(x), 1/sqrt(x)}` | $x_0 > 0$ |
+| `expSin(v, u)`    | `TE` | $e^{v}\sin u$ | none |
+| `expCos(v, u)`    | `TE` | $e^{v}\cos u$ | none |
+| `expSinCos(v, u)` | `std::pair<TE, TE>` | `{exp(v)*sin(u), exp(v)*cos(u)}` | none |
+
+(`TE` above stands for the operand type `TaylorExpansion<T, Scheme>`; named
+and mixed-order overloads are listed in the [Named API](named.md).)
+
+`sqrtInvSqrt` is only worth calling when **both** outputs are consumed —
+a single-output caller should use `sqrt`/`pow`/`invSqrtPow` instead.
 
 ---
 

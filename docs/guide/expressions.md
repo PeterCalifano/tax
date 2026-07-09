@@ -68,21 +68,21 @@ auto z = tax::TE<3, 2>::variable(1.0, /*var_idx=*/0);
 
 ## Building expressions
 
-Arithmetic and math functions work naturally; the right-hand side builds a lazy
-expression tree that is materialised only on assignment. You just write the
-math.
+Arithmetic and math functions work naturally; every operator materialises its
+result eagerly by running a single kernel pass. You just write the math.
 
 ```cpp
 auto x = tax::TE<6>::variable(0.0);
 tax::TE<6> f = tax::sin(x) + tax::square(x) / 2.0;
 ```
 
-!!! note "Lazy expression templates"
-    The library uses expression-template flattening internally: an expression
-    such as `(x + 2.0) * (x - 3.0)` does not allocate or evaluate a temporary
-    for each operator. The whole tree is collapsed into a single pass when it is
-    assigned to a concrete `TE<N, M>`. Annotate the left-hand side with the
-    concrete type to force materialisation.
+!!! note "Eager evaluation"
+    Each operator and math function returns a fresh, fully evaluated
+    `TaylorExpansion` — there is no lazy expression-template layer. The
+    fixed-shape `std::array` payload and RVO keep the eager path free of heap
+    allocations and intermediate copies; see
+    [Internals / Architecture](../internals/architecture.md) for why the
+    library deliberately avoids expression templates.
 
 ### Arithmetic and composition
 
@@ -137,6 +137,47 @@ auto y = TE2::variable<1>(p);
 
 TE2 f = tax::sin(x) * tax::cos(y);   // full bivariate Taylor series in one pass
 ```
+
+!!! tip "Fused pair operations"
+    When an expression needs *both* halves of a natural pair — `sin` **and**
+    `cos` of the same argument, `sqrt` **and** `1/sqrt`, or the damped
+    oscillation `exp(v)·sin(u)` / `exp(v)·cos(u)` — the fused surface
+    (`sinCos`, `sinhCosh`, `sqrtInvSqrt`, `expSin`/`expCos`/`expSinCos`,
+    `halfPow<K>`, `invSqrtPow<K>`) computes them in a single coupled
+    recurrence pass. See [Fused Operations](fused.md).
+
+---
+
+## Compile-time evaluation
+
+The **polynomial surface** is `constexpr`, so a fixed local Taylor model built
+from it can be baked into the binary at compile time. This covers the
+arithmetic operators (`+`, `-`, `*`, `/`), `square`, `cube`, `reciprocal`,
+integer `pow(x, n)`, and the differential/evaluation accessors
+(`deriv`, `integ`, `eval`, `truncate`, `coeff`, `derivative`):
+
+```cpp
+constexpr auto x = tax::TE<8>::variable(0.5);
+constexpr auto g = tax::square(x) + 2.0 * x + 1.0;   // (x + 1)²
+
+static_assert(g.value() == 2.25);                // evaluated by the compiler
+static_assert(g.coeff<1>() != 0.0);
+constexpr double d2 = g.derivative<2>();         // usable as a constant expression
+
+constexpr auto p = tax::pow(x, 3);               // integer power — constexpr
+```
+
+Multivariate, named, and mixed-order polynomial pipelines work the same way
+(wrap the variable setup in an immediately-invoked `constexpr` lambda when it
+needs more than one statement).
+
+!!! note "Transcendentals are runtime-only"
+    The transcendental, root, and real-exponent functions — `exp`, `log`,
+    `sin`, `cos`, `sqrt`, `cbrt`, `pow(x, p)` for real `p`, `atan2`, `erf`, the
+    hyperbolic and inverse families, and the fused pair operations — seed their
+    recurrence with a plain libm call (`std::exp`, `std::sin`, …) at the
+    constant term. They are therefore **not** `constexpr` and cannot run in
+    constant evaluation; call them at runtime.
 
 ---
 

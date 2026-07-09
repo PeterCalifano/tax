@@ -49,60 +49,15 @@ struct AxesToMixedScheme
 template < typename... Axes >
 using AxesToMixedScheme_t = typename AxesToMixedScheme< Axes... >::type;
 
-// Merge two name-sorted ordered-axis lists into one sorted, unique list. The
-// same-name case takes the MAX of the two per-axis orders (a shared axis must
-// accommodate both operands).
-
-template < int Cmp, typename A, typename B >
-struct MergeOrderedChoose;
-
-template < typename A, typename B >
-struct MergeOrdered;
-
-template < typename... Bs >
-struct MergeOrdered< TypeList<>, TypeList< Bs... > >
+// Same-name merge policy for ordered axes: a shared axis must accommodate
+// both operands, so the union takes the MAX of the two per-axis orders. The
+// generic sorted-merge machinery (Merge / MergeFold) lives in core/named.hpp
+// and picks this policy up through the CombineAxes customisation point.
+template < FixedString NameA, int DimA, int OrderA, FixedString NameB, int DimB, int OrderB >
+struct CombineAxes< OrderedAxis< NameA, DimA, OrderA >, OrderedAxis< NameB, DimB, OrderB > >
 {
-    using type = TypeList< Bs... >;
-};
-
-template < typename A0, typename... As >
-struct MergeOrdered< TypeList< A0, As... >, TypeList<> >
-{
-    using type = TypeList< A0, As... >;
-};
-
-template < typename A0, typename... As, typename B0, typename... Bs >
-struct MergeOrdered< TypeList< A0, As... >, TypeList< B0, Bs... > >
-    : MergeOrderedChoose< axisSign< A0, B0 >, TypeList< A0, As... >, TypeList< B0, Bs... > >
-{
-};
-
-// A0 < B0 : take A0
-template < typename A0, typename... As, typename B0, typename... Bs >
-struct MergeOrderedChoose< -1, TypeList< A0, As... >, TypeList< B0, Bs... > >
-{
-    using type = typename Prepend<
-        A0, typename MergeOrdered< TypeList< As... >, TypeList< B0, Bs... > >::type >::type;
-};
-
-// A0 > B0 : take B0
-template < typename A0, typename... As, typename B0, typename... Bs >
-struct MergeOrderedChoose< 1, TypeList< A0, As... >, TypeList< B0, Bs... > >
-{
-    using type = typename Prepend<
-        B0, typename MergeOrdered< TypeList< A0, As... >, TypeList< Bs... > >::type >::type;
-};
-
-// A0 == B0 (same name) : require identical dimension, take max(order), advance both
-template < typename A0, typename... As, typename B0, typename... Bs >
-struct MergeOrderedChoose< 0, TypeList< A0, As... >, TypeList< B0, Bs... > >
-{
-    static_assert( A0::dim == B0::dim,
-                   "named axis used with inconsistent dimension across operands" );
-    using Promoted =
-        OrderedAxis< A0::name, A0::dim, ( A0::order > B0::order ? A0::order : B0::order ) >;
-    using type = typename Prepend<
-        Promoted, typename MergeOrdered< TypeList< As... >, TypeList< Bs... > >::type >::type;
+    static_assert( DimA == DimB, "named axis used with inconsistent dimension across operands" );
+    using type = OrderedAxis< NameA, DimA, ( OrderA > OrderB ? OrderA : OrderB ) >;
 };
 
 /// Rebind a `TypeList` of ordered axes into a `MixedTaylorExpansion< T, Axes... >`.
@@ -117,7 +72,7 @@ struct RebindMixed< T, TypeList< Axes... > >
 /// The mixed type over the merged (union, max-order) axis set of two operands.
 template < typename T, typename ListA, typename ListB >
 using MergedMixedTaylorExpansion =
-    typename RebindMixed< T, typename MergeOrdered< ListA, ListB >::type >::type;
+    typename RebindMixed< T, typename Merge< ListA, ListB >::type >::type;
 
 /// Order of the axis named `Name` within a list, or -1 if absent.
 template < typename List, FixedString Name >
@@ -152,19 +107,6 @@ struct ReplaceAxisOrder< TypeList< H, Ts... >, Name, N2 >
         fixedCompare< H::name, Name > == 0,
         Prepend< OrderedAxis< Name, H::dim, N2 >, TypeList< Ts... > >,
         Prepend< H, typename ReplaceAxisOrder< TypeList< Ts... >, Name, N2 >::type > >::type;
-};
-
-/// Left-fold `MergeOrdered` over a pack of (singleton) axis lists (for slice()).
-template < typename Acc, typename... Rest >
-struct MergeFoldOrdered
-{
-    using type = Acc;
-};
-template < typename Acc, typename First, typename... Rest >
-struct MergeFoldOrdered< Acc, First, Rest... >
-{
-    using type =
-        typename MergeFoldOrdered< typename MergeOrdered< Acc, First >::type, Rest... >::type;
 };
 
 }  // namespace detail
@@ -235,29 +177,12 @@ class MixedTaylorExpansion
 
     /// Embed into the target mixed type `R`, whose axes are a superset of this
     /// expansion's and whose per-axis orders are >= these (this is a sub-box of
-    /// R). Reindexes box -> box via the MixedScheme, remapping per-axis blocks.
+    /// R). Reindexes box -> box via the MixedScheme, remapping per-axis blocks;
+    /// a target with a lower per-axis order drops out-of-box terms.
     template < typename R >
     [[nodiscard]] constexpr R embed() const noexcept
     {
-        constexpr auto map =
-            detail::buildAxisMap< axis_list, typename R::axis_list, /*allowDrop=*/false >();
-        typename R::Inner::Data out{};
-        for ( std::size_t k = 0; k < Inner::nCoefficients; ++k )
-        {
-            const T c = inner_[k];
-            if ( c == T{} ) continue;
-            const auto a_src = Inner::scheme::multiOf( k );
-            MultiIndex< R::vars_v > a_dst{};
-            for ( int j = 0; j < vars_v; ++j )
-                a_dst[std::size_t( map[std::size_t( j )] )] = a_src[std::size_t( j )];
-            const std::size_t dst = R::Inner::scheme::flatOf( a_dst );
-            // R's axes superset this one's; with R's per-axis orders >= these
-            // (the intended use) every monomial stays in R's box. Guard the write
-            // so a target with a lower per-axis order drops the out-of-box term
-            // instead of writing out of bounds (size_t(-1)).
-            if ( dst != R::Inner::scheme::kNotInBox ) out[dst] = c;
-        }
-        return R{ typename R::Inner{ out } };
+        return detail::reindexAxes< R, /*AllowDrop=*/false >( *this );
     }
 
     // Per-axis differentiation and integration (axis set preserved).
@@ -297,45 +222,13 @@ class MixedTaylorExpansion
         static_assert( ( ( detail::DimOfName< axis_list, Names >::value >= 1 ) && ... ),
                        "slice(): every requested axis name must exist in this expansion" );
         // Build target axis list (sorted, unique): each named axis with its current dim+order.
-        using Tgt = typename detail::MergeFoldOrdered<
+        using Tgt = typename detail::MergeFold<
             detail::TypeList<>,
             detail::TypeList< OrderedAxis< Names, detail::DimOfName< axis_list, Names >::value,
                                            detail::OrderOfName< axis_list, Names >::value > >... >::
             type;
         using R = typename detail::RebindMixed< T, Tgt >::type;
-
-        // Variable remap: source var j -> target var map[j] (or -1 if dropped).
-        constexpr auto map = detail::buildAxisMap< axis_list, Tgt, /*allowDrop=*/true >();
-        typename R::Inner::Data out{};
-        for ( std::size_t k = 0; k < Inner::nCoefficients; ++k )
-        {
-            const T c = inner_[k];
-            if ( c == T{} ) continue;
-            const auto a_src = Inner::scheme::multiOf( k );
-            MultiIndex< R::vars_v > a_dst{};
-            bool keep = true;
-            for ( int j = 0; j < vars_v; ++j )
-            {
-                const int to = map[std::size_t( j )];
-                if ( to < 0 )
-                {
-                    if ( a_src[std::size_t( j )] != 0 )
-                    {
-                        keep = false;
-                        break;
-                    }
-                } else
-                {
-                    a_dst[std::size_t( to )] = a_src[std::size_t( j )];
-                }
-            }
-            if ( keep )
-            {
-                const std::size_t dst = R::Inner::scheme::flatOf( a_dst );
-                out[dst] += c;
-            }
-        }
-        return R{ typename R::Inner{ out } };
+        return detail::reindexAxes< R, /*AllowDrop=*/true >( *this );
     }
 
     /// Lower axis `Name`'s per-axis order to `N2`. Monomials whose `Name`-axis
@@ -350,18 +243,9 @@ class MixedTaylorExpansion
                        "truncateAxis<Name,N2>: N2 must be in [0, current order of Name]" );
         using TgtList = typename detail::ReplaceAxisOrder< axis_list, Name, N2 >::type;
         using R = typename detail::RebindMixed< T, TgtList >::type;
-
-        typename R::Inner::Data out{};
-        for ( std::size_t k = 0; k < Inner::nCoefficients; ++k )
-        {
-            const T c = inner_[k];
-            if ( c == T{} ) continue;
-            const auto a_src = Inner::scheme::multiOf( k );
-            // Re-flat through the target (smaller) scheme — same variable layout.
-            const std::size_t dst = R::Inner::scheme::flatOf( a_src );
-            if ( dst != R::Inner::scheme::kNotInBox ) out[dst] = c;
-        }
-        return R{ typename R::Inner{ out } };
+        // Identity variable map; re-flatting through the smaller target box
+        // drops monomials whose Name-axis degree exceeds N2.
+        return detail::reindexAxes< R, /*AllowDrop=*/false >( *this );
     }
 
    private:
@@ -387,6 +271,22 @@ TAX_MIXED_BINARY_OP( * )
 TAX_MIXED_BINARY_OP( / )
 
 #undef TAX_MIXED_BINARY_OP
+
+// Compound assignment (same axis set: no axis-union widening).
+#define TAX_MIXED_COMPOUND_OP( OP )                                                             \
+    template < typename T, typename... A >                                                      \
+    constexpr MixedTaylorExpansion< T, A... >& operator OP(                                     \
+        MixedTaylorExpansion< T, A... >& a, const MixedTaylorExpansion< T, A... >& b ) noexcept \
+    {                                                                                           \
+        a.inner() OP b.inner();                                                                 \
+        return a;                                                                               \
+    }
+
+TAX_MIXED_COMPOUND_OP( += )
+TAX_MIXED_COMPOUND_OP( -= )
+TAX_MIXED_COMPOUND_OP( *= )
+
+#undef TAX_MIXED_COMPOUND_OP
 
 // Scalar combinations (axis set unchanged).
 

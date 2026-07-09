@@ -72,7 +72,7 @@ void seriesCos( std::array< T, Scheme::nCoeff >& out,
     seriesSinCos< T, Scheme >( s, out, a );
 }
 
-/// Tangent series `out = tan(a)` (scheme-generic).
+/// Tangent series `out = tan(a)` (scheme-generic): sin/cos in one substitution pass.
 template < typename T, tax::IndexScheme Scheme >
 void seriesTan( std::array< T, Scheme::nCoeff >& out,
                 const std::array< T, Scheme::nCoeff >& a ) noexcept
@@ -80,31 +80,10 @@ void seriesTan( std::array< T, Scheme::nCoeff >& out,
     constexpr std::size_t S = Scheme::nCoeff;
     std::array< T, S > s{}, c{};
     seriesSinCos< T, Scheme >( s, c, a );
-
-    out = {};
-    out[0] = s[0] / c[0];
-    const T inv_c0 = T{ 1 } / c[0];
-
-    if constexpr ( Scheme::isUnivariate )
-    {
-        for ( int d = 1; d <= Scheme::order; ++d )
-        {
-            T rhs = s[std::size_t( d )];
-            for ( int k = 1; k <= d; ++k ) rhs -= c[std::size_t( k )] * out[std::size_t( d - k )];
-            out[std::size_t( d )] = rhs * inv_c0;
-        }
-    } else
-    {
-        Scheme::forEachRecurrenceRow(
-            [&]( std::size_t ai, int, std::span< const RecurrenceEntry > row ) {
-                T rhs = s[ai];
-                for ( const RecurrenceEntry& e : row ) rhs -= c[e.b_idx] * out[e.g_idx];
-                out[ai] = rhs * inv_c0;
-            } );
-    }
+    seriesDivide< T, Scheme >( out, s, c );
 }
 
-/// Inverse sine series `out = asin(a)` (scheme-generic).
+/// Inverse sine series `out = asin(a)` (scheme-generic): out' = a' / sqrt(1 - a^2).
 template < typename T, tax::IndexScheme Scheme >
 void seriesAsin( std::array< T, Scheme::nCoeff >& out,
                  const std::array< T, Scheme::nCoeff >& a ) noexcept
@@ -113,40 +92,16 @@ void seriesAsin( std::array< T, Scheme::nCoeff >& out,
     constexpr std::size_t S = Scheme::nCoeff;
 
     // h = sqrt(1 - a^2)
-    std::array< T, S > asq{}, omf{}, h{};
+    std::array< T, S > asq{}, h{};
     tax::cauchySelfProduct< T, Scheme >( asq, a );
-    omf = {};
-    omf[0] = T{ 1 };
-    for ( std::size_t i = 0; i < S; ++i ) omf[i] -= asq[i];
-    seriesSqrt< T, Scheme >( h, omf );
+    for ( T& v : asq ) v = -v;
+    asq[0] += T{ 1 };
+    seriesSqrt< T, Scheme >( h, asq );
 
-    out = {};
-    out[0] = asin( a[0] );
-    const T inv_h0 = T{ 1 } / h[0];
-
-    if constexpr ( Scheme::isUnivariate )
-    {
-        for ( int d = 1; d <= Scheme::order; ++d )
-        {
-            T rhs = T{ 0 };
-            for ( int k = 1; k < d; ++k )
-                rhs += T( k ) * h[std::size_t( d - k )] * out[std::size_t( k )];
-            out[std::size_t( d )] = ( a[std::size_t( d )] - rhs / T( d ) ) * inv_h0;
-        }
-    } else
-    {
-        Scheme::forEachRecurrenceRow(
-            [&]( std::size_t ai, int d, std::span< const RecurrenceEntry > row ) {
-                T rhs = T{ 0 };
-                // |beta| == d entries carry weight (d - db) == 0.
-                for ( const RecurrenceEntry& e : row )
-                    rhs += T( d - int( e.db ) ) * h[e.b_idx] * out[e.g_idx];
-                out[ai] = ( a[ai] - rhs / T( d ) ) * inv_h0;
-            } );
-    }
+    seriesDerivQuotient< 1, T, Scheme >( out, asin( a[0] ), a, h );
 }
 
-/// Inverse cosine series `out = acos(a)` (scheme-generic).
+/// Inverse cosine series `out = acos(a)` (scheme-generic): out' = -a' / sqrt(1 - a^2).
 template < typename T, tax::IndexScheme Scheme >
 void seriesAcos( std::array< T, Scheme::nCoeff >& out,
                  const std::array< T, Scheme::nCoeff >& a ) noexcept
@@ -155,77 +110,27 @@ void seriesAcos( std::array< T, Scheme::nCoeff >& out,
     constexpr std::size_t S = Scheme::nCoeff;
 
     // h = sqrt(1 - a^2)
-    std::array< T, S > asq{}, omf{}, h{};
+    std::array< T, S > asq{}, h{};
     tax::cauchySelfProduct< T, Scheme >( asq, a );
-    omf = {};
-    omf[0] = T{ 1 };
-    for ( std::size_t i = 0; i < S; ++i ) omf[i] -= asq[i];
-    seriesSqrt< T, Scheme >( h, omf );
+    for ( T& v : asq ) v = -v;
+    asq[0] += T{ 1 };
+    seriesSqrt< T, Scheme >( h, asq );
 
-    out = {};
-    out[0] = acos( a[0] );
-    const T inv_h0 = T{ 1 } / h[0];
-
-    if constexpr ( Scheme::isUnivariate )
-    {
-        for ( int d = 1; d <= Scheme::order; ++d )
-        {
-            T rhs = T{ 0 };
-            for ( int k = 1; k < d; ++k )
-                rhs += T( k ) * h[std::size_t( d - k )] * out[std::size_t( k )];
-            out[std::size_t( d )] = ( -a[std::size_t( d )] - rhs / T( d ) ) * inv_h0;
-        }
-    } else
-    {
-        Scheme::forEachRecurrenceRow(
-            [&]( std::size_t ai, int d, std::span< const RecurrenceEntry > row ) {
-                T rhs = T{ 0 };
-                // |beta| == d entries carry weight (d - db) == 0.
-                for ( const RecurrenceEntry& e : row )
-                    rhs += T( d - int( e.db ) ) * h[e.b_idx] * out[e.g_idx];
-                out[ai] = ( -a[ai] - rhs / T( d ) ) * inv_h0;
-            } );
-    }
+    seriesDerivQuotient< -1, T, Scheme >( out, acos( a[0] ), a, h );
 }
 
-/// Inverse tangent series `out = atan(a)` (scheme-generic).
+/// Inverse tangent series `out = atan(a)` (scheme-generic): out' = a' / (1 + a^2).
 template < typename T, tax::IndexScheme Scheme >
 void seriesAtan( std::array< T, Scheme::nCoeff >& out,
                  const std::array< T, Scheme::nCoeff >& a ) noexcept
 {
     using std::atan;
-    constexpr std::size_t S = Scheme::nCoeff;
-
     // h = 1 + a^2
-    std::array< T, S > asq{}, h{};
-    tax::cauchySelfProduct< T, Scheme >( asq, a );
-    h = asq;
+    std::array< T, Scheme::nCoeff > h{};
+    tax::cauchySelfProduct< T, Scheme >( h, a );
     h[0] += T{ 1 };
 
-    out = {};
-    out[0] = atan( a[0] );
-    const T inv_h0 = T{ 1 } / h[0];
-
-    if constexpr ( Scheme::isUnivariate )
-    {
-        for ( int d = 1; d <= Scheme::order; ++d )
-        {
-            T rhs = T{ 0 };
-            for ( int k = 1; k < d; ++k )
-                rhs += T( k ) * h[std::size_t( d - k )] * out[std::size_t( k )];
-            out[std::size_t( d )] = ( a[std::size_t( d )] - rhs / T( d ) ) * inv_h0;
-        }
-    } else
-    {
-        Scheme::forEachRecurrenceRow(
-            [&]( std::size_t ai, int d, std::span< const RecurrenceEntry > row ) {
-                T rhs = T{ 0 };
-                // |beta| == d entries carry weight (d - db) == 0.
-                for ( const RecurrenceEntry& e : row )
-                    rhs += T( d - int( e.db ) ) * h[e.b_idx] * out[e.g_idx];
-                out[ai] = ( a[ai] - rhs / T( d ) ) * inv_h0;
-            } );
-    }
+    seriesDerivQuotient< 1, T, Scheme >( out, atan( a[0] ), a, h );
 }
 
 /// Two-argument arctangent series `out = atan2(y, x)` (scheme-generic).
@@ -236,40 +141,13 @@ void seriesAtan2( std::array< T, Scheme::nCoeff >& out, const std::array< T, Sch
     using std::atan2;
     constexpr std::size_t S = Scheme::nCoeff;
 
-    // Compute r = y / x in a single forward-substitution pass.
-    std::array< T, S > r{};
+    // r = y / x in a single forward-substitution pass, then out' = r' / (1 + r^2).
+    std::array< T, S > r{}, h{};
     seriesDivide< T, Scheme >( r, y, x );
-
-    // h = 1 + r^2
-    std::array< T, S > rsq{}, h{};
-    tax::cauchySelfProduct< T, Scheme >( rsq, r );
-    h = rsq;
+    tax::cauchySelfProduct< T, Scheme >( h, r );
     h[0] += T{ 1 };
 
-    out = {};
-    out[0] = atan2( y[0], x[0] );
-    const T inv_h0 = T{ 1 } / h[0];
-
-    if constexpr ( Scheme::isUnivariate )
-    {
-        for ( int d = 1; d <= Scheme::order; ++d )
-        {
-            T rhs = T{ 0 };
-            for ( int k = 1; k < d; ++k )
-                rhs += T( k ) * h[std::size_t( d - k )] * out[std::size_t( k )];
-            out[std::size_t( d )] = ( r[std::size_t( d )] - rhs / T( d ) ) * inv_h0;
-        }
-    } else
-    {
-        Scheme::forEachRecurrenceRow(
-            [&]( std::size_t ai, int d, std::span< const RecurrenceEntry > row ) {
-                T rhs = T{ 0 };
-                // |beta| == d entries carry weight (d - db) == 0.
-                for ( const RecurrenceEntry& e : row )
-                    rhs += T( d - int( e.db ) ) * h[e.b_idx] * out[e.g_idx];
-                out[ai] = ( r[ai] - rhs / T( d ) ) * inv_h0;
-            } );
-    }
+    seriesDerivQuotient< 1, T, Scheme >( out, atan2( y[0], x[0] ), r, h );
 }
 
 }  // namespace tax::detail::kernels

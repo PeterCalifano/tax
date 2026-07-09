@@ -12,7 +12,7 @@ namespace tax
 // ===========================================================================
 // Dense unary math wrappers
 //
-// Generated from one macro: TAX_UNARY_OP_CE is constexpr (pure recurrence);
+// Generated from two macros: TAX_UNARY_OP_CE is constexpr (pure recurrence);
 // TAX_UNARY_OP is runtime-only (the kernel evaluates std::exp/sin/... at the
 // constant term).
 //

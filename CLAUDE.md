@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**tax** is a header-only C++23 library for **Truncated Algebraic eXpansions (TAX)** — truncated multivariate Taylor polynomials that propagate complete Taylor series through arbitrary expressions. In a single evaluation pass, it yields function values and all partial derivatives up to order N. It provides dense and sparse storage, *named* expansions (type-level variable axes) including *mixed-order* axes, optional *batch* (SIMD-style) coefficients, and Eigen integration (`tax::la`).
+**tax** is a header-only C++23 library for **Truncated Algebraic eXpansions (TAX)** — truncated multivariate Taylor polynomials that propagate complete Taylor series through arbitrary expressions. In a single evaluation pass, it yields function values and all partial derivatives up to order N. It provides dense and sparse storage, *named* expansions (type-level variable axes) including *mixed-order* axes and Eigen integration (`tax::la`).
 
 > **Note:** adaptive ODE integration (`tax::ode`) and Automatic Domain Splitting (`tax::ads`) are no longer part of this repository — they were split out, unchanged, into a separate companion plugin built on top of `tax` (see the README). Do not look for `include/tax/ode` or `include/tax/ads` here.
 
@@ -27,7 +27,6 @@ tax/
 │   │   ├── scheme.hpp        #   index-scheme facade; scheme/{concept,isotropic,mixed}.hpp
 │   │   │                     #   IsotropicScheme<N,M> (single order) + MixedScheme (per-axis)
 │   │   ├── taylor_expansion.hpp  # TaylorExpansion<T, Scheme, Storage>: Dense + Sparse
-│   │   ├── batch.hpp         #   Batch<T,K>: K expansions evaluated in lock-step (TE<N,M,K>)
 │   │   ├── named.hpp         #   NamedTaylorExpansion<T,N,Axes...>: single-order named axes
 │   │   ├── mixed_named.hpp   #   MixedTaylorExpansion<T,Axes...>: per-axis-order named axes
 │   │   ├── promote.hpp       #   promote_t<Ts...>: common (union-of-axes) expansion type
@@ -38,15 +37,20 @@ tax/
 │   │   ├── cauchy_stencil.hpp#   precomputed stencil table product (M >= 2)
 │   │   ├── recurrence_stencil.hpp # shared decomposition table for M>=2 recurrences
 │   │   ├── mixed_stencils.hpp#   Cauchy / recurrence stencils for MixedScheme
-│   │   ├── algebra.hpp       #   self-product, square/cube, reciprocal, sqrt, cbrt, pow
+│   │   ├── algebra.hpp       #   shared recurrence drivers (seriesDerivQuotient /
+│   │   │                     #   seriesDerivProduct), square/cube, reciprocal, sqrt, cbrt, pow
 │   │   ├── trigonometric.hpp #   sin, cos, tan, asin, acos, atan
-│   │   ├── transcendental.hpp#   exp, log, sinh, cosh, tanh + inverses, erf
+│   │   ├── transcendental.hpp#   exp, log, sinh/cosh/tanh (+ fused sinhCosh) + inverses, erf
+│   │   ├── fused.hpp         #   pair-fused kernels: expSinCos (exp·trig), sqrtInvSqrt
 │   │   ├── sparse_cauchy.hpp #   sparse Cauchy product / self-product
 │   │   └── sparse_subs.hpp   #   sparse substitution helpers
 │   ├── operators/            # Free-function operator surface over the kernels
 │   │   ├── arithmetic.hpp        #   +, -, *, /, compound assignment (dense + sparse)
 │   │   ├── math_unary.hpp        #   sin, exp, sqrt, square, …
-│   │   ├── math_binary.hpp       #   pow, atan2, …
+│   │   ├── math_binary.hpp       #   pow, pow<N>/pow<N,M>, halfPow<K>/invSqrtPow<K>, atan2, …
+│   │   ├── math_fused.hpp        #   sinCos, sinhCosh, sqrtInvSqrt, expSin/expCos/expSinCos
+│   │   │                         #   (dense + named + mixed, pair-returning forms)
+│   │   ├── mixed_math.hpp        #   pow/atan2 for MixedTaylorExpansion + tax:: re-exports
 │   │   └── named_{arithmetic,math_unary,math_binary}.hpp  # same surface for named/mixed
 │   ├── la/                   # Eigen integration (namespace tax::la; some re-exported as tax::)
 │   │   ├── types.hpp         #   Vec, Mat, VecNT<N,T>, MatNT, MatNMT
@@ -55,6 +59,8 @@ tax/
 │   │   ├── values.hpp        #   variables(x0), value(), eval()
 │   │   ├── truncate.hpp      #   free tax::truncate<N2>(scalar | Eigen vector/matrix)
 │   │   ├── derivatives.hpp   #   derivative, gradient, hessian, jacobian
+│   │   ├── norm.hpp          #   norm<P, Q> of a vector of expansions (Q defaults to 1)
+│   │   ├── vector_ops.hpp    #   dot, cross, angle, unitvec, unitcross, projvec, projplane
 │   │   ├── named.hpp         #   NumTraits + gradient/hessian/jacobian by axis name
 │   │   ├── mixed_named.hpp   #   the same for mixed-order named expansions
 │   │   └── invert.hpp        #   formal polynomial-map inversion (Picard)
@@ -120,7 +126,7 @@ pre-define either macro to `0`, but the value must be identical project-wide.
 
 ```cpp
 tax::TaylorExpansion<T, Scheme, Storage = tax::storage::Dense>
-// T       = coefficient type (double, float, or Batch<double,K> for K lock-step expansions)
+// T       = coefficient type (double or float)
 // Scheme  = index scheme: IsotropicScheme<N,M> (one order N over M vars)
 //           or MixedScheme<...> (per-axis orders); fixes the monomial layout
 // Storage = storage::Dense (std::array) or storage::Sparse (sorted idx/val vectors)
@@ -128,7 +134,7 @@ tax::TaylorExpansion<T, Scheme, Storage = tax::storage::Dense>
 
 Most code uses the aliases rather than naming a `Scheme` directly (all `double`-valued unless noted):
 ```cpp
-tax::TE<N, M = 1, K = 1>  // dense; K>1 → Batch<double,K> coefficients
+tax::TE<N, M = 1>         // dense
 tax::TEn<N, M>            // dense, explicit multivariate spelling
 tax::STE<N, M = 1>        // sparse
 tax::NE<N, Axes...>       // named (single order)          — see Named Expansions
@@ -180,6 +186,13 @@ auto   F   = f.integ<0>();        // symbolic integral
 `coeff` / `derivative` / `deriv` / `integ` all exist in compile-time
 (`<...>`), `MultiIndex<M>`, and runtime-`int` forms.
 
+The pure-polynomial surface is `constexpr` and runs in constant evaluation:
+arithmetic, `square`/`cube`/`reciprocal`, integer `pow`, division, and the
+`deriv`/`integ`/`eval`/`truncate` accessors (see
+`tests/core/test_constexpr.cpp`). The transcendental functions seed their
+recurrence with a libm call (`std::exp`, `std::sin`, ...), so they are
+runtime-only.
+
 ### Coefficient Storage
 
 - Graded-lexicographic ordering: all degree-0 first, then degree-1, etc.
@@ -195,7 +208,24 @@ auto   F   = f.integ<0>();        // symbolic integral
 
 All math operations are degree-by-degree recurrence relations in
 `include/tax/kernels/` (`tax::detail::kernels`), operating directly on the
-coefficient arrays. The Cauchy product has three dense variants behind one
+coefficient arrays. Two shared drivers in `algebra.hpp` implement the common
+recurrence shapes once (univariate + multivariate walks):
+`seriesDerivQuotient` solves `h·out' = ±src'` (log, asin/acos/atan/atan2,
+asinh/acosh/atanh) and `seriesDerivProduct` solves `out' = src'·h` (exp, erf).
+Most kernels reduce to "compute h, seed the constant term, call the driver".
+
+The pure-polynomial kernels (`seriesSquare`/`seriesCube`/`seriesReciprocal`/
+`seriesDivide`/`seriesPowInt` and the two drivers) are `constexpr`. The
+transcendental kernels evaluate one libm seed on the constant term
+(`out[0] = std::exp(a[0])`, etc.) and are therefore runtime-only; when adding
+one, follow the existing pattern (`using std::exp; out[0] = exp(a[0]);`).
+
+Pair-fused kernels live in `fused.hpp` (`seriesExpSinCos`, `seriesSqrtInvSqrt`)
+and are exposed via `operators/math_fused.hpp` (`expSin`, `expCos`,
+`expSinCos`, `sinCos`, `sinhCosh`, `sqrtInvSqrt`); the fused exp·trig pass is
+~2x faster than composing `exp(v) * cos(u)`. These were ported from the
+expression-template prototype branch — the ET layer itself benchmarked at
+parity and was deliberately not ported. The Cauchy product has three dense variants behind one
 dispatch (`cauchyProduct`):
 
 - `cauchyProductLoop` — generic, `constexpr`-safe (used in constant evaluation)

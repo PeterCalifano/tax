@@ -108,7 +108,7 @@ control-flow predicates that branch on a representative value.
 
 ## Eigen integration
 
-`tax/eigen.hpp` does two things:
+`tax/la.hpp` does two things:
 
 1. **NumTraits specialisation** so `Eigen::Matrix<TE, R, C>` is a first-class
    Eigen type. Add/mul cost is set to the monomial count so Eigen's

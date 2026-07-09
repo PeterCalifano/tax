@@ -16,7 +16,7 @@ up to order $N$ in a single evaluation pass.
 #include <tax/tax.hpp>
 
 auto x = tax::TE<9>::variable(0.0);    // 9-th order univariate variable at x₀ = 0
-tax::TE<9> f = tax::sin(x);            // expression-template tree, evaluated on assign
+tax::TE<9> f = tax::sin(x);            // one recurrence pass: value + all derivatives
 
 f.value();          // sin(0)     = 0
 f.derivative<1>();  // cos(0)     = 1
@@ -38,11 +38,12 @@ f.eval(0.3);        // sin(0.3) within machine precision
     Coefficient storage is `std::array<T, C(N+M, M)>` on the stack. Both `N` and
     `M` are compile-time integers, so the optimizer sees through every loop.
 
-- :material-lightning-bolt:{ .lg .middle } **Lazy expression templates**
+- :material-lightning-bolt:{ .lg .middle } **Fused kernels**
 
-    `sin(x*y + z)` builds a tree of expressions; the polynomial is materialized
-    only on assignment. Sums and products are flattened to N-ary nodes for a
-    single pass.
+    Coupled pairs — `sinCos`, `sinhCosh`, `sqrtInvSqrt`, `expSinCos`, the
+    `invSqrtPow<3>` gravity kernel — run in a single recurrence pass. The
+    pure-polynomial surface (arithmetic, `square`, `cube`, `reciprocal`,
+    integer `pow`) is `constexpr` and works in constant evaluation.
 
 - :material-tune-vertical:{ .lg .middle } **Dense or sparse storage**
 
@@ -73,7 +74,9 @@ f.eval(0.3);        // sin(0.3) within machine precision
 | `tax::TE<N>::variable(x0)` | univariate TE at $x_0$, order $N$ |
 | `tax::TE<N, M>::variable<I>(x0)` | $I$-th coordinate variable, others as parameters |
 | `tax::variables<TE<N,M>>(x0)` | Eigen column vector of all $M$ coordinate variables |
-| `tax::sin(x) * tax::exp(y)` | lazy expression, materialized on assignment |
+| `tax::sin(x) * tax::exp(y)` | full Taylor series of the product, one kernel pass per op |
+| `tax::expSinCos(v, u)` | `{exp(v)·sin(u), exp(v)·cos(u)}` fused in one coupled pass |
+| `constexpr auto g = tax::square(x) + 2.0*x + 1.0;` | polynomial pipeline evaluated at compile time |
 | `f.derivative<2, 1>()` | $\partial^3 f / \partial x^2 \partial y$ at $x_0$ |
 | `f.eval(dx)` | Horner evaluation of the polynomial at $x_0 + \delta x$ |
 | `tax::jacobian(F, M)` | Eigen Jacobian of a vector function |
@@ -92,8 +95,9 @@ f.eval(0.3);        // sin(0.3) within machine precision
 
 - [:material-school: __Guide__](guide/index.md)
 
-    How-to walkthroughs: variables and expressions, extracting results,
-    storage, named expansions, Eigen integration.
+    How-to walkthroughs: variables and expressions, fused operations,
+    extracting results, storage, named and mixed-order expansions, Eigen
+    integration.
 
 - [:material-book-open-variant: __Reference__](reference/index.md)
 

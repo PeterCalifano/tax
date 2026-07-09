@@ -13,14 +13,16 @@ in `tax/operators/` is a thin wrapper that calls a kernel and returns a fresh
 
 | Header | Kernels | Operations |
 |---|---|---|
-| `tax/kernels/cauchy.hpp` | `seriesCauchy`, `seriesCauchyAccumulate`, `seriesSquare`, `seriesCube` | multiplication, integer powers |
+| `tax/kernels/cauchy.hpp` | `cauchyProduct` dispatch (loop / unroll / stencil), `cauchySelfProduct` | multiplication, squares |
 | `tax/kernels/cauchy_unroll.hpp` | unrolled `M==1` Dense Cauchy | tight univariate hot path (`TAX_USE_UNROLL`) |
 | `tax/kernels/cauchy_stencil.hpp` | precomputed stencil-driven `M≥2` Dense Cauchy | multivariate hot path (`TAX_USE_STENCIL`) |
 | `tax/kernels/recurrence_stencil.hpp` | `RecurrenceStencil`, `forEachRecurrenceRow` | shared decomposition table driving every `M≥2` recurrence |
-| `tax/kernels/algebra.hpp` | `seriesReciprocal`, `seriesSqrt`, `seriesCbrt`, `seriesSquare`, `seriesCube` | algebraic recurrences |
-| `tax/kernels/trigonometric.hpp` | coupled `seriesSinCos`, `seriesTan`, inverse trig | trig and inverse trig |
-| `tax/kernels/transcendental.hpp` | `seriesExp`, `seriesLog`, `seriesSinhCosh`, `seriesTanh`, `seriesErf`, `seriesPow` | exp/log/hyperbolic/erf/power |
-| `tax/kernels/sparse_cauchy.hpp` | `seriesCauchy` for the sparse storage | multiplication on sparse polynomials |
+| `tax/kernels/algebra.hpp` | shared drivers `seriesDerivQuotient` / `seriesDerivProduct`; `seriesSquare`, `seriesCube`, `seriesReciprocal`, `seriesDivide`, `seriesSqrt`, `seriesCbrt`, `seriesPow`, `seriesPowInt` | recurrence drivers + algebraic recurrences and powers |
+| `tax/kernels/trigonometric.hpp` | coupled `seriesSinCos`, `seriesTan`, `seriesAsin`/`seriesAcos`/`seriesAtan`/`seriesAtan2` | trig and inverse trig |
+| `tax/kernels/transcendental.hpp` | `seriesExp`, `seriesLog`, `seriesSinhCosh` (+ single-output `seriesSinh`/`seriesCosh`), `seriesTanh`, inverse hyperbolics, `seriesErf` | exp/log/hyperbolic/erf |
+| `tax/kernels/fused.hpp` | `seriesExpSinCos` (+ `seriesExpSin`/`seriesExpCos`), `seriesSqrtInvSqrt` | pair-fused exp·trig and sqrt/invsqrt |
+| `tax/kernels/mixed_stencils.hpp` | Cauchy / recurrence stencils for `MixedScheme` | mixed-order (anisotropic) layouts |
+| `tax/kernels/sparse_cauchy.hpp` | sparse Cauchy product / self-product | multiplication on sparse polynomials |
 | `tax/kernels/sparse_subs.hpp` | shared sparse subroutines (add/sub merges, etc.) | sparse arithmetic helpers |
 
 ---
@@ -61,10 +63,10 @@ g_\alpha \;=\; \frac{1}{|\alpha|} \sum_{\substack{\beta \le \alpha \\ 1 \le |\be
 \qquad g_0 = \exp(f_0)
 $$
 
-which the kernel implements (in pseudocode) as
+which the shared driver implements (in pseudocode) as
 
 ```cpp
-g[0] = std::exp(f[0]);
+g[0] = std::exp(f[0]);          // libm constant-term seed (runtime-only)
 forEachRecurrenceRow<N, M>([&](std::size_t ai, int d,
                                std::span<const RecurrenceEntry> row) {
     T sum{};
@@ -74,14 +76,74 @@ forEachRecurrenceRow<N, M>([&](std::size_t ai, int d,
 });
 ```
 
-Every other recurrence has the same skeleton: initialise the
-constant-term value with the scalar math, then walk degrees $d = 1, \ldots, N$
-applying the appropriate sub-multi-index sum.
+### Two shared drivers
 
-For *coupled* recurrences (sin/cos, sinh/cosh) the kernel maintains both
-arrays in lockstep — see `seriesSinCos`. For *helper-driven* recurrences
+That skeleton is not repeated per kernel. Two drivers in
+`tax/kernels/algebra.hpp` implement the common recurrence shapes once
+(univariate loop + multivariate row walk):
+
+- **`seriesDerivProduct`** solves $\text{out}' = \text{src}' \cdot h$ —
+  the exp shape. `seriesExp` passes $h = \text{out}$ itself (rows read $h$
+  only at strictly lower, already-final degree); `seriesErf` passes
+  $h = \tfrac{2}{\sqrt\pi} e^{-f^2}$.
+- **`seriesDerivQuotient`** solves $h \cdot \text{out}' = \pm\text{src}'$ —
+  the log / inverse-trig / inverse-hyperbolic shape (`log`, `asin`, `acos`,
+  `atan`, `atan2`, `asinh`, `acosh`, `atanh`).
+
+Most transcendental kernels therefore reduce to three lines: *compute $h$,
+seed the constant term, call the driver*. The math for both shapes, with
+the per-function helper table, is in
+[Recurrence Relations](recurrences.md#shared-recurrence-drivers).
+
+For *coupled* recurrences (sin/cos, the fused exp·trig pass) the kernel
+maintains both arrays in lockstep — see `seriesSinCos` and
+`seriesExpSinCos`. For *helper-driven* recurrences
 (asin via $h = \sqrt{1 - f^2}$, tan via $\cos \cdot t = \sin$) the helper is
-materialised first by an inner kernel call, then the outer recurrence runs.
+materialised first by an inner kernel call, then the driver runs.
+
+---
+
+## Fused pair kernels
+
+`tax/kernels/fused.hpp` holds the two kernels ported from the
+expression-template prototype branch. The ET prototype's own benchmarks
+showed its lazy-evaluation layer was a wash against eager evaluation, but
+that two *fusions* were robust wins — those kernels, and only those, were
+ported; the ET layer itself was deliberately not:
+
+- **`seriesExpSinCos`** — $h = e^v\cos u$ and $q = e^v\sin u$ in one
+  coupled pass ($h' = v'h - u'q$, $q' = v'q + u'h$) instead of three
+  recurrences plus a Cauchy product. Exposed as `expSin`, `expCos`,
+  `expSinCos`; the fused pass is roughly 1.4–1.8x faster than composing
+  `exp(v) * cos(u)`.
+- **`seriesSqrtInvSqrt`** — $s = \sqrt{u}$ and $r = 1/\sqrt{u}$ interleaved
+  per degree; $r$ costs one forward substitution on top of $s$, with scalar
+  divisions by $s_0$ only. A single-output caller should use `seriesSqrt` /
+  `seriesPow` instead: computing the unused companion is a measured net
+  loss.
+
+The public pair-returning surface (`sinCos`, `sinhCosh`, `sqrtInvSqrt`,
+`expSinCos` — dense, named, and mixed) lives in
+`tax/operators/math_fused.hpp`; see
+[Guide / Fused Operations](../guide/fused.md).
+
+---
+
+## Constant-term seeding
+
+Every series kernel evaluates exactly one scalar transcendental — the
+constant-term seed (`out[0] = std::exp(a[0])`, …). These seeds are plain libm
+calls (`std::exp`, `std::sin`, `std::sqrt`, …), so the transcendental, root,
+and real-exponent kernels are **runtime-only**: they cannot run in constant
+evaluation.
+
+The pure-polynomial kernels — `seriesSquare`, `seriesCube`,
+`seriesReciprocal`, `seriesDivide`, the Cauchy products, integer
+`seriesPowInt`, and the two shared drivers `seriesDerivQuotient` /
+`seriesDerivProduct` themselves — carry no transcendental seed and remain
+`constexpr`. It is only the runtime libm seed at the constant term that makes
+the end-user transcendentals non-`constexpr`; the recurrence machinery they
+drive is otherwise constant-evaluation-clean.
 
 ---
 

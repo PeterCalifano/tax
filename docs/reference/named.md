@@ -273,17 +273,94 @@ sin  cos  tan  asin  acos  atan  sinh  cosh  tanh  asinh  acosh  atanh  erf
 ```cpp
 // x^n, integer exponent (axis set preserved)
 template <typename T, int N, typename... A>
-[[nodiscard]] NamedTaylorExpansion<T, N, A...> pow(const NamedTaylorExpansion<T, N, A...>& x, int n) noexcept;
+[[nodiscard]] constexpr NamedTaylorExpansion<T, N, A...> pow(const NamedTaylorExpansion<T, N, A...>& x, int n) noexcept;
 
-// x^p, real exponent (axis set preserved; requires x.value() != 0)
+// x^p, real exponent (axis set preserved; requires x.value() != 0). Runtime-only.
 template <typename T, int N, typename... A>
 [[nodiscard]] NamedTaylorExpansion<T, N, A...> pow(const NamedTaylorExpansion<T, N, A...>& x, T p) noexcept;
 
-// atan2(y, x) over the union of the two operands' axis sets
+// x^(K/2), compile-time-K half-integer power (axis set preserved). Runtime-only.
+//   Even K: integer chain, valid for x.value() < 0; odd K requires x.value() > 0.
+template <int K, typename T, int N, typename... A>
+[[nodiscard]] NamedTaylorExpansion<T, N, A...> halfPow(const NamedTaylorExpansion<T, N, A...>& x) noexcept;
+
+// x^(-K/2), K >= 1 (axis set preserved; requires x.value() > 0). Runtime-only.
+template <int K, typename T, int N, typename... A>
+[[nodiscard]] NamedTaylorExpansion<T, N, A...> invSqrtPow(const NamedTaylorExpansion<T, N, A...>& x) noexcept;
+
+// atan2(y, x) over the union of the two operands' axis sets. Runtime-only.
 template <typename T, int N, typename... A, typename... B>
 [[nodiscard]] auto atan2(const NamedTaylorExpansion<T, N, A...>& y,
                          const NamedTaylorExpansion<T, N, B...>& x) noexcept;
 ```
+
+### Fused pair functions
+
+The fused surface of [Guide / Fused Operations](../guide/fused.md) is
+overloaded for named expansions. Single-operand forms preserve the axis set
+and return a `std::pair` of expansions ordered **as spelled in the name**;
+the two-operand exp·trig forms compose in the **union** of the operands'
+axis sets, exactly like `operator*` / `atan2`:
+
+```cpp
+// {sin(x), cos(x)}, {sinh(x), cosh(x)}, {sqrt(x), 1/sqrt(x)} — axis set preserved. Runtime-only.
+template <typename T, int N, typename... A>
+[[nodiscard]] auto sinCos(const NamedTaylorExpansion<T, N, A...>& x) noexcept;
+template <typename T, int N, typename... A>
+[[nodiscard]] auto sinhCosh(const NamedTaylorExpansion<T, N, A...>& x) noexcept;
+template <typename T, int N, typename... A>
+[[nodiscard]] auto sqrtInvSqrt(const NamedTaylorExpansion<T, N, A...>& x) noexcept;
+
+// exp(v)*sin(u), exp(v)*cos(u), and the pair — over the union of the axis sets. Runtime-only.
+template <typename T, int N, typename... A, typename... B>
+[[nodiscard]] auto expSin(const NamedTaylorExpansion<T, N, A...>& v,
+                          const NamedTaylorExpansion<T, N, B...>& u) noexcept;
+template <typename T, int N, typename... A, typename... B>
+[[nodiscard]] auto expCos(const NamedTaylorExpansion<T, N, A...>& v,
+                          const NamedTaylorExpansion<T, N, B...>& u) noexcept;
+template <typename T, int N, typename... A, typename... B>
+[[nodiscard]] auto expSinCos(const NamedTaylorExpansion<T, N, A...>& v,
+                             const NamedTaylorExpansion<T, N, B...>& u) noexcept;
+```
+
+All of these exist with identical shapes for `MixedTaylorExpansion` (see
+below) and are re-exported under `tax::`.
+
+---
+
+## Mixed-order named expansions (`tax::MixedTaylorExpansion`)
+
+The per-axis-order named type (`OrderedAxis<Name, Dim, Order>` axes; see the
+[Mixed-Order guide](../guide/mixed.md)) carries the same math surface. Its
+unary functions (`sqrt`, `exp`, `sin`, …) preserve the axis set; the binary
+and fused surface is:
+
+```cpp
+// x^n — constexpr; x^p / x^(K/2) / x^(-K/2) — runtime-only. Axis set (and per-axis orders) preserved.
+template <typename T, typename... A>
+[[nodiscard]] constexpr MixedTaylorExpansion<T, A...> pow(const MixedTaylorExpansion<T, A...>& x, int n) noexcept;
+template <typename T, typename... A>
+[[nodiscard]] MixedTaylorExpansion<T, A...> pow(const MixedTaylorExpansion<T, A...>& x, T p) noexcept;
+template <int K, typename T, typename... A>
+[[nodiscard]] MixedTaylorExpansion<T, A...> halfPow(const MixedTaylorExpansion<T, A...>& x) noexcept;
+template <int K, typename T, typename... A>
+[[nodiscard]] MixedTaylorExpansion<T, A...> invSqrtPow(const MixedTaylorExpansion<T, A...>& x) noexcept;
+
+// atan2(y, x) over the union of the two operands' (ordered) axis sets. Runtime-only.
+template <typename T, typename... A, typename... B>
+[[nodiscard]] auto atan2(const MixedTaylorExpansion<T, A...>& y,
+                         const MixedTaylorExpansion<T, B...>& x) noexcept;
+
+// Fused: axis-set-preserving pairs and union-composing exp·trig forms
+sinCos(x)  sinhCosh(x)  sqrtInvSqrt(x)          // std::pair, axis set preserved
+expSin(v, u)  expCos(v, u)  expSinCos(v, u)     // union of the (ordered) axis sets
+```
+
+Shared axis names follow the usual max-order promotion when the two operands
+disagree. These overloads live in `tax::named` (declared in
+`<tax/operators/mixed_math.hpp>` and `<tax/operators/math_fused.hpp>`) and
+are re-exported under `tax::`, so the qualified `tax::pow(...)` /
+`tax::sinCos(...)` spellings work regardless of include order.
 
 ---
 
@@ -341,6 +418,10 @@ template <typename Derived, typename DxDerived>
 | Header | Contents |
 |---|---|
 | `tax/core/named.hpp` | `NamedTaylorExpansion`, `Axis`, `FixedString`, `NE`, `variable`/`variables`, embed/slice/deriv/integ, composition + math |
+| `tax/core/mixed_named.hpp` | `MixedTaylorExpansion`, `OrderedAxis`, `MTE`, the `tax::mixed` factories, embed/slice/truncate |
+| `tax/operators/math_fused.hpp` | `sinCos`, `sinhCosh`, `sqrtInvSqrt`, `expSin`/`expCos`/`expSinCos` — dense + named + mixed |
+| `tax/operators/mixed_math.hpp` | `pow`/`halfPow`/`invSqrtPow`/`atan2` for `MixedTaylorExpansion` + the `tax::` re-exports of the mixed math surface |
 | `tax/la/named.hpp`   | `NumTraits` for named expansions, Eigen `variables` overload, `gradient`/`hessian`/`jacobian`/`value`/`eval` by axis name |
+| `tax/la/mixed_named.hpp` | The same Eigen helpers for mixed-order named expansions |
 
-Both are pulled in by the umbrella `<tax/tax.hpp>`.
+All are pulled in by the umbrella `<tax/tax.hpp>`.
