@@ -9,6 +9,7 @@
 //   truncate    — free tax::truncate<N2>(scalar | Eigen vector/matrix).
 //   derivatives — derivative, gradient, hessian, jacobian.
 //   norm        — norm<P, Q> of a vector of expansions (Q defaults to 1).
+//   vector_ops  — dot, cross, angle, unitvec, unitcross, projvec, projplane.
 //   invert      — formal polynomial-map inversion (Picard iteration).
 //
 // Everything public lives in namespace `tax::la` (except tax::truncate).
@@ -24,3 +25,4 @@
 #include <tax/la/truncate.hpp>
 #include <tax/la/types.hpp>
 #include <tax/la/values.hpp>
+#include <tax/la/vector_ops.hpp>

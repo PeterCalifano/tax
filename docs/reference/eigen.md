@@ -121,6 +121,61 @@ including dynamic-size vectors.
 
 ---
 
+## Vector norms
+
+```cpp
+// ||v||_P^Q for a vector of expansions. Q defaults to 1 (the plain P-norm),
+// P to the Euclidean 2-norm. Input is an Eigen column vector or any range of
+// dense/named/mixed expansions. Raises the accumulated power-sum ONCE to Q/P.
+template <int P = 2, int Q = 1, /* Eigen vector or range of expansions */>
+[[nodiscard]] auto norm(const V& v) noexcept;
+```
+
+`norm(v)` = `sqrt(Σ vᵢ²)`, `norm<3>(v)` the 3-norm, `norm<2,-3>(v)` the
+`1/‖v‖³` gravity kernel (bit-identical to `invSqrtPow<3>(Σ vᵢ²)`). See
+[Guide / Fused Operations](../guide/fused.md#vector-norms-normp-q).
+
+---
+
+## Vector algebra
+
+All operate on Eigen vectors/matrices of expansions (dense `TE`, named `NE`,
+or mixed `MTE`); results are full Taylor series. Reachable as `tax::…`.
+
+```cpp
+// a · b  (vector · vector → scalar expansion)
+[[nodiscard]] auto dot(const Eigen::MatrixBase<LA>& a, const Eigen::MatrixBase<LB>& b);
+
+// A · b  (matrix · vector → vector). A may be a matrix of expansions OR a
+// constant real matrix (a linear map — the constant case scalar-multiplies,
+// skipping the Cauchy product).
+[[nodiscard]] auto dot(const Eigen::MatrixBase<MA>& A, const Eigen::MatrixBase<VB>& b);
+
+// a × b  (3-vectors)
+[[nodiscard]] auto cross(const Eigen::MatrixBase<LA>& a, const Eigen::MatrixBase<LB>& b);
+
+// angle between a and b = acos((a·b)/(|a||b|)). Requires |cos| < 1 at x0.
+[[nodiscard]] auto angle(const Eigen::MatrixBase<LA>& a, const Eigen::MatrixBase<LB>& b);
+
+// v / |v|   (requires dot(v,v).value() > 0)
+[[nodiscard]] auto unitvec(const Eigen::MatrixBase<D>& v);
+
+// (a × b) / |a × b|   — the unit normal to the plane of a and b
+[[nodiscard]] auto unitcross(const Eigen::MatrixBase<LA>& a, const Eigen::MatrixBase<LB>& b);
+
+// projection of a onto the direction d:  (a·d / d·d) d
+[[nodiscard]] auto projvec(const Eigen::MatrixBase<LA>& a, const Eigen::MatrixBase<LD>& d);
+
+// projection of a onto the plane with normal n:  a − projvec(a, n)
+[[nodiscard]] auto projplane(const Eigen::MatrixBase<LA>& a, const Eigen::MatrixBase<LN>& n);
+```
+
+Fusion: norms enter only as `dot(v, v)`, and where two norms multiply (`angle`,
+the unit vectors) the reciprocal square root is taken once over the product —
+one recurrence pass, not two.
+
+---
+
 ## Map inversion
 
 ```cpp

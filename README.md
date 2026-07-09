@@ -40,6 +40,10 @@ up to order \(N\) in a single evaluation pass.
   `invSqrtPow<K>`, and `norm<P, Q>` of a vector of expansions (`norm<2,-3>` is
   the `1/|r|³` gravity kernel, ~1.6x faster than taking the norm and
   re-raising).
+- **Vector algebra** — `dot` (vector·vector and matrix·vector, the latter also
+  taking a constant real linear map), `cross`, `angle`, `unitvec`,
+  `unitcross`, `projvec`, `projplane` over Eigen vectors of expansions; results
+  are full Taylor series (so `gradient(angle(a, b))` is meaningful).
 - **constexpr polynomial surface** — arithmetic, `square`/`cube`/`reciprocal`,
   integer powers, division, and the differential/evaluation accessors are
   `constexpr` and run in constant evaluation. (Transcendentals seed their
