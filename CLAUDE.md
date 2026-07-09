@@ -47,7 +47,7 @@ tax/
 │   ├── operators/            # Free-function operator surface over the kernels
 │   │   ├── arithmetic.hpp        #   +, -, *, /, compound assignment (dense + sparse)
 │   │   ├── math_unary.hpp        #   sin, exp, sqrt, square, …
-│   │   ├── math_binary.hpp       #   pow, halfPow<K>/invSqrtPow<K>, atan2, …
+│   │   ├── math_binary.hpp       #   pow, pow<N>/pow<N,M>, halfPow<K>/invSqrtPow<K>, atan2, …
 │   │   ├── math_fused.hpp        #   sinCos, sinhCosh, sqrtInvSqrt, expSin/expCos/expSinCos
 │   │   │                         #   (dense + named + mixed, pair-returning forms)
 │   │   ├── mixed_math.hpp        #   pow/atan2 for MixedTaylorExpansion + tax:: re-exports
@@ -59,6 +59,7 @@ tax/
 │   │   ├── values.hpp        #   variables(x0), value(), eval()
 │   │   ├── truncate.hpp      #   free tax::truncate<N2>(scalar | Eigen vector/matrix)
 │   │   ├── derivatives.hpp   #   derivative, gradient, hessian, jacobian
+│   │   ├── norm.hpp          #   norm<P> / normPow<P,Q> of a vector of expansions
 │   │   ├── named.hpp         #   NumTraits + gradient/hessian/jacobian by axis name
 │   │   ├── mixed_named.hpp   #   the same for mixed-order named expansions
 │   │   └── invert.hpp        #   formal polynomial-map inversion (Picard)

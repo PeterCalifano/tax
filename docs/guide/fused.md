@@ -26,6 +26,10 @@ order the `std::pair` **as spelled in the name**: `sinCos → {sin, cos}`,
 | `expSinCos(v, u)` | `{exp(v)*sin(u), exp(v)*cos(u)}` | both results for the price of one fused pass |
 | `halfPow<K>(x)`   | `x^(K/2)`                      | one `pow` recurrence instead of `sqrt` + power chain |
 | `invSqrtPow<K>(x)`| `x^(-K/2)`                     | likewise; `invSqrtPow<3>(r2)` is the 1/r³ gravity kernel |
+| `pow<N>(x)`       | `x^N` (compile-time integer)  | integer Cauchy chain, `constexpr`; ~1.2x vs real `pow` |
+| `pow<Num,Den>(x)` | `x^(Num/Den)`                 | reduces to the cheapest kernel; ~1.3x when it lands on the integer chain |
+| `norm<P>(v)`      | `(Σ vᵢ^P)^(1/P)`              | P-norm of a vector as one series |
+| `normPow<P,Q>(v)` | `‖v‖_P^Q`                     | raises once to Q/P; ~1.6x vs `pow(norm(v), Q)` on 1/r³ |
 
 The speedups are measured on the library's own benchmarks; the exp·trig
 fusion replaces **three** recurrences plus a Cauchy product (`exp`, the
@@ -109,6 +113,66 @@ One `seriesPow` pass is the fastest single-output spelling — it beats the
 fused `sqrtInvSqrt` pair plus a power chain whenever only one output is
 consumed. A caller that needs `sqrt(x)` *alongside* `x^(-K/2)` should
 combine `sqrtInvSqrt` with `pow` instead.
+
+### Compile-time powers: `pow<N>` and `pow<Num, Den>`
+
+`halfPow`/`invSqrtPow` are the `Den == 2` face of a general compile-time power:
+
+- `pow<N>(x)` — integer power with the exponent in the type. Same integer
+  Cauchy chain as `pow(x, N)`, `constexpr`, no libm. Prefer it whenever the
+  exponent is a constant.
+- `pow<Num, Den>(x)` — the rational power $x^{\text{Num}/\text{Den}}$. The
+  exponent is reduced by `gcd` at compile time and bound to the cheapest
+  kernel: the integer chain when `Den | Num` (so `pow<6,3>` becomes `pow<2>`,
+  ~1.3× faster than a real-exponent `pow`), the sqrt/invsqrt chain when the
+  reduced denominator is 2 (`pow<3,2>` == `halfPow<3>`, `pow<-3,2>` ==
+  `invSqrtPow<3>`), otherwise a single real-exponent recurrence
+  (`pow<2,5>` == $x^{2/5}$).
+
+For a genuine fractional exponent there is nothing faster than that single
+`seriesPow` pass — it out-measures both a dedicated root (`cbrt`) and
+`sqrt`-then-integer-power, because $x^{c}$ obeys the same degree-by-degree
+recurrence whatever `c` is; only the scalar constant term needs a libm seed.
+
+---
+
+## Vector norms: `norm<P>` and `normPow<P, Q>`
+
+`tax::norm<P>(v)` is the $P$-norm of a vector of expansions as a single
+series, and `tax::normPow<P, Q>(v)` is its $Q$-th power:
+
+$$
+\operatorname{norm}\langle P\rangle(v) = \Big(\textstyle\sum_i v_i^{P}\Big)^{1/P},
+\qquad
+\operatorname{normPow}\langle P,Q\rangle(v) = \lVert v\rVert_P^{\,Q}
+   = \Big(\textstyle\sum_i v_i^{P}\Big)^{Q/P}.
+$$
+
+The input is an Eigen column vector of expansions (as returned by
+`tax::la::variables`) or any range of them (e.g. the `std::array` from
+`tax::variables`); the elements may be dense `TE`, named `NE`, or mixed `MTE`.
+`P` defaults to the Euclidean 2-norm.
+
+```cpp
+Eigen::Vector3d r0{3.0, 4.0, 12.0};
+auto r = tax::la::variables<tax::TE<8, 3>>(r0);   // vector of coordinate variables
+
+auto len = tax::norm(r);            // sqrt(x²+y²+z²)  — value 13 at r0
+auto ir3 = tax::normPow<2, -3>(r);  // 1/|r|³         — the gravity kernel
+```
+
+`normPow` is the **fused** spelling: it raises the accumulated power-sum
+**once** to `Q/P` (via `pow<Q, P>`), rather than taking the root and
+re-raising — one recurrence pass instead of two. On the `1/|r|³` gravity
+kernel that is **1.64× faster** than `pow(norm<2>(r), -3)`, and for `P == 2`
+it binds straight to `invSqrtPow`, so `normPow<2,-3>` is bit-identical to
+`invSqrtPow<3>(x² + y² + z²)`.
+
+!!! note "What `norm<P>` assumes"
+    It computes $(\sum_i v_i^{P})^{1/P}$, which is the true $P$-norm when the
+    summands are non-negative — even `P`, or a vector with positive components
+    at the expansion point. It requires $\sum_i v_i^{P} > 0$ at the expansion
+    point (`abs` is not smooth, so the odd-`P` signed power-sum is used as-is).
 
 ---
 

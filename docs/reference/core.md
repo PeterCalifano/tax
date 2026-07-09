@@ -291,6 +291,22 @@ and `atan2` seed with a libm call and are **runtime-only**.
 //   Requires f_0 != 0 only when n < 0 (reciprocal path).
 [[nodiscard]] constexpr TaylorExpansion<T, N, M> pow(const TaylorExpansion<T, N, M>& f, int n);
 
+// Compile-time integer power x^N — the exponent lives in the type. Forwards to
+// the same integer Cauchy chain as pow(f, N); constexpr, no libm. Prefer this
+// when the exponent is a constant.
+template <int N>
+[[nodiscard]] constexpr TaylorExpansion<T, N, M> pow(const TaylorExpansion<T, N, M>& f);
+
+// Compile-time rational power x^(Num/Den). The exponent is reduced by gcd at
+// compile time and bound to the cheapest kernel:
+//   Den | Num          -> the integer chain    (constexpr; pow<6,3> == pow<2>);
+//   reduced denom == 2 -> the sqrt/invsqrt chain (pow<3,2> == halfPow<3>,
+//                                                  pow<-3,2> == invSqrtPow<3>);
+//   otherwise          -> one real-exponent recurrence (pow<2,5> == x^(2/5)).
+// Requires x_0 > 0 unless the reduced exponent is a non-negative integer.
+template <int Num, int Den>
+[[nodiscard]] constexpr TaylorExpansion<T, N, M> pow(const TaylorExpansion<T, N, M>& f);
+
 // Real-exponent power. Requires f_0 != 0. Runtime-only.
 [[nodiscard]] TaylorExpansion<T, N, M> pow(const TaylorExpansion<T, N, M>& f, P p);
                                           // P = any std::floating_point
@@ -321,10 +337,13 @@ template <int K>
 [[nodiscard]] TaylorExpansion<T, N, M> atan2(T y, const TaylorExpansion<T, N, M>& x);
 ```
 
-`halfPow<K>` is the fastest single-output spelling of a half-integer power —
-one `seriesPow` pass beats the fused `sqrtInvSqrt` pair plus a power chain
-whenever only one output is consumed. See
-[Guide / Fused Operations](../guide/fused.md).
+`halfPow<K>` is `pow<K, 2>` and `invSqrtPow<K>` is `pow<-K, 2>`; the general
+`pow<Num, Den>` reduces to whichever of them (or the integer chain) fits. For a
+genuine fractional exponent the recurrence is a single-pass `seriesPow` — which
+is already optimal: it measures *faster* than a dedicated root (`cbrt`) or than
+`sqrt`-then-integer-power, because `xᶜ` obeys the same degree-by-degree ODE
+recurrence whatever `c` is, and only the scalar constant term needs a libm seed.
+See [Guide / Fused Operations](../guide/fused.md).
 
 ---
 
