@@ -82,5 +82,5 @@ One evaluation pass yields the value **and** every derivative up to order 5.
 - [Guide / Variables & Expressions](guide/expressions.md) — create variables, build expressions, and run polynomial pipelines at compile time (`constexpr`).
 - [Guide / Fused Operations](guide/fused.md) — `sinCos`, `sqrtInvSqrt`, `expSinCos`, `invSqrtPow<K>`: coupled pairs in one recurrence pass.
 - [Guide / Extracting Results](guide/results.md) — coefficients, derivatives, evaluation.
-- [Concepts / Foundations & Ordering](concepts/foundations.md) — what a truncated Taylor expansion is.
+- [Guide / Background](guide/background.md) — what a truncated Taylor expansion is, and how coefficients are ordered.
 - [Reference / TaylorExpansion API](reference/core.md) — every public method, listed.

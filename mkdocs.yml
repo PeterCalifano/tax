@@ -109,22 +109,18 @@ nav:
   - Getting Started: getting_started.md
   - Guide:
       - guide/index.md
+      - Background: guide/background.md
       - Variables & Expressions: guide/expressions.md
       - Fused Operations: guide/fused.md
       - Extracting Results: guide/results.md
       - Dense vs Sparse Storage: guide/storage.md
-      - Named Expansions: guide/named.md
+      - Named & Mixed-Order Expansions: guide/named.md
       - Eigen Integration: guide/eigen.md
-      - Mixed-Order Expansions: guide/mixed.md
   - Reference:
       - reference/index.md
       - TaylorExpansion API: reference/core.md
       - Eigen API: reference/eigen.md
       - Named API: reference/named.md
-  - Concepts:
-      - concepts/index.md
-      - Foundations & Ordering: concepts/foundations.md
-      - Convergence & Truncation: concepts/convergence.md
   - Internals:
       - internals/index.md
       - Architecture: internals/architecture.md
