@@ -7,13 +7,8 @@ namespace tax::test
 
 constexpr double kTol = 1e-10;
 
-/**
- * @brief Check that two TaylorExpansion objects agree coefficient-wise to `tol`.
- *
- * Uses `EXPECT_NEAR` for each flat coefficient, reporting the flat index on
- * failure. `actual.nCoefficients` must equal `expected.nCoefficients` (always
- * true when both have the same static type).
- */
+// Check that two TaylorExpansion objects agree coefficient-wise to `tol`,
+// reporting the flat index on failure.
 template < typename TE >
 inline void ExpectCoeffsNear( const TE& actual, const TE& expected, double tol = kTol )
 {

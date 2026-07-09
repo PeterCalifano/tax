@@ -4,10 +4,8 @@
 
 #include "../testUtils.hpp"
 
-// ---------------------------------------------------------------------------
 // tax::la vector algebra: dot, cross, angle, unitvec, unitcross, projvec,
 // projplane — over Eigen vectors of Taylor expansions.
-// ---------------------------------------------------------------------------
 
 namespace
 {

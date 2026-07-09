@@ -1,9 +1,6 @@
-// tests/mixed/test_mixed_named_la.cpp
-//
-// Eigen integration for tax::named::MixedTaylorExpansion:
-//   NumTraits (usable as Eigen scalar) and per-axis gradient/hessian/jacobian.
-//
-// Mirrors tests/eigen/test_named_la.cpp for NamedTaylorExpansion.
+// Eigen integration for tax::named::MixedTaylorExpansion: NumTraits (usable as
+// Eigen scalar) and per-axis gradient/hessian/jacobian. Mirrors
+// tests/eigen/test_named_la.cpp for NamedTaylorExpansion.
 
 #include <gtest/gtest.h>
 
@@ -11,10 +8,6 @@
 #include <array>
 #include <cmath>
 #include <tax/tax.hpp>
-
-// ---------------------------------------------------------------------------
-// Type aliases (via tax:: re-exports)
-// ---------------------------------------------------------------------------
 
 // Two axes: "p" dim 1 order 3, "x" dim 2 order 4 (canonical: p < x).
 using PAx = tax::named::OrderedAxis< "p", 1, 3 >;
@@ -24,10 +17,6 @@ using MEpx = tax::named::MixedTaylorExpansion< double, PAx, XAx >;
 // Canonical union sorted by name → p (var 0), x (var 1, var 2).
 // Total vars_v = 3.
 static_assert( MEpx::vars_v == 3 );
-
-// ---------------------------------------------------------------------------
-// TEST: NumTraits lets MixedTaylorExpansion act as an Eigen scalar
-// ---------------------------------------------------------------------------
 
 TEST( MixedNamedLa, NumTraitsUsableAsEigenScalar )
 {
@@ -49,10 +38,7 @@ TEST( MixedNamedLa, NumTraitsUsableAsEigenScalar )
     EXPECT_DOUBLE_EQ( w( 1 ).value(), 2.0 );
 }
 
-// ---------------------------------------------------------------------------
-// TEST: NumTraits::epsilon() / dummy_precision() return Self, not T
-// ---------------------------------------------------------------------------
-
+// epsilon() / dummy_precision() must return Self, not T.
 TEST( MixedNamedLa, NumTraitsRealReturningValueFunctions )
 {
     using NT = Eigen::NumTraits< MEpx >;
@@ -61,13 +47,8 @@ TEST( MixedNamedLa, NumTraitsRealReturningValueFunctions )
     EXPECT_DOUBLE_EQ( NT::epsilon().value(), Eigen::NumTraits< double >::epsilon() );
 }
 
-// ---------------------------------------------------------------------------
-// TEST: gradient<"x">(f) and gradient<"p">(f) match analytic values
-//
 // f = x0^2 * p0 + 2*x1  at x=(3,5), p=(2).
 // df/dx0 = 2*x0*p0 = 12,  df/dx1 = 2,  df/dp0 = x0^2 = 9.
-// ---------------------------------------------------------------------------
-
 TEST( MixedNamedLa, GradientByAxis )
 {
     auto x = tax::mixed::variables< "x", 4, 2 >( std::array< double, 2 >{ 3.0, 5.0 } );
@@ -88,12 +69,7 @@ TEST( MixedNamedLa, GradientByAxis )
     EXPECT_DOUBLE_EQ( gp( 0 ), 9.0 );
 }
 
-// ---------------------------------------------------------------------------
-// TEST: hessian<"x">(f) matches analytic Hessian over the "x" variables
-//
 // f = x0^2 * p0 ; H_x = [[2*p0, 0], [0, 0]] = [[4, 0], [0, 0]].
-// ---------------------------------------------------------------------------
-
 TEST( MixedNamedLa, HessianByAxis )
 {
     auto x = tax::mixed::variables< "x", 4, 2 >( std::array< double, 2 >{ 3.0, 5.0 } );
@@ -109,13 +85,8 @@ TEST( MixedNamedLa, HessianByAxis )
     EXPECT_DOUBLE_EQ( H( 1, 1 ), 0.0 );
 }
 
-// ---------------------------------------------------------------------------
-// TEST: jacobian<"x">(F) matches analytic Jacobian
-//
 // F = [x0*p0, x1^2]  at x=(0,5), p=(2).
 // J_x = [[p0, 0], [0, 2*x1]] = [[2, 0], [0, 10]].
-// ---------------------------------------------------------------------------
-
 TEST( MixedNamedLa, JacobianByAxis )
 {
     auto x = tax::mixed::variables< "x", 4, 2 >( std::array< double, 2 >{ 0.0, 5.0 } );
@@ -138,14 +109,8 @@ TEST( MixedNamedLa, JacobianByAxis )
     EXPECT_DOUBLE_EQ( J( 1, 1 ), 10.0 );  // 2*x1 = 10
 }
 
-// ---------------------------------------------------------------------------
-// TEST: gradient<"x"> agrees with isotropic-superset oracle
-//
-// f = sin(x*t) + exp(x) where x is dim-1 axis "x" @ order 3 and t is
-// dim-1 axis "t" @ order 4.  Canonical order: t (var 0), x (var 1).
-// gradient<"x"> should match df/dx from TE<7,2>.
-// ---------------------------------------------------------------------------
-
+// f = sin(x*t) + exp(x), x = axis "x" @ order 3, t = axis "t" @ order 4.
+// Canonical order: t (var 0), x (var 1). gradient<"x"> should match df/dx from TE<7,2>.
 TEST( MixedNamedLa, GradientMatchesIsotropicOracle )
 {
     auto x = tax::mixed::variable< "x", 3 >( 0.7 );
@@ -168,10 +133,6 @@ TEST( MixedNamedLa, GradientMatchesIsotropicOracle )
     alpha_x[1] = 1;  // d/dx (var 1 in isotropic ordering)
     EXPECT_NEAR( gx( 0 ), iso.derivative( alpha_x ), 1e-12 );
 }
-
-// ---------------------------------------------------------------------------
-// TEST: VecNT<D, MEpx> works in Eigen linear algebra (dot product via NumTraits)
-// ---------------------------------------------------------------------------
 
 TEST( MixedNamedLa, VecNTDotProductViaNumTraits )
 {
@@ -199,13 +160,8 @@ TEST( MixedNamedLa, VecNTDotProductViaNumTraits )
     EXPECT_NEAR( g( 1 ), 4.0, 1e-12 );
 }
 
-// ---------------------------------------------------------------------------
-// TEST: the public `tax::` spelling resolves for MixedTaylorExpansion.
-// `tax::gradient<"name">`/`jacobian<"name">` must find the mixed overloads via
-// the re-export in la/mixed_named.hpp (the la/named.hpp using-block predates
-// them and would not pick them up).
-// ---------------------------------------------------------------------------
-
+// The public `tax::` spelling must find the mixed gradient/jacobian overloads via
+// the re-export in la/mixed_named.hpp (the la/named.hpp using-block predates them).
 TEST( MixedNamedLa, PublicTaxSpellingResolves )
 {
     auto x = tax::mixed::variables< "x", 4, 2 >( std::array< double, 2 >{ 3.0, 5.0 } );

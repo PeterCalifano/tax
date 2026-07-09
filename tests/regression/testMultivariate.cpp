@@ -1,5 +1,3 @@
-// tests/regression/testMultivariate.cpp
-//
 // DACE-vs-tax parity for multivariate ops on tax::TE<N, M>, using the
 // Eigen-form variables factory. Every input variable is wrapped in
 // tax_regression::prepareInput before the op under test, on both sides.
@@ -30,10 +28,6 @@ inline tax::TE< N, M > scaleToUnit( const tax::TE< N, M >& x )
 }
 }  // namespace
 
-// -----------------------------------------------------------------------
-// Operators
-// -----------------------------------------------------------------------
-
 TEST( DaceMultivariate, Div )
 {
     constexpr int N = 5;
@@ -55,10 +49,6 @@ TEST( DaceMultivariate, Div )
 
     EXPECT_TRUE( expectCoeffsMatch( result, vr ) );
 }
-
-// -----------------------------------------------------------------------
-// Math: trig
-// -----------------------------------------------------------------------
 
 TEST( DaceMultivariate, Sin )
 {
@@ -162,10 +152,6 @@ TEST( DaceMultivariate, ATan )
 
     EXPECT_TRUE( expectCoeffsMatch( result, vr ) );
 }
-
-// -----------------------------------------------------------------------
-// Math: hyperbolic
-// -----------------------------------------------------------------------
 
 TEST( DaceMultivariate, Sinh )
 {
@@ -271,10 +257,6 @@ TEST( DaceMultivariate, ATanh )
 
     EXPECT_TRUE( expectCoeffsMatch( result, vr ) );
 }
-
-// -----------------------------------------------------------------------
-// Math: exp / log / roots / power
-// -----------------------------------------------------------------------
 
 TEST( DaceMultivariate, Exp )
 {

@@ -14,22 +14,15 @@
 #include <cmath>
 #include <tax/tax.hpp>
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
 using ME = tax::MixedTE< tax::Group< 1, 4 >, tax::Group< 1, 3 > >;
 using ISO = tax::TE< 7, 2 >;
 
 static_assert( ME::nCoefficients == 20 );
 static_assert( ISO::nCoefficients == 36 );
 
-// Both schemes have 2 variables.
 static_assert( ME::scheme::vars == 2 );
 static_assert( ISO::scheme::vars == 2 );
 
-// ---------------------------------------------------------------------------
-// Expansion point
-// ---------------------------------------------------------------------------
 static constexpr double kX0 = 0.7;
 static constexpr double kY0 = 1.3;
 
@@ -57,9 +50,7 @@ static ISO makeIsoY()
     return ISO::variable< 1 >( p );
 }
 
-// ---------------------------------------------------------------------------
-// Helper: compare a 2-vector against analytic values.
-// ---------------------------------------------------------------------------
+// Compare a 2-vector against analytic values.
 static void expectVec2( const Eigen::Matrix< double, 2, 1 >& v, double v0, double v1,
                         const char* label )
 {
@@ -67,14 +58,9 @@ static void expectVec2( const Eigen::Matrix< double, 2, 1 >& v, double v0, doubl
     EXPECT_NEAR( v( 1 ), v1, 1e-12 ) << label << " component 1";
 }
 
-// ---------------------------------------------------------------------------
-// Test 1: member gradient() agrees with ISO and with analytic values
-//
 // f = sin(x*y) + exp(x)
 // df/dx = y*cos(x*y) + exp(x)   at (0.7, 1.3)
 // df/dy = x*cos(x*y)            at (0.7, 1.3)
-// ---------------------------------------------------------------------------
-
 TEST( MixedLA, MemberGradientMatchesIso )
 {
     auto x_me = makeMeX();
@@ -91,16 +77,11 @@ TEST( MixedLA, MemberGradientMatchesIso )
     EXPECT_NEAR( g_me( 0 ), g_iso( 0 ), 1e-12 ) << "gradient x: ME vs ISO";
     EXPECT_NEAR( g_me( 1 ), g_iso( 1 ), 1e-12 ) << "gradient y: ME vs ISO";
 
-    // Analytic reference
     const double xy = kX0 * kY0;
     const double df_dx = kY0 * std::cos( xy ) + std::exp( kX0 );
     const double df_dy = kX0 * std::cos( xy );
     expectVec2( g_me, df_dx, df_dy, "gradient analytic" );
 }
-
-// ---------------------------------------------------------------------------
-// Test 2: free-function tax::la::gradient agrees with member gradient
-// ---------------------------------------------------------------------------
 
 TEST( MixedLA, FreeFunctionGradientAgreesWithMember )
 {
@@ -114,14 +95,9 @@ TEST( MixedLA, FreeFunctionGradientAgreesWithMember )
     EXPECT_NEAR( ( g_method - g_free ).norm(), 0.0, 1e-15 ) << "method vs free-function gradient";
 }
 
-// ---------------------------------------------------------------------------
-// Test 3: member hessian() agrees with ISO
-//
 // H(0,0) = d²f/dx² = -y²*sin(x*y) + exp(x)
 // H(0,1) = H(1,0) = d²f/dxdy = cos(x*y) - x*y*sin(x*y)
 // H(1,1) = d²f/dy² = -x²*sin(x*y)
-// ---------------------------------------------------------------------------
-
 TEST( MixedLA, HessianMatchesIso )
 {
     auto x_me = makeMeX();
@@ -140,7 +116,6 @@ TEST( MixedLA, HessianMatchesIso )
             EXPECT_NEAR( H_me( i, j ), H_iso( i, j ), 1e-12 )
                 << "hessian(" << i << "," << j << "): ME vs ISO";
 
-    // Analytic reference
     const double xy = kX0 * kY0;
     const double sxy = std::sin( xy );
     const double cxy = std::cos( xy );
@@ -154,10 +129,6 @@ TEST( MixedLA, HessianMatchesIso )
     EXPECT_NEAR( H_me( 1, 1 ), h11, 1e-12 ) << "H(1,1) analytic";
 }
 
-// ---------------------------------------------------------------------------
-// Test 4: tax::la::hessian free-function agrees with member hessian
-// ---------------------------------------------------------------------------
-
 TEST( MixedLA, FreeFunctionHessianAgreesWithMember )
 {
     auto x = makeMeX();
@@ -169,10 +140,6 @@ TEST( MixedLA, FreeFunctionHessianAgreesWithMember )
 
     EXPECT_NEAR( ( H_method - H_free ).norm(), 0.0, 1e-15 ) << "method vs free-function hessian";
 }
-
-// ---------------------------------------------------------------------------
-// Test 5: tax::la::value on a VecNT<2, ME>
-// ---------------------------------------------------------------------------
 
 TEST( MixedLA, ValueOfVector )
 {
@@ -191,16 +158,9 @@ TEST( MixedLA, ValueOfVector )
     EXPECT_NEAR( vals( 1 ), kX0 - kY0, 1e-12 ) << "value F(1)";
 }
 
-// ---------------------------------------------------------------------------
-// Test 6: tax::la::jacobian on a VecNT<2, ME>
-//
-// F(0) = sin(x*y) + exp(x)
-// F(1) = x - y
-//
+// F = [ sin(x*y) + exp(x), x - y ]
 // J = [ df0/dx  df0/dy ] = [ y*cos(xy)+exp(x)    x*cos(xy) ]
 //     [ df1/dx  df1/dy ]   [ 1                  -1         ]
-// ---------------------------------------------------------------------------
-
 TEST( MixedLA, JacobianOfVector )
 {
     auto x = makeMeX();
@@ -218,10 +178,6 @@ TEST( MixedLA, JacobianOfVector )
     EXPECT_NEAR( J( 1, 0 ), 1.0, 1e-12 ) << "J(1,0)";
     EXPECT_NEAR( J( 1, 1 ), -1.0, 1e-12 ) << "J(1,1)";
 }
-
-// ---------------------------------------------------------------------------
-// Test 7: tax::la::jacobian matches ISO jacobian
-// ---------------------------------------------------------------------------
 
 TEST( MixedLA, JacobianMatchesIso )
 {
@@ -246,10 +202,6 @@ TEST( MixedLA, JacobianMatchesIso )
                 << "jacobian(" << i << "," << j << "): ME vs ISO";
 }
 
-// ---------------------------------------------------------------------------
-// Test 8: tax::la::variables builds a VecNT<2,ME> of coordinate variables
-// ---------------------------------------------------------------------------
-
 TEST( MixedLA, VariablesBuilder )
 {
     Eigen::Vector2d x0{ kX0, kY0 };
@@ -270,14 +222,8 @@ TEST( MixedLA, VariablesBuilder )
     EXPECT_NEAR( gv1( 1 ), 1.0, 1e-15 ) << "variables v(1) grad[1]";
 }
 
-// ---------------------------------------------------------------------------
-// Test 9: NumTraits — ME in an Eigen expression (dot product)
-//
-// Exercises Eigen::NumTraits<ME> by computing an Eigen dot product of
-// VecNT<2,ME> with itself, which internally uses MulCost/AddCost and
-// the ME arithmetic operators through Eigen's machinery.
-// ---------------------------------------------------------------------------
-
+// Exercises Eigen::NumTraits<ME> via a VecNT<2,ME> self dot product, which drives
+// MulCost/AddCost and the ME arithmetic operators through Eigen's machinery.
 TEST( MixedLA, NumTraitsEigenDot )
 {
     auto x = makeMeX();

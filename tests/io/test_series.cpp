@@ -25,10 +25,6 @@ std::string str( const F& f, tax::SeriesOptions opts )
 
 }  // namespace
 
-// ---------------------------------------------------------------------------
-// Polynomial style: subscripts, superscripts, implicit multiplication
-// ---------------------------------------------------------------------------
-
 TEST( SeriesPolynomial, UnivariateExp )
 {
     // exp(x) at 0, order 3 : 1 + x + 0.5 x^2 + 1/6 x^3
@@ -69,20 +65,12 @@ TEST( SeriesPolynomial, MultiDigitSubAndSuperscript )
     EXPECT_NE( str( f ).find( "x₀²³" ), std::string::npos );
 }
 
-// ---------------------------------------------------------------------------
-// Named: axis names, bare name for 1-D, subscripts for multi-D
-// ---------------------------------------------------------------------------
-
 TEST( SeriesNamed, OneDimAxisUsesBareName )
 {
     auto x = tax::variable< "x", 3 >( 0.0 );
     auto f = exp( x );
     EXPECT_EQ( str( f ), "1 + x + 0.5x² + 0.166667x³" );
 }
-
-// ---------------------------------------------------------------------------
-// Options: threshold dropping
-// ---------------------------------------------------------------------------
 
 TEST( SeriesOptions, ThresholdDropsSmallTerms )
 {
@@ -91,10 +79,6 @@ TEST( SeriesOptions, ThresholdDropsSmallTerms )
     auto s = str( f, { .threshold = 0.2 } );
     EXPECT_EQ( s, "1 + x₀ + 0.5x₀²" );
 }
-
-// ---------------------------------------------------------------------------
-// to_string convenience
-// ---------------------------------------------------------------------------
 
 TEST( SeriesToString, ScalarDefaultAndOptions )
 {
@@ -117,10 +101,6 @@ TEST( SeriesToString, NamedAndVector )
     EXPECT_NE( s.find( "[1]" ), std::string::npos );
 }
 
-// ---------------------------------------------------------------------------
-// Tabular style (ASCII)
-// ---------------------------------------------------------------------------
-
 TEST( SeriesTabular, UnivariateHasHeaderAndRows )
 {
     auto x = tax::TE< 2 >::variable( 0.0 );
@@ -134,10 +114,6 @@ TEST( SeriesTabular, UnivariateHasHeaderAndRows )
     EXPECT_NE( s.find( "5.000000000000000e-01" ), std::string::npos );
 }
 
-// ---------------------------------------------------------------------------
-// Sparse parity with dense
-// ---------------------------------------------------------------------------
-
 TEST( SeriesSparse, MatchesDensePolynomial )
 {
     auto xd = tax::TE< 3 >::variable( 0.0 );
@@ -145,10 +121,6 @@ TEST( SeriesSparse, MatchesDensePolynomial )
     auto fs = tax::sparse( fd );
     EXPECT_EQ( str( fs ), str( fd ) );
 }
-
-// ---------------------------------------------------------------------------
-// Eigen vector of expansions
-// ---------------------------------------------------------------------------
 
 TEST( SeriesVector, LabeledRows )
 {

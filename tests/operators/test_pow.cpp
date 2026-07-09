@@ -67,10 +67,7 @@ TEST( Pow, ScalarBaseTaylorExponent )
     EXPECT_NEAR( ( f.template derivative< 1 >() ), 8.0 * std::log( 2.0 ), 1e-10 );
 }
 
-// ---------------------------------------------------------------------------
 // halfPow<K> (x^(K/2)) and invSqrtPow<K> (x^(-K/2))
-// ---------------------------------------------------------------------------
-
 TEST( HalfPow, OddPositiveMatchesSqrtChain )
 {
     auto x = tax::TE< 6 >::variable( 2.5 );
@@ -135,10 +132,7 @@ TEST( InvSqrtPow, NamedAndMixedPreserveAxes )
     EXPECT_NEAR( am.value(), std::pow( 3.0, -1.5 ), 1e-15 );
 }
 
-// ---------------------------------------------------------------------------
 // Compile-time integer power pow<N> and rational power pow<N, M> (= x^(N/M))
-// ---------------------------------------------------------------------------
-
 TEST( PowTemplate, IntegerMatchesRuntime )
 {
     auto x = tax::TE< 6 >::variable( 1.7 );

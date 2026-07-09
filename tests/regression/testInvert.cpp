@@ -1,5 +1,3 @@
-// tests/regression/testInvert.cpp
-//
 // DACE-vs-tax parity for polynomial map inversion:
 //   tax::la::invert(F)                      (Eigen<TE,M,1>)
 //   DACE::AlgebraicVector<DA>::invert() (vector of DA)

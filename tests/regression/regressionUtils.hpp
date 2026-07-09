@@ -1,5 +1,3 @@
-// tests/regression/regressionUtils.hpp
-//
 // Shared helpers for DACE regression tests.
 //   - expectCoeffsMatch:  coefficient-wise equality between a tax
 //                         TaylorExpansion and a DACE::DA reference.
@@ -22,9 +20,7 @@
 namespace tax_regression
 {
 
-// -----------------------------------------------------------------------
 // expectCoeffsMatch — univariate
-// -----------------------------------------------------------------------
 template < int N >
 ::testing::AssertionResult expectCoeffsMatch( const tax::TE< N >& tested,
                                               const DACE::DA&     ref,
@@ -55,9 +51,7 @@ template < int N >
     return ::testing::AssertionSuccess();
 }
 
-// -----------------------------------------------------------------------
 // expectCoeffsMatch — multivariate
-// -----------------------------------------------------------------------
 template < int N, int M >
 ::testing::AssertionResult expectCoeffsMatch( const tax::TE< N, M >& tested,
                                               const DACE::DA&         ref,
@@ -94,9 +88,7 @@ template < int N, int M >
     return ::testing::AssertionSuccess();
 }
 
-// -----------------------------------------------------------------------
-// prepareInput — shared pre-step applied identically on both sides
-// -----------------------------------------------------------------------
+// prepareInput — shared pre-step applied identically on both sides.
 //
 // Default choice: 1.0 + 0.5 * sin(x)^2 (univariate), which yields a
 // polynomial with non-trivial structure (every other low-order coefficient

@@ -4,10 +4,7 @@
 
 #include "../testUtils.hpp"
 
-// ---------------------------------------------------------------------------
-// Dense: compile-time, order-reducing truncate<N2>()
-// ---------------------------------------------------------------------------
-
+// Dense: compile-time, order-reducing truncate<N2>().
 TEST( TruncateDense, OrderReducingTypeAndCoeffs )
 {
     // f = exp(x) at x0 = 0 : coeffs 1, 1, 1/2, 1/6, 1/24, 1/120
@@ -45,10 +42,7 @@ TEST( TruncateDense, OrderReducingIsConstexpr )
     static_assert( g[1] == 1.0 );  // x's linear term survives
 }
 
-// ---------------------------------------------------------------------------
-// Dense: runtime, same-order truncate(d)
-// ---------------------------------------------------------------------------
-
+// Dense: runtime, same-order truncate(d).
 TEST( TruncateDense, RuntimeZeroesHighDegree )
 {
     auto x = tax::TE< 5 >::variable( 0.0 );
@@ -82,10 +76,7 @@ TEST( TruncateDense, RuntimeNegativeDIsZero )
     for ( std::size_t k = 0; k < f.nCoefficients; ++k ) EXPECT_EQ( h[k], 0.0 );
 }
 
-// ---------------------------------------------------------------------------
-// Sparse: both forms
-// ---------------------------------------------------------------------------
-
+// Sparse: both forms.
 TEST( TruncateSparse, OrderReducing )
 {
     auto xd = tax::TE< 5 >::variable( 0.0 );
@@ -116,10 +107,7 @@ TEST( TruncateSparse, RuntimeZeroesHighDegree )
     }
 }
 
-// ---------------------------------------------------------------------------
-// Named: both forms (axes preserved)
-// ---------------------------------------------------------------------------
-
+// Named: both forms (axes preserved).
 TEST( TruncateNamed, OrderReducingPreservesAxes )
 {
     auto x = tax::variable< "x", 4 >( 0.0 );

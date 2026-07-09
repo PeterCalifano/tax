@@ -11,11 +11,8 @@ using PAxis = tax::Axis< "p", 2 >;
 using XAxis = tax::Axis< "X", 4 >;
 using POrderedAx = tax::OrderedAxis< "p", 2, 4 >;
 
-// -----------------------------------------------------------------------------
 // Type-identity: each alias expands to a VecNT (== Eigen column vector) of the
 // matching expansion scalar.
-// -----------------------------------------------------------------------------
-
 static_assert( std::same_as< tax::la::TEVec< 3, 4, 2 >, tax::la::VecNT< 3, tax::TE< 4, 2 > > > );
 static_assert( std::same_as< tax::la::TEVec< 3, 4, 2 >, Eigen::Matrix< tax::TE< 4, 2 >, 3, 1 > > );
 
@@ -32,10 +29,8 @@ static_assert(
 static_assert(
     std::same_as< tax::MTE< POrderedAx >, tax::MixedTaylorExpansion< double, POrderedAx > > );
 
-// -----------------------------------------------------------------------------
 // promote_t — the common (union-of-axes) expansion type operands promote into.
 // "X" < "p" lexicographically, so the merged axis list stays sorted.
-// -----------------------------------------------------------------------------
 
 // Two named expansions over disjoint axes -> the union, sorted/unique.
 static_assert( std::same_as< tax::promote_t< tax::NE< 2, XAxis >, tax::NE< 2, PAxis > >,
@@ -48,9 +43,7 @@ static_assert( std::same_as< tax::promote_t< tax::TE< 4, 2 >, double >, tax::TE<
 // A single operand yields itself.
 static_assert( std::same_as< tax::promote_t< tax::NE< 2, XAxis > >, tax::NE< 2, XAxis > > );
 
-// -----------------------------------------------------------------------------
 // Free tax::truncate< N2 > — order-reducing, scalar and Eigen overloads.
-// -----------------------------------------------------------------------------
 
 // Scalar: result is the lower-order type (dense and named).
 static_assert( std::same_as< decltype( tax::truncate< 3 >( std::declval< tax::TE< 5, 2 > >() ) ),
@@ -63,10 +56,7 @@ static_assert( std::same_as< decltype( tax::truncate< 2 >(
                                  std::declval< tax::la::TEVec< 2, 5, 2 > >() ) )::Scalar,
                              tax::TE< 2, 2 > > );
 
-// -----------------------------------------------------------------------------
 // Runtime: the aliases are usable as ordinary Eigen vectors of expansions.
-// -----------------------------------------------------------------------------
-
 TEST( ExpansionVectors, TEVecHoldsVariables )
 {
     Eigen::Vector2d x0{ 3.0, -1.0 };
