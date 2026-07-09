@@ -6,7 +6,7 @@
 #include "../testUtils.hpp"
 
 // ---------------------------------------------------------------------------
-// tax::norm<P> / tax::normPow<P,Q> over a vector of Taylor expansions.
+// tax::norm<P> / tax::norm<P,Q> over a vector of Taylor expansions.
 // ---------------------------------------------------------------------------
 
 namespace
@@ -48,7 +48,7 @@ TEST( Norm, DefaultOrderIsEuclidean )
     expectCoeffsNear( tax::norm( v ), tax::norm< 2 >( v ), 0.0 );  // P defaults to 2
 }
 
-TEST( NormPow, EuclideanBindsToHalfPow )
+TEST( Norm, PowerBindsToHalfPow )
 {
     using E = tax::TE< 7, 3 >;
     typename E::Input p{ 1.0, -2.0, 0.5 };
@@ -59,16 +59,16 @@ TEST( NormPow, EuclideanBindsToHalfPow )
     auto s = tax::square( x ) + tax::square( y ) + tax::square( z );
 
     // ||v||^2 == sum of squares (no root).
-    expectCoeffsNear( tax::normPow< 2, 2 >( v ), s, 1e-12 );
+    expectCoeffsNear( tax::norm< 2, 2 >( v ), s, 1e-12 );
     // 1/||v||^3 == invSqrtPow<3>(sum of squares) — the gravity kernel, bit-identical.
-    auto grav = tax::normPow< 2, -3 >( v );
+    auto grav = tax::norm< 2, -3 >( v );
     auto ref = tax::invSqrtPow< 3 >( s );
     for ( std::size_t k = 0; k < E::nCoefficients; ++k ) EXPECT_EQ( grav[k], ref[k] );
     // 1/||v|| == invSqrtPow<1>.
-    expectCoeffsNear( tax::normPow< 2, -1 >( v ), tax::reciprocal( tax::norm< 2 >( v ) ), 1e-11 );
+    expectCoeffsNear( tax::norm< 2, -1 >( v ), tax::reciprocal( tax::norm< 2 >( v ) ), 1e-11 );
 }
 
-TEST( NormPow, EqualsPowOfNorm )
+TEST( Norm, PowerEqualsPowOfNorm )
 {
     using E = tax::TE< 6, 3 >;
     typename E::Input p{ 0.7, 1.3, 0.9 };
@@ -77,11 +77,11 @@ TEST( NormPow, EqualsPowOfNorm )
     auto z = E::variable< 2 >( p );
     std::array< E, 3 > v{ x, y, z };
 
-    // normPow<P,Q> == pow(norm<P>, Q) for several (P, Q).
-    expectCoeffsNear( tax::normPow< 2, 3 >( v ), tax::pow( tax::norm< 2 >( v ), 3 ), 1e-11 );
-    expectCoeffsNear( tax::normPow< 2, 5 >( v ), tax::pow( tax::norm< 2 >( v ), 5 ), 1e-11 );
-    expectCoeffsNear( tax::normPow< 4, 2 >( v ), tax::pow( tax::norm< 4 >( v ), 2 ), 1e-10 );
-    expectCoeffsNear( tax::normPow< 3, 3 >( v ), tax::pow( tax::norm< 3 >( v ), 3 ), 1e-10 );
+    // norm<P,Q> == pow(norm<P>, Q) for several (P, Q).
+    expectCoeffsNear( tax::norm< 2, 3 >( v ), tax::pow( tax::norm< 2 >( v ), 3 ), 1e-11 );
+    expectCoeffsNear( tax::norm< 2, 5 >( v ), tax::pow( tax::norm< 2 >( v ), 5 ), 1e-11 );
+    expectCoeffsNear( tax::norm< 4, 2 >( v ), tax::pow( tax::norm< 4 >( v ), 2 ), 1e-10 );
+    expectCoeffsNear( tax::norm< 3, 3 >( v ), tax::pow( tax::norm< 3 >( v ), 3 ), 1e-10 );
 }
 
 TEST( Norm, HigherOrderValue )
@@ -102,9 +102,9 @@ TEST( Norm, EigenVectorInput )
     auto v = tax::la::variables< tax::TE< 5, 3 > >( x0 );  // Eigen column vector of TE
     auto r = tax::norm< 2 >( v );
     EXPECT_NEAR( r.value(), 13.0, 1e-12 );
-    // normPow on the Eigen overload too. (Bind first: the <2,-3> comma would
+    // norm<P,Q> on the Eigen overload too. (Bind first: the <2,-3> comma would
     // otherwise be read as a macro-argument separator by EXPECT_NEAR.)
-    const double inv3 = tax::normPow< 2, -3 >( v ).value();
+    const double inv3 = tax::norm< 2, -3 >( v ).value();
     EXPECT_NEAR( inv3, 1.0 / ( 13.0 * 13.0 * 13.0 ), 1e-14 );
 }
 

@@ -1,16 +1,20 @@
-// Vector norms of a vector of Taylor expansions (tax::la::norm / normPow),
-// re-exported under tax::.
+// Vector norm (and its powers) of a vector of Taylor expansions
+// (tax::la::norm, re-exported under tax::).
 //
-//   norm<P>(v)       = ( sum_i v_i^P )^{1/P}          — the P-norm as a TE
-//   normPow<P,Q>(v)  = ||v||_P^Q = ( sum_i v_i^P )^{Q/P}
+//   norm<P, Q>(v) = ||v||_P^Q = ( sum_i v_i^P )^{Q/P}
 //
-// normPow is the *fused* form: it raises the accumulated power-sum ONCE to
-// Q/P, rather than taking the P-th root and re-raising to Q (two recurrence
-// passes collapse to one). For P == 2 it binds to halfPow<Q> / invSqrtPow, so
+// Q defaults to 1, so `norm<P>(v)` is the plain P-norm and P defaults to the
+// Euclidean 2-norm:
 //
-//   norm<2>(v)         = sqrt(sum v_i^2)          (Euclidean norm)
-//   normPow<2,-3>(v)   = 1 / ||v||^3              (the gravity kernel)
-//   normPow<2,2>(v)    = sum v_i^2                (no root at all)
+//   norm(v)         = sqrt(sum v_i^2)          (Euclidean norm)
+//   norm<3>(v)      = ( sum v_i^3 )^{1/3}      (3-norm)
+//   norm<2, -3>(v)  = 1 / ||v||^3              (the gravity kernel)
+//   norm<2, 2>(v)   = sum v_i^2                (no root at all)
+//
+// The single `norm<P, Q>` is the *fused* form: it raises the accumulated
+// power-sum ONCE to Q/P (via the compile-time rational power pow<Q, P>),
+// rather than taking the P-th root and re-raising to Q (two recurrence passes
+// collapse to one). For P == 2 that binds to halfPow<Q> / invSqrtPow.
 //
 // Domain: requires sum_i v_i^P > 0 at the expansion point (the constant term).
 // The result equals the true P-norm when the summands are non-negative — even
@@ -61,44 +65,44 @@ constexpr void accumPow( E& s, const E& e ) noexcept
         s += tax::pow< P >( e );
 }
 
+/// Common body: accumulate `s = sum_i v_i^P` over a range of expansions.
+template < int P, typename E, std::ranges::input_range R >
+[[nodiscard]] constexpr E powerSum( const R& v ) noexcept
+{
+    E s{};
+    for ( const E& e : v ) accumPow< P >( s, e );
+    return s;
+}
+
 }  // namespace detail
 
 // ---------------------------------------------------------------------------
 // Range overload (std::array / std::vector / std::span / C-array of expansions)
 // ---------------------------------------------------------------------------
 
-/// `||v||_P^Q` for a range of expansions. The power-sum `s = sum_i v_i^P` is
+/// `||v||_P^Q` for a range of expansions. `Q` defaults to 1 (the plain
+/// P-norm) and `P` to the Euclidean 2-norm. The power-sum `s = sum_i v_i^P` is
 /// accumulated in place, then raised ONCE to `Q/P` via the compile-time
 /// rational power `pow<Q, P>` — which reduces the exponent and binds to the
 /// cheapest kernel (integer chain when `P | Q`, the sqrt/invsqrt chain when the
 /// reduced denominator is 2, otherwise one real-exponent recurrence). Taking
 /// the root and re-raising would cost a second recurrence pass.
-template < int P, int Q, std::ranges::input_range R >
-    requires detail::ExpansionElement< std::ranges::range_value_t< R > >
-[[nodiscard]] auto normPow( const R& v ) noexcept
-{
-    using E = std::ranges::range_value_t< R >;
-    E s{};
-    for ( const E& e : v ) detail::accumPow< P >( s, e );
-    return tax::pow< Q, P >( s );
-}
-
-/// `||v||_P` (the P-norm; P defaults to the Euclidean 2-norm) for a range.
-template < int P = 2, std::ranges::input_range R >
+template < int P = 2, int Q = 1, std::ranges::input_range R >
     requires detail::ExpansionElement< std::ranges::range_value_t< R > >
 [[nodiscard]] auto norm( const R& v ) noexcept
 {
-    return normPow< P, 1 >( v );
+    using E = std::ranges::range_value_t< R >;
+    return tax::pow< Q, P >( detail::powerSum< P, E >( v ) );
 }
 
 // ---------------------------------------------------------------------------
 // Eigen column-vector overload
 // ---------------------------------------------------------------------------
 
-/// `||v||_P^Q` for an Eigen vector of expansions.
-template < int P, int Q, typename Derived >
+/// `||v||_P^Q` for an Eigen vector of expansions (`Q` defaults to 1, `P` to 2).
+template < int P = 2, int Q = 1, typename Derived >
     requires detail::ExpansionElement< typename Derived::Scalar >
-[[nodiscard]] auto normPow( const Eigen::MatrixBase< Derived >& v ) noexcept
+[[nodiscard]] auto norm( const Eigen::MatrixBase< Derived >& v ) noexcept
 {
     using E = typename Derived::Scalar;
     E s{};
@@ -110,19 +114,10 @@ template < int P, int Q, typename Derived >
     return tax::pow< Q, P >( s );
 }
 
-/// `||v||_P` (the P-norm; P defaults to the Euclidean 2-norm) for an Eigen vector.
-template < int P = 2, typename Derived >
-    requires detail::ExpansionElement< typename Derived::Scalar >
-[[nodiscard]] auto norm( const Eigen::MatrixBase< Derived >& v ) noexcept
-{
-    return normPow< P, 1 >( v );
-}
-
 }  // namespace tax::la
 
-// The norm helpers are reachable directly under `tax`.
+// The norm helper is reachable directly under `tax`.
 namespace tax
 {
 using la::norm;
-using la::normPow;
 }  // namespace tax

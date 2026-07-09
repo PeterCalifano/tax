@@ -59,7 +59,7 @@ tax/
 │   │   ├── values.hpp        #   variables(x0), value(), eval()
 │   │   ├── truncate.hpp      #   free tax::truncate<N2>(scalar | Eigen vector/matrix)
 │   │   ├── derivatives.hpp   #   derivative, gradient, hessian, jacobian
-│   │   ├── norm.hpp          #   norm<P> / normPow<P,Q> of a vector of expansions
+│   │   ├── norm.hpp          #   norm<P, Q> of a vector of expansions (Q defaults to 1)
 │   │   ├── named.hpp         #   NumTraits + gradient/hessian/jacobian by axis name
 │   │   ├── mixed_named.hpp   #   the same for mixed-order named expansions
 │   │   └── invert.hpp        #   formal polynomial-map inversion (Picard)
