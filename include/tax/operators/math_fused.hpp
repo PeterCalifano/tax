@@ -1,12 +1,8 @@
 #pragma once
 
-// ---------------------------------------------------------------------------
 // Fused math surface: operations that compute two coupled results in a single
-// recurrence pass (see <tax/kernels/fused.hpp> for the provenance and the
-// benchmark evidence). Pair-returning functions order the pair as spelled in
-// the name: sinCos -> {sin, cos}, sqrtInvSqrt -> {sqrt, 1/sqrt},
-// expSinCos -> {exp*sin, exp*cos}.
-//
+// recurrence pass (see <tax/kernels/fused.hpp> for provenance and benchmarks).
+// Pair-returning functions order the pair as spelled in the name:
 //   sinCos(x)        {sin(x), cos(x)} — one coupled pass, the price of one.
 //   sinhCosh(x)      {sinh(x), cosh(x)} — one shared exp(x)/exp(-x) pair.
 //   sqrtInvSqrt(x)   {sqrt(x), 1/sqrt(x)} — use only when BOTH are consumed.
@@ -17,7 +13,6 @@
 // Named and mixed-order named overloads live in tax::named below and are
 // re-exported into tax::; two-operand forms compose in the union of the
 // operands' axis sets, exactly like operator* / atan2.
-// ---------------------------------------------------------------------------
 
 #include <tax/core/mixed_named.hpp>
 #include <tax/core/named.hpp>
@@ -30,11 +25,6 @@
 namespace tax
 {
 
-// ---------------------------------------------------------------------------
-// Dense
-// ---------------------------------------------------------------------------
-
-/// `{sin(x), cos(x)}` from the single coupled recurrence both already share.
 template < typename T, IndexScheme Scheme >
 [[nodiscard]] auto sinCos( const TaylorExpansion< T, Scheme >& x ) noexcept
 {
@@ -44,7 +34,6 @@ template < typename T, IndexScheme Scheme >
     return r;
 }
 
-/// `{sinh(x), cosh(x)}` from one shared exp(x)/exp(-x) pair.
 template < typename T, IndexScheme Scheme >
 [[nodiscard]] auto sinhCosh( const TaylorExpansion< T, Scheme >& x ) noexcept
 {
@@ -54,9 +43,8 @@ template < typename T, IndexScheme Scheme >
     return r;
 }
 
-/// `{sqrt(x), 1/sqrt(x)}` interleaved in one pass. Requires `x.value() > 0`.
-/// Only worth calling when both results are consumed (e.g. r and 1/r^3):
-/// a single-output caller should use sqrt() or pow() instead.
+/// Requires `x.value() > 0`. Worth calling only when both results are consumed
+/// (e.g. r and 1/r^3); a single-output caller should use sqrt() or pow().
 template < typename T, IndexScheme Scheme >
 [[nodiscard]] auto sqrtInvSqrt( const TaylorExpansion< T, Scheme >& x ) noexcept
 {
@@ -66,8 +54,6 @@ template < typename T, IndexScheme Scheme >
     return r;
 }
 
-/// Fused `exp(v) * sin(u)` — one coupled recurrence instead of exp, sin/cos
-/// and a Cauchy product.
 template < typename T, IndexScheme Scheme >
 [[nodiscard]] TaylorExpansion< T, Scheme > expSin( const TaylorExpansion< T, Scheme >& v,
                                                    const TaylorExpansion< T, Scheme >& u ) noexcept
@@ -78,7 +64,6 @@ template < typename T, IndexScheme Scheme >
     return r;
 }
 
-/// Fused `exp(v) * cos(u)`.
 template < typename T, IndexScheme Scheme >
 [[nodiscard]] TaylorExpansion< T, Scheme > expCos( const TaylorExpansion< T, Scheme >& v,
                                                    const TaylorExpansion< T, Scheme >& u ) noexcept
@@ -89,7 +74,6 @@ template < typename T, IndexScheme Scheme >
     return r;
 }
 
-/// `{exp(v)*sin(u), exp(v)*cos(u)}` — the coupled pass computes both anyway.
 template < typename T, IndexScheme Scheme >
 [[nodiscard]] auto expSinCos( const TaylorExpansion< T, Scheme >& v,
                               const TaylorExpansion< T, Scheme >& u ) noexcept
@@ -102,9 +86,7 @@ template < typename T, IndexScheme Scheme >
 
 }  // namespace tax
 
-// ---------------------------------------------------------------------------
-// Named (single-order) and mixed-order named overloads
-// ---------------------------------------------------------------------------
+// Named (single-order) and mixed-order named overloads.
 
 namespace tax::named
 {

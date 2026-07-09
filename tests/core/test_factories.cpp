@@ -10,7 +10,6 @@
 #include <tax/tax.hpp>
 #include <type_traits>
 
-// --- Univariate: tax::variable<N>(x0) ---
 TEST( Factories, IsoUnivariate )
 {
     auto x = tax::variable< 5 >( 1.0 );
@@ -20,7 +19,7 @@ TEST( Factories, IsoUnivariate )
     for ( std::size_t k = 2; k < x.nCoefficients; ++k ) EXPECT_EQ( x[k], 0.0 );
 }
 
-// --- Multivariate: tax::variable<I, N, M>(p) matches the static member exactly ---
+// tax::variable<I, N, M>(p) must match the static member exactly.
 TEST( Factories, IsoMultivariate )
 {
     std::array< double, 2 > p{ 1.0, 2.0 };
@@ -44,7 +43,7 @@ TEST( Factories, IsoMultivariate )
     EXPECT_EQ( y.coeff( tax::MultiIndex< 2 >{ 0, 1 } ), 1.0 );
 }
 
-// --- Braced-init-list ergonomics: T defaults to double ---
+// Braced-init-list ergonomics: T defaults to double.
 TEST( Factories, IsoMultivariateBracedInit )
 {
     auto x = tax::variable< 0, 3, 2 >( { 1.0, 2.0 } );
@@ -54,7 +53,7 @@ TEST( Factories, IsoMultivariateBracedInit )
     EXPECT_EQ( x.coeff( tax::MultiIndex< 2 >{ 0, 1 } ), 0.0 );
 }
 
-// --- Plural: tax::variables<N, M>(p) builds all coordinate variables ---
+// tax::variables<N, M>(p) builds all coordinate variables.
 TEST( Factories, IsoVariablesPlural )
 {
     std::array< double, 3 > p{ 1.0, 2.0, 3.0 };
@@ -72,7 +71,6 @@ TEST( Factories, IsoVariablesPlural )
     }
 }
 
-// --- Forwarding preserves constexpr ---
 TEST( Factories, IsoConstexpr )
 {
     constexpr std::array< double, 2 > p{ 1.0, 2.0 };
@@ -83,7 +81,7 @@ TEST( Factories, IsoConstexpr )
     SUCCEED();
 }
 
-// --- Non-default scalar type deduces through the factory ---
+// Non-default scalar type deduces through the factory.
 TEST( Factories, IsoFloatScalar )
 {
     std::array< float, 2 > p{ 1.0F, 2.0F };
@@ -93,7 +91,6 @@ TEST( Factories, IsoFloatScalar )
     EXPECT_FLOAT_EQ( x.value(), 2.0F );
 }
 
-// --- Plural factory stays usable in constant evaluation ---
 TEST( Factories, IsoVariablesPluralConstexpr )
 {
     constexpr std::array< double, 2 > p{ 1.0, 2.0 };
@@ -107,7 +104,7 @@ TEST( Factories, IsoVariablesPluralConstexpr )
     SUCCEED();
 }
 
-// --- Order-0 (constant-only) expansion carries just the constant term ---
+// Order-0 (constant-only) expansion carries just the constant term.
 TEST( Factories, IsoUnivariateOrder0 )
 {
     auto c = tax::variable< 0 >( 2.0 );

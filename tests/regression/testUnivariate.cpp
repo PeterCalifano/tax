@@ -1,5 +1,3 @@
-// tests/regression/testUnivariate.cpp
-//
 // Ported from claude/add-verner-integrators-vEgRF:tests/dace/testUnivariate.cpp
 // and retargeted at tax::TE<N>. Every input variable is wrapped in
 // tax_regression::prepareInput before the op under test, on both the
@@ -35,10 +33,6 @@ inline tax::TE< N > scaleToUnit( const tax::TE< N >& x )
 }
 }  // namespace
 
-// -----------------------------------------------------------------------
-// Operators
-// -----------------------------------------------------------------------
-
 TEST( DaceUnivariate, Div )
 {
     constexpr int N = 40;
@@ -70,10 +64,6 @@ TEST( DaceUnivariate, MulDiv )
 
     EXPECT_TRUE( expectCoeffsMatch( y, yr ) );
 }
-
-// -----------------------------------------------------------------------
-// Math: trig
-// -----------------------------------------------------------------------
 
 TEST( DaceUnivariate, Sin )
 {
@@ -159,10 +149,6 @@ TEST( DaceUnivariate, ATan )
 
     EXPECT_TRUE( expectCoeffsMatch( y, yr ) );
 }
-
-// -----------------------------------------------------------------------
-// Math: hyperbolic
-// -----------------------------------------------------------------------
 
 TEST( DaceUnivariate, Sinh )
 {
@@ -251,10 +237,6 @@ TEST( DaceUnivariate, ATanh )
 
     EXPECT_TRUE( expectCoeffsMatch( y, yr ) );
 }
-
-// -----------------------------------------------------------------------
-// Math: exp / log / roots / power
-// -----------------------------------------------------------------------
 
 TEST( DaceUnivariate, Exp )
 {

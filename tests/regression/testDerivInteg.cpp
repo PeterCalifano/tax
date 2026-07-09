@@ -1,5 +1,3 @@
-// tests/regression/testDerivInteg.cpp
-//
 // DACE-vs-tax parity for symbolic differentiation and integration of
 // Taylor expansions: f.deriv<I>() / f.integ<I>() against
 // DACE::DA::deriv / DACE::DA::integ.

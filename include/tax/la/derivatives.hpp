@@ -11,11 +11,7 @@
 namespace tax::la
 {
 
-// -----------------------------------------------------------------------------
-// derivative — element-wise partial derivative extraction
-// -----------------------------------------------------------------------------
-
-/// Extract a compile-time partial derivative from each element of an Eigen matrix/vector of `TaylorExpansion` objects.
+/// Element-wise compile-time partial derivative of an Eigen matrix/vector of TEs.
 template < int... Alpha, typename Derived >
     requires( detail::is_te_v< typename Derived::Scalar > )
 [[nodiscard]] auto derivative( const Eigen::MatrixBase< Derived >& F )
@@ -29,11 +25,6 @@ template < int... Alpha, typename Derived >
     return out;
 }
 
-// -----------------------------------------------------------------------------
-// gradient — free-function wrapper around TaylorExpansion::gradient()
-// -----------------------------------------------------------------------------
-
-/// Compute the gradient of a scalar `TaylorExpansion` at its expansion point.
 template < typename T, typename Scheme, typename S >
 [[nodiscard]] Eigen::Matrix< T, Scheme::vars, 1 > gradient(
     const TaylorExpansion< T, Scheme, S >& f ) noexcept
@@ -41,11 +32,6 @@ template < typename T, typename Scheme, typename S >
     return f.gradient();
 }
 
-// -----------------------------------------------------------------------------
-// hessian — free-function wrapper around TaylorExpansion::hessian()
-// -----------------------------------------------------------------------------
-
-/// Compute the Hessian matrix of a scalar `TaylorExpansion` at its expansion point.
 template < typename T, typename Scheme, typename S >
 [[nodiscard]] Eigen::Matrix< T, Scheme::vars, Scheme::vars > hessian(
     const TaylorExpansion< T, Scheme, S >& f ) noexcept
@@ -53,11 +39,7 @@ template < typename T, typename Scheme, typename S >
     return f.hessian();
 }
 
-// -----------------------------------------------------------------------------
-// jacobian — Jacobian of a vector-valued TE function
-// -----------------------------------------------------------------------------
-
-/// Compute the Jacobian matrix of a vector-valued `TaylorExpansion` function.
+/// Jacobian of a vector-valued `TaylorExpansion` function.
 template < typename Derived >
     requires( detail::is_te_v< typename Derived::Scalar > )
 [[nodiscard]] auto jacobian( const Eigen::MatrixBase< Derived >& F )

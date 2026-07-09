@@ -2,15 +2,12 @@
 
 #include "../testUtils.hpp"
 
-// ---------------------------------------------------------------------------
-// Compile-time evaluation of the pure-polynomial surface.
-//
-// The transcendental functions seed their recurrence with a libm call
-// (std::exp/sin/...), so they are runtime-only. The polynomial operations —
-// arithmetic, square/cube/reciprocal, integer powers, division, and the
-// differential/evaluation accessors — are constexpr and evaluate entirely in
-// the compiler; the static_asserts below exercise that surface.
-// ---------------------------------------------------------------------------
+// Compile-time evaluation of the pure-polynomial surface. The transcendental
+// functions seed their recurrence with a libm call (std::exp/sin/...), so they
+// are runtime-only. The polynomial operations — arithmetic,
+// square/cube/reciprocal, integer powers, division, and the
+// differential/evaluation accessors — are constexpr and evaluate entirely in the
+// compiler; the static_asserts below exercise that surface.
 
 namespace
 {
@@ -34,8 +31,6 @@ constexpr bool coeffsNear( const E& a, const E& b, double tol )
 }
 
 }  // namespace
-
-// ------------------------------- univariate --------------------------------
 
 constexpr auto kX = tax::TE< 8 >::variable( 0.5 );
 
@@ -62,8 +57,6 @@ static_assert( nearAbs( kF.eval( { 0.0 } ), kF.value(), 1e-15 ) );
 // truncate at compile time.
 static_assert( tax::square( kX ).truncate< 2 >().order_v == 2 );
 
-// ------------------------------ multivariate -------------------------------
-
 constexpr auto kG = [] {
     using E = tax::TE< 5, 2 >;
     typename E::Input p{ 0.4, 1.2 };
@@ -72,8 +65,6 @@ constexpr auto kG = [] {
     return ( tax::square( x ) + tax::square( y ) ) * ( x - y ) + tax::pow( x, 3 );
 }();
 static_assert( kG.value() != 0.0, "multivariate polynomial pipeline in constant evaluation" );
-
-// ----------------------------- named expansions ----------------------------
 
 // Named arithmetic and integer powers are constexpr (the transcendental named
 // wrappers are runtime-only, like the dense ones).

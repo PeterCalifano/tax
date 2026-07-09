@@ -4,11 +4,9 @@
 
 #include "../testUtils.hpp"
 
-// ---------------------------------------------------------------------------
 // Fused pair operations: sinCos, sinhCosh, sqrtInvSqrt, expSin/expCos/expSinCos.
-// The fused kernels sum the same mathematical terms in a different order than
-// the compose-then-multiply path, so cross-checks use a small tolerance.
-// ---------------------------------------------------------------------------
+// The fused kernels sum the same mathematical terms in a different order than the
+// compose-then-multiply path, so cross-checks use a small tolerance.
 
 namespace
 {
@@ -109,10 +107,6 @@ TEST( ExpTrig, MultivariateMatchesComposition )
     expectNear( tax::expCos( v, u ), tax::exp( v ) * tax::cos( u ), 1e-11 );
 }
 
-// ---------------------------------------------------------------------------
-// Named / mixed-order named surface
-// ---------------------------------------------------------------------------
-
 TEST( FusedNamed, ExpSinComposesInAxisUnion )
 {
     auto x = tax::variable< "x", 6 >( 0.2 );
@@ -147,10 +141,6 @@ TEST( FusedMixed, ExpCosComposesInOrderedAxisUnion )
     for ( std::size_t k = 0; k < decltype( f )::nCoefficients; ++k )
         EXPECT_NEAR( f.inner()[k], g.inner()[k], 1e-12 );
 }
-
-// ---------------------------------------------------------------------------
-// Mixed pow / atan2 (new binary surface)
-// ---------------------------------------------------------------------------
 
 TEST( MixedBinaryMath, PowAndAtan2 )
 {

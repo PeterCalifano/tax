@@ -192,7 +192,7 @@ auto g = tax::invSqrtPow<3>(r2);         // axis set of r2, unchanged
 ```
 
 Mixed-order operands additionally follow the usual max-order promotion on
-shared axes — see [Mixed-Order Expansions](mixed.md).
+shared axes — see [Named & Mixed-Order Expansions](named.md#anisotropic-axes-per-axis-orders).
 
 ---
 

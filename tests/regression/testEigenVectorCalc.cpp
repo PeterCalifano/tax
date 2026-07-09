@@ -1,5 +1,3 @@
-// tests/regression/testEigenVectorCalc.cpp
-//
 // DACE-vs-tax parity for vector-calculus extractors built on the tax::la
 // Eigen helpers:
 //   tax::la::gradient(f)   vs  DACE getCoefficient at unit multi-indices

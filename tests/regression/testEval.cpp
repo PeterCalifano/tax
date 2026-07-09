@@ -1,5 +1,3 @@
-// tests/regression/testEval.cpp
-//
 // DACE-vs-tax parity for displacement evaluation:
 //   tax::TE<N>::eval(dx)        vs  DACE::DA::eval(...)
 //   tax::TE<N, M>::eval(dx)     vs  DACE::DA::eval(...)

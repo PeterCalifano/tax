@@ -241,10 +241,6 @@ TEST( Named, DerivIntegRoundTrip )
         EXPECT_DOUBLE_EQ( rt.inner()[k], f.inner()[k] ) << "coeff " << k;
 }
 
-// ===========================================================================
-// Deep core-layer coverage
-// ===========================================================================
-
 namespace
 {
 using AAxis = Axis< "a", 1 >;

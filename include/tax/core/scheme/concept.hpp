@@ -18,7 +18,7 @@ concept IndexScheme = requires( const S& ) {
     { S::isUnivariate } -> std::convertible_to< bool >;
 };
 
-/// Scheme-generic Cauchy product: delegates to Scheme::cauchyProduct<T>.
+/// Scheme-generic Cauchy product.
 template < typename T, IndexScheme Scheme >
 constexpr void cauchyProduct( std::array< T, Scheme::nCoeff >& out,
                               const std::array< T, Scheme::nCoeff >& a,
@@ -27,7 +27,7 @@ constexpr void cauchyProduct( std::array< T, Scheme::nCoeff >& out,
     Scheme::template cauchyProduct< T >( out, a, b );
 }
 
-/// Scheme-generic self-product: delegates to Scheme::cauchySelfProduct<T>.
+/// Scheme-generic self-product.
 template < typename T, IndexScheme Scheme >
 constexpr void cauchySelfProduct( std::array< T, Scheme::nCoeff >& out,
                                   const std::array< T, Scheme::nCoeff >& f ) noexcept

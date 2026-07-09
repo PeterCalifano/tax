@@ -25,14 +25,12 @@
 namespace tax
 {
 
-/// Output style for the series representation.
 enum class SeriesStyle
 {
     Polynomial,
     Tabular
 };
 
-/// Formatting options for `series()`.
 struct SeriesOptions
 {
     SeriesStyle style = SeriesStyle::Polynomial;
@@ -198,8 +196,7 @@ void writeSeries( std::ostream& os, CoeffAt&& coeffAt, NameOf&& nameOf, const Se
     if ( !any ) os << "0";
 }
 
-// --- Per-kind streaming (dispatches coefficient access + naming) ------------
-
+// Per-kind streaming (dispatches coefficient access + naming).
 template < typename T, typename Scheme >
 void streamScalar( std::ostream& os, const TaylorExpansion< T, Scheme, storage::Dense >& f,
                    const SeriesOptions& opts )
@@ -226,8 +223,7 @@ void streamScalar( std::ostream& os, const named::NamedTaylorExpansion< T, N, Ax
         [&]( int v ) { return namedVarName< Axes... >( v, opts ); }, opts );
 }
 
-// --- Streamable proxies returned by series() --------------------------------
-
+// Streamable proxies returned by series().
 template < typename F >
 struct ScalarSeriesProxy
 {
@@ -273,16 +269,13 @@ std::ostream& operator<<( std::ostream& os, const MatrixSeriesProxy< Derived >& 
 
 }  // namespace detail
 
-// --- Public operator<< (zero-config polynomial series) ----------------------
-
+// Public operator<< (zero-config polynomial series).
 template < typename T, typename Scheme, typename S >
 std::ostream& operator<<( std::ostream& os, const TaylorExpansion< T, Scheme, S >& f )
 {
     detail::streamScalar( os, f, SeriesOptions{} );
     return os;
 }
-
-// --- series() manipulator ---------------------------------------------------
 
 /// Stream a scalar / named expansion with explicit options (style, precision, ...).
 template < typename F >

@@ -366,10 +366,6 @@ TAX_MIXED_UNARY_FN( erf )
 
 #undef TAX_MIXED_UNARY_FN
 
-// ---------------------------------------------------------------------------
-// Convenience alias (double-valued)
-// ---------------------------------------------------------------------------
-
 /// `MTE< Axes... >` — double-valued mixed-order named expansion.
 template < typename... Axes >
 using MTE = MixedTaylorExpansion< double, Axes... >;

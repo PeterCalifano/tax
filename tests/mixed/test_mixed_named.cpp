@@ -40,7 +40,6 @@ TEST( MixedNamed, ComposeUnionAxesNoBlowup )
     EXPECT_NEAR( f.inner()[F::Inner::scheme::flatOf( xt )], 1.0, 1e-12 );
 }
 
-// canonical type equality: x*t and t*x are the same type
 TEST( MixedNamed, CanonicalTypeOrderIndependent )
 {
     auto x = tax::mixed::variable< "x", 4 >( 0.3 );
@@ -49,7 +48,6 @@ TEST( MixedNamed, CanonicalTypeOrderIndependent )
     SUCCEED();
 }
 
-// max-order promotion on a shared axis
 TEST( MixedNamed, SharedAxisPromotesToMaxOrder )
 {
     auto x2 = tax::mixed::variable< "x", 2 >( 0.3 );
@@ -59,16 +57,9 @@ TEST( MixedNamed, SharedAxisPromotesToMaxOrder )
     SUCCEED();
 }
 
-// ---------------------------------------------------------------------------
-// Task 3: axis-name differential / projection ops
-// ---------------------------------------------------------------------------
-
-// deriv<"x"> of a composed {t@4, x@3} expansion matches the analytical derivative
-// for monomials that don't require source terms above the x-order cap.
-// We verify two things:
-//  (1) the type of df is the same as f (axis set and orders preserved)
-//  (2) for monomials (t^a, x^b) with x-degree b < x-order (= 3), df matches
-//      the finite-difference derivative in x from the isotropic oracle.
+// deriv<"x"> matches the isotropic oracle only for monomials with x-degree below
+// the x-order cap (3); higher ones would need source terms truncated from the
+// mixed box. Type of df must equal f (axis set + orders preserved).
 TEST( MixedNamed, DerivByAxisNameMatchesIsotropicOracle )
 {
     // small orders to keep the isotropic oracle affordable: x@3, t@4 (Σ=7)
@@ -88,11 +79,8 @@ TEST( MixedNamed, DerivByAxisNameMatchesIsotropicOracle )
     auto iso = sin( ix * it ) + exp( ix );
     auto iso_dx = iso.template deriv< 1 >();  // deriv w.r.t. var 1 (x)
 
-    // Compare only monomials where the x-degree in the RESULT is < x-order (= 3).
-    // For those, the deriv coefficient comes from source monomials with x-degree <= x-order,
-    // which are all present in the mixed box.  Monomials with x-degree = 3 in df would
-    // require x-degree 4 source terms, which are truncated in the mixed box but present
-    // in the isotropic oracle — so we skip them.
+    // Compare only monomials with result x-degree < x-order (= 3); x-degree 3 would
+    // need x-degree 4 source terms, truncated in the mixed box but present in the oracle.
     constexpr int x_order = 3;
     for ( std::size_t k = 0; k < F::Inner::nCoefficients; ++k )
     {
@@ -134,23 +122,17 @@ TEST( MixedNamed, SliceByAxisName )
 {
     auto x = tax::mixed::variable< "x", 3 >( 0.7 );
     auto t = tax::mixed::variable< "t", 4 >( 1.3 );
-    // f = x + x*t + t^2 (plus constant from expansion points)
     auto f = x + x * t;
     using F = decltype( f );
     // Union axes: t(var0), x(var1)
 
     auto sx = f.template slice< "x" >();
     using SX = decltype( sx );
-    // Result should be a MixedTaylorExpansion over only axis "x" at order 3
     using ExpectedAx = tax::named::OrderedAxis< "x", 1, 3 >;
     static_assert( std::is_same_v< SX, tax::named::MixedTaylorExpansion< double, ExpectedAx > > );
 
-    // The x-only slice should keep only monomials with t-degree = 0.
-    // f = x + x*t + ... ; slicing drops the x*t term.
-    // At expansion point x=0.7, t=1.3:
-    // f value = 0.7 + 0.7*1.3 = 0.7*2.3 = 1.61, dx coeff = 1 + 1.3 = 2.3, dt coeff = 0.7, etc.
-    // slice keeps: value=1.61, dx coeff=2.3
-    // (only monomials with t-exponent=0)
+    // slice keeps only t-degree=0 monomials (drops x*t). At x=0.7, t=1.3:
+    // value = 0.7 + 0.7*1.3 = 1.61, dx coeff = 1 + 1.3 = 2.3.
     EXPECT_NEAR( sx.value(), 0.7 + 0.7 * 1.3, 1e-12 );
 
     // dx coefficient: from f, coeff of dt^0*dx^1 is (1 + 1.3) = 2.3
@@ -158,15 +140,12 @@ TEST( MixedNamed, SliceByAxisName )
     alpha_x1[0] = 1;
     EXPECT_NEAR( sx.inner()[SX::Inner::scheme::flatOf( alpha_x1 )], 1.0 + 1.3, 1e-12 );
 
-    // Every source monomial with t-degree > 0 must be absent in sx
-    // In SX there are no t variables, so check that x*t cross terms are gone
+    // SX has no t variables, so all t-degree>0 source monomials are structurally dropped.
     for ( std::size_t k = 0; k < F::Inner::nCoefficients; ++k )
     {
         const auto alpha = F::Inner::scheme::multiOf( k );
-        if ( alpha[0] > 0 )  // t-degree > 0
+        if ( alpha[0] > 0 )
         {
-            // The source's t-containing monomials should not appear in the slice
-            // (Nothing to verify in the output since they are dropped)
             (void)alpha;
         }
     }
@@ -178,7 +157,7 @@ TEST( MixedNamed, TruncateByAxisName )
 {
     auto x = tax::mixed::variable< "x", 4 >( 0.5 );
     auto t = tax::mixed::variable< "t", 20 >( 0.2 );
-    auto f = x * t + x;  // simple enough to have known coefficients
+    auto f = x * t + x;
     using F = decltype( f );
     // Union: t(var0,order20), x(var1,order4). Box: 21*5=105
 
@@ -196,27 +175,17 @@ TEST( MixedNamed, TruncateByAxisName )
     {
         const auto alpha = FT::Inner::scheme::multiOf( k );
         // alpha[0] = t-degree, alpha[1] = x-degree; t-degree <= 2 by construction of FT
-        // Find the same coefficient in the source.
         const std::size_t k_src = F::Inner::scheme::flatOf( alpha );
         EXPECT_NEAR( ft.inner()[k], f.inner()[k_src], 1e-12 ) << "coeff " << k;
     }
 
-    // Also verify that the source's t-degree>2 terms are NOT in the truncated result.
-    // The truncated result has only 15 coefficients so they cannot appear by construction.
+    // t-degree>2 terms cannot appear: the truncated box is strictly smaller.
     static_assert( FT::Inner::nCoefficients < F::Inner::nCoefficients );
 }
 
-// ---------------------------------------------------------------------------
-// Task 5 coverage tests
-// ---------------------------------------------------------------------------
-
-// Dim>=2 shared axis through promotion/embed: two MixedTaylorExpansions that
-// share a 2-D axis "q" (at different per-axis orders), each also carrying a
-// distinct 1-D axis, are multiplied.  The result type must be
-//   { "p"@3, "q"@max(2,3)=3, "r"@2 }  (sorted by name)
-// and every box coefficient must match the isotropic TE<8,4> oracle evaluated
-// at the same expansion point.  This exercises embedMixed / MergeOrdered for
-// dim>1 shared axes (only dim==1 shared axes had prior coverage).
+// Two MixedTEs sharing a 2-D axis "q" at different orders, each with a distinct
+// 1-D axis, multiplied. Result type { "p"@3, "q"@max(2,3)=3, "r"@2 } (sorted by
+// name); exercises embedMixed / MergeOrdered for dim>1 shared axes.
 TEST( MixedNamed, Dim2SharedAxisPromoteEmbed )
 {
     // A: "p"(dim=1,ord=3)  x  "q"(dim=2,ord=2)
@@ -229,12 +198,9 @@ TEST( MixedNamed, Dim2SharedAxisPromoteEmbed )
     auto qb = tax::mixed::variables< "q", 3, 2 >( q_pts );  // B carries q@3
     auto rb = tax::mixed::variable< "r", 2 >( 1.1 );
 
-    // Build A = pa * qa[0] + qa[1]   (uses "p" and "q")
-    auto fa = pa * qa[0] + qa[1];
-    // Build B = qb[0] * rb + qb[1]   (uses "q" and "r")
-    auto fb = qb[0] * rb + qb[1];
-    // Compose: merged axis set {"p"@3, "q"@3, "r"@2}
-    auto f = fa * fb;
+    auto fa = pa * qa[0] + qa[1];  // uses "p" and "q"
+    auto fb = qb[0] * rb + qb[1];  // uses "q" and "r"
+    auto f = fa * fb;              // merged axis set {"p"@3, "q"@3, "r"@2}
     using F = decltype( f );
 
     // Type check: 4 variables total (1+2+1), box =
@@ -264,9 +230,7 @@ TEST( MixedNamed, Dim2SharedAxisPromoteEmbed )
     }
 }
 
-// Slice with ALL axes named (degenerate case: no axes are dropped).
-// slice<"a","b">() of an {a@3, b@2} expansion must return an equivalent
-// expansion of the same type, with every coefficient preserved.
+// Degenerate slice naming all axes: type and every coefficient must be preserved.
 TEST( MixedNamed, SliceAllAxesNoDrop )
 {
     auto a = tax::mixed::variable< "a", 3 >( 0.4 );
@@ -278,18 +242,16 @@ TEST( MixedNamed, SliceAllAxesNoDrop )
     auto s = f.template slice< "a", "b" >();
     using S = decltype( s );
 
-    // The slice result must be the same type as f (no axes dropped, same orders).
     static_assert( std::is_same_v< S, F > );
 
-    // Every coefficient must be identical.
     for ( std::size_t k = 0; k < F::Inner::nCoefficients; ++k )
     {
         EXPECT_DOUBLE_EQ( s.inner()[k], f.inner()[k] ) << "coeff " << k;
     }
 }
 
-// isotropic-superset oracle: every box coefficient of a composed mixed expansion
-// must equal the same coefficient of the full isotropic TE<Σorder, vars>.
+// Every box coefficient of a composed mixed expansion must equal the same
+// coefficient of the full isotropic TE<Σorder, vars>.
 TEST( MixedNamed, IsotropicSupersetOracle )
 {
     // Small per-axis orders so the isotropic super-box is affordable: x@3, t@4 (Σ=7).

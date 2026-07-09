@@ -12,11 +12,7 @@
 namespace tax::la
 {
 
-// -----------------------------------------------------------------------------
-// variables — build an Eigen column vector of TE coordinate variables
-// -----------------------------------------------------------------------------
-
-/// Construct an `Eigen::Matrix<TE, M, 1>` of coordinate Taylor variables from an Eigen vector expansion point `x0`.
+/// Eigen column vector of coordinate Taylor variables built from an Eigen point `x0`.
 template < typename TE, typename Derived >
 [[nodiscard]] auto variables( const Eigen::MatrixBase< Derived >& x0 )
 {
@@ -35,11 +31,7 @@ template < typename TE, typename Derived >
     return out;
 }
 
-// -----------------------------------------------------------------------------
-// value — extract constant terms from an Eigen matrix of TE objects
-// -----------------------------------------------------------------------------
-
-/// Extract the constant term (value at expansion point) from each element of an Eigen matrix/vector of `TaylorExpansion` objects.
+/// Constant term of each element of an Eigen matrix/vector of TEs.
 template < typename Derived >
     requires( detail::is_te_v< typename Derived::Scalar > )
 [[nodiscard]] auto value( const Eigen::MatrixBase< Derived >& F )
@@ -52,10 +44,6 @@ template < typename Derived >
     return out;
 }
 
-// -----------------------------------------------------------------------------
-// eval — evaluate scalar TE or Eigen matrix of TEs at a displacement
-// -----------------------------------------------------------------------------
-
 /// Evaluate a scalar `TaylorExpansion` at displacement `dx`.
 template < typename T, typename Scheme, typename S, typename DxDerived >
 [[nodiscard]] T eval( const TaylorExpansion< T, Scheme, S >& f,
@@ -64,7 +52,7 @@ template < typename T, typename Scheme, typename S, typename DxDerived >
     return f.eval( dx );
 }
 
-/// Evaluate each element of an Eigen matrix/vector of `TaylorExpansion` objects at a shared displacement vector `dx`.
+/// Evaluate each element of an Eigen matrix/vector of TEs at a shared displacement `dx`.
 template < typename Derived, typename DxDerived >
     requires( detail::is_te_v< typename Derived::Scalar > )
 [[nodiscard]] auto eval( const Eigen::MatrixBase< Derived >& F,
@@ -91,7 +79,7 @@ template < typename T, int N, typename S >
     return f.eval( p );
 }
 
-/// Evaluate each element of an Eigen matrix/vector of univariate `TaylorExpansion` objects at a shared scalar displacement.
+/// Evaluate each element of an Eigen matrix/vector of univariate TEs at a scalar displacement.
 template < typename Derived >
     requires( detail::is_te_v< typename Derived::Scalar >
               && detail::te_traits< typename Derived::Scalar >::vars_v == 1 )
@@ -111,11 +99,8 @@ template < typename Derived >
 
 }  // namespace tax::la
 
-// -----------------------------------------------------------------------------
-// value — surfaced under tax:: : the scalar accessors below plus the matrix
-// overload (via the using-declaration), so callers write tax::value uniformly.
-// tax::la::value remains valid for the matrix form.
-// -----------------------------------------------------------------------------
+// Surface value() under tax:: — the scalar accessors below plus the matrix overload
+// (via the using-declaration); tax::la::value stays valid for the matrix form.
 
 namespace tax
 {

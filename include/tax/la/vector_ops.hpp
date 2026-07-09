@@ -30,10 +30,6 @@
 namespace tax::la
 {
 
-// ---------------------------------------------------------------------------
-// dot
-// ---------------------------------------------------------------------------
-
 /// `a · b` (vector · vector) as a single scalar expansion.
 template < typename LA, typename LB >
     requires( bool( LA::IsVectorAtCompileTime ) && bool( LB::IsVectorAtCompileTime ) &&
@@ -74,10 +70,6 @@ template < typename MA, typename VB >
     return r;
 }
 
-// ---------------------------------------------------------------------------
-// cross
-// ---------------------------------------------------------------------------
-
 /// `a × b` for 3-vectors.
 template < typename LA, typename LB >
     requires( detail::ExpansionElement< typename LA::Scalar > )
@@ -95,10 +87,6 @@ template < typename LA, typename LB >
     r( 2 ) = E( a( 0 ) ) * E( b( 1 ) ) - E( a( 1 ) ) * E( b( 0 ) );
     return r;
 }
-
-// ---------------------------------------------------------------------------
-// unit vectors
-// ---------------------------------------------------------------------------
 
 /// `v / |v|`. Requires `dot(v, v).value() > 0`. The `1/|v|` factor is one
 /// reciprocal-square-root pass shared across all components.
@@ -122,10 +110,6 @@ template < typename LA, typename LB >
     return unitvec( cross( a, b ) );
 }
 
-// ---------------------------------------------------------------------------
-// angle
-// ---------------------------------------------------------------------------
-
 /// Angle between `a` and `b`, `acos( (a·b) / (|a| |b|) )`. The two norms are
 /// combined under one reciprocal square root: `(a·b) · (|a|²|b|²)^(-1/2)`.
 /// Requires the cosine's constant term to satisfy `|cos| < 1` (the `acos`
@@ -140,10 +124,6 @@ template < typename LA, typename LB >
     const E cos = dot( a, b ) * tax::pow< -1, 2 >( dot( a, a ) * dot( b, b ) );
     return tax::acos( cos );
 }
-
-// ---------------------------------------------------------------------------
-// projections
-// ---------------------------------------------------------------------------
 
 /// Projection of `a` onto the direction `d`: `(a·d / d·d) · d`.
 /// Requires `dot(d, d).value() != 0`.

@@ -76,7 +76,7 @@ class TaylorExpansion<T, Scheme, storage::Sparse>;
 !!! note "Sparse is isotropic-only"
     The sparse specialisation is constrained to isotropic schemes
     (`IsotropicScheme<N,M>`). The anisotropic `MixedTE` (see
-    [Mixed-order expansions](mixed.md)) is dense-only.
+    [Named & Mixed-Order Expansions](named.md#anisotropic-axes-per-axis-orders)) is dense-only.
 
 - Storage: two parallel `std::vector<uint32_t> idx_` and `std::vector<T> val_`
   kept strictly sorted by flat index.

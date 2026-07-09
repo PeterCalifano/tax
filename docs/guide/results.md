@@ -151,5 +151,5 @@ double approx = f.eval({0.3, 0.5});   // ≈ sin(0.3) * cos(0.5)
 For vector- and matrix-valued results — gradients, Hessians, and Jacobians of
 Eigen-shaped expansions — see [Eigen Integration](eigen.md). The graded-lex
 coefficient ordering and the theory behind the $f_\alpha$ relationship are
-covered in [Foundations](../concepts/foundations.md); every method signature is
+covered in [Background](background.md); every method signature is
 listed in the [Core API Reference](../reference/core.md).

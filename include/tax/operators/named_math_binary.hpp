@@ -72,10 +72,8 @@ template < typename T, int N, typename... A, typename... B >
 
 }  // namespace tax::named
 
-// ---------------------------------------------------------------------------
 // Re-exports: qualified `tax::pow` / `tax::atan2` for named expansions and
 // plain scalars (see named_math_unary.hpp for the rationale).
-// ---------------------------------------------------------------------------
 
 namespace tax
 {

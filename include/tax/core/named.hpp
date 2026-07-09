@@ -14,10 +14,6 @@
 namespace tax::named
 {
 
-// ---------------------------------------------------------------------------
-// FixedString — a structural compile-time string usable as an NTTP
-// ---------------------------------------------------------------------------
-
 /// A null-terminated compile-time string suitable as a non-type template parameter (e.g. `Axis<
 /// "x", 3 >`).
 template < std::size_t K >
@@ -30,7 +26,6 @@ struct FixedString
         for ( std::size_t i = 0; i < K; ++i ) data[i] = s[i];
     }
 
-    /// Length of the string excluding the terminating null.
     [[nodiscard]] static constexpr std::size_t size() noexcept { return K - 1; }
 
     [[nodiscard]] constexpr char operator[]( std::size_t i ) const noexcept { return data[i]; }
@@ -61,10 +56,6 @@ template < std::size_t A, std::size_t B >
 template < FixedString A, FixedString B >
 inline constexpr int fixedCompare = compareFixed( A, B );
 
-// ---------------------------------------------------------------------------
-// Axis — a named block of `Dim` consecutive variables
-// ---------------------------------------------------------------------------
-
 /// A named axis: the compile-time string `Name` labels a block of `Dim` consecutive variables of
 /// the underlying expansion.
 template < FixedString Name, int Dim >
@@ -80,9 +71,7 @@ struct Axis
 template < typename A, typename B >
 inline constexpr int axisSign = fixedCompare< A::name, B::name >;
 
-// ---------------------------------------------------------------------------
 // Compile-time axis-list machinery
-// ---------------------------------------------------------------------------
 
 namespace detail
 {
@@ -346,10 +335,7 @@ using MergedNamedTaylorExpansion =
 
 }  // namespace detail
 
-// ---------------------------------------------------------------------------
-// NamedTaylorExpansion — a named Taylor expansion
-// ---------------------------------------------------------------------------
-
+/// A named, sliceable, composable dense Taylor expansion over a canonical axis set.
 template < typename T, int N, typename... Axes >
     requires Scalar< T >
 class NamedTaylorExpansion
@@ -375,10 +361,6 @@ class NamedTaylorExpansion
     using container_t = typename Inner::container_t;
     static constexpr std::size_t nCoefficients = Inner::nCoefficients;
 
-    // ------------------------------------------------------------------
-    // Constructors
-    // ------------------------------------------------------------------
-
     constexpr NamedTaylorExpansion() noexcept = default;
 
     /// Constant expansion (value in every axis direction is flat).
@@ -397,10 +379,6 @@ class NamedTaylorExpansion
     {
     }
 
-    // ------------------------------------------------------------------
-    // Coordinate variables
-    // ------------------------------------------------------------------
-
     /// The I-th coordinate variable of the joint variable space at `p`.
     template < int I >
     [[nodiscard]] static constexpr NamedTaylorExpansion variable( const Input& p ) noexcept
@@ -409,20 +387,12 @@ class NamedTaylorExpansion
         return NamedTaylorExpansion{ Inner::template variable< I >( p ) };
     }
 
-    // ------------------------------------------------------------------
-    // Access
-    // ------------------------------------------------------------------
-
     /// Constant (zeroth) coefficient.
     [[nodiscard]] constexpr T value() const noexcept { return inner_.value(); }
 
     /// The underlying anonymous expansion.
     [[nodiscard]] constexpr const Inner& inner() const noexcept { return inner_; }
     [[nodiscard]] constexpr Inner& inner() noexcept { return inner_; }
-
-    // ------------------------------------------------------------------
-    // Embedding and slicing
-    // ------------------------------------------------------------------
 
     /// Embed into the target named type `R`, whose axes must be a superset of this expansion's
     /// axes.
@@ -450,9 +420,7 @@ class NamedTaylorExpansion
         return detail::reindexAxes< R, /*AllowDrop=*/true >( *this );
     }
 
-    // ------------------------------------------------------------------
     // Per-axis differentiation and integration (axis set preserved)
-    // ------------------------------------------------------------------
 
     /// Global variable index of local coordinate `Local` of axis `Name`.
     template < FixedString Name, int Local >
@@ -478,9 +446,7 @@ class NamedTaylorExpansion
         return NamedTaylorExpansion{ inner_.template integ< axisVar< Name, Local >() >() };
     }
 
-    // ------------------------------------------------------------------
     // Truncation (axis set preserved)
-    // ------------------------------------------------------------------
 
     /// Order-reducing truncation: drop monomials of degree > N2, yielding a lower-order expansion.
     template < int N2 >
@@ -500,9 +466,7 @@ class NamedTaylorExpansion
     Inner inner_{};
 };
 
-// ---------------------------------------------------------------------------
 // Coordinate-variable factory for a single named axis
-// ---------------------------------------------------------------------------
 
 /// Build the `D` coordinate variables of a single named axis `Name`.
 template < FixedString Name, int N, typename T, std::size_t D >
@@ -527,21 +491,15 @@ template < FixedString Name, int N, typename T >
     return E::template variable< 0 >( p );
 }
 
-// ---------------------------------------------------------------------------
-// Convenience alias (double-valued)
-// ---------------------------------------------------------------------------
-
 /// `NE< N, Axes... >` — double-valued named expansion of order N.
 template < int N, typename... Axes >
 using NE = NamedTaylorExpansion< double, N, Axes... >;
 
 }  // namespace tax::named
 
-// ---------------------------------------------------------------------------
 // Public re-exports: the named type API is reachable directly under `tax`. The
 // free-function operator / math surface (and its `tax::` re-exports) lives in
 // operators/named_arithmetic.hpp, named_math_unary.hpp, named_math_binary.hpp.
-// ---------------------------------------------------------------------------
 
 namespace tax
 {

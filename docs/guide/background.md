@@ -1,12 +1,16 @@
-# Foundations & Ordering
+# Background
 
-This page covers the mathematical objects **tax** propagates: truncated Taylor polynomials, the graded-lexicographic ordering used to store their coefficients, and how the univariate picture generalises to many variables.
+The mathematical objects **tax** propagates: truncated Taylor polynomials, the
+graded-lexicographic ordering used to store their coefficients, how the
+univariate picture generalises to many variables, and how well a truncated
+expansion approximates the true function.
 
-For the per-operation recurrence relations (arithmetic, algebraic, trigonometric, hyperbolic, transcendental, power, and special functions), see [Recurrence Relations](../internals/recurrences.md). For truncation-error bounds and convergence diagnostics, see [Convergence & Truncation](convergence.md).
+For the per-operation recurrence relations, see
+[Recurrence Relations](../internals/recurrences.md).
 
 ---
 
-## Truncated Taylor Polynomials
+## Truncated Taylor polynomials
 
 A truncated Taylor expansion of a function $f$ in $M$ variables around a point $\mathbf{x}_0$ up to order $N$ is:
 
@@ -34,14 +38,14 @@ $$
 
 ---
 
-## Graded Lexicographic Ordering
+## Graded lexicographic ordering
 
 Coefficients are stored using **graded lexicographic (grlex) ordering**:
 monomials are grouped by total degree $|\alpha|$, and within each degree group
 they are sorted lexicographically by the exponent vector $\alpha$. For dense
 storage the container is a `std::array<T, S>`; for sparse storage only the
 nonzero coefficients are stored alongside their flat indices (see
-[Dense vs Sparse Storage](../guide/storage.md)).
+[Dense vs Sparse Storage](storage.md)).
 
 **Example for $M = 2$, $N = 2$:**
 
@@ -75,7 +79,7 @@ $$
 
 ---
 
-## Multivariate Generalisation
+## Multivariate generalisation
 
 All univariate recurrences in the [Recurrence Relations](../internals/recurrences.md) reference generalize naturally to the multivariate case. The key substitutions are:
 
@@ -84,7 +88,36 @@ All univariate recurrences in the [Recurrence Relations](../internals/recurrence
 3. **Degree constraints** like $1 \le k \le d-1$ become $1 \le |\beta| \le |\alpha|-1$ (or the appropriate range).
 4. The **weight factor** $d - k$ generalises to $|\alpha| - |\beta|$, and $k$ to $|\beta|$.
 
-In the implementation, the function `forEachSubIndex<M>(alpha, lo, hi, callback)` enumerates all sub-multi-indices $\beta \le \alpha$ with $\text{lo} \le |\beta| \le \text{hi}$, calling `callback(flatIndex(beta), flatIndex(alpha - beta), |beta|)`. This provides a uniform interface for both univariate and multivariate kernels, with the univariate path using simple scalar loops as a fast path via `if constexpr (M == 1)`.
+In the implementation, `forEachSubIndex<M>(alpha, lo, hi, callback)` enumerates all sub-multi-indices $\beta \le \alpha$ with $\text{lo} \le |\beta| \le \text{hi}$, calling `callback(flatIndex(beta), flatIndex(alpha - beta), |beta|)`. This provides a uniform interface for both univariate and multivariate kernels, with the univariate path using simple scalar loops as a fast path via `if constexpr (M == 1)`.
+
+---
+
+## Convergence and truncation error
+
+The truncated polynomial $\tilde{f}_N(\mathbf{x}_0 + \delta\mathbf{x})$ of
+order $N$ approximates the true function with error
+
+$$
+\bigl| f(\mathbf{x}_0 + \delta\mathbf{x}) - \tilde{f}_N(\mathbf{x}_0 + \delta\mathbf{x}) \bigr|
+  \le C \, |\delta\mathbf{x}|^{N+1}
+$$
+
+within the **radius of convergence** of the underlying Taylor series, where
+$C$ bounds the magnitude of the $(N+1)$-th derivatives. The library does
+not compute $C$ itself, but two practical proxies are exposed on
+`TaylorExpansion`:
+
+- **Coefficient $\ell^\infty$ norm** — `coeffs_norm_inf()` returns
+  $\max_{|\alpha| \le N} |f_\alpha|$. A small value at the boundary
+  $|\alpha| = N$ suggests the truncation is harmless on the displacement
+  scale of interest.
+- **Per-degree extraction** — `f.coeff({k})` (or `f.coeff<k,...>()`) gives the
+  individual $f_\alpha$; the geometric decay rate of the largest-magnitude
+  coefficient at each total degree estimates the convergence radius.
+
+This is the same idea a Jorba–Zou step-size controller applies inside a Taylor
+ODE integrator to choose the step $h$ from the last two coefficient norms of
+the per-step expansion.
 
 ---
 
@@ -98,3 +131,8 @@ In the implementation, the function `forEachSubIndex<M>(alpha, lo, hi, callback)
 - K. Makino and M. Berz, *Taylor models and other validated functional
   inclusion methods*, International Journal of Pure and Applied Mathematics
   4(4), 379–456, 2003.
+- W. Rudin, *Principles of Mathematical Analysis*, 3rd ed., McGraw-Hill, 1976 —
+  Taylor's theorem and the Lagrange form of the remainder.
+- À. Jorba and M. Zou, *A Software Package for the Numerical Integration of ODEs
+  by Means of High-Order Taylor Methods*, Experimental Mathematics 14(1),
+  99–117, 2005 — using coefficient decay to estimate the convergence radius.

@@ -1,7 +1,5 @@
-// tests/eigen/test_named_la.cpp
-//
-// Eigen integration for tax::named: NumTraits (NamedTaylorExpansion usable as an Eigen
-// scalar) and the per-axis gradient/hessian/jacobian helpers.
+// Eigen integration for tax::named: NumTraits (NamedTaylorExpansion usable as an
+// Eigen scalar) and the per-axis gradient/hessian/jacobian helpers.
 
 #include <gtest/gtest.h>
 
@@ -166,7 +164,6 @@ TEST( NamedLa, ValueAndEval )
     F( 0 ) = x[0] + p[0];
     F( 1 ) = x[1] + 0.0 * p[0];  // depends on the joint (p, x) space
 
-    // value() returns the constant terms.
     auto v0 = value( F );
     EXPECT_DOUBLE_EQ( v0( 0 ), 3.0 );  // 1 + 2
     EXPECT_DOUBLE_EQ( v0( 1 ), 4.0 );

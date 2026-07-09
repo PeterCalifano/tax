@@ -331,7 +331,7 @@ below) and are re-exported under `tax::`.
 ## Mixed-order named expansions (`tax::MixedTaylorExpansion`)
 
 The per-axis-order named type (`OrderedAxis<Name, Dim, Order>` axes; see the
-[Mixed-Order guide](../guide/mixed.md)) carries the same math surface. Its
+[Named & Mixed-Order guide](../guide/named.md#anisotropic-axes-per-axis-orders)) carries the same math surface. Its
 unary functions (`sqrt`, `exp`, `sin`, …) preserve the axis set; the binary
 and fused surface is:
 

@@ -11,10 +11,6 @@
 namespace tax
 {
 
-// ---------------------------------------------------------------------------
-// Addition
-// ---------------------------------------------------------------------------
-
 template < typename T, IndexScheme Scheme >
 [[nodiscard]] constexpr TaylorExpansion< T, Scheme > operator+(
     const TaylorExpansion< T, Scheme >& a, const TaylorExpansion< T, Scheme >& b ) noexcept
@@ -39,10 +35,6 @@ template < typename T, IndexScheme Scheme >
 {
     return a + s;
 }
-
-// ---------------------------------------------------------------------------
-// Subtraction
-// ---------------------------------------------------------------------------
 
 template < typename T, IndexScheme Scheme >
 [[nodiscard]] constexpr TaylorExpansion< T, Scheme > operator-(
@@ -71,10 +63,6 @@ template < typename T, IndexScheme Scheme >
     return r;
 }
 
-// ---------------------------------------------------------------------------
-// Unary negation
-// ---------------------------------------------------------------------------
-
 template < typename T, IndexScheme Scheme >
 [[nodiscard]] constexpr TaylorExpansion< T, Scheme > operator-(
     const TaylorExpansion< T, Scheme >& a ) noexcept
@@ -83,10 +71,6 @@ template < typename T, IndexScheme Scheme >
     for ( std::size_t k = 0; k < a.nCoefficients; ++k ) r[k] = -a[k];
     return r;
 }
-
-// ---------------------------------------------------------------------------
-// Scalar multiplication / division
-// ---------------------------------------------------------------------------
 
 template < typename T, IndexScheme Scheme >
 [[nodiscard]] constexpr TaylorExpansion< T, Scheme > operator*(
@@ -111,7 +95,6 @@ template < typename T, IndexScheme Scheme >
     return a * ( T( 1 ) / s );
 }
 
-/// Scalar / expansion: `s / a = s * (1 / a)`.
 template < typename T, IndexScheme Scheme >
 [[nodiscard]] constexpr TaylorExpansion< T, Scheme > operator/(
     std::type_identity_t< T > s, const TaylorExpansion< T, Scheme >& a ) noexcept
@@ -121,10 +104,7 @@ template < typename T, IndexScheme Scheme >
     return inv_a * s;
 }
 
-// ---------------------------------------------------------------------------
-// Cauchy (TE x TE) multiplication
-// ---------------------------------------------------------------------------
-
+// Cauchy (TE x TE) product.
 template < typename T, IndexScheme Scheme >
 [[nodiscard]] constexpr TaylorExpansion< T, Scheme > operator*(
     const TaylorExpansion< T, Scheme >& a, const TaylorExpansion< T, Scheme >& b ) noexcept
@@ -134,10 +114,7 @@ template < typename T, IndexScheme Scheme >
     return r;
 }
 
-// ---------------------------------------------------------------------------
-// TE / TE division via reciprocal
-// ---------------------------------------------------------------------------
-
+// TE / TE division via reciprocal.
 template < typename T, IndexScheme Scheme >
 [[nodiscard]] constexpr TaylorExpansion< T, Scheme > operator/(
     const TaylorExpansion< T, Scheme >& a, const TaylorExpansion< T, Scheme >& b ) noexcept
@@ -147,10 +124,6 @@ template < typename T, IndexScheme Scheme >
                                                 b.coefficients() );
     return r;
 }
-
-// ---------------------------------------------------------------------------
-// Compound assignment (dense)
-// ---------------------------------------------------------------------------
 
 template < typename T, IndexScheme Scheme >
 constexpr TaylorExpansion< T, Scheme >& operator+=( TaylorExpansion< T, Scheme >& a,
@@ -222,9 +195,7 @@ constexpr TaylorExpansion< T, Scheme >& operator/=( TaylorExpansion< T, Scheme >
     return a;
 }
 
-// ===========================================================================
-// Sparse arithmetic:  S+S, S-S, -S, S+T, T+S, S-T, T-S, S*T, T*S, S/T
-// ===========================================================================
+// Sparse storage overloads.
 
 using Sparse = storage::Sparse;
 
@@ -300,7 +271,6 @@ template < typename T, int N, int M >
     return r;
 }
 
-/// Scalar * Sparse.
 template < typename T, int N, int M >
 [[nodiscard]] TaylorExpansion< T, IsotropicScheme< N, M >, Sparse > operator*(
     std::type_identity_t< T > s,
@@ -309,7 +279,6 @@ template < typename T, int N, int M >
     return a * s;
 }
 
-/// Sparse / scalar.
 template < typename T, int N, int M >
 [[nodiscard]] TaylorExpansion< T, IsotropicScheme< N, M >, Sparse > operator/(
     const TaylorExpansion< T, IsotropicScheme< N, M >, Sparse >& a,
@@ -356,7 +325,6 @@ template < typename T, int N, int M >
     return r;
 }
 
-/// Scalar + Sparse.
 template < typename T, int N, int M >
 [[nodiscard]] TaylorExpansion< T, IsotropicScheme< N, M >, Sparse > operator+(
     std::type_identity_t< T > s,
@@ -365,7 +333,6 @@ template < typename T, int N, int M >
     return a + s;
 }
 
-/// Sparse - scalar.
 template < typename T, int N, int M >
 [[nodiscard]] TaylorExpansion< T, IsotropicScheme< N, M >, Sparse > operator-(
     const TaylorExpansion< T, IsotropicScheme< N, M >, Sparse >& a,
@@ -374,7 +341,6 @@ template < typename T, int N, int M >
     return a + ( -s );
 }
 
-/// Scalar - Sparse.
 template < typename T, int N, int M >
 [[nodiscard]] TaylorExpansion< T, IsotropicScheme< N, M >, Sparse > operator-(
     std::type_identity_t< T > s,

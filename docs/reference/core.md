@@ -29,7 +29,7 @@ monomial set. Two schemes ship today:
   over $M$ variables. This is the `TE<N,M>` / `STE<N,M>` form.
 - **`MixedScheme<Group<Dim,Order>...>`** — anisotropic per-axis order caps
   (a product of per-group simplices). This is the `MixedTE<Group<Dim,Order>...>`
-  form. See [Mixed-order expansions](../guide/mixed.md).
+  form. See [Named & Mixed-Order Expansions](../guide/named.md#anisotropic-axes-per-axis-orders).
 
 Per-operator signatures listed below use the `<T, N, M>` shorthand for the
 isotropic form; they apply equally to any scheme via template deduction.
