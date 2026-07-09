@@ -22,9 +22,7 @@ template < typename T, typename Scheme, typename Storage = storage::Dense >
     requires IndexScheme< Scheme >
 class TaylorExpansion;
 
-// ---------------------------------------------------------------------------
 // Dense specialisation
-// ---------------------------------------------------------------------------
 
 /// A truncated Taylor expansion over an index `Scheme` with dense storage.
 template < typename T, typename Scheme >
@@ -35,38 +33,22 @@ class TaylorExpansion< T, Scheme, storage::Dense >
     static_assert( Scheme::order >= 0, "TaylorExpansion order must be non-negative" );
     static_assert( Scheme::vars >= 1, "TaylorExpansion variable count must be at least 1" );
 
-    // ------------------------------------------------------------------
-    // Associated types
-    // ------------------------------------------------------------------
     using scheme = Scheme;
     using scalar_type = T;
     using container_t = storage::DenseContainer< T, Scheme::nCoeff >;
     using Input = std::array< T, std::size_t( Scheme::vars ) >;
     using Data = std::array< T, Scheme::nCoeff >;
 
-    // ------------------------------------------------------------------
-    // Compile-time properties
-    // ------------------------------------------------------------------
     static constexpr int order_v = Scheme::order;
     static constexpr int vars_v = Scheme::vars;
     static constexpr std::size_t nCoefficients = Scheme::nCoeff;
 
-    // ------------------------------------------------------------------
-    // Constructors
-    // ------------------------------------------------------------------
-
-    /// Zero-initialise all coefficients.
     constexpr TaylorExpansion() noexcept = default;
 
     /// Constant expansion: value `val`, all higher-order coefficients zero.
     /*implicit*/ constexpr TaylorExpansion( T val ) noexcept { c_.set( 0, val ); }
 
-    /// Construct directly from a raw coefficient array.
     explicit constexpr TaylorExpansion( Data c ) noexcept : c_{ c } {}
-
-    // ------------------------------------------------------------------
-    // Named factories
-    // ------------------------------------------------------------------
 
     [[nodiscard]] static constexpr TaylorExpansion zero() noexcept { return {}; }
 
@@ -122,17 +104,10 @@ class TaylorExpansion< T, Scheme, storage::Dense >
         return r;
     }
 
-    // ------------------------------------------------------------------
-    // Element access
-    // ------------------------------------------------------------------
-
     /// Constant (zeroth) coefficient, i.e. f(x0).
     [[nodiscard]] constexpr T value() const noexcept { return c_.value(); }
 
-    /// Read coefficient at flat index `k`.
     [[nodiscard]] constexpr T operator[]( std::size_t k ) const noexcept { return c_[k]; }
-
-    /// Write coefficient at flat index `k`.
     [[nodiscard]] constexpr T& operator[]( std::size_t k ) noexcept { return c_[k]; }
 
     /// Runtime multi-index coefficient lookup.
@@ -159,9 +134,7 @@ class TaylorExpansion< T, Scheme, storage::Dense >
             return c_[k];
     }
 
-    // ------------------------------------------------------------------
     // Derivative accessors (apply k! scaling to raw coefficients)
-    // ------------------------------------------------------------------
 
     /// Runtime partial derivative value `d^|alpha| f / dx^alpha` at x0.
     [[nodiscard]] constexpr T derivative( const MultiIndex< Scheme::vars >& alpha ) const noexcept
@@ -193,10 +166,6 @@ class TaylorExpansion< T, Scheme, storage::Dense >
         constexpr T fac = ( factorial( Alpha ) * ... * T( 1 ) );
         return coeff< Alpha... >() * fac;
     }
-
-    // ------------------------------------------------------------------
-    // Polynomial evaluation at a displacement from expansion point
-    // ------------------------------------------------------------------
 
     /// Evaluate the polynomial at displacement `dx` from the expansion point.
     [[nodiscard]] constexpr T eval( const Input& dx ) const noexcept
@@ -265,10 +234,6 @@ class TaylorExpansion< T, Scheme, storage::Dense >
         return eval( p );
     }
 
-    // ------------------------------------------------------------------
-    // Differentiation and integration
-    // ------------------------------------------------------------------
-
     /// Partial derivative polynomial with respect to variable `I`.
     template < int I >
     [[nodiscard]] constexpr TaylorExpansion deriv() const noexcept
@@ -303,10 +268,6 @@ class TaylorExpansion< T, Scheme, storage::Dense >
         return integImpl( var );
     }
 
-    // ------------------------------------------------------------------
-    // Truncation
-    // ------------------------------------------------------------------
-
     /// Order-reducing truncation: drop monomials of degree > N2, yielding a lower-order expansion.
     /// Isotropic-only: order reduction is defined for the single-order graded-lex layout.
     template < int N2 >
@@ -334,9 +295,7 @@ class TaylorExpansion< T, Scheme, storage::Dense >
         return TaylorExpansion{ out };
     }
 
-    // ------------------------------------------------------------------
     // Gradient and Hessian (require Eigen/Core, already included above)
-    // ------------------------------------------------------------------
 
     /// Compute the gradient vector `[df/dx_0, ..., df/dx_{M-1}]` at the expansion point.
     [[nodiscard]] tax::la::VecNT< Scheme::vars, T > gradient() const noexcept
@@ -368,10 +327,6 @@ class TaylorExpansion< T, Scheme, storage::Dense >
         }
         return H;
     }
-
-    // ------------------------------------------------------------------
-    // Container access
-    // ------------------------------------------------------------------
 
     [[nodiscard]] constexpr const container_t& container() const noexcept { return c_; }
     [[nodiscard]] constexpr container_t& container() noexcept { return c_; }
@@ -417,9 +372,7 @@ class TaylorExpansion< T, Scheme, storage::Dense >
     container_t c_{};
 };
 
-// ---------------------------------------------------------------------------
 // Convenience aliases  (dense)
-// ---------------------------------------------------------------------------
 
 /// `TE<N, M>` — order-N, M-variate dense `double` expansion. `M` defaults to 1.
 template < int N, int M = 1 >
@@ -429,9 +382,7 @@ using TE = TaylorExpansion< double, IsotropicScheme< N, M >, storage::Dense >;
 template < int N, int M >
 using TEn = TaylorExpansion< double, IsotropicScheme< N, M >, storage::Dense >;
 
-// ---------------------------------------------------------------------------
 // Sparse specialisation
-// ---------------------------------------------------------------------------
 
 /// A truncated Taylor expansion in M variables of order N with sparse storage.
 /// Sparse storage is isotropic-only (single-order graded-lex layout).
@@ -449,28 +400,17 @@ class TaylorExpansion< T, Scheme, storage::Sparse >
     static_assert( N >= 0, "TaylorExpansion<Sparse> order must be non-negative" );
     static_assert( M >= 1, "TaylorExpansion<Sparse> variable count must be at least 1" );
 
-    // ------------------------------------------------------------------
-    // Associated types
-    // ------------------------------------------------------------------
     using scheme = Scheme;
     using scalar_type = T;
     using container_t = storage::SparseContainer< T, N, M >;
     using Input = std::array< T, std::size_t( M ) >;
     using Dense = TaylorExpansion< T, Scheme, storage::Dense >;
 
-    // ------------------------------------------------------------------
-    // Compile-time properties
-    // ------------------------------------------------------------------
     static constexpr int order_v = N;
     static constexpr int vars_v = M;
     /// Dense-equivalent upper bound on the number of monomials.
     static constexpr std::size_t nCoefficients = numMonomials( N, M );
 
-    // ------------------------------------------------------------------
-    // Constructors
-    // ------------------------------------------------------------------
-
-    /// Zero-polynomial — no nonzero monomials.
     constexpr TaylorExpansion() = default;
 
     /// Constant polynomial with value `c`.
@@ -487,10 +427,6 @@ class TaylorExpansion< T, Scheme, storage::Sparse >
             if ( d[k] != T{ 0 } ) c_.set( k, d[k] );
         }
     }
-
-    // ------------------------------------------------------------------
-    // Named factories
-    // ------------------------------------------------------------------
 
     [[nodiscard]] static TaylorExpansion zero() noexcept { return {}; }
     [[nodiscard]] static TaylorExpansion constant( T c ) { return TaylorExpansion{ c }; }
@@ -521,10 +457,6 @@ class TaylorExpansion< T, Scheme, storage::Sparse >
         return r;
     }
 
-    // ------------------------------------------------------------------
-    // Element access
-    // ------------------------------------------------------------------
-
     /// Number of currently stored nonzero monomials.
     [[nodiscard]] std::size_t nnz() const noexcept { return c_.nnz(); }
 
@@ -550,9 +482,7 @@ class TaylorExpansion< T, Scheme, storage::Sparse >
         return c_.coeffAtFlat( flatIndex< M >( a ) );
     }
 
-    // ------------------------------------------------------------------
     // Derivative accessors (apply k! scaling to raw coefficients)
-    // ------------------------------------------------------------------
 
     /// Runtime partial derivative value `d^|alpha| f / dx^alpha` at x0.
     [[nodiscard]] T derivative( const MultiIndex< M >& alpha ) const noexcept
@@ -583,10 +513,6 @@ class TaylorExpansion< T, Scheme, storage::Sparse >
         return coeff< Alpha... >() * fac;
     }
 
-    // ------------------------------------------------------------------
-    // Sparse-specific accessors
-    // ------------------------------------------------------------------
-
     /// Read-only view of the sorted flat indices of all nonzero slots.
     [[nodiscard]] std::span< const storage::flat_index_t > support() const noexcept
     {
@@ -596,10 +522,6 @@ class TaylorExpansion< T, Scheme, storage::Sparse >
     /// Read-only view of the coefficient values aligned with `support()`.
     [[nodiscard]] std::span< const T > values() const noexcept { return c_.values(); }
 
-    // ------------------------------------------------------------------
-    // Conversion
-    // ------------------------------------------------------------------
-
     /// Materialise a dense `TaylorExpansion<T, N, M, Dense>` from this sparse polynomial.
     [[nodiscard]] Dense dense() const noexcept
     {
@@ -607,10 +529,6 @@ class TaylorExpansion< T, Scheme, storage::Sparse >
         c_.forEachNonzero( [&]( std::size_t k, T v ) { r[k] = v; } );
         return r;
     }
-
-    // ------------------------------------------------------------------
-    // Truncation
-    // ------------------------------------------------------------------
 
     /// Order-reducing truncation: drop monomials of degree > N2, yielding a lower-order expansion.
     template < int N2 >
@@ -628,10 +546,6 @@ class TaylorExpansion< T, Scheme, storage::Sparse >
         if ( d >= N ) return *this;
         return truncatedBelow< TaylorExpansion >( d >= 0 ? numMonomials( d, M ) : 0 );
     }
-
-    // ------------------------------------------------------------------
-    // Container access
-    // ------------------------------------------------------------------
 
     [[nodiscard]] const container_t& container() const noexcept { return c_; }
     [[nodiscard]] container_t& container() noexcept { return c_; }
@@ -655,9 +569,7 @@ class TaylorExpansion< T, Scheme, storage::Sparse >
     container_t c_;
 };
 
-// ---------------------------------------------------------------------------
 // Convenience aliases  (sparse)
-// ---------------------------------------------------------------------------
 
 /// `STE<N>` — univariate sparse `double` expansion of order N.
 /// `STE<N, M>` — M-variate sparse `double` expansion of order N.
@@ -668,9 +580,7 @@ using STE = TaylorExpansion< double, IsotropicScheme< N, M >, storage::Sparse >;
 template < typename... Groups >
 using MixedTE = TaylorExpansion< double, MixedScheme< Groups... >, storage::Dense >;
 
-// ---------------------------------------------------------------------------
 // Free-function variable factories (unnamed, integer-indexed)
-// ---------------------------------------------------------------------------
 
 /// Univariate variable `x = x0 + 1*dx` of an order-`N` dense expansion.
 template < int N, Scalar T = double >
@@ -698,9 +608,7 @@ template < int N, int M, Scalar T = double >
     return out;
 }
 
-// ---------------------------------------------------------------------------
 // Conversion helper: dense -> sparse
-// ---------------------------------------------------------------------------
 
 /// Convert a dense polynomial to sparse storage (drops exact zeros).
 template < typename T, IndexScheme Scheme >

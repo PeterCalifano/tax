@@ -12,10 +12,7 @@
 namespace tax::named
 {
 
-// ---------------------------------------------------------------------------
-// Composition operators (axis sets merged into their union)
-// ---------------------------------------------------------------------------
-
+// Composition operators (axis sets merged into their union).
 #define TAX_NAMED_BINARY_OP( OP )                                                       \
     template < typename T, int N, typename... A, typename... B >                        \
     [[nodiscard]] constexpr auto operator OP(                                           \
@@ -34,8 +31,7 @@ TAX_NAMED_BINARY_OP( / )
 
 #undef TAX_NAMED_BINARY_OP
 
-// --- Compound assignment (same axis set: no axis-union widening) ------------
-
+// Compound assignment (same axis set: no axis-union widening).
 #define TAX_NAMED_COMPOUND_OP( OP )                            \
     template < typename T, int N, typename... A >              \
     constexpr NamedTaylorExpansion< T, N, A... >& operator OP( \
@@ -52,8 +48,7 @@ TAX_NAMED_COMPOUND_OP( *= )
 
 #undef TAX_NAMED_COMPOUND_OP
 
-// --- Scalar combinations (axis set unchanged) ------------------------------
-
+// Scalar combinations (axis set unchanged).
 #define TAX_NAMED_SCALAR_OP( OP )                                                           \
     template < typename T, int N, typename... A >                                           \
     [[nodiscard]] constexpr NamedTaylorExpansion< T, N, A... > operator OP(                 \

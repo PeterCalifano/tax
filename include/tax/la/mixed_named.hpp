@@ -1,20 +1,7 @@
-// include/tax/la/mixed_named.hpp
-//
-// Eigen integration for the mixed named-axis layer (tax::named::MixedTaylorExpansion):
-//
-//   1. Eigen::NumTraits< tax::named::MixedTaylorExpansion<...> > — lets a mixed
-//      named expansion act as a first-class Eigen scalar, so
-//      Eigen::Matrix< MixedTaylorExpansion<...>, D, 1 > works.
-//
-//   2. Per-axis differential helpers in namespace tax::named:
-//        gradient<"axis">(f)  — gradient restricted to one named axis block.
-//        hessian <"axis">(f)  — Hessian restricted to one named axis block.
-//        jacobian<"axis">(F)  — Jacobian of a vector of mixed named expansions
-//                               with respect to one named axis block.
-//
-// These mirror tax::la::{gradient,hessian,jacobian} but slice the result down to
-// the variables of a single named ordered axis.  The implementation mirrors
-// include/tax/la/named.hpp (which does the same for NamedTaylorExpansion).
+// Eigen integration for the mixed named-axis layer
+// (tax::named::MixedTaylorExpansion): NumTraits so it acts as an Eigen scalar,
+// plus per-axis gradient/hessian/jacobian<"axis"> helpers. Mirrors
+// include/tax/la/named.hpp (the NamedTaylorExpansion equivalent).
 
 #pragma once
 
@@ -23,10 +10,6 @@
 #include <tax/core/multi_index.hpp>
 #include <tax/core/named.hpp>
 #include <tax/la/named.hpp>
-
-// -----------------------------------------------------------------------------
-// NumTraits specialization — namespace Eigen
-// -----------------------------------------------------------------------------
 
 namespace Eigen
 {
@@ -53,10 +36,7 @@ struct NumTraits< tax::named::MixedTaylorExpansion< T, Axes... > >
 namespace tax::named
 {
 
-// -----------------------------------------------------------------------------
-// is_mixed — type trait used to constrain the generic jacobian overload
-// -----------------------------------------------------------------------------
-
+// is_mixed — constrains the generic jacobian overload.
 namespace detail
 {
 
@@ -73,12 +53,9 @@ inline constexpr bool is_mixed_v = is_mixed< T >::value;
 
 }  // namespace detail
 
-// -----------------------------------------------------------------------------
-// Per-axis differential helpers
-//
-// Thin wrappers over the shared bodies in la/named.hpp (detail::axisGradient /
-// axisHessian / axisJacobian); the axisDim / axisOffset lookups are shared too.
-// -----------------------------------------------------------------------------
+// Per-axis differential helpers: thin wrappers over the shared bodies in
+// la/named.hpp (detail::axisGradient / axisHessian / axisJacobian; the
+// axisDim / axisOffset lookups are shared too).
 
 /// Gradient of a mixed named scalar expansion with respect to one named axis.
 template < FixedString Name, typename T, typename... Axes >

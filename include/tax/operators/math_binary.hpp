@@ -13,7 +13,7 @@
 namespace tax
 {
 
-/// Compute `out = x^n` for an integer exponent via binary exponentiation.
+/// Integer power `out = x^n` via binary exponentiation.
 template < typename T, IndexScheme Scheme >
 [[nodiscard]] constexpr TaylorExpansion< T, Scheme > pow( const TaylorExpansion< T, Scheme >& x,
                                                           int n ) noexcept
@@ -23,9 +23,8 @@ template < typename T, IndexScheme Scheme >
     return r;
 }
 
-/// Compile-time integer power `out = x^N`. The exponent lives in the type, so
-/// the binary-exponentiation plan is fixed at compile time. Constexpr; prefer
-/// this to `pow(x, n)` whenever the exponent is a constant.
+/// Compile-time integer power `out = x^N` (constexpr). Prefer to `pow(x, n)`
+/// whenever the exponent is a constant.
 template < int N, typename T, IndexScheme Scheme >
 [[nodiscard]] constexpr TaylorExpansion< T, Scheme > pow(
     const TaylorExpansion< T, Scheme >& x ) noexcept
@@ -45,15 +44,12 @@ template < typename T, IndexScheme Scheme, std::floating_point P >
     return r;
 }
 
-/// Half-integer power `out = x^(K/2)`.
-///
-/// Even `K` dispatches to the integer-power chain (constexpr; requires
-/// `x.value() != 0` for negative K, and is valid for a negative base); odd `K`
-/// runs the single real-exponent recurrence (requires `x.value() > 0`). Per
-/// the expression-template prototype's own benchmarks this is the fastest
-/// spelling — one seriesPow pass beats the fused sqrt/invsqrt pair + power
-/// chain whenever only one output is consumed (a caller needing sqrt(x)
-/// alongside x^(-K/2) should combine sqrtInvSqrt with pow instead).
+/// Half-integer power `out = x^(K/2)`. Even `K` dispatches to the integer-power
+/// chain (constexpr; requires `x.value() != 0` for negative K, valid for a
+/// negative base); odd `K` runs the single real-exponent recurrence (requires
+/// `x.value() > 0`). One seriesPow pass is the fastest spelling when only one
+/// output is consumed; a caller needing sqrt(x) alongside x^(-K/2) should
+/// combine sqrtInvSqrt with pow instead.
 template < int K, typename T, IndexScheme Scheme >
 [[nodiscard]] TaylorExpansion< T, Scheme > halfPow( const TaylorExpansion< T, Scheme >& x ) noexcept
 {
@@ -130,7 +126,7 @@ template < typename T, IndexScheme Scheme >
     return exp( b * log( s ) );
 }
 
-/// Compute `out = atan2(y, x)` using the two-argument arctangent series kernel.
+/// `atan2(y, x)` via the two-argument arctangent series kernel.
 template < typename T, IndexScheme Scheme >
 [[nodiscard]] TaylorExpansion< T, Scheme > atan2( const TaylorExpansion< T, Scheme >& y,
                                                   const TaylorExpansion< T, Scheme >& x ) noexcept

@@ -30,10 +30,6 @@ class SparseContainer
 
     constexpr SparseContainer() = default;
 
-    // -----------------------------------------------------------------------
-    // Queries
-    // -----------------------------------------------------------------------
-
     /// Number of currently stored nonzero monomials.
     [[nodiscard]] std::size_t nnz() const noexcept { return idx_.size(); }
 
@@ -64,10 +60,6 @@ class SparseContainer
         return val_[std::size_t( it - idx_.begin() )];
     }
 
-    // -----------------------------------------------------------------------
-    // Mutation primitives
-    // -----------------------------------------------------------------------
-
     /// Set the coefficient at flat index `k` to `v`, preserving sorted order.
     /// Not noexcept: inserting may allocate.
     void set( std::size_t k, T v )
@@ -75,7 +67,6 @@ class SparseContainer
         auto it = std::lower_bound( idx_.begin(), idx_.end(), flat_index_t( k ) );
         if ( it != idx_.end() && *it == flat_index_t( k ) )
         {
-            // Slot exists.
             const std::size_t pos = std::size_t( it - idx_.begin() );
             if ( v == T{ 0 } )
             {
@@ -118,10 +109,6 @@ class SparseContainer
         }
     }
 
-    // -----------------------------------------------------------------------
-    // Traversal
-    // -----------------------------------------------------------------------
-
     /// Visit every nonzero in flat-index order: `fn(k, val)`. `Fn` must not mutate the container.
     template < typename Fn >
     void forEachNonzero( Fn&& fn ) const
@@ -161,9 +148,7 @@ class SparseContainer
             fn( std::size_t( other.idx_[j] ), T{ 0 }, other.val_[j] );
     }
 
-    // -----------------------------------------------------------------------
     // Raw access (for kernels that build content incrementally)
-    // -----------------------------------------------------------------------
 
     [[nodiscard]] std::vector< flat_index_t >& rawIndices() noexcept { return idx_; }
     [[nodiscard]] std::vector< T >& rawValues() noexcept { return val_; }

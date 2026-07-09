@@ -1,8 +1,6 @@
 #pragma once
 
-// ---------------------------------------------------------------------------
 // Pair-fused series kernels (ported from the expression-template prototype).
-// ---------------------------------------------------------------------------
 //
 // The ET prototype benchmarks showed that its lazy-evaluation layer itself was
 // a wash against eager evaluation, but that fusing an `exp * trig` pair into a
@@ -18,7 +16,6 @@
 //                     divisions by s0 only. A single-output caller should use
 //                     seriesSqrt / seriesPow instead: computing the unused
 //                     companion is a measured net loss.
-// ---------------------------------------------------------------------------
 
 #include <array>
 #include <cmath>

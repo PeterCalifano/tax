@@ -1,29 +1,14 @@
-// include/tax/la/named.hpp
-//
 // Eigen integration for the named-axis layer (tax::named):
-//
-//   1. Eigen::NumTraits< tax::named::NamedTaylorExpansion<...> > — lets a named
-//      expansion act as a first-class Eigen scalar, so
-//      Eigen::Matrix< NE<...>, D, 1 > works.
-//
-//   2. Per-axis differential helpers in namespace tax::named:
-//        gradient<"axis">(f)  — gradient restricted to one named block.
-//        hessian <"axis">(f)  — Hessian restricted to one named block.
-//        jacobian<"axis">(F)  — Jacobian of a vector of named expansions
-//                               with respect to one named block.
-//
-// These mirror tax::la::{gradient,hessian,jacobian} but slice the result
-// down to the variables of a single named axis.
+//   1. Eigen::NumTraits< NamedTaylorExpansion<...> > so a named expansion acts
+//      as a first-class Eigen scalar.
+//   2. Per-axis differential helpers gradient/hessian/jacobian<"axis"> that
+//      mirror tax::la but slice the result to the variables of one named axis.
 
 #pragma once
 
 #include <Eigen/Core>
 #include <tax/core/multi_index.hpp>
 #include <tax/core/named.hpp>
-
-// -----------------------------------------------------------------------------
-// NumTraits specialization — namespace Eigen
-// -----------------------------------------------------------------------------
 
 namespace Eigen
 {
@@ -64,12 +49,8 @@ struct NumTraits< tax::named::NamedTaylorExpansion< T, N, Axes... > > : NumTrait
 namespace tax::named
 {
 
-// -----------------------------------------------------------------------------
-// variables — Eigen-vector overload of the single-axis coordinate factory
-// -----------------------------------------------------------------------------
-
-/// Build the coordinate variables of a single named axis `Name` from an Eigen vector expansion
-/// point.
+/// Build the coordinate variables of a single named axis `Name` from an Eigen
+/// expansion point.
 template < FixedString Name, int N, typename Derived >
 [[nodiscard]] auto variables( const Eigen::MatrixBase< Derived >& x0 )
 {
@@ -89,10 +70,7 @@ template < FixedString Name, int N, typename Derived >
     return out;
 }
 
-// -----------------------------------------------------------------------------
-// Per-axis differential helpers
-// -----------------------------------------------------------------------------
-
+// Per-axis differential helpers.
 namespace detail
 {
 
@@ -205,10 +183,7 @@ template < FixedString Name, typename Derived >
     return detail::axisJacobian< detail::axisDim< E, Name >, detail::axisOffset< E, Name > >( F );
 }
 
-// -----------------------------------------------------------------------------
-// value / eval — mirror tax::la for named states
-// -----------------------------------------------------------------------------
-
+// value / eval — mirror tax::la for named states.
 namespace detail
 {
 
@@ -253,8 +228,8 @@ template < typename T, int N, typename... Axes, typename DxDerived >
     return f.inner().eval( dx );
 }
 
-/// Evaluate each element of an Eigen matrix/vector of named expansions at
-///        a shared joint displacement `dx` (size == joint variable count).
+/// Evaluate each element of an Eigen matrix/vector of named expansions at a
+/// shared joint displacement `dx` (size == joint variable count).
 template < typename Derived, typename DxDerived >
     requires( detail::is_named_v< typename Derived::Scalar > )
 [[nodiscard]] auto eval( const Eigen::MatrixBase< Derived >& F,

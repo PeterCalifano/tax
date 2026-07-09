@@ -3,28 +3,23 @@
 //
 //   norm<P, Q>(v) = ||v||_P^Q = ( sum_i v_i^P )^{Q/P}
 //
-// Q defaults to 1, so `norm<P>(v)` is the plain P-norm and P defaults to the
-// Euclidean 2-norm:
+// Q defaults to 1 (the plain P-norm), P defaults to the Euclidean 2-norm:
 //
 //   norm(v)         = sqrt(sum v_i^2)          (Euclidean norm)
 //   norm<3>(v)      = ( sum v_i^3 )^{1/3}      (3-norm)
 //   norm<2, -3>(v)  = 1 / ||v||^3              (the gravity kernel)
 //   norm<2, 2>(v)   = sum v_i^2                (no root at all)
 //
-// The single `norm<P, Q>` is the *fused* form: it raises the accumulated
-// power-sum ONCE to Q/P (via the compile-time rational power pow<Q, P>),
-// rather than taking the P-th root and re-raising to Q (two recurrence passes
-// collapse to one). For P == 2 that binds to halfPow<Q> / invSqrtPow.
+// Fused: the power-sum is raised ONCE to Q/P via the compile-time rational
+// power pow<Q, P> (rather than root-then-re-raise, two recurrence passes).
 //
-// Domain: requires sum_i v_i^P > 0 at the expansion point (the constant term).
-// The result equals the true P-norm when the summands are non-negative — even
-// P, or a vector whose components are positive at the expansion point. `abs`
-// is not smooth, so the odd-P signed power-sum is used as-is (document per
-// call site if the true 1-norm/odd-norm is intended).
+// Domain: requires sum_i v_i^P > 0 at the constant term. The result equals the
+// true P-norm when the summands are non-negative (even P, or components
+// positive at the expansion point); `abs` is not smooth, so the odd-P signed
+// power-sum is used as-is.
 //
-// Accepts an Eigen column vector of expansions (as produced by
-// tax::la::variables) or any range of expansions (e.g. the std::array from
-// tax::variables). Works for dense TE, named NE and mixed-order MTE elements.
+// Accepts an Eigen column vector of expansions or any range of expansions.
+// Works for dense TE, named NE and mixed-order MTE elements.
 
 #pragma once
 
@@ -44,17 +39,15 @@ namespace tax::la
 namespace detail
 {
 
-/// A Taylor-expansion-like element: has a coefficient count and a scalar type
-/// (satisfied by TaylorExpansion, NamedTaylorExpansion, MixedTaylorExpansion).
+/// A Taylor-expansion-like element (TaylorExpansion, NamedTaylorExpansion,
+/// MixedTaylorExpansion): has a coefficient count and a scalar type.
 template < typename E >
 concept ExpansionElement = requires {
     { E::nCoefficients } -> std::convertible_to< std::size_t >;
     typename E::scalar_type;
 };
 
-/// Accumulate `s += e^P` in place, `e^P` via the compile-time integer power
-/// (P == 2 takes the symmetric square kernel directly). `+=` avoids the extra
-/// temporary of `s = s + ...`.
+/// Accumulate `s += e^P` in place (P == 2 uses the square kernel directly).
 template < int P, typename E >
 constexpr void accumPow( E& s, const E& e ) noexcept
 {
@@ -65,7 +58,7 @@ constexpr void accumPow( E& s, const E& e ) noexcept
         s += tax::pow< P >( e );
 }
 
-/// Common body: accumulate `s = sum_i v_i^P` over a range of expansions.
+/// Accumulate `s = sum_i v_i^P` over a range of expansions.
 template < int P, typename E, std::ranges::input_range R >
 [[nodiscard]] constexpr E powerSum( const R& v ) noexcept
 {
@@ -76,17 +69,10 @@ template < int P, typename E, std::ranges::input_range R >
 
 }  // namespace detail
 
-// ---------------------------------------------------------------------------
-// Range overload (std::array / std::vector / std::span / C-array of expansions)
-// ---------------------------------------------------------------------------
-
-/// `||v||_P^Q` for a range of expansions. `Q` defaults to 1 (the plain
-/// P-norm) and `P` to the Euclidean 2-norm. The power-sum `s = sum_i v_i^P` is
-/// accumulated in place, then raised ONCE to `Q/P` via the compile-time
-/// rational power `pow<Q, P>` — which reduces the exponent and binds to the
-/// cheapest kernel (integer chain when `P | Q`, the sqrt/invsqrt chain when the
-/// reduced denominator is 2, otherwise one real-exponent recurrence). Taking
-/// the root and re-raising would cost a second recurrence pass.
+/// `||v||_P^Q` for a range of expansions (std::array / std::vector / std::span
+/// / C-array). `pow<Q, P>` reduces the exponent and binds to the cheapest
+/// kernel (integer chain when `P | Q`, sqrt/invsqrt chain when the reduced
+/// denominator is 2, otherwise one real-exponent recurrence).
 template < int P = 2, int Q = 1, std::ranges::input_range R >
     requires detail::ExpansionElement< std::ranges::range_value_t< R > >
 [[nodiscard]] auto norm( const R& v ) noexcept
@@ -94,10 +80,6 @@ template < int P = 2, int Q = 1, std::ranges::input_range R >
     using E = std::ranges::range_value_t< R >;
     return tax::pow< Q, P >( detail::powerSum< P, E >( v ) );
 }
-
-// ---------------------------------------------------------------------------
-// Eigen column-vector overload
-// ---------------------------------------------------------------------------
 
 /// `||v||_P^Q` for an Eigen vector of expansions (`Q` defaults to 1, `P` to 2).
 template < int P = 2, int Q = 1, typename Derived >

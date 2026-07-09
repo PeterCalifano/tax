@@ -7,10 +7,6 @@
 #include <tax/core/taylor_expansion.hpp>
 #include <type_traits>
 
-// -----------------------------------------------------------------------------
-// NumTraits specialization — namespace Eigen
-// -----------------------------------------------------------------------------
-
 namespace Eigen
 {
 
@@ -50,10 +46,6 @@ struct NumTraits< tax::TaylorExpansion< T, Scheme, Storage > > : NumTraits< T >
 };
 
 }  // namespace Eigen
-
-// -----------------------------------------------------------------------------
-// Internal traits — namespace tax::la::detail
-// -----------------------------------------------------------------------------
 
 namespace tax::la::detail
 {

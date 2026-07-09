@@ -10,14 +10,10 @@
 namespace tax::detail::kernels
 {
 
-// ---------------------------------------------------------------------------
-// Shared recurrence drivers
-//
-// Nearly every series kernel is one of two degree-by-degree recurrences over
-// the same (beta, gamma) decomposition rows; the drivers below implement the
-// univariate and multivariate walks once, and the kernels reduce to "compute
-// h, seed the constant term, call the driver".
-// ---------------------------------------------------------------------------
+// Shared recurrence drivers: nearly every series kernel is one of two
+// degree-by-degree recurrences over the same (beta, gamma) decomposition rows;
+// the drivers below implement the univariate and multivariate walks once, and
+// the kernels reduce to "compute h, seed the constant term, call the driver".
 
 /// Forward recurrence `h * out' = Sign * src'` with seed `out[0] = out0`
 /// (scheme-generic). Degree by degree:

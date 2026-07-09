@@ -9,17 +9,13 @@
 namespace tax
 {
 
-// ===========================================================================
-// Dense unary math wrappers
-//
-// Generated from two macros: TAX_UNARY_OP_CE is constexpr (pure recurrence);
-// TAX_UNARY_OP is runtime-only (the kernel evaluates std::exp/sin/... at the
-// constant term).
+// Dense unary math wrappers, generated from two macros: TAX_UNARY_OP_CE is
+// constexpr (pure recurrence); TAX_UNARY_OP is runtime-only (the kernel
+// evaluates std::exp/sin/... at the constant term).
 //
 // Domain preconditions on x.value() (violations yield inf/nan; no throw):
 //   sqrt: x0 > 0   reciprocal/cbrt: x0 != 0   log: x0 > 0
 //   acosh: x0 > 1   atanh/asin/acos: |x0| < 1
-// ===========================================================================
 
 #define TAX_UNARY_OP_CE( NAME, KERNEL )                                             \
     template < typename T, IndexScheme Scheme >                                     \
@@ -46,26 +42,17 @@ TAX_UNARY_OP_CE( square, seriesSquare )
 TAX_UNARY_OP_CE( cube, seriesCube )
 TAX_UNARY_OP_CE( reciprocal, seriesReciprocal )
 
-// Roots.
 TAX_UNARY_OP( sqrt, seriesSqrt )
 TAX_UNARY_OP( cbrt, seriesCbrt )
-
-// Exponential / logarithm.
 TAX_UNARY_OP( exp, seriesExp )
 TAX_UNARY_OP( log, seriesLog )
-
-// Hyperbolic and inverse-hyperbolic.
 TAX_UNARY_OP( sinh, seriesSinh )
 TAX_UNARY_OP( cosh, seriesCosh )
 TAX_UNARY_OP( tanh, seriesTanh )
 TAX_UNARY_OP( asinh, seriesAsinh )
 TAX_UNARY_OP( acosh, seriesAcosh )
 TAX_UNARY_OP( atanh, seriesAtanh )
-
-// Error function.
 TAX_UNARY_OP( erf, seriesErf )
-
-// Trigonometric and inverse-trigonometric.
 TAX_UNARY_OP( sin, seriesSin )
 TAX_UNARY_OP( cos, seriesCos )
 TAX_UNARY_OP( tan, seriesTan )
@@ -76,9 +63,7 @@ TAX_UNARY_OP( atan, seriesAtan )
 #undef TAX_UNARY_OP
 #undef TAX_UNARY_OP_CE
 
-// ===========================================================================
-// Sparse overloads: sqrt, reciprocal
-// ===========================================================================
+// Sparse overloads.
 
 /// Sparse `sqrt(f)` via support-set forward substitution.
 template < typename T, int N, int M >

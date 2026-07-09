@@ -1,17 +1,4 @@
-// include/tax/la.hpp
-//
-// Linear-algebra umbrella header. Pulls in:
-//
-//   types       — Vec, Mat, VecNT<N,T>, MatNT<N,T>, MatNMT<N,M,T>.
-//   expansion_vectors — TEVec<D,N,M>, NEVec<D,N,Axes...>, MTEVec<D,Axes...>.
-//   num_traits  — Eigen::NumTraits<TaylorExpansion> + internal traits.
-//   values      — variables, value, eval.
-//   truncate    — free tax::truncate<N2>(scalar | Eigen vector/matrix).
-//   derivatives — derivative, gradient, hessian, jacobian.
-//   norm        — norm<P, Q> of a vector of expansions (Q defaults to 1).
-//   vector_ops  — dot, cross, angle, unitvec, unitcross, projvec, projplane.
-//   invert      — formal polynomial-map inversion (Picard iteration).
-//
+// Linear-algebra umbrella header: Eigen integration for TaylorExpansion.
 // Everything public lives in namespace `tax::la` (except tax::truncate).
 
 #pragma once
