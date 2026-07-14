@@ -99,13 +99,14 @@ template < typename Derived >
 
 }  // namespace tax::la
 
-// Surface value() under tax:: — the scalar accessors below plus the matrix overload
-// (via the using-declaration); tax::la::value stays valid for the matrix form.
+// Surface value()/variables() under tax:: — the scalar accessors below plus the
+// matrix overloads (via the using-declarations); the tax::la:: spellings stay valid.
 
 namespace tax
 {
 
 using tax::la::value;
+using tax::la::variables;
 
 /// Constant term (value at the expansion point) of a scalar `TaylorExpansion`.
 template < typename TE >
